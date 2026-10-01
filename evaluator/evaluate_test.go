@@ -4,6 +4,7 @@ package evaluator_test
 
 import (
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,9 +27,10 @@ var noon = time.Date(2026, 10, 12, 12, 0, 0, 0, time.FixedZone("CEST", 2*60*60))
 
 func request(category, area, action string) evaluator.Request {
 	return evaluator.Request{
-		Resource: evaluator.Resource{EntityID: category + ".test", Category: category, Area: area},
+		Resource: evaluator.Resource{EntityID: "device.test", Category: category, Area: area},
 		Action:   action,
 		Time:     noon,
+		Status:   evaluator.StatusActive,
 	}
 }
 
@@ -96,7 +98,7 @@ func TestEvaluateValidityAndRevocation(t *testing.T) {
 		return req
 	}
 	revoked := at("2026-06-01T12:00:00+02:00")
-	revoked.Revoked = true
+	revoked.Status = evaluator.StatusRevoked
 	tests := []struct {
 		name     string
 		req      evaluator.Request
@@ -121,9 +123,9 @@ func TestEvaluateValidityAndRevocation(t *testing.T) {
 func TestEvaluateReasonPrecedence(t *testing.T) {
 	m := mandateWithRules(t, baseRules)
 	revokedUnknown := request("toaster", "kueche", "read")
-	revokedUnknown.Revoked = true
+	revokedUnknown.Status = evaluator.StatusRevoked
 	revokedEarly := request("light", "flur", "turn_on")
-	revokedEarly.Revoked = true
+	revokedEarly.Status = evaluator.StatusRevoked
 	revokedEarly.Time = mustParseTime(t, "2025-06-01T00:00:00Z")
 	unknownActionEarly := request("light", "flur", "unlock")
 	unknownActionEarly.Time = mustParseTime(t, "2025-06-01T00:00:00Z")
@@ -261,6 +263,103 @@ func TestEvaluateReportsMandateDigest(t *testing.T) {
 			t.Errorf("digest = %q, want %q", got.MandateDigest, m.Digest())
 		}
 	}
+}
+
+func TestEvaluateRejectsMalformedRequestFields(t *testing.T) {
+	// Ohne Prüfung der Anfrage würde eine abweichende Schreibweise die deny-Regel umgehen
+	// und über r-locks bei allow landen (Security-Review, Woche 1).
+	m := mandateWithRules(t, `[
+		{"id":"r-cellar","resource":{"entity_id":"lock.keller"},"actions":["*"],"decision":"deny"},
+		{"id":"r-kitchen","resource":{"area":"kueche"},"actions":["*"],"decision":"deny"},
+		{"id":"r-locks","resource":{"category":"lock"},"actions":["*"],"decision":"allow","allow_critical":true}]`)
+	req := func(entity, area string) evaluator.Request {
+		r := request("lock", area, "unlock")
+		r.Resource.EntityID = entity
+		return r
+	}
+	assertDecision(t, evaluator.Evaluate(m, req("lock.keller", "flur")), evaluator.Deny, evaluator.ReasonRule, "r-cellar")
+	assertDecision(t, evaluator.Evaluate(m, req("lock.haustuer", "")), evaluator.Allow, evaluator.ReasonRule, "r-locks")
+	for name, r := range map[string]evaluator.Request{
+		"upper case entity":  req("Lock.keller", "flur"),
+		"trailing space":     req("lock.keller ", "flur"),
+		"leading space":      req(" lock.keller", "flur"),
+		"empty entity":       req("", "flur"),
+		"nul byte":           req("lock.keller\x00", "flur"),
+		"newline":            req("lock.keller\n", "flur"),
+		"missing domain":     req("keller", "flur"),
+		"two dots":           req("lock.keller.x", "flur"),
+		"non-ascii":          req("lock.k"+string(rune(0xe4))+"ller", "flur"),
+		"upper case area":    req("lock.haustuer", "Kueche"),
+		"area with space":    req("lock.haustuer", "kueche "),
+		"area with hyphen":   req("lock.haustuer", "kue-che"),
+		"area too long":      req("lock.haustuer", strings.Repeat("a", 65)),
+		"wildcard as entity": req("*", "flur"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			assertDecision(t, evaluator.Evaluate(m, r), evaluator.Deny, evaluator.ReasonInvalidRequest, "")
+		})
+	}
+}
+
+func TestEvaluateRequiresMandateStatus(t *testing.T) {
+	m := mandateWithRules(t, baseRules)
+	for _, status := range []evaluator.MandateStatus{"", "Active", "ACTIVE", "unknown", "revoked "} {
+		req := request("light", "flur", "turn_on")
+		req.Status = status
+		assertDecision(t, evaluator.Evaluate(m, req), evaluator.Deny, evaluator.ReasonInvalidRequest, "")
+	}
+}
+
+func TestEvaluateZeroMandateIsInvalid(t *testing.T) {
+	got := evaluator.Evaluate(&evaluator.Mandate{}, request("light", "flur", "turn_on"))
+	assertDecision(t, got, evaluator.Deny, evaluator.ReasonInvalidMandate, "")
+	if got.MandateDigest != "" {
+		t.Errorf("digest on invalid mandate: %q", got.MandateDigest)
+	}
+	var nilMandate *evaluator.Mandate
+	if nilMandate.ID() != "" || nilMandate.Digest() != "" {
+		t.Error("nil mandate accessors must return empty strings")
+	}
+}
+
+func TestEvaluateDemotionApprovalIsACopy(t *testing.T) {
+	m := mandateWithRules(t, `[{"id":"r-x","resource":{"any":true},"actions":["*"],"decision":"allow"}]`)
+	first := evaluator.Evaluate(m, request("lock", "flur", "unlock"))
+	if first.Reason != evaluator.ReasonCriticalDemotion || first.Approval == nil {
+		t.Fatalf("expected critical demotion, got %+v", first)
+	}
+	first.Approval.Approvers[0] = "attacker"
+	first.Approval.Timeout = "PT59M"
+	again := evaluator.Evaluate(m, request("lock", "flur", "unlock"))
+	if again.Approval.Approvers[0] != "a-1" || again.Approval.Timeout != "PT2M" {
+		t.Errorf("mutating a result changed the mandate: %+v", again.Approval)
+	}
+}
+
+func TestEvaluateConcurrentUse(t *testing.T) {
+	m := mandateWithRules(t, `[
+		{"id":"r-night","resource":{"category":"light"},"actions":["turn_on"],"decision":"allow","conditions":{"time_window":"22:00-06:00"}},
+		{"id":"r-lock","resource":{"category":"lock"},"actions":["*"],"decision":"ask","approval":{"timeout":"PT1M","approvers":["a-2"]}}]`)
+	zones := []string{"", "UTC", "Europe/Berlin", "America/New_York", "Asia/Kathmandu", "Australia/Lord_Howe"}
+	var wg sync.WaitGroup
+	for g := range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range 200 {
+				req := request("lock", "flur", "unlock")
+				req.TimeZone = zones[(g+i)%len(zones)]
+				req.Time = noon.Add(time.Duration(i) * time.Hour)
+				got := evaluator.Evaluate(m, req)
+				if got.Decision != evaluator.Ask || got.RuleID != "r-lock" || got.Approval.Approvers[0] != "a-2" {
+					t.Errorf("goroutine %d: unexpected %+v", g, got)
+					return
+				}
+				got.Approval.Approvers[0] = "changed" // darf andere Goroutinen nicht beeinflussen
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func mustParseTime(t *testing.T, s string) time.Time {

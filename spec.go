@@ -20,7 +20,7 @@ const (
 	AuditCasesPath    = "conformance/audit-v0.json"
 )
 
-//go:embed schema examples conformance
+//go:embed schema/*.json examples conformance
 var files embed.FS
 
 // FS liefert die eingebetteten Dateien schreibgeschützt. Pfade sind relativ zum

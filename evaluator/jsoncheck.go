@@ -45,7 +45,7 @@ func checkTokens(data []byte) error {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("%w: %v", ErrMalformed, err)
+			return fmt.Errorf("%w: %w", ErrMalformed, err)
 		}
 		if len(stack) == 0 {
 			values++

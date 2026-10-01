@@ -6,8 +6,16 @@
 package evaluator
 
 import (
+	"regexp"
 	"slices"
 	"time"
+)
+
+// Muster für entity_id und area aus schema/mandate-v0.schema.json; gelten auch für die
+// Anfrage (SPEC-v0 Abschnitt 4, Schritt 0). Go-Regexp: $ trifft nur das Textende.
+var (
+	entityIDPattern = regexp.MustCompile(`^[a-z0-9_]+\.[a-z0-9_]+$`)
+	areaPattern     = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
 )
 
 // Decision ist die Entscheidung der Auswertung.
@@ -44,14 +52,25 @@ type Resource struct {
 	Area     string
 }
 
-// Request ist die Eingabe der Auswertung.
+// MandateStatus ist der Status des Mandats aus der Verwaltung des PEP.
+type MandateStatus string
+
+// Zulässige Status nach SPEC-v0 Abschnitt 4. Jeder andere Wert, auch der leere, ist ungültig.
+const (
+	StatusActive  MandateStatus = "active"
+	StatusRevoked MandateStatus = "revoked"
+)
+
+// Request ist die Eingabe der Auswertung. Kategorie, Bereich, Zeit, Zeitzone und Status
+// stammen vom PEP, nie vom Agenten (SPEC-v0 Abschnitt 4, Herkunft der Eingaben).
 type Request struct {
 	Resource Resource
 	Action   string
 	Time     time.Time
 	// TimeZone ist die Zeitzone des Haushalts als IANA-Name. Leer: es gilt der Offset von Time.
 	TimeZone string
-	Revoked  bool
+	// Status ist Pflicht; ein vergessener Status führt zu Deny, nie zu einem aktiven Mandat.
+	Status MandateStatus
 }
 
 // Approval ist die Freigabe-Einstellung für eine Rückfrage.
@@ -75,7 +94,7 @@ type Result struct {
 // Evaluate wertet req gegen m nach SPEC-v0 Abschnitt 4 aus. Das Ergebnis enthält Kopien;
 // Änderungen daran wirken nicht auf m zurück.
 func Evaluate(m *Mandate, req Request) Result {
-	if m == nil {
+	if m == nil || !m.valid {
 		return Result{Decision: Deny, Reason: ReasonInvalidMandate}
 	}
 	local, critical, reason := precheck(m, req)
@@ -93,7 +112,7 @@ func Evaluate(m *Mandate, req Request) Result {
 // Abschnitt 4.1 um. Liefert die Ortszeit, ob die Aktion kritisch ist, und bei Ablehnung den Grund.
 func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason Reason) {
 	local, ok := localTime(req.Time, req.TimeZone)
-	if req.Resource.Category == "" || !ok {
+	if !ok || !validRequest(req) {
 		return time.Time{}, false, ReasonInvalidRequest
 	}
 	categoryKnown, actionKnown, critical := lookupAction(req.Resource.Category, req.Action)
@@ -102,7 +121,7 @@ func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason R
 		return time.Time{}, false, ReasonUnknownCategory
 	case !actionKnown:
 		return time.Time{}, false, ReasonUnknownAction
-	case req.Revoked:
+	case req.Status == StatusRevoked:
 		return time.Time{}, false, ReasonRevoked
 	case req.Time.Before(m.validFrom):
 		return time.Time{}, false, ReasonNotYetValid
@@ -110,6 +129,16 @@ func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason R
 		return time.Time{}, false, ReasonExpired
 	}
 	return local, critical, ""
+}
+
+// validRequest prüft die Felder der Anfrage, die Schritt 0 nennt. Ohne diese Prüfung
+// würde etwa "Lock.keller" eine deny-Regel für "lock.keller" umgehen.
+func validRequest(req Request) bool {
+	res := req.Resource
+	return res.Category != "" &&
+		entityIDPattern.MatchString(res.EntityID) &&
+		(res.Area == "" || areaPattern.MatchString(res.Area)) &&
+		(req.Status == StatusActive || req.Status == StatusRevoked)
 }
 
 // matchingRules setzt Schritt 2 um und behält die Dokumentreihenfolge bei.
@@ -157,6 +186,9 @@ func decide(m *Mandate, matched []*rule, critical bool) Result {
 			break
 		}
 	}
+	if strictness(final) == strictness(Deny) {
+		result.Decision = Deny // unbekannte Entscheidungen zählen wie deny
+	}
 	switch {
 	case final == Ask:
 		result.Approval = askApproval(m, matched)
@@ -172,14 +204,15 @@ func decide(m *Mandate, matched []*rule, critical bool) Result {
 	return result
 }
 
+// strictness ordnet nach Schritt 4; alles außer allow und ask zählt wie deny.
 func strictness(d Decision) int {
 	switch d {
-	case Deny:
-		return 2
+	case Allow:
+		return 0
 	case Ask:
 		return 1
 	}
-	return 0
+	return 2
 }
 
 // askApproval liefert die Freigabe der ersten passenden ask-Regel mit eigenem approval,

@@ -134,8 +134,8 @@ func TestLocalTimeRejects(t *testing.T) {
 
 func TestValidZoneName(t *testing.T) {
 	valid := []string{
-		"AZaz09_-+", "Etc/GMT+9", "Etc/GMT-0", "America/Argentina/Buenos_Aires",
-		strings.Repeat("A", maxZoneNameLength),
+		"UTC", "Ab/AZaz09_-+", "Zb/Za", "Etc/GMT+9", "Etc/GMT-0", "America/Argentina/Buenos_Aires",
+		"America/Port-au-Prince", "A/" + strings.Repeat("A", maxZoneNameLength-2),
 	}
 	for _, zone := range valid {
 		if !validZoneName(zone) {
@@ -143,14 +143,41 @@ func TestValidZoneName(t *testing.T) {
 		}
 	}
 	invalid := []string{
-		"", "Local", "/Europe", "Europe/", "Europe//Berlin", strings.Repeat("A", maxZoneNameLength+1),
+		"", "Local", "localtime", "posixrules", "Factory", "CET", "EST5EDT", "GMT", "utc",
+		// "EUROPE/BERLIN" erfüllt die Namensregel; ob es lädt, hängt davon ab, ob das
+		// Dateisystem Groß-/Kleinschreibung unterscheidet (unter Linux nicht ladbar).
+		"europe/berlin", "Europe/berlin", "Etc/gmt+9",
+		"/Europe", "Europe/", "Europe//Berlin", "A/" + strings.Repeat("A", maxZoneNameLength-1),
 		// Zeichen direkt neben den erlaubten Bereichen und häufige Pfadzeichen.
-		"A@", "A[", "A`", "A{", "A:", "A.", "A ", "A,", "A*", "A\\", "A" + r(0xe4),
+		"Ab/A@", "Ab/A[", "Ab/A`", "Ab/A{", "Ab/A:", "Ab/A.", "Ab/A ", "Ab/A,", "Ab/A*", "Ab/A\\", "Ab/A" + r(0xe4),
+		"@b/Ab", "[b/Ab", "Ab/@b", "Ab/[b", "Ab/0b",
 	}
 	for _, zone := range invalid {
 		if validZoneName(zone) {
 			t.Errorf("validZoneName(%q) = true, want false", zone)
 		}
+	}
+}
+
+func TestLocalTimeCacheIsBounded(t *testing.T) {
+	at := mustTime(t, "2026-10-12T12:00:00Z")
+	for _, zone := range []string{"Europe/Paris", "Europe/Rome", "Europe/Madrid", "Europe/Vienna"} {
+		if _, ok := localTime(at, zone); !ok {
+			t.Fatalf("zone %s rejected", zone)
+		}
+	}
+	if n := cachedZoneCount(); n > maxCachedZones {
+		t.Errorf("cache holds %d zones, limit %d", n, maxCachedZones)
+	}
+	// Auch jenseits der Grenze bleiben Zonen nutzbar, sie werden nur nicht mehr gespeichert.
+	saved := maxCachedZones
+	maxCachedZones = cachedZoneCount()
+	defer func() { maxCachedZones = saved }()
+	if local, ok := localTime(at, "Asia/Tokyo"); !ok || local.Hour() != 21 {
+		t.Fatalf("uncached zone failed: %v %v", local, ok)
+	}
+	if _, cached := locations.Load("Asia/Tokyo"); cached {
+		t.Error("zone stored beyond the cache limit")
 	}
 }
 

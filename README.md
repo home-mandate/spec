@@ -19,7 +19,9 @@ Status: Entwurf v0. Referenzimplementierung: Home-Mandate.
 | `conformance/mandates/` | Prüf-Mandate für Grenzfälle | Apache 2.0 |
 | `conformance/digest-v0.json` | Fingerabdrücke von Mandaten (RFC 8785 + SHA-256) | Apache 2.0 |
 | `conformance/audit-v0.json` | Protokolle mit erwartetem Ergebnis der Kettenprüfung | Apache 2.0 |
-| `evaluator/` *(geplant, v0.1)* | Referenz-Auswertung als Go-Bibliothek (`github.com/mandate-spec/mandate-spec/evaluator`), nur Standardbibliothek plus JSON-Schema-Validator | Apache 2.0 |
+| `evaluator/` | Referenz-Auswertung als Go-Bibliothek (`github.com/mandate-spec/mandate-spec/evaluator`), nur Standardbibliothek plus JSON-Schema-Validator | Apache 2.0 |
+| `schema/*.go`, `spec.go` | Go-Pakete, die die Schemas (`schema`) bzw. Schemas, Beispiele und Konformitätsfälle (Wurzelpaket) einbetten | Apache 2.0 |
+| `Makefile` | Prüfungen: `make check` (vet, staticcheck, Abdeckung ≥ 95 %, govulncheck), `make fuzz`, `make mutation` (≥ 90 %) | Apache 2.0 |
 | `cmd/mandate-conformance/` *(geplant, v0.2)* | Black-Box-Prüfwerkzeug gegen beliebige AuthZEN-Endpunkte | Apache 2.0 |
 
 ## Warum ein eigenes Repository

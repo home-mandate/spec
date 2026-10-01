@@ -23,10 +23,10 @@
         "agent": { "client_id": "hm-client:test-00000001", "display_name": "Test" },
         "rules": [ { "id": "r-unlock", "resource": { "category": "lock" }, "actions": ["unlock"], "decision": "allow" } ],
         "default": "deny",
-        "approval": { "timeout": "PT2M", "approvers": ["ha-user-markus"] },
+        "approval": { "timeout": "PT2M", "approvers": ["user-1"] },
         "limits": { "max_actions_per_hour": 10 },
         "valid_from": "2026-10-01T00:00:00+02:00",
-        "created_by": "ha-user-markus",
+        "created_by": "user-1",
         "created_at": "2026-10-01T09:00:00+02:00"
       },
       "resource": { "entity_id": "lock.haustuer", "category": "lock", "area": "flur" }, "action": "unlock", "time": "2026-10-12T19:00:00+02:00", "expected": "ask", "reason": "critical_demotion", "rule_id": "r-unlock", "approval_timeout": "PT2M", "why": "kritische Aktion ohne allow_critical wird zu ask" },
@@ -87,6 +87,23 @@
         "created_by": "approver-1",
         "created_at": "2025-12-31T12:00:00+01:00"
       },
-      "resource": { "entity_id": "sensor.aussen", "category": "sensor", "area": "garten" }, "action": "read", "time": "2026-10-12T19:00:00+02:00", "expected": "deny", "reason": "no_match", "rule_id": null, "why": "Mandat ohne Regeln" }
+      "resource": { "entity_id": "sensor.aussen", "category": "sensor", "area": "garten" }, "action": "read", "time": "2026-10-12T19:00:00+02:00", "expected": "deny", "reason": "no_match", "rule_id": null, "why": "Mandat ohne Regeln" },
+
+    {"id": "c59", "mandate": "conformance/mandates/critical-order.json", "resource": {"entity_id": "lock.haustuer", "category": "lock", "area": "flur"}, "action": "unlock", "time": "2026-10-12T12:00:00+02:00", "timezone": "Europe/Berlin", "expected": "ask", "reason": "critical_demotion", "rule_id": "r-locks", "approval_timeout": "PT1M", "why": "erste passende allow-Regel hat allow_critical, gemeldet wird die erste ohne"},
+    {"id": "c60", "mandate": "conformance/mandates/critical-order.json", "resource": {"entity_id": "lock.haustuer", "category": "lock", "area": "flur"}, "action": "lock", "time": "2026-10-12T12:00:00+02:00", "timezone": "Europe/Berlin", "expected": "allow", "reason": "rule", "rule_id": "r-locks", "why": "nicht kritische Aktion"},
+    {"id": "c61", "mandate": "conformance/mandates/critical-order.json", "resource": {"entity_id": "lock.keller", "category": "lock", "area": "keller"}, "action": "unlock", "time": "2026-10-12T12:00:00+02:00", "timezone": "Europe/Berlin", "expected": "deny", "reason": "rule", "rule_id": "r-cellar-deny", "why": "deny-Regel per entity_id"},
+    {"id": "c62", "mandate": "conformance/mandates/critical-order.json", "resource": {"entity_id": "Lock.keller", "category": "lock", "area": "keller"}, "action": "unlock", "time": "2026-10-12T12:00:00+02:00", "timezone": "Europe/Berlin", "expected": "deny", "reason": "invalid_request", "rule_id": null, "why": "Großschreibung in entity_id würde sonst die deny-Regel umgehen"},
+    {"id": "c63", "mandate": "conformance/mandates/critical-order.json", "resource": {"entity_id": "lock.keller ", "category": "lock", "area": "keller"}, "action": "unlock", "time": "2026-10-12T12:00:00+02:00", "timezone": "Europe/Berlin", "expected": "deny", "reason": "invalid_request", "rule_id": null, "why": "Leerzeichen in entity_id"},
+    {"id": "c64", "mandate": "conformance/mandates/critical-order.json", "resource": {"entity_id": "", "category": "lock", "area": "keller"}, "action": "unlock", "time": "2026-10-12T12:00:00+02:00", "timezone": "Europe/Berlin", "expected": "deny", "reason": "invalid_request", "rule_id": null, "why": "leere entity_id"},
+    {"id": "c65", "mandate": "conformance/mandates/precedence.json", "resource": {"entity_id": "light.kueche", "category": "light", "area": "Kueche"}, "action": "turn_on", "time": "2026-10-12T12:00:00+02:00", "timezone": "Europe/Berlin", "expected": "deny", "reason": "invalid_request", "rule_id": null, "why": "Großschreibung im Bereich würde sonst r-kitchen-deny umgehen"},
+    {"id": "c66", "mandate": "conformance/mandates/critical-order.json", "resource": {"entity_id": "paperless.rechnung_1", "category": "paperless:document", "area": "buero"}, "action": "tag", "time": "2026-10-12T12:00:00+02:00", "timezone": "Europe/Berlin", "expected": "deny", "reason": "unknown_category", "rule_id": null, "why": "Regel für unbekannte Erweiterung ist gültig, trifft aber nie"},
+    {"id": "c67", "mandate": "conformance/mandates/critical-order.json", "resource": {"entity_id": "lock.keller", "category": "lock", "area": "keller"}, "action": "lock", "time": "2027-06-01T12:00:00+02:00", "timezone": "Europe/Berlin", "revoked": true, "expected": "deny", "reason": "revoked", "rule_id": null, "why": "widerrufen und abgelaufen: revoked hat Vorrang"},
+    {"id": "c68", "mandate": "conformance/mandates/precedence.json", "resource": {"entity_id": "light.flur", "category": "light", "area": "flur"}, "action": "unlock", "time": "2026-10-12T12:00:00+02:00", "timezone": "Europe/Berlin", "revoked": true, "expected": "deny", "reason": "unknown_action", "rule_id": null, "why": "unbekannte Aktion hat Vorrang vor Widerruf"},
+    {"id": "c69", "mandate": "conformance/mandates/precedence.json", "resource": {"entity_id": "light.flur", "area": "flur"}, "action": "turn_on", "time": "2026-10-12T12:00:00+02:00", "timezone": "Mars/Olympus_Mons", "expected": "deny", "reason": "invalid_request", "rule_id": null, "why": "keine Kategorie und unbekannte Zeitzone"},
+    {"id": "c70", "mandate": "conformance/mandates/time.json", "resource": {"entity_id": "cover.terrasse", "category": "cover", "area": "terrasse"}, "action": "open", "time": "2026-10-12T02:30:00+02:00", "timezone": "localtime", "expected": "deny", "reason": "invalid_request", "rule_id": null, "why": "localtime ist kein zulässiger Zeitzonenname"},
+    {"id": "c71", "mandate": "conformance/mandates/time.json", "resource": {"entity_id": "cover.terrasse", "category": "cover", "area": "terrasse"}, "action": "open", "time": "2026-10-12T02:30:00+02:00", "timezone": "europe/berlin", "expected": "deny", "reason": "invalid_request", "rule_id": null, "why": "Zeitzonenname mit falscher Groß- und Kleinschreibung"},
+    {"id": "c72", "mandate": "conformance/mandates/time.json", "resource": {"entity_id": "cover.terrasse", "category": "cover", "area": "terrasse"}, "action": "open", "time": "2026-10-12T02:30:00Z", "timezone": "UTC", "expected": "allow", "reason": "rule", "rule_id": "r-dst-hour", "why": "UTC ist zulässig"},
+    {"id": "c73", "mandate": "conformance/mandates/time.json", "resource": {"entity_id": "cover.terrasse", "category": "cover", "area": "terrasse"}, "action": "open", "time": "2026-10-12T02:30:00+02:00", "timezone": "CET", "expected": "deny", "reason": "invalid_request", "rule_id": null, "why": "Kürzel wie CET sind keine zulässigen Zeitzonennamen"},
+    {"id": "c74", "mandate": "conformance/mandates/time.json", "resource": {"entity_id": "cover.terrasse", "category": "cover", "area": "terrasse"}, "action": "open", "time": "2026-10-12T00:30:00Z", "timezone": "Etc/GMT-2", "expected": "allow", "reason": "rule", "rule_id": "r-dst-hour", "why": "Etc/GMT-2 ist zulässig (UTC+2)"}
   ]
 }

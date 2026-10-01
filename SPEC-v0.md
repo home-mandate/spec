@@ -31,7 +31,9 @@ Schutzklassen und die Auswertungsregel.
 
 ## 3. Datenmodell
 
-Maschinenlesbar: `schema/mandate-v0.schema.json`. Kurzfassung:
+Maschinenlesbar: `schema/mandate-v0.schema.json`. Die Schemas in `schema/` sind normativ;
+dieser Text und die Schemas müssen übereinstimmen, ein Widerspruch ist ein Fehler der
+Spezifikation. Kurzfassung:
 
 ```
 Mandate
@@ -60,6 +62,7 @@ Ein Mandat ist gültig, wenn es das Schema erfüllt **und** zusätzlich:
 
 0. alle Felder mit `format: date-time` gültige Zeitpunkte nach RFC 3339 mit Offset sind
    (Implementierungen müssen `format` prüfen, nicht nur als Anmerkung behandeln);
+   Schaltsekunden (`:60`) sind nicht zulässig;
 1. es I-JSON nach RFC 7493 ist: gültiges UTF-8, keine einzelnen Surrogate (z. B. ein
    allein stehendes `\ud800`), kein JSON-Objekt mit doppeltem Schlüssel, genau ein JSON-Wert;
 2. alle Regel-`id`s innerhalb des Mandats verschieden sind;
@@ -67,7 +70,17 @@ Ein Mandat ist gültig, wenn es das Schema erfüllt **und** zusätzlich:
 4. jede Regel, deren `resource` eine Kategorie aus Abschnitt 5 nennt, nur Aktionen aus deren
    Vokabular oder `"*"` enthält (z. B. ist `unlock` bei `category: light` ungültig).
    Nennt die Regel eine Erweiterungs-Kategorie, deren Vokabular die Implementierung nicht
-   kennt, entfällt diese Prüfung; solche Regeln treffen bei der Auswertung nie (Abschnitt 4).
+   kennt, entfällt diese Prüfung; solche Regeln treffen bei der Auswertung nie (Abschnitt 4);
+5. es höchstens 262 144 Bytes (256 KiB) umfasst;
+6. `expires`, falls vorhanden, nach `valid_from` liegt;
+7. jedes `approval.timeout` zwischen 10 Sekunden und 1 Stunde liegt (jeweils einschließlich);
+8. `agent.display_name`, `created_by` und alle `approvers` keine Zeichen der
+   Unicode-Kategorien Cc, Cf, Zl und Zp enthalten (Steuerzeichen, Richtungs- und
+   unsichtbare Formatzeichen, Zeilen- und Absatztrenner). Diese Texte werden Menschen
+   angezeigt, etwa in einer Rückfrage, und dürfen sie nicht täuschen können.
+
+Implementierungen dürfen JSON-Eingaben mit einer Verschachtelungstiefe über 32 ablehnen, bevor
+sie das Schema prüfen; gültige Mandate erreichen diese Tiefe nie.
 
 Implementierungen lehnen ungültige Mandate beim Speichern ab. Wird trotzdem ein ungültiges
 Mandat ausgewertet, ist das Ergebnis immer `deny`.
@@ -96,14 +109,22 @@ wurde, ohne den Inhalt des Mandats ins Protokoll zu schreiben.
 ## 4. Auswertungsregel
 
 Eingabe: Mandat, Ressource (Entitäts-ID, Kategorie, Bereich), Aktion, Zeitpunkt,
-Zeitzone des Haushalts, Widerrufsstatus.
+Zeitzone des Haushalts, Status des Mandats (`active` oder `revoked`).
+
+**Herkunft der Eingaben:** Kategorie und Bereich ermittelt der PEP aus seinem eigenen
+Verzeichnis der Ressourcen, den Zeitpunkt aus seiner eigenen Uhr, die Zeitzone aus der
+Konfiguration des Haushalts und den Status aus seiner eigenen Verwaltung der Mandate. Nichts
+davon übernimmt er vom Agenten; vom Agenten stammen nur die gewünschte Entitäts-ID und Aktion.
 
 0. Vorprüfung, jeweils → `deny`:
    - das Mandat ist ungültig (Abschnitt 3.1);
-   - die Ressource hat keine Kategorie, oder die Kategorie steht weder in Abschnitt 5 noch
-     ist sie eine Erweiterung, deren Vokabular die Implementierung kennt;
-   - die Aktion gehört nicht zum Vokabular der Kategorie der Ressource;
-   - Zeitpunkt oder Zeitzone sind ungültig oder unbekannt.
+   - die Anfrage ist ungültig: die Entitäts-ID fehlt oder entspricht nicht dem Muster von
+     `entity_id` im Schema, ein angegebener Bereich entspricht nicht dem Muster von `area`,
+     die Kategorie fehlt, Zeitpunkt oder Zeitzone sind ungültig oder unbekannt, oder der
+     Status ist weder `active` noch `revoked`;
+   - die Kategorie steht weder in Abschnitt 5 noch ist sie eine Erweiterung, deren Vokabular
+     die Implementierung kennt;
+   - die Aktion gehört nicht zum Vokabular der Kategorie der Ressource.
 1. Ist das Mandat widerrufen, noch nicht gültig oder abgelaufen → `deny`.
    Gültig ist es für Zeitpunkte `t` mit `valid_from ≤ t < expires` (ohne `expires`:
    `valid_from ≤ t`). Verglichen werden Zeitpunkte, nicht Uhrzeiten.
@@ -111,7 +132,8 @@ Zeitzone des Haushalts, Widerrufsstatus.
    Aktion enthalten **und** deren `conditions` zum Zeitpunkt erfüllt sind.
    - `resource` trifft, wenn **alle** angegebenen Felder passen
      (z. B. `category: light` und `area: wohnzimmer` = Licht im Wohnzimmer).
-     `any: true` trifft jede Ressource.
+     `any: true` trifft jede Ressource. Verglichen wird zeichengenau, mit Unterscheidung von
+     Groß- und Kleinschreibung, ohne Normalisierung.
    - `"*"` in `actions` enthält jede Aktion, auch kritische.
    - `read` ist eine eigene Aktion. Schreibrechte schließen Leserechte nicht ein.
 3. Keine Regel gefunden → `default` (`deny`).
@@ -136,7 +158,7 @@ Neben der Entscheidung liefert die Auswertung:
   | Code | Entscheidung | Bedeutung |
   |---|---|---|
   | `invalid_mandate` | deny | Mandat ungültig (Abschnitt 3.1) |
-  | `invalid_request` | deny | Ressource ohne Kategorie, Zeitpunkt oder Zeitzone ungültig oder unbekannt |
+  | `invalid_request` | deny | Anfrage ungültig (Schritt 0, zweiter Punkt) |
   | `unknown_category` | deny | Kategorie weder in Abschnitt 5 noch bekannte Erweiterung |
   | `unknown_action` | deny | Aktion nicht im Vokabular der Kategorie |
   | `revoked` | deny | Mandat widerrufen |
@@ -153,14 +175,21 @@ Neben der Entscheidung liefert die Auswertung:
   Bei Vorprüfung, Schritt 1 und Schritt 3 gibt es keine `rule_id`.
 - **Freigabe-Einstellung** (nur bei `ask`): `approval` der ersten passenden `ask`-Regel in
   Dokumentreihenfolge, die ein eigenes `approval` hat, sonst das `approval` des Mandats.
-  Bei Schritt 5 immer das `approval` des Mandats.
 
 ### 4.2 Bedingungen
 
 Alle Bedingungen einer Regel müssen erfüllt sein. Geprüft wird in **Ortszeit des
-Haushalts**: Der Zeitpunkt wird in die Zeitzone des Haushalts (IANA-Name, z. B.
-`Europe/Berlin`) umgerechnet, die die Implementierung kennt. Fehlt sie, gilt der Offset, mit
-dem der Zeitpunkt angegeben ist.
+Haushalts**: Der Zeitpunkt wird in die Zeitzone des Haushalts umgerechnet.
+
+- Die Zeitzone ist ein Bezeichner der IANA-Zeitzonendatenbank, zeichengenau mit Groß- und
+  Kleinschreibung: `UTC` oder die Form `Gebiet/Ort` (z. B. `Europe/Berlin`,
+  `America/Argentina/Buenos_Aires`, `Etc/GMT+9`), wobei jeder Teil mit einem Großbuchstaben
+  beginnt und nur `A–Z`, `a–z`, `0–9`, `_`, `-`, `+` enthält; höchstens 64 Zeichen.
+  Andere Namen (auch `Local`, `localtime` oder Kürzel wie `CET`) und Namen, die die
+  Implementierung nicht kennt, ergeben `invalid_request`.
+- Wird keine Zeitzone übergeben, gilt der Offset, mit dem der Zeitpunkt angegeben ist.
+- Für den Vergleich zählen Stunde und Minute der Ortszeit; Sekunden und Bruchteile werden
+  abgeschnitten (23:58:59 ist 23:58).
 
 - `time_window`: `"HH:MM-HH:MM"`, minutengenau, Beginn einschließlich, Ende ausschließlich.
   `"06:00-22:00"` trifft 06:00 bis 21:59. Ist der Beginn größer als das Ende, geht das
@@ -173,7 +202,10 @@ dem der Zeitpunkt angegeben ist.
 
 ## 5. Vokabular v0
 
-| Kategorie | Aktionen | Kritisch | HA-Zuordnung (Referenz) | Matter (informativ, zu verifizieren) |
+Normativ sind die Spalten Kategorie, Aktionen und Kritisch. Die Spalten zu Home Assistant
+und Matter sind informativ: Sie zeigen, wie eine Plattform ihre Geräte zuordnen kann.
+
+| Kategorie | Aktionen | Kritisch | Home Assistant (informativ, Referenzimplementierung) | Matter (informativ, zu verifizieren) |
 |---|---|---|---|---|
 | `light` | read, turn_on, turn_off, set | – | `light.*` | OnOffLight, DimmableLight |
 | `switch` | read, turn_on, turn_off | – | `switch.*` | OnOffPlugInUnit |
@@ -223,8 +255,23 @@ AuthZEN kennt nur `true` oder `false`. Die dritte Entscheidung wird im Antwortko
                "mandate_digest": "sha256:9f2c…" } }
 ```
 
-`reason` und `mandate_digest` sind Pflicht, `rule_id` und `approval_timeout` stehen im
-Kontext, wenn Abschnitt 4.1 sie vorsieht.
+`reason` ist Pflicht, `mandate_digest` ebenfalls außer bei `invalid_mandate`; `rule_id` und
+`approval_timeout` stehen im Kontext, wenn Abschnitt 4.1 sie vorsieht.
+
+Zuordnung der Felder:
+
+| AuthZEN | Eingabe nach Abschnitt 4 |
+|---|---|
+| `subject.id` | `agent.client_id`; wählt zusammen mit `subject.properties.principal` das Mandat aus |
+| `resource.id` | Entitäts-ID |
+| `resource.type` | Kategorie |
+| `resource.properties.area` | Bereich |
+| `action.name` | Aktion |
+| `context.time` | Zeitpunkt |
+
+Der PDP setzt `resource.type`, `resource.properties.area` und `context.time` nicht ungeprüft
+ein, sondern nach Abschnitt 4 „Herkunft der Eingaben“. Findet der PDP zu Agent und
+Vollmachtgeber kein Mandat, ist das Ergebnis `deny` mit `reason: invalid_mandate`.
 
 - `outcome: allow` → `decision: true`
 - `outcome: ask` → `decision: false`, PEP muss eine Bestätigung einholen und darf nur bei
@@ -257,7 +304,7 @@ Felder eines Falls:
 | `action` | ja | angefragte Aktion |
 | `time` | ja | Zeitpunkt nach RFC 3339 |
 | `timezone` | nein | Zeitzone des Haushalts (IANA); fehlt sie, gilt der Offset in `time` |
-| `revoked` | nein | `true`, wenn das Mandat widerrufen ist; Standard `false` |
+| `revoked` | nein | `true`: Status `revoked`; fehlt das Feld oder ist es `false`: Status `active` |
 | `expected` | ja | `allow`, `ask` oder `deny` |
 | `reason` | ja | erwarteter Begründungscode nach Abschnitt 4.1 |
 | `rule_id` | nein | erwartete `rule_id` nach Abschnitt 4.1; fehlt das Feld, wird sie nicht geprüft; `null` heißt: keine |
@@ -268,9 +315,16 @@ Felder eines Falls:
 abgelehnt werden müssen (`mandate_inline`, oder `mandate_raw` als Zeichenkette, wenn sich der
 Fehler nicht als JSON-Objekt darstellen lässt, etwa doppelte Schlüssel).
 
-`conformance/digest-v0.json` enthält Mandate mit ihrem erwarteten Fingerabdruck
-(Abschnitt 3.2), `conformance/audit-v0.json` Protokolle mit dem erwarteten Ergebnis der
-Kettenprüfung (Abschnitt 9.4).
+`conformance/digest-v0.json` enthält unter `cases` Mandate (`mandate`, `mandate_inline` oder
+`mandate_raw`) mit ihrem erwarteten Fingerabdruck `digest` (Abschnitt 3.2).
+
+`conformance/audit-v0.json` enthält unter `logs` Protokolle: `entries` (die Einträge in
+Dateireihenfolge), `expected` (`valid` oder `invalid`), bei `invalid` die erwartete Stelle
+`broken_at` (Abschnitt 9.4) und optional `entry_digests` (Fingerabdruck jedes Eintrags, zur
+Fehlersuche).
+
+Alle Dateien haben neben `cases` bzw. `logs` eine `description`; jeder Fall hat eine
+eindeutige `id` und optional `why`.
 
 Zwei Prüfwege:
 
@@ -305,11 +359,24 @@ Jeder Eintrag ist ein JSON-Objekt mit `type: "https://mandate-spec.org/audit/v0"
 | `principal` | Vollmachtgeber |
 | `prev` | Fingerabdruck des vorherigen Eintrags (Abschnitt 9.4), beim ersten Eintrag `null` |
 
-Je nach Ereignis kommen hinzu: `actor` (wer eine Änderung ausgelöst hat), `agent`,
-`request` (Ressource, Aktion, Zeitpunkt, Zeitzone, Widerrufsstatus), `mandate` (`id`, `digest`, bei Änderungen
-`previous_digest`), `evaluation` (Ergebnis nach Abschnitt 4.1), `approval` (Ausgang einer
-Rückfrage), `result` (`executed`, `denied` mit `denied_by`, `failed` mit `error`),
-`truncated` (Abschnitt 9.4).
+Je nach Ereignis kommen hinzu:
+
+| Feld | Inhalt |
+|---|---|
+| `actor` | wer eine Änderung ausgelöst hat: `kind` (`user`, `agent`, `system`) und `id` |
+| `agent` | `client_id`, optional `display_name` |
+| `request` | Eingabe der Auswertung: `resource`, `action`, `time`, optional `timezone` und `revoked` |
+| `mandate` | `id`, `digest`, bei `mandate.updated` zusätzlich `previous_digest` |
+| `evaluation` | Ergebnis nach Abschnitt 4.1: `decision`, `reason`, `rule_id`, optional `approval_timeout` |
+| `approval` | Ausgang einer Rückfrage: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (wer geantwortet hat; Pflicht außer bei `timeout`) |
+| `result` | `status`: `executed`, `denied` (mit `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) oder `failed` (mit `error`, ein Code aus Kleinbuchstaben, Ziffern und `_`); optional `duration_ms` |
+| `truncated` | `up_to_seq`, `last_digest` (Abschnitt 9.4) |
+
+Für `decision` gilt zusätzlich:
+
+- `executed` nur mit `evaluation` und `mandate`, und nur wenn `evaluation.decision` `allow`
+  ist oder `ask` mit `approval.outcome: approved`;
+- ist `evaluation.decision` `deny`, dann ist `result` `denied` mit `denied_by: mandate`.
 
 Einträge enthalten **nie** Token, Nonces, Zugangsdaten oder den Inhalt eines Mandats.
 
@@ -328,6 +395,11 @@ Bei `decision` stimmt `evaluation` mit dem Ergebnis überein, das die Auswertung
 für `request` und die Fassung `mandate.digest` liefert. Damit lässt sich jede Entscheidung
 nachrechnen.
 
+Tempolimit (`limits`, vom PEP durchgesetzt) und Not-Aus sind Funktionen der Implementierung,
+die diese Spezifikation nicht weiter festlegt. Hat eine Implementierung sie, protokolliert sie
+Absagen mit `denied_by: rate_limit` bzw. `emergency_stop` und den Not-Aus mit den
+`emergency_stop.*`-Ereignissen.
+
 ### 9.3 Aufbewahrung
 
 - Jede Mandatsfassung wird mindestens so lange aufbewahrt wie Einträge, die auf ihren
@@ -345,14 +417,17 @@ nachrechnen.
   mit `truncated: { up_to_seq: n, last_digest: <Fingerabdruck von Eintrag n> }` angefügt.
 - Austauschformat: JSON Lines (ein Eintrag pro Zeile, UTF-8, aufsteigend nach `seq`).
 
-Ein Protokoll ist **gültig**, wenn jeder Eintrag das Schema erfüllt und in Dateireihenfolge:
+Ein Protokoll ist **gültig**, wenn in Dateireihenfolge:
 
-1. jeder Eintrag die `seq` seines Vorgängers plus 1 hat und `prev` dessen Fingerabdruck ist;
+1. jeder Eintrag das Schema erfüllt;
 2. der erste Eintrag entweder `seq` 1 hat oder ein späterer Eintrag `log.truncated` mit
-   `up_to_seq` = `seq` − 1 und `last_digest` = `prev` des ersten Eintrags vorhanden ist.
+   `up_to_seq` = `seq` − 1 und `last_digest` = `prev` des ersten Eintrags vorhanden ist;
+3. jeder weitere Eintrag die `seq` seines Vorgängers plus 1 hat und `prev` dessen
+   Fingerabdruck ist.
 
-Ist ein Protokoll ungültig, meldet die Prüfung `broken_at`: die `seq` des ersten Eintrags
-in Dateireihenfolge, der eine der Bedingungen verletzt.
+Ist ein Protokoll ungültig, meldet die Prüfung `broken_at`: die `seq` des ersten Eintrags in
+Dateireihenfolge, der eine der Bedingungen verletzt. Die Bedingungen werden in der genannten
+Reihenfolge geprüft: zuerst das Schema aller Einträge, dann der Anfang, dann die Kette.
 
 Grenze: Die Verkettung zeigt Änderungen, Lücken und Umstellungen **innerhalb** des
 Protokolls. Werden die neuesten Einträge entfernt oder der letzte geändert, erkennt sie das
@@ -371,8 +446,14 @@ Inkompatibel:
 - `type` und Schema-`$id` auf die neutrale Domain verschoben:
   `https://mandate-spec.org/mandate/v0`. Name der Spezifikation: mandate-spec.
 - Neue Gültigkeitsregeln für Mandate (Abschnitt 3.1): `format: date-time` wird geprüft,
-  keine doppelten Schlüssel, eindeutige Regel-IDs, `time_window` mit verschiedenem Beginn und
-  Ende, Aktionen passend zur Kategorie.
+  keine Schaltsekunden, I-JSON, eindeutige Regel-IDs, `time_window` mit verschiedenem Beginn
+  und Ende, Aktionen passend zur Kategorie, höchstens 256 KiB, `expires` nach `valid_from`,
+  Freigabe-Timeout 10 s bis 1 h, keine Steuer- und Formatzeichen in angezeigten Texten.
+- `agent.client_id`: https-URL oder `<namensraum>:<id>` statt des produktspezifischen
+  Präfixes `hm-client:` (bestehende `hm-client:`-IDs bleiben gültig).
+- Anfrage: Entitäts-ID ist Pflicht und muss dem Muster entsprechen, Bereich ebenso; Status
+  des Mandats ist Pflicht (`active` oder `revoked`).
+- Die Schemas sind normativ.
 
 Präzisiert (Abschnitt 4), jeweils mit neuen Konformitätsfällen:
 - Vorprüfung: unbekannte Kategorie, Aktion außerhalb des Vokabulars, ungültige Zeitangabe
@@ -383,6 +464,14 @@ Präzisiert (Abschnitt 4), jeweils mit neuen Konformitätsfällen:
 - `rule_id` und Freigabe-Einstellung im Ergebnis (Abschnitt 4.1).
 - `limits` gehören nicht zur Auswertung.
 - Erweiterungen ohne bekanntes Vokabular → `deny`.
+- Herkunft der Eingaben: Kategorie, Bereich, Zeit, Zeitzone und Status kommen vom PEP,
+  nie vom Agenten; Vergleich zeichengenau mit Groß- und Kleinschreibung.
+- Zeitzonen: nur `UTC` oder IANA-Bezeichner der Form `Gebiet/Ort`; Sekunden werden
+  abgeschnitten.
+- AuthZEN-Abbildung der Felder (Abschnitt 6); Home-Assistant- und Matter-Spalten im
+  Vokabular sind informativ.
+- Protokoll: Pflichtfelder je Ereignis, `executed` nur nach erlaubender Entscheidung,
+  `broken_at` auch bei Schemaverstoß (Abschnitt 9).
 
 Neu:
 - Fingerabdruck eines Mandats (Abschnitt 3.2), Begründungscodes (Abschnitt 4.1), beides

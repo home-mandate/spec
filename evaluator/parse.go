@@ -7,18 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
+	"github.com/mandate-spec/mandate-spec/schema"
 )
 
-// MaxMandateBytes ist die größte Eingabe, die Parse annimmt. 200 Regeln brauchen weit weniger.
+// MaxMandateBytes ist die Größengrenze aus SPEC-v0 Abschnitt 3.1 Nr. 5.
 const MaxMandateBytes = 256 << 10
 
-// Fehlerarten von Parse; mit errors.Is prüfbar.
+// Fehlerarten von Parse; mit errors.Is prüfbar. Die Ursache bleibt ebenfalls verpackt
+// und ist mit errors.As erreichbar.
 var (
 	ErrTooLarge  = errors.New("evaluator: mandate too large")
 	ErrMalformed = errors.New("evaluator: malformed mandate JSON")
@@ -26,29 +26,24 @@ var (
 	ErrSemantic  = errors.New("evaluator: mandate violates SPEC-v0 section 3.1")
 )
 
-const mandateSchemaURL = "https://mandate-spec.org/mandate/v0/mandate.schema.json"
-
 // mandateSchema kompiliert das eingebettete Schema einmal. Formate werden geprüft
 // (SPEC-v0 Abschnitt 3.1 Nr. 0), nicht nur als Anmerkung behandelt.
 var mandateSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
-	data, err := fs.ReadFile(mandatespec.FS(), mandatespec.MandateSchemaPath)
-	if err != nil {
-		return nil, err
-	}
-	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
+	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(schema.Mandate()))
 	if err != nil {
 		return nil, err
 	}
 	c := jsonschema.NewCompiler()
 	c.AssertFormat()
-	if err := c.AddResource(mandateSchemaURL, doc); err != nil {
+	if err := c.AddResource(schema.MandateID, doc); err != nil {
 		return nil, err
 	}
-	return c.Compile(mandateSchemaURL)
+	return c.Compile(schema.MandateID)
 })
 
 // Parse prüft data nach SPEC-v0 Abschnitt 3.1 und liefert das gültige Mandat mit seinem
-// Fingerabdruck (Abschnitt 3.2). Bei jedem Fehler ist das Mandat nil.
+// Fingerabdruck (Abschnitt 3.2). Bei jedem Fehler ist das Mandat nil. Das Mandat hält
+// keine Referenz auf data.
 func Parse(data []byte) (*Mandate, error) {
 	if len(data) > MaxMandateBytes {
 		return nil, fmt.Errorf("%w: %d bytes, limit %d", ErrTooLarge, len(data), MaxMandateBytes)
@@ -58,24 +53,24 @@ func Parse(data []byte) (*Mandate, error) {
 	}
 	instance, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrMalformed, err)
+		return nil, fmt.Errorf("%w: %w", ErrMalformed, err)
 	}
-	schema, err := mandateSchema()
+	compiled, err := mandateSchema()
 	if err != nil {
 		return nil, fmt.Errorf("evaluator: load schema: %w", err)
 	}
-	if err := schema.Validate(instance); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrSchema, err)
+	if err := compiled.Validate(instance); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrSchema, err)
 	}
 	var raw rawMandate
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&raw); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrSchema, err)
+		return nil, fmt.Errorf("%w: %w", ErrSchema, err)
 	}
 	digest, err := digestOf(instance)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrSchema, err)
+		return nil, fmt.Errorf("%w: %w", ErrSchema, err)
 	}
 	return buildMandate(raw, digest)
 }

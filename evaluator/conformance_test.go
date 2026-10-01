@@ -95,11 +95,19 @@ func TestConformanceCases(t *testing.T) {
 				Action:   c.Action,
 				Time:     at,
 				TimeZone: c.Timezone,
-				Revoked:  c.Revoked,
+				Status:   statusOf(c.Revoked),
 			})
 			assertResult(t, c, m, got)
 		})
 	}
+}
+
+// statusOf bildet das Feld revoked der Konformitätsfälle auf den Status ab (SPEC-v0 Abschnitt 8).
+func statusOf(revoked bool) evaluator.MandateStatus {
+	if revoked {
+		return evaluator.StatusRevoked
+	}
+	return evaluator.StatusActive
 }
 
 func assertResult(t *testing.T, c conformanceCase, m *evaluator.Mandate, got evaluator.Result) {

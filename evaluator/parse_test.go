@@ -139,6 +139,19 @@ func TestParseRejects(t *testing.T) {
 		{"action outside category", mandateReplacing(`"actions":["turn_on"]`, `"actions":["unlock"]`), evaluator.ErrSemantic},
 		{"time window start equals end", mandateReplacing(`"decision":"allow"`, `"decision":"allow","conditions":{"time_window":"00:00-00:00"}`), evaluator.ErrSemantic},
 		{"duplicate rule id", mandateReplacing(`"decision":"allow"}]`, `"decision":"allow"},{"id":"r-1","resource":{"any":true},"actions":["read"],"decision":"deny"}]`), evaluator.ErrSemantic},
+		{"leap second", mandateReplacing(`"valid_from":"2026-01-01T00:00:00+01:00"`, `"valid_from":"2026-06-30T23:59:60Z"`), evaluator.ErrSchema},
+		{"expires before valid_from", mandateReplacing(`"created_by"`, `"expires":"2025-12-31T23:59:59+01:00","created_by"`), evaluator.ErrSemantic},
+		{"expires equals valid_from", mandateReplacing(`"created_by"`, `"expires":"2025-12-31T23:00:00Z","created_by"`), evaluator.ErrSemantic},
+		{"timeout below 10s", mandateReplacing(`"timeout":"PT2M"`, `"timeout":"PT9S"`), evaluator.ErrSemantic},
+		{"timeout zero", mandateReplacing(`"timeout":"PT2M"`, `"timeout":"PT0S"`), evaluator.ErrSemantic},
+		{"timeout above 1h", mandateReplacing(`"timeout":"PT2M"`, `"timeout":"PT60M1S"`), evaluator.ErrSemantic},
+		{"control character in display_name", mandateNamed(`Test\u0007`), evaluator.ErrSemantic},
+		{"bidi override in display_name", mandateNamed("Test " + string(rune(0x202e))), evaluator.ErrSemantic},
+		{"zero width space in display_name", mandateNamed("Te" + string(rune(0x200b)) + "st"), evaluator.ErrSemantic},
+		{"line separator in created_by", mandateReplacing(`"created_by":"a-1"`, `"created_by":"a-1`+string(rune(0x2028))+`"`), evaluator.ErrSemantic},
+		{"control character in approver", mandateReplacing(`"approvers":["a-1"]`, `"approvers":["a-1\n"]`), evaluator.ErrSemantic},
+		{"control character in rule approver", mandateReplacing(`"decision":"allow"`, `"decision":"ask","approval":{"timeout":"PT1M","approvers":["a\t2"]}`), evaluator.ErrSemantic},
+		{"unknown client_id scheme", mandateReplacing(`"client_id":"hm-client:test-0001"`, `"client_id":"ftp://agent.example"`), evaluator.ErrSchema},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -150,6 +163,37 @@ func TestParseRejects(t *testing.T) {
 				t.Error("mandate returned together with error")
 			}
 		})
+	}
+}
+
+func TestParseAcceptsTimeoutBoundariesAndNamespacedClientID(t *testing.T) {
+	for _, data := range [][]byte{
+		mandateReplacing(`"timeout":"PT2M"`, `"timeout":"PT10S"`),
+		mandateReplacing(`"timeout":"PT2M"`, `"timeout":"PT60M"`),
+		mandateReplacing(`"timeout":"PT2M"`, `"timeout":"PT59M60S"`),
+		mandateReplacing(`"client_id":"hm-client:test-0001"`, `"client_id":"pairing:Ab9._~-x"`),
+		mandateReplacing(`"client_id":"hm-client:test-0001"`, `"client_id":"https://agent.example/client.json"`),
+		mandateNamed("Familie 👪 Müller"),
+	} {
+		if _, err := evaluator.Parse(data); err != nil {
+			t.Errorf("Parse(%s): %v", data[100:180], err)
+		}
+	}
+}
+
+func TestParseKeepsNoReferenceToInput(t *testing.T) {
+	data := mandateNamed("Test")
+	m, err := evaluator.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := evaluator.Evaluate(m, request("light", "flur", "turn_on"))
+	for i := range data {
+		data[i] = ' '
+	}
+	after := evaluator.Evaluate(m, request("light", "flur", "turn_on"))
+	if before.Decision != after.Decision || before.MandateDigest != after.MandateDigest || m.ID() != "m-test" {
+		t.Errorf("mandate changed after input was overwritten: %+v vs %+v", before, after)
 	}
 }
 

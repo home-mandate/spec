@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	// Zeitzonendaten eingebettet: Ohne sie wäre in Containern ohne Zoneinfo jede Anfrage
@@ -16,8 +17,16 @@ import (
 // maxZoneNameLength entspricht der Grenze für timezone im Protokollschema.
 const maxZoneNameLength = 64
 
-// locations speichert erfolgreich geladene Zeitzonen; es gibt nur einige hundert.
-var locations sync.Map // string → *time.Location
+// locations speichert erfolgreich geladene Zeitzonen. Die Obergrenze verhindert, dass
+// Schreibvarianten auf Dateisystemen ohne Groß-/Kleinschreibung den Speicher füllen;
+// Zonen jenseits der Grenze werden weiter geladen, nur nicht gespeichert.
+var (
+	locations      sync.Map // string → *time.Location
+	cachedZones    atomic.Int64
+	maxCachedZones = 256 // Variable, damit Tests die Grenze prüfen können
+)
+
+func cachedZoneCount() int { return int(cachedZones.Load()) }
 
 // localTime rechnet at in die Ortszeit des Haushalts um (SPEC-v0 Abschnitt 4.2).
 // Leere zone: es gilt der Offset von at. ok ist false bei Nullzeit oder unbekannter Zone.
@@ -38,18 +47,27 @@ func localTime(at time.Time, zone string) (time.Time, bool) {
 	if err != nil {
 		return time.Time{}, false
 	}
-	locations.Store(zone, loc)
+	if cachedZones.Load() < int64(maxCachedZones) {
+		if _, loaded := locations.LoadOrStore(zone, loc); !loaded {
+			cachedZones.Add(1)
+		}
+	}
 	return at.In(loc), true
 }
 
-// validZoneName lässt nur IANA-förmige Namen zu. "Local" hinge vom Rechner ab;
-// Punkte, führende Schrägstriche und Steuerzeichen sind ausgeschlossen.
+// validZoneName setzt SPEC-v0 Abschnitt 4.2 um: "UTC" oder "Gebiet/Ort", jeder Teil beginnt
+// mit einem Großbuchstaben. Das schließt rechnerabhängige Namen wie "Local", "localtime"
+// oder "posixrules", Kürzel wie "CET" sowie Pfade und Steuerzeichen aus.
 func validZoneName(zone string) bool {
-	if zone == "Local" || len(zone) > maxZoneNameLength {
+	if zone == "UTC" {
+		return true
+	}
+	parts := strings.Split(zone, "/")
+	if len(zone) > maxZoneNameLength || len(parts) < 2 {
 		return false
 	}
-	for _, part := range strings.Split(zone, "/") {
-		if part == "" {
+	for _, part := range parts {
+		if part == "" || part[0] < 'A' || part[0] > 'Z' {
 			return false
 		}
 		for _, c := range part {

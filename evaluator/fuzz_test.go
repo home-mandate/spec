@@ -98,18 +98,18 @@ func FuzzEvaluate(f *testing.F) {
 		parsed = append(parsed, m)
 	}
 	parsed = append(parsed, nil) // ungültiges Mandat
-	f.Add(uint8(0), "lock.haustuer", "lock", "flur", "unlock", int64(1791824400), int16(120), "Europe/Berlin", false)
-	f.Add(uint8(4), "light.flur", "light", "flur", "turn_on", int64(1791824400), int16(0), "", true)
-	f.Add(uint8(3), "cover.terrasse", "cover", "terrasse", "open", int64(1792895400), int16(0), "Europe/Berlin", false)
-	f.Add(uint8(4), "x", "paperless:document", "", "*", int64(0), int16(-720), "Local", false)
-	f.Fuzz(func(t *testing.T, idx uint8, entity, category, area, action string, unix int64, offsetMin int16, zone string, revoked bool) {
+	f.Add(uint8(0), "lock.haustuer", "lock", "flur", "unlock", int64(1791824400), int16(120), "Europe/Berlin", "active")
+	f.Add(uint8(4), "light.flur", "light", "flur", "turn_on", int64(1791824400), int16(0), "", "revoked")
+	f.Add(uint8(3), "cover.terrasse", "cover", "terrasse", "open", int64(1792895400), int16(0), "Europe/Berlin", "active")
+	f.Add(uint8(4), "x", "paperless:document", "", "*", int64(0), int16(-720), "Local", "")
+	f.Fuzz(func(t *testing.T, idx uint8, entity, category, area, action string, unix int64, offsetMin int16, zone, status string) {
 		m := parsed[int(idx)%len(parsed)]
 		req := evaluator.Request{
 			Resource: evaluator.Resource{EntityID: entity, Category: category, Area: area},
 			Action:   action,
 			Time:     time.Unix(unix, 0).In(time.FixedZone("fuzz", int(offsetMin)*60)),
 			TimeZone: zone,
-			Revoked:  revoked,
+			Status:   evaluator.MandateStatus(status),
 		}
 		got := evaluator.Evaluate(m, req)
 		checkResultInvariants(t, m, req, got)
@@ -140,7 +140,7 @@ func checkResultInvariants(t *testing.T, m *evaluator.Mandate, req evaluator.Req
 		t.Fatalf("approval %+v with decision %q", got.Approval, got.Decision)
 	}
 	categoryKnown, actionKnown := inVocabulary(req.Resource.Category, req.Action)
-	unknown := m == nil || req.Revoked || !categoryKnown || !actionKnown
+	unknown := m == nil || req.Status != evaluator.StatusActive || !categoryKnown || !actionKnown
 	if unknown && got.Decision != evaluator.Deny {
 		t.Fatalf("unknown or revoked input was not denied: %+v -> %+v", req, got)
 	}
