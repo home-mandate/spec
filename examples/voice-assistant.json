@@ -1,0 +1,21 @@
+{
+  "type": "https://home-mandate.com/spec/mandate/v0",
+  "id": "m-voice-assistant",
+  "principal": "household:hm-7f3a",
+  "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Sprachassistent" },
+  "rules": [
+    { "id": "r-read-all", "resource": { "any": true }, "actions": ["read"], "decision": "allow" },
+    { "id": "r-lights", "resource": { "category": "light" }, "actions": ["turn_on", "turn_off", "set"], "decision": "allow" },
+    { "id": "r-climate", "resource": { "category": "climate" }, "actions": ["set_temperature"], "decision": "allow" },
+    { "id": "r-locks", "resource": { "category": "lock" }, "actions": ["unlock", "open"], "decision": "ask",
+      "approval": { "timeout": "PT2M", "approvers": ["ha-user-markus"] } },
+    { "id": "r-no-cameras", "resource": { "category": "camera" }, "actions": ["*"], "decision": "deny" },
+    { "id": "r-no-alarm", "resource": { "category": "alarm" }, "actions": ["disarm"], "decision": "deny" }
+  ],
+  "default": "deny",
+  "approval": { "timeout": "PT2M", "approvers": ["ha-user-markus"] },
+  "limits": { "max_actions_per_hour": 60 },
+  "valid_from": "2026-10-01T00:00:00+02:00",
+  "created_by": "ha-user-markus",
+  "created_at": "2026-10-01T09:12:00+02:00"
+}

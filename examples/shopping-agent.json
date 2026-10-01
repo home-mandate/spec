@@ -1,0 +1,17 @@
+{
+  "type": "https://home-mandate.com/spec/mandate/v0",
+  "id": "m-shopping-agent",
+  "principal": "person:markus",
+  "agent": { "client_id": "hm-client:shop-19b0f3d2", "display_name": "Einkaufs-Agent" },
+  "rules": [
+    { "id": "r-pantry", "resource": { "category": "sensor", "area": "vorratsraum" }, "actions": ["read"], "decision": "allow" },
+    { "id": "r-fridge", "resource": { "entity_id": "sensor.kuehlschrank_inhalt" }, "actions": ["read"], "decision": "allow",
+      "conditions": { "weekdays": ["mon", "tue", "wed", "thu", "fri", "sat"] } }
+  ],
+  "default": "deny",
+  "approval": { "timeout": "PT2M", "approvers": ["ha-user-markus"] },
+  "limits": { "max_actions_per_hour": 20 },
+  "valid_from": "2026-10-01T00:00:00+02:00",
+  "created_by": "ha-user-markus",
+  "created_at": "2026-10-01T09:25:00+02:00"
+}

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-mandate.com/spec/mandate/v0/mandate.schema.json",
+  "title": "Mandate v0",
+  "description": "Beschreibt, was ein Software-Agent im Auftrag eines Haushalts tun darf. Arbeitsentwurf.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "id", "principal", "agent", "rules", "default", "approval", "limits", "valid_from", "created_by", "created_at"],
+  "properties": {
+    "type": { "const": "https://home-mandate.com/spec/mandate/v0" },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{4,64}$" },
+    "principal": { "type": "string", "pattern": "^(household|person):[A-Za-z0-9_-]{1,64}$" },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["client_id", "display_name"],
+      "properties": {
+        "client_id": {
+          "description": "OAuth-Client-ID: URL eines Client ID Metadata Document oder eine vom Server vergebene ID für gekoppelte Agenten.",
+          "type": "string",
+          "anyOf": [
+            { "pattern": "^https://[^\\s]+$" },
+            { "pattern": "^hm-client:[A-Za-z0-9_-]{8,64}$" }
+          ]
+        },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 80 }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/rule" }
+    },
+    "default": {
+      "description": "In v0 immer deny. Alles, was keine Regel trifft, ist verboten.",
+      "const": "deny"
+    },
+    "approval": { "$ref": "#/$defs/approval" },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_actions_per_hour"],
+      "properties": {
+        "max_actions_per_hour": { "type": "integer", "minimum": 1, "maximum": 1000 }
+      }
+    },
+    "valid_from": { "type": "string", "format": "date-time" },
+    "expires": { "type": "string", "format": "date-time" },
+    "created_by": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "category": {
+      "anyOf": [
+        { "enum": ["light", "switch", "climate", "cover", "gate", "lock", "alarm", "camera", "media", "sensor", "scene", "script", "other"] },
+        { "type": "string", "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_]*$", "description": "Erweiterung mit Namensraum, z. B. paperless:document" }
+      ]
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "entity_id": { "type": "string", "pattern": "^[a-z0-9_]+\\.[a-z0-9_]+$" },
+        "category": { "$ref": "#/$defs/category" },
+        "area": { "type": "string", "pattern": "^[a-z0-9_]{1,64}$" },
+        "any": { "const": true, "description": "Trifft jede Ressource. Nur allein zulässig." }
+      },
+      "if": { "required": ["any"] },
+      "then": { "maxProperties": 1 }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeout", "approvers"],
+      "properties": {
+        "timeout": { "type": "string", "pattern": "^PT([0-9]+M|[0-9]+S|[0-9]+M[0-9]+S)$" },
+        "approvers": {
+          "description": "Home-Assistant-Benutzer-IDs, die Rückfragen bestätigen dürfen.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 }
+        }
+      }
+    },
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "time_window": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]-([01][0-9]|2[0-3]):[0-5][0-9]$" },
+        "weekdays": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] }
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "resource", "actions", "decision"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+        "resource": { "$ref": "#/$defs/resource" },
+        "actions": {
+          "description": "Aktionen aus dem Vokabular der Kategorie oder \"*\". Ob eine Aktion zur Kategorie passt, prüft die Implementierung.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^(\\*|[a-z][a-z0-9_]{0,63})$" }
+        },
+        "decision": { "enum": ["allow", "ask", "deny"] },
+        "conditions": { "$ref": "#/$defs/conditions" },
+        "approval": { "$ref": "#/$defs/approval" },
+        "allow_critical": {
+          "description": "Nur bei allow: erlaubt kritische Aktionen ohne Rückfrage. Muss in der Oberfläche gesondert bestätigt werden.",
+          "const": true
+        }
+      },
+      "allOf": [
+        { "if": { "required": ["approval"] }, "then": { "properties": { "decision": { "const": "ask" } } } },
+        { "if": { "required": ["allow_critical"] }, "then": { "properties": { "decision": { "const": "allow" } } } }
+      ]
+    }
+  }
+}
