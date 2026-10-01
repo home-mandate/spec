@@ -5,8 +5,86 @@ package evaluator
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
+
+	// Zeitzonendaten eingebettet: Ohne sie wäre in Containern ohne Zoneinfo jede Anfrage
+	// mit Zeitzone deny. Genutzt wird sie nur, wenn das System keine Daten liefert.
+	_ "time/tzdata"
 )
+
+// maxZoneNameLength entspricht der Grenze für timezone im Protokollschema.
+const maxZoneNameLength = 64
+
+// locations speichert erfolgreich geladene Zeitzonen; es gibt nur einige hundert.
+var locations sync.Map // string → *time.Location
+
+// localTime rechnet at in die Ortszeit des Haushalts um (SPEC-v0 Abschnitt 4.2).
+// Leere zone: es gilt der Offset von at. ok ist false bei Nullzeit oder unbekannter Zone.
+func localTime(at time.Time, zone string) (time.Time, bool) {
+	if at.IsZero() {
+		return time.Time{}, false
+	}
+	if zone == "" {
+		return at, true
+	}
+	if cached, ok := locations.Load(zone); ok {
+		return at.In(cached.(*time.Location)), true
+	}
+	if !validZoneName(zone) {
+		return time.Time{}, false
+	}
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return time.Time{}, false
+	}
+	locations.Store(zone, loc)
+	return at.In(loc), true
+}
+
+// validZoneName lässt nur IANA-förmige Namen zu. "Local" hinge vom Rechner ab;
+// Punkte, führende Schrägstriche und Steuerzeichen sind ausgeschlossen.
+func validZoneName(zone string) bool {
+	if zone == "Local" || len(zone) > maxZoneNameLength {
+		return false
+	}
+	for _, part := range strings.Split(zone, "/") {
+		if part == "" {
+			return false
+		}
+		for _, c := range part {
+			ok := c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_' || c == '-' || c == '+'
+			if !ok {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// contains prüft eine Minute seit Mitternacht: Beginn einschließlich, Ende ausschließlich;
+// ist der Beginn größer als das Ende, geht das Fenster über Mitternacht.
+func (w timeWindow) contains(minute int) bool {
+	if w.start < w.end {
+		return minute >= w.start && minute < w.end
+	}
+	return minute >= w.start || minute < w.end
+}
+
+func (s weekdaySet) contains(d time.Weekday) bool {
+	return s&(1<<d) != 0
+}
+
+// conditionsMet prüft die Bedingungen einer Regel für einen Zeitpunkt in Ortszeit.
+func (r rule) conditionsMet(local time.Time) bool {
+	if r.window.set && !r.window.contains(local.Hour()*60+local.Minute()) {
+		return false
+	}
+	if r.weekdays != 0 && !r.weekdays.contains(local.Weekday()) {
+		return false
+	}
+	return true
+}
 
 // timeWindow ist ein Zeitfenster in Minuten seit Mitternacht (SPEC-v0 Abschnitt 4.2).
 // set ist false, wenn die Regel kein Zeitfenster hat.
