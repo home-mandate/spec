@@ -153,6 +153,17 @@ func TestParseRejects(t *testing.T) {
 	}
 }
 
+func TestParseSizeLimitBoundary(t *testing.T) {
+	valid := mandateNamed("Test")
+	padded := append(valid, []byte(strings.Repeat(" ", evaluator.MaxMandateBytes-len(valid)))...)
+	if _, err := evaluator.Parse(padded); err != nil {
+		t.Fatalf("exactly MaxMandateBytes rejected: %v", err)
+	}
+	if _, err := evaluator.Parse(append(padded, ' ')); !errors.Is(err, evaluator.ErrTooLarge) {
+		t.Fatalf("MaxMandateBytes+1: err = %v, want ErrTooLarge", err)
+	}
+}
+
 func TestParseAllowsUnknownExtensionCategoryWithAnyAction(t *testing.T) {
 	// SPEC-v0 3.1 Nr. 4: Vokabular unbekannter Erweiterungen wird nicht geprüft.
 	data := mandateReplacing(`"resource":{"category":"light"},"actions":["turn_on"]`,

@@ -132,6 +132,28 @@ func TestLocalTimeRejects(t *testing.T) {
 	}
 }
 
+func TestValidZoneName(t *testing.T) {
+	valid := []string{
+		"AZaz09_-+", "Etc/GMT+9", "Etc/GMT-0", "America/Argentina/Buenos_Aires",
+		strings.Repeat("A", maxZoneNameLength),
+	}
+	for _, zone := range valid {
+		if !validZoneName(zone) {
+			t.Errorf("validZoneName(%q) = false, want true", zone)
+		}
+	}
+	invalid := []string{
+		"", "Local", "/Europe", "Europe/", "Europe//Berlin", strings.Repeat("A", maxZoneNameLength+1),
+		// Zeichen direkt neben den erlaubten Bereichen und häufige Pfadzeichen.
+		"A@", "A[", "A`", "A{", "A:", "A.", "A ", "A,", "A*", "A\\", "A" + r(0xe4),
+	}
+	for _, zone := range invalid {
+		if validZoneName(zone) {
+			t.Errorf("validZoneName(%q) = true, want false", zone)
+		}
+	}
+}
+
 func TestRuleConditionsMet(t *testing.T) {
 	friLate := rule{window: mustWindow(t, "22:00-02:00"), weekdays: weekdaySet(1 << time.Friday)}
 	onlyWeekday := rule{weekdays: weekdaySet(1 << time.Monday)}
