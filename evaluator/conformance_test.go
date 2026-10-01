@@ -13,7 +13,7 @@ import (
 	"github.com/mandate-spec/mandate-spec/evaluator"
 )
 
-// mandateSource ist die gemeinsame Form, mit der Konformitätsdateien auf ein Mandat verweisen.
+// mandateSource is the common shape conformance files use to refer to a mandate.
 type mandateSource struct {
 	Mandate       string          `json:"mandate"`
 	MandateInline json.RawMessage `json:"mandate_inline"`
@@ -102,7 +102,7 @@ func TestConformanceCases(t *testing.T) {
 	}
 }
 
-// statusOf bildet das Feld revoked der Konformitätsfälle auf den Status ab (SPEC-v0 Abschnitt 8).
+// statusOf maps the revoked field of the conformance cases to the status (SPEC-v0 section 8).
 func statusOf(revoked bool) evaluator.MandateStatus {
 	if revoked {
 		return evaluator.StatusRevoked

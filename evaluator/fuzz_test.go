@@ -15,7 +15,7 @@ import (
 	"github.com/mandate-spec/mandate-spec/evaluator"
 )
 
-// shippedMandates liefert alle mitgelieferten gültigen Mandate als Ausgangsmaterial.
+// shippedMandates returns all shipped valid mandates as seed material.
 func shippedMandates(f *testing.F) [][]byte {
 	f.Helper()
 	var out [][]byte
@@ -65,7 +65,7 @@ func FuzzParse(f *testing.F) {
 	})
 }
 
-// vocabulary spiegelt SPEC-v0 Abschnitt 5, unabhängig von der Implementierung.
+// vocabulary mirrors SPEC-v0 section 5, independently of the implementation.
 var vocabulary = map[string][]string{
 	"light": {"read", "turn_on", "turn_off", "set"}, "switch": {"read", "turn_on", "turn_off"},
 	"climate": {"read", "set_temperature", "set_mode"}, "cover": {"read", "open", "close", "stop", "set_position"},
@@ -97,7 +97,7 @@ func FuzzEvaluate(f *testing.F) {
 		}
 		parsed = append(parsed, m)
 	}
-	parsed = append(parsed, nil) // ungültiges Mandat
+	parsed = append(parsed, nil) // invalid mandate
 	f.Add(uint8(0), "lock.haustuer", "lock", "flur", "unlock", int64(1791824400), int16(120), "Europe/Berlin", "active")
 	f.Add(uint8(4), "light.flur", "light", "flur", "turn_on", int64(1791824400), int16(0), "", "revoked")
 	f.Add(uint8(3), "cover.terrasse", "cover", "terrasse", "open", int64(1792895400), int16(0), "Europe/Berlin", "active")

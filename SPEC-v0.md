@@ -1,217 +1,220 @@
-# mandate-spec v0 (Entwurf)
+# mandate-spec v0 (Draft)
 
-Status: **Arbeitsentwurf**, wird erst nach Einsatz in echten Haushalten eingefroren.
-Lizenz dieses Dokuments: CC BY 4.0. Schema, Beispiele, Konformitätsfälle und Code: Apache 2.0.
-Referenzimplementierung: Home-Mandate. Änderungen stehen im Änderungsprotokoll am Ende.
+Status: **Working draft**; it will be frozen only after deployment in real households.
+License of this document: CC BY 4.0. Schema, examples, conformance cases and code: Apache 2.0.
+Reference implementation: Home-Mandate. Changes are listed in the Changelog at the end.
 
-## 1. Ziel
+The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
+interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in
+all capitals.
 
-Ein herstellerneutrales Format, das beschreibt, **was ein Software-Agent im Auftrag eines
-Haushalts tun darf**, und eine Auswertungsregel, die in jeder Implementierung zum gleichen
-Ergebnis führt. Die Spezifikation baut auf bestehenden Standards auf und definiert nur, was
-fehlt:
+## 1. Goal
 
-| Zweck | Standard |
+A vendor-neutral format that describes **what a software agent may do on behalf of a
+household**, and an evaluation rule that yields the same result in every implementation. The
+specification builds on existing standards and defines only what is missing:
+
+| Purpose | Standard |
 |---|---|
-| Entscheidungs-Schnittstelle | OpenID AuthZEN Authorization API 1.0 |
-| Transport des Mandats im OAuth-Fluss | Rich Authorization Requests (RFC 9396), `authorization_details` |
-| Agenten-Identität | OAuth 2.1 Client-ID (bei MCP: Client ID Metadata Document) |
-| Geräte-Vokabular | eigene Kategorien mit informativer Zuordnung zu Matter-Gerätetypen |
+| Decision interface | OpenID AuthZEN Authorization API 1.0 |
+| Transport of the mandate in the OAuth flow | Rich Authorization Requests (RFC 9396), `authorization_details` |
+| Agent identity | OAuth 2.1 client ID (for MCP: Client ID Metadata Document) |
+| Device vocabulary | own categories with an informative mapping to Matter device types |
 
-Neu definiert werden: das Mandats-Datenmodell, die dritte Entscheidung `ask`, Bedingungen,
-Schutzklassen und die Auswertungsregel.
+Newly defined are: the mandate data model, the third decision `ask`, conditions,
+protection classes and the evaluation rule.
 
-## 2. Begriffe
+## 2. Terminology
 
-- **Vollmachtgeber (principal):** Haushalt oder Person, in deren Namen der Agent handelt.
-- **Agent:** Software, die Aktionen anfragt, identifiziert über ihre OAuth-Client-ID.
-- **Ressource:** ein einzelnes Gerät bzw. eine Entität.
-- **Aktion:** was mit der Ressource geschehen soll, aus dem Vokabular ihrer Kategorie.
-- **Entscheidung:** `allow` (sofort ausführen), `ask` (Mensch muss bestätigen), `deny` (ablehnen).
+- **Principal:** the household or person on whose behalf the agent acts.
+- **Agent:** software that requests actions, identified by its OAuth client ID.
+- **Resource:** a single device or entity.
+- **Action:** what is to be done with the resource, taken from the vocabulary of its category.
+- **Decision:** `allow` (execute immediately), `ask` (a human must confirm), `deny` (reject).
 
-## 3. Datenmodell
+## 3. Data model
 
-Maschinenlesbar: `schema/mandate-v0.schema.json`. Die Schemas in `schema/` sind normativ;
-dieser Text und die Schemas müssen übereinstimmen, ein Widerspruch ist ein Fehler der
-Spezifikation. Kurzfassung:
+Machine-readable: `schema/mandate-v0.schema.json`. The schemas in `schema/` are normative;
+this text and the schemas MUST agree, and any contradiction is an error in the
+specification. Summary:
 
 ```
 Mandate
 ├── type          "https://mandate-spec.org/mandate/v0"
-├── id            eindeutige ID
-├── principal     "household:<id>" oder "person:<id>"
+├── id            unique ID
+├── principal     "household:<id>" or "person:<id>"
 ├── agent         { client_id, display_name }
-├── rules[]       Regel
+├── rules[]       rule
 │   ├── id
-│   ├── resource  Auswahl: entity_id | category | area (mindestens eins) oder allein any: true
-│   ├── actions[] Aktionen aus dem Vokabular oder "*"
+│   ├── resource  selector: entity_id | category | area (at least one) or any: true alone
+│   ├── actions[] actions from the vocabulary or "*"
 │   ├── decision  allow | ask | deny
 │   ├── conditions? { time_window, weekdays }
-│   ├── approval?   { timeout, approvers }   nur bei ask
-│   └── allow_critical?  true, nötig für allow auf kritische Aktionen
-├── default       immer "deny" in v0
-├── approval      Standard für ask: { timeout, approvers }
+│   ├── approval?   { timeout, approvers }   only with ask
+│   └── allow_critical?  true, required for allow on critical actions
+├── default       always "deny" in v0
+├── approval      default for ask: { timeout, approvers }
 ├── limits        { max_actions_per_hour }
 ├── valid_from, expires?
 └── created_by, created_at
 ```
 
-### 3.1 Gültigkeit eines Mandats
+### 3.1 Validity of a mandate
 
-Ein Mandat ist gültig, wenn es das Schema erfüllt **und** zusätzlich:
+A mandate is valid if it conforms to the schema **and** additionally:
 
-0. alle Felder mit `format: date-time` gültige Zeitpunkte nach RFC 3339 mit Offset sind
-   (Implementierungen müssen `format` prüfen, nicht nur als Anmerkung behandeln);
-   Schaltsekunden (`:60`) sind nicht zulässig;
-1. es I-JSON nach RFC 7493 ist: gültiges UTF-8, keine einzelnen Surrogate (z. B. ein
-   allein stehendes `\ud800`), kein JSON-Objekt mit doppeltem Schlüssel, genau ein JSON-Wert;
-2. alle Regel-`id`s innerhalb des Mandats verschieden sind;
-3. bei jedem `time_window` Beginn und Ende verschieden sind;
-4. jede Regel, deren `resource` eine Kategorie aus Abschnitt 5 nennt, nur Aktionen aus deren
-   Vokabular oder `"*"` enthält (z. B. ist `unlock` bei `category: light` ungültig).
-   Nennt die Regel eine Erweiterungs-Kategorie, deren Vokabular die Implementierung nicht
-   kennt, entfällt diese Prüfung; solche Regeln treffen bei der Auswertung nie (Abschnitt 4);
-5. es höchstens 262 144 Bytes (256 KiB) umfasst;
-6. `expires`, falls vorhanden, nach `valid_from` liegt;
-7. jedes `approval.timeout` zwischen 10 Sekunden und 1 Stunde liegt (jeweils einschließlich);
-8. `agent.display_name`, `created_by` und alle `approvers` keine Zeichen der
-   Unicode-Kategorien Cc, Cf, Zl und Zp enthalten (Steuerzeichen, Richtungs- und
-   unsichtbare Formatzeichen, Zeilen- und Absatztrenner). Diese Texte werden Menschen
-   angezeigt, etwa in einer Rückfrage, und dürfen sie nicht täuschen können.
+0. all fields with `format: date-time` are valid RFC 3339 timestamps with an offset
+   (implementations MUST validate `format`, not merely treat it as an annotation);
+   leap seconds (`:60`) are not permitted;
+1. it is I-JSON as defined in RFC 7493: valid UTF-8, no lone surrogates (e.g. a
+   standalone `\ud800`), no JSON object with a duplicate key, exactly one JSON value;
+2. all rule `id`s within the mandate are distinct;
+3. for every `time_window`, start and end are distinct;
+4. every rule whose `resource` names a category from Section 5 contains only actions from that
+   category's vocabulary or `"*"` (e.g. `unlock` with `category: light` is invalid).
+   If the rule names an extension category whose vocabulary the implementation does not
+   know, this check is skipped; such rules never match during evaluation (Section 4);
+5. it is at most 262 144 bytes (256 KiB) in size;
+6. `expires`, if present, is later than `valid_from`;
+7. every `approval.timeout` is between 10 seconds and 1 hour (both inclusive);
+8. `agent.display_name`, `created_by` and all `approvers` contain no characters of the
+   Unicode categories Cc, Cf, Zl and Zp (control characters, bidirectional and
+   invisible format characters, line and paragraph separators). These texts are displayed
+   to humans, for example in an approval request, and MUST NOT be able to mislead them.
 
-Implementierungen dürfen JSON-Eingaben mit einer Verschachtelungstiefe über 32 ablehnen, bevor
-sie das Schema prüfen; gültige Mandate erreichen diese Tiefe nie.
+Implementations MAY reject JSON input with a nesting depth greater than 32 before
+validating it against the schema; valid mandates never reach this depth.
 
-Implementierungen lehnen ungültige Mandate beim Speichern ab. Wird trotzdem ein ungültiges
-Mandat ausgewertet, ist das Ergebnis immer `deny`.
+Implementations reject invalid mandates when they are stored. If an invalid mandate is
+nevertheless evaluated, the result is always `deny`.
 
-Der Widerruf eines Mandats ist kein Feld des Mandats, sondern ein Zustand, den die
-Implementierung führt und der Auswertung übergibt.
+Revocation of a mandate is not a field of the mandate but a state that the
+implementation maintains and passes to the evaluation.
 
-### 3.2 Fingerabdruck eines Mandats
+### 3.2 Digest of a mandate
 
-Jede Fassung eines Mandats wird über ihren Fingerabdruck eindeutig bezeichnet:
+Each version of a mandate is uniquely identified by its digest:
 
 ```
-digest = "sha256:" + hex(SHA-256(JCS(mandat)))
+digest = "sha256:" + hex(SHA-256(JCS(mandate)))
 ```
 
-- `JCS` ist die kanonische JSON-Form nach RFC 8785: Schlüssel sortiert, keine Leerzeichen,
-  festgelegte Schreibweise von Zeichenketten und Zahlen.
-- Berechnet wird über das gültige Mandat (Abschnitt 3.1), nicht über die gespeicherten
-  Bytes. Reihenfolge der Schlüssel und Leerraum ändern den Fingerabdruck daher nicht; jede
-  inhaltliche Änderung ändert ihn.
-- `hex` schreibt Kleinbuchstaben, 64 Zeichen.
+- `JCS` is the canonical JSON form defined in RFC 8785: sorted keys, no whitespace,
+  a fixed representation of strings and numbers.
+- The digest is computed over the valid mandate (Section 3.1), not over the stored
+  bytes. Key order and whitespace therefore do not change the digest; any change in
+  content does.
+- `hex` produces lowercase letters, 64 characters.
 
-Der Fingerabdruck verweist im Protokoll (Abschnitt 9) auf die Fassung, nach der entschieden
-wurde, ohne den Inhalt des Mandats ins Protokoll zu schreiben.
+In the audit log (Section 9), the digest refers to the version on which the decision was
+based, without writing the content of the mandate to the audit log.
 
-## 4. Auswertungsregel
+## 4. Evaluation rule
 
-Eingabe: Mandat, Ressource (Entitäts-ID, Kategorie, Bereich), Aktion, Zeitpunkt,
-Zeitzone des Haushalts, Status des Mandats (`active` oder `revoked`).
+Input: mandate, resource (entity ID, category, area), action, point in time,
+household time zone, status of the mandate (`active` or `revoked`).
 
-**Herkunft der Eingaben:** Kategorie und Bereich ermittelt der PEP aus seinem eigenen
-Verzeichnis der Ressourcen, den Zeitpunkt aus seiner eigenen Uhr, die Zeitzone aus der
-Konfiguration des Haushalts und den Status aus seiner eigenen Verwaltung der Mandate. Nichts
-davon übernimmt er vom Agenten; vom Agenten stammen nur die gewünschte Entitäts-ID und Aktion.
+**Origin of inputs:** The PEP determines the category and area from its own resource
+directory, the point in time from its own clock, the time zone from the household
+configuration and the status from its own mandate management. It takes none of these
+from the agent; only the requested entity ID and action originate from the agent.
 
-0. Vorprüfung, jeweils → `deny`:
-   - das Mandat ist ungültig (Abschnitt 3.1);
-   - die Anfrage ist ungültig: die Entitäts-ID fehlt oder entspricht nicht dem Muster von
-     `entity_id` im Schema, ein angegebener Bereich entspricht nicht dem Muster von `area`,
-     die Kategorie fehlt, Zeitpunkt oder Zeitzone sind ungültig oder unbekannt, oder der
-     Status ist weder `active` noch `revoked`;
-   - die Kategorie steht weder in Abschnitt 5 noch ist sie eine Erweiterung, deren Vokabular
-     die Implementierung kennt;
-   - die Aktion gehört nicht zum Vokabular der Kategorie der Ressource.
-1. Ist das Mandat widerrufen, noch nicht gültig oder abgelaufen → `deny`.
-   Gültig ist es für Zeitpunkte `t` mit `valid_from ≤ t < expires` (ohne `expires`:
-   `valid_from ≤ t`). Verglichen werden Zeitpunkte, nicht Uhrzeiten.
-2. Sammle alle Regeln, deren `resource` die Ressource trifft **und** deren `actions` die
-   Aktion enthalten **und** deren `conditions` zum Zeitpunkt erfüllt sind.
-   - `resource` trifft, wenn **alle** angegebenen Felder passen
-     (z. B. `category: light` und `area: wohnzimmer` = Licht im Wohnzimmer).
-     `any: true` trifft jede Ressource. Verglichen wird zeichengenau, mit Unterscheidung von
-     Groß- und Kleinschreibung, ohne Normalisierung.
-   - `"*"` in `actions` enthält jede Aktion, auch kritische.
-   - `read` ist eine eigene Aktion. Schreibrechte schließen Leserechte nicht ein.
-3. Keine Regel gefunden → `default` (`deny`).
-4. Sonst gewinnt die **strengste** Entscheidung: `deny` vor `ask` vor `allow`.
-5. Schutzklasse: Ist die Aktion **kritisch** (Abschnitt 5) und das Ergebnis `allow`, trägt
-   aber nicht **jede** der passenden `allow`-Regeln `allow_critical: true` → Ergebnis wird `ask`.
-   Bei nicht kritischen Aktionen hat `allow_critical` keine Wirkung.
+0. Pre-check, each case → `deny`:
+   - the mandate is invalid (Section 3.1);
+   - the request is invalid: the entity ID is missing or does not match the pattern of
+     `entity_id` in the schema, a given area does not match the pattern of `area`,
+     the category is missing, the point in time or the time zone is invalid or unknown, or the
+     status is neither `active` nor `revoked`;
+   - the category is neither listed in Section 5 nor an extension whose vocabulary
+     the implementation knows;
+   - the action does not belong to the vocabulary of the resource's category.
+1. If the mandate is revoked, not yet valid or expired → `deny`.
+   It is valid for points in time `t` with `valid_from ≤ t < expires` (without `expires`:
+   `valid_from ≤ t`). Points in time are compared, not clock times.
+2. Collect all rules whose `resource` matches the resource **and** whose `actions` contain the
+   action **and** whose `conditions` are satisfied at the point in time.
+   - `resource` matches if **all** specified fields match
+     (e.g. `category: light` and `area: wohnzimmer` = lights in the living room).
+     `any: true` matches every resource. Comparison is exact per character, case-sensitive
+     and without normalization.
+   - `"*"` in `actions` contains every action, including critical ones.
+   - `read` is an action in its own right. Write permissions do not include read permissions.
+3. No rule found → `default` (`deny`).
+4. Otherwise the **most restrictive** decision wins: `deny` over `ask` over `allow`.
+5. Protection class: If the action is **critical** (Section 5) and the result is `allow`, but
+   not **every** one of the matching `allow` rules carries `allow_critical: true` → the result becomes `ask`.
+   For non-critical actions, `allow_critical` has no effect.
 
-Die Regel ist bewusst einfach: Wer etwas breit erlaubt und einzelnes verbietet, bekommt das
-Verbot. Wer etwas breit auf `ask` stellt und einzelnes erlaubt, bekommt `ask`. Im Zweifel
-gewinnt immer die sicherere Seite.
+The rule is deliberately simple: whoever allows something broadly and denies individual items
+gets the denial. Whoever sets something broadly to `ask` and allows individual items gets `ask`.
+When in doubt, the safer side always wins.
 
-`limits` sind nicht Teil der Auswertung. Das Tempolimit setzt der PEP durch.
+`limits` are not part of the evaluation. The PEP enforces the rate limit.
 
-### 4.1 Ergebnis
+### 4.1 Result
 
-Neben der Entscheidung liefert die Auswertung:
+In addition to the decision, the evaluation returns:
 
-- **`reason`:** genau ein Begründungscode. Treffen mehrere Gründe zu, gilt der erste in
-  dieser Reihenfolge:
+- **`reason`:** exactly one reason code. If several reasons apply, the first one in
+  the following order applies:
 
-  | Code | Entscheidung | Bedeutung |
+  | Code | Decision | Meaning |
   |---|---|---|
-  | `invalid_mandate` | deny | Mandat ungültig (Abschnitt 3.1) |
-  | `invalid_request` | deny | Anfrage ungültig (Schritt 0, zweiter Punkt) |
-  | `unknown_category` | deny | Kategorie weder in Abschnitt 5 noch bekannte Erweiterung |
-  | `unknown_action` | deny | Aktion nicht im Vokabular der Kategorie |
-  | `revoked` | deny | Mandat widerrufen |
-  | `not_yet_valid` | deny | Zeitpunkt vor `valid_from` |
-  | `expired` | deny | Zeitpunkt ab `expires` |
-  | `no_match` | deny | keine Regel trifft, `default` |
-  | `critical_demotion` | ask | `allow` wurde nach Schritt 5 zu `ask` |
-  | `rule` | allow, ask, deny | Entscheidung einer Regel nach Schritt 4 |
+  | `invalid_mandate` | deny | mandate invalid (Section 3.1) |
+  | `invalid_request` | deny | request invalid (step 0, second item) |
+  | `unknown_category` | deny | category neither in Section 5 nor a known extension |
+  | `unknown_action` | deny | action not in the category's vocabulary |
+  | `revoked` | deny | mandate revoked |
+  | `not_yet_valid` | deny | point in time before `valid_from` |
+  | `expired` | deny | point in time at or after `expires` |
+  | `no_match` | deny | no rule matches, `default` |
+  | `critical_demotion` | ask | `allow` became `ask` per step 5 |
+  | `rule` | allow, ask, deny | decision of a rule per step 4 |
 
-- **`mandate_digest`:** Fingerabdruck des ausgewerteten Mandats (Abschnitt 3.2); fehlt bei
+- **`mandate_digest`:** digest of the evaluated mandate (Section 3.2); absent for
   `invalid_mandate`.
-- **`rule_id`:** die erste Regel in Dokumentreihenfolge, die die Endentscheidung trägt.
-  Bei Schritt 5 ist das die erste passende `allow`-Regel ohne `allow_critical`.
-  Bei Vorprüfung, Schritt 1 und Schritt 3 gibt es keine `rule_id`.
-- **Freigabe-Einstellung** (nur bei `ask`): `approval` der ersten passenden `ask`-Regel in
-  Dokumentreihenfolge, die ein eigenes `approval` hat, sonst das `approval` des Mandats.
+- **`rule_id`:** the first rule in document order that carries the final decision.
+  For step 5, this is the first matching `allow` rule without `allow_critical`.
+  For the pre-check, step 1 and step 3, there is no `rule_id`.
+- **Approval settings** (only for `ask`): the `approval` of the first matching `ask` rule in
+  document order that has its own `approval`, otherwise the `approval` of the mandate.
 
-### 4.2 Bedingungen
+### 4.2 Conditions
 
-Alle Bedingungen einer Regel müssen erfüllt sein. Geprüft wird in **Ortszeit des
-Haushalts**: Der Zeitpunkt wird in die Zeitzone des Haushalts umgerechnet.
+All conditions of a rule MUST be satisfied. They are checked in **household local
+time**: the point in time is converted to the household's time zone.
 
-- Die Zeitzone ist ein Bezeichner der IANA-Zeitzonendatenbank, zeichengenau mit Groß- und
-  Kleinschreibung: `UTC` oder die Form `Gebiet/Ort` (z. B. `Europe/Berlin`,
-  `America/Argentina/Buenos_Aires`, `Etc/GMT+9`), wobei jeder Teil mit einem Großbuchstaben
-  beginnt und nur `A–Z`, `a–z`, `0–9`, `_`, `-`, `+` enthält; höchstens 64 Zeichen.
-  Andere Namen (auch `Local`, `localtime` oder Kürzel wie `CET`) und Namen, die die
-  Implementierung nicht kennt, ergeben `invalid_request`.
-- Wird keine Zeitzone übergeben, gilt der Offset, mit dem der Zeitpunkt angegeben ist.
-- Für den Vergleich zählen Stunde und Minute der Ortszeit; Sekunden und Bruchteile werden
-  abgeschnitten (23:58:59 ist 23:58).
+- The time zone is an identifier from the IANA time zone database, exact per character and
+  case-sensitive: `UTC` or the form `Area/Location` (e.g. `Europe/Berlin`,
+  `America/Argentina/Buenos_Aires`, `Etc/GMT+9`), where each part begins with an uppercase letter
+  and contains only `A–Z`, `a–z`, `0–9`, `_`, `-`, `+`; at most 64 characters.
+  Other names (including `Local`, `localtime` or abbreviations such as `CET`) and names that the
+  implementation does not know result in `invalid_request`.
+- If no time zone is given, the offset with which the point in time is expressed applies.
+- For the comparison, the hour and minute of local time are used; seconds and fractions are
+  truncated (23:58:59 is 23:58).
 
-- `time_window`: `"HH:MM-HH:MM"`, minutengenau, Beginn einschließlich, Ende ausschließlich.
-  `"06:00-22:00"` trifft 06:00 bis 21:59. Ist der Beginn größer als das Ende, geht das
-  Fenster über Mitternacht: `"22:00-06:00"` trifft ab 22:00 und vor 06:00.
-  Bei der Zeitumstellung zählt die Uhrzeit, die im Haushalt angezeigt wird; eine doppelt
-  vorkommende Stunde trifft beide Male.
-- `weekdays`: Liste aus `mon` … `sun`. Maßgeblich ist der Wochentag des Zeitpunkts in
-  Ortszeit, auch bei Fenstern über Mitternacht (Freitag 22:00 bis Samstag 02:00 mit
-  `weekdays: ["fri"]` trifft nur bis Mitternacht).
+- `time_window`: `"HH:MM-HH:MM"`, minute precision, start inclusive, end exclusive.
+  `"06:00-22:00"` matches 06:00 through 21:59. If the start is greater than the end, the
+  window spans midnight: `"22:00-06:00"` matches from 22:00 and before 06:00.
+  During daylight saving time transitions, the clock time displayed in the household counts;
+  an hour that occurs twice matches both times.
+- `weekdays`: list of `mon` … `sun`. The weekday of the point in time in local time is
+  decisive, including for windows spanning midnight (Friday 22:00 to Saturday 02:00 with
+  `weekdays: ["fri"]` matches only until midnight).
 
-## 5. Vokabular v0
+## 5. Vocabulary v0
 
-Normativ sind die Spalten Kategorie, Aktionen und Kritisch. Die Spalten zu Home Assistant
-und Matter sind informativ: Sie zeigen, wie eine Plattform ihre Geräte zuordnen kann.
+The columns Category, Actions and Critical are normative. The columns for Home Assistant
+and Matter are informative: they show how a platform can map its devices.
 
-| Kategorie | Aktionen | Kritisch | Home Assistant (informativ, Referenzimplementierung) | Matter (informativ, zu verifizieren) |
+| Category | Actions | Critical | Home Assistant (informative, reference implementation) | Matter (informative, to be verified) |
 |---|---|---|---|---|
 | `light` | read, turn_on, turn_off, set | – | `light.*` | OnOffLight, DimmableLight |
 | `switch` | read, turn_on, turn_off | – | `switch.*` | OnOffPlugInUnit |
 | `climate` | read, set_temperature, set_mode | – | `climate.*` | Thermostat |
-| `cover` | read, open, close, stop, set_position | – | `cover.*` (ohne Tor/Garage) | WindowCovering |
-| `gate` | read, open, close | open | `cover.*` mit device_class `garage` oder `gate` | – |
+| `cover` | read, open, close, stop, set_position | – | `cover.*` (excluding gate/garage) | WindowCovering |
+| `gate` | read, open, close | open | `cover.*` with device_class `garage` or `gate` | – |
 | `lock` | read, lock, unlock, open | unlock, open | `lock.*` | DoorLock |
 | `alarm` | read, arm, disarm | disarm | `alarm_control_panel.*` | – |
 | `camera` | read, snapshot | snapshot | `camera.*` | Camera |
@@ -219,19 +222,19 @@ und Matter sind informativ: Sie zeigen, wie eine Plattform ihre Geräte zuordnen
 | `sensor` | read | – | `sensor.*`, `binary_sensor.*` | – |
 | `scene` | read, activate | – | `scene.*` | – |
 | `script` | read, run | run | `script.*` | – |
-| `other` | read, set | set | alle übrigen Domains | – |
+| `other` | read, set | set | all other domains | – |
 
-`script.run` und `other.set` sind kritisch, weil Skripte und unbekannte Entitäten beliebige
-Folgen haben können, auch das Öffnen von Türen.
+`script.run` and `other.set` are critical because scripts and unknown entities can have
+arbitrary consequences, including opening doors.
 
-Erweiterungen für andere Plattformen erhalten eigene Namensräume, z. B.
-`paperless:document` mit `read`, `tag`, `delete`. Eine Erweiterung legt ihr Vokabular und
-ihre kritischen Aktionen fest. Kennt eine Implementierung das Vokabular einer Erweiterung
-nicht, ist jede Anfrage an eine Ressource dieser Kategorie `deny`.
+Extensions for other platforms receive their own namespaces, e.g.
+`paperless:document` with `read`, `tag`, `delete`. An extension defines its vocabulary and
+its critical actions. If an implementation does not know the vocabulary of an extension,
+every request for a resource of that category is `deny`.
 
-## 6. AuthZEN-Abbildung
+## 6. AuthZEN mapping
 
-Der PEP fragt den PDP gemäß AuthZEN Authorization API 1.0 an:
+The PEP queries the PDP in accordance with AuthZEN Authorization API 1.0:
 
 ```json
 POST /access/v1/evaluation
@@ -245,8 +248,8 @@ POST /access/v1/evaluation
 }
 ```
 
-AuthZEN kennt nur `true` oder `false`. Die dritte Entscheidung wird im Antwortkontext
-übermittelt:
+AuthZEN only knows `true` or `false`. The third decision is conveyed in the response
+context:
 
 ```json
 { "decision": false,
@@ -255,230 +258,230 @@ AuthZEN kennt nur `true` oder `false`. Die dritte Entscheidung wird im Antwortko
                "mandate_digest": "sha256:9f2c…" } }
 ```
 
-`reason` ist Pflicht, `mandate_digest` ebenfalls außer bei `invalid_mandate`; `rule_id` und
-`approval_timeout` stehen im Kontext, wenn Abschnitt 4.1 sie vorsieht.
+`reason` is REQUIRED, as is `mandate_digest` except for `invalid_mandate`; `rule_id` and
+`approval_timeout` are included in the context when Section 4.1 provides for them.
 
-Zuordnung der Felder:
+Field mapping:
 
-| AuthZEN | Eingabe nach Abschnitt 4 |
+| AuthZEN | Input per Section 4 |
 |---|---|
-| `subject.id` | `agent.client_id`; wählt zusammen mit `subject.properties.principal` das Mandat aus |
-| `resource.id` | Entitäts-ID |
-| `resource.type` | Kategorie |
-| `resource.properties.area` | Bereich |
-| `action.name` | Aktion |
-| `context.time` | Zeitpunkt |
+| `subject.id` | `agent.client_id`; together with `subject.properties.principal`, selects the mandate |
+| `resource.id` | entity ID |
+| `resource.type` | category |
+| `resource.properties.area` | area |
+| `action.name` | action |
+| `context.time` | point in time |
 
-Der PDP setzt `resource.type`, `resource.properties.area` und `context.time` nicht ungeprüft
-ein, sondern nach Abschnitt 4 „Herkunft der Eingaben“. Findet der PDP zu Agent und
-Vollmachtgeber kein Mandat, ist das Ergebnis `deny` mit `reason: invalid_mandate`.
+The PDP does not use `resource.type`, `resource.properties.area` and `context.time` without
+verification, but in accordance with Section 4 "Origin of inputs". If the PDP finds no mandate
+for the agent and principal, the result is `deny` with `reason: invalid_mandate`.
 
 - `outcome: allow` → `decision: true`
-- `outcome: ask` → `decision: false`, PEP muss eine Bestätigung einholen und darf nur bei
-  positiver Antwort ausführen
+- `outcome: ask` → `decision: false`; the PEP MUST obtain a confirmation and MUST NOT execute
+  the action unless the response is positive
 - `outcome: deny` → `decision: false`
 
-Ein PEP, der `ask` nicht kennt, behandelt die Antwort automatisch als Ablehnung. Damit ist
-die Erweiterung abwärtskompatibel und sicher.
+A PEP that does not know `ask` automatically treats the response as a denial. The
+extension is thus backward-compatible and safe.
 
-## 7. Transport im OAuth-Fluss (vorgesehen)
+## 7. Transport in the OAuth flow (planned)
 
-Ein Mandat kann als `authorization_details`-Objekt (RFC 9396) mit
-`type: "https://mandate-spec.org/mandate/v0"` dargestellt werden, z. B. in der
-Token-Introspektion oder wenn ein Agent bei der Anmeldung ein gewünschtes Mandat vorschlägt.
-In v0.1 wählt immer der Mensch das Mandat; Vorschläge des Agenten sind nur Vorbelegung.
+A mandate can be represented as an `authorization_details` object (RFC 9396) with
+`type: "https://mandate-spec.org/mandate/v0"`, e.g. in
+token introspection or when an agent proposes a desired mandate at sign-in.
+In v0.1, the human always chooses the mandate; proposals by the agent are only pre-filled defaults.
 
-## 8. Konformität und Zertifizierung
+## 8. Conformance and certification
 
-`conformance/cases-v0.json` enthält die Fälle: Mandat + Anfrage + erwartete Entscheidung.
-Pfade zu Mandaten sind relativ zum Wurzelverzeichnis dieses Repositorys. Die Sammlung wächst
-mit jeder Version; jeder gefundene Fehler wird zuerst als Fall ergänzt.
+`conformance/cases-v0.json` contains the cases: mandate + request + expected decision.
+Paths to mandates are relative to the root directory of this repository. The collection grows
+with every version; every bug found is first added as a case.
 
-Felder eines Falls:
+Fields of a case:
 
-| Feld | Pflicht | Bedeutung |
+| Field | Required | Meaning |
 |---|---|---|
-| `id` | ja | eindeutige Kennung |
-| `mandate` / `mandate_inline` | eins davon | Pfad zum Mandat oder Mandat direkt im Fall |
-| `resource` | ja | `entity_id`, `category`, `area` der Ressource |
-| `action` | ja | angefragte Aktion |
-| `time` | ja | Zeitpunkt nach RFC 3339 |
-| `timezone` | nein | Zeitzone des Haushalts (IANA); fehlt sie, gilt der Offset in `time` |
-| `revoked` | nein | `true`: Status `revoked`; fehlt das Feld oder ist es `false`: Status `active` |
-| `expected` | ja | `allow`, `ask` oder `deny` |
-| `reason` | ja | erwarteter Begründungscode nach Abschnitt 4.1 |
-| `rule_id` | nein | erwartete `rule_id` nach Abschnitt 4.1; fehlt das Feld, wird sie nicht geprüft; `null` heißt: keine |
-| `approval_timeout` | nein | erwartetes `timeout` der Freigabe-Einstellung bei `ask` |
-| `why` | nein | Erklärung für Menschen |
+| `id` | yes | unique identifier |
+| `mandate` / `mandate_inline` | one of them | path to the mandate, or the mandate inline in the case |
+| `resource` | yes | `entity_id`, `category`, `area` of the resource |
+| `action` | yes | requested action |
+| `time` | yes | point in time per RFC 3339 |
+| `timezone` | no | household time zone (IANA); if absent, the offset in `time` applies |
+| `revoked` | no | `true`: status `revoked`; if the field is absent or `false`: status `active` |
+| `expected` | yes | `allow`, `ask` or `deny` |
+| `reason` | yes | expected reason code per Section 4.1 |
+| `rule_id` | no | expected `rule_id` per Section 4.1; if the field is absent, it is not checked; `null` means: none |
+| `approval_timeout` | no | expected `timeout` of the approval settings for `ask` |
+| `why` | no | explanation for humans |
 
-`conformance/invalid-v0.json` enthält Mandate, die nach Abschnitt 3.1 ungültig sind und
-abgelehnt werden müssen (`mandate_inline`, oder `mandate_raw` als Zeichenkette, wenn sich der
-Fehler nicht als JSON-Objekt darstellen lässt, etwa doppelte Schlüssel).
+`conformance/invalid-v0.json` contains mandates that are invalid per Section 3.1 and
+MUST be rejected (`mandate_inline`, or `mandate_raw` as a string if the
+error cannot be represented as a JSON object, such as duplicate keys).
 
-`conformance/digest-v0.json` enthält unter `cases` Mandate (`mandate`, `mandate_inline` oder
-`mandate_raw`) mit ihrem erwarteten Fingerabdruck `digest` (Abschnitt 3.2).
+`conformance/digest-v0.json` contains, under `cases`, mandates (`mandate`, `mandate_inline` or
+`mandate_raw`) with their expected digest `digest` (Section 3.2).
 
-`conformance/audit-v0.json` enthält unter `logs` Protokolle: `entries` (die Einträge in
-Dateireihenfolge), `expected` (`valid` oder `invalid`), bei `invalid` die erwartete Stelle
-`broken_at` (Abschnitt 9.4) und optional `entry_digests` (Fingerabdruck jedes Eintrags, zur
-Fehlersuche).
+`conformance/audit-v0.json` contains, under `logs`, audit logs: `entries` (the entries in
+file order), `expected` (`valid` or `invalid`), for `invalid` the expected position
+`broken_at` (Section 9.4) and optionally `entry_digests` (the digest of each entry, for
+debugging).
 
-Alle Dateien haben neben `cases` bzw. `logs` eine `description`; jeder Fall hat eine
-eindeutige `id` und optional `why`.
+In addition to `cases` or `logs` respectively, every file has a `description`; every case has a
+unique `id` and optionally `why`.
 
-Zwei Prüfwege:
+Two ways of testing:
 
-1. **Bibliothek:** Implementierungen in Go können die Referenz-Auswertung aus diesem
-   Repository einbinden oder ihre eigene Auswertung gegen die Fälle testen.
-2. **Black-Box:** Das Prüfwerkzeug `mandate-conformance` spielt alle Fälle gegen den
-   AuthZEN-Endpunkt einer beliebigen Implementierung ab, unabhängig von Sprache und Hersteller.
-   Es lädt dazu die Mandate über eine Test-Schnittstelle, die in Abschnitt 10 definiert wird
-   (folgt mit v0.2).
+1. **Library:** Implementations in Go can embed the reference evaluator from this
+   repository or test their own evaluator against the cases.
+2. **Black box:** The test tool `mandate-conformance` replays all cases against the
+   AuthZEN endpoint of any implementation, independent of language and vendor.
+   For this purpose, it loads the mandates via a test interface defined in Section 10
+   (to follow with v0.2).
 
-Eine Implementierung ist konform zu einer Version, wenn sie alle Fälle dieser Version besteht.
-Der Prüfbericht ist maschinenlesbar und kann veröffentlicht werden. Ein formales
-Zertifizierungsprogramm mit Logo folgt erst, wenn die Spezifikation eingefroren ist.
+An implementation conforms to a version if it passes all cases of that version.
+The test report is machine-readable and can be published. A formal
+certification program with a logo will follow only once the specification is frozen.
 
-## 9. Protokoll
+## 9. Audit log
 
-Jede Implementierung führt ein Protokoll, aus dem hervorgeht, **welcher Agent wann was auf
-Grundlage welcher Konfiguration** getan hat. Format und Verkettung sind festgelegt, damit
-Protokolle verschiedener Implementierungen mit denselben Werkzeugen geprüft werden können.
-Maschinenlesbar: `schema/audit-v0.schema.json`.
+Every implementation maintains an audit log that shows **which agent did what, when, on the
+basis of which configuration**. The format and the hash chain are fixed so that
+audit logs of different implementations can be verified with the same tools.
+Machine-readable: `schema/audit-v0.schema.json`.
 
-### 9.1 Einträge
+### 9.1 Entries
 
-Jeder Eintrag ist ein JSON-Objekt mit `type: "https://mandate-spec.org/audit/v0"` und:
+Each entry is a JSON object with `type: "https://mandate-spec.org/audit/v0"` and:
 
-| Feld | Inhalt |
+| Field | Contents |
 |---|---|
 | `id` | UUIDv7 (RFC 9562) |
-| `seq` | fortlaufende Nummer im Protokoll, beginnt bei 1, ohne Lücken |
-| `recorded_at` | Zeitpunkt des Eintrags (RFC 3339) |
-| `event` | Ereignisart (Abschnitt 9.2) |
-| `principal` | Vollmachtgeber |
-| `prev` | Fingerabdruck des vorherigen Eintrags (Abschnitt 9.4), beim ersten Eintrag `null` |
+| `seq` | sequential number in the audit log, starting at 1, without gaps |
+| `recorded_at` | point in time of the entry (RFC 3339) |
+| `event` | event type (Section 9.2) |
+| `principal` | principal |
+| `prev` | digest of the previous entry (Section 9.4); `null` for the first entry |
 
-Je nach Ereignis kommen hinzu:
+Depending on the event, the following are added:
 
-| Feld | Inhalt |
+| Field | Contents |
 |---|---|
-| `actor` | wer eine Änderung ausgelöst hat: `kind` (`user`, `agent`, `system`) und `id` |
-| `agent` | `client_id`, optional `display_name` |
-| `request` | Eingabe der Auswertung: `resource`, `action`, `time`, optional `timezone` und `revoked` |
-| `mandate` | `id`, `digest`, bei `mandate.updated` zusätzlich `previous_digest` |
-| `evaluation` | Ergebnis nach Abschnitt 4.1: `decision`, `reason`, `rule_id`, optional `approval_timeout` |
-| `approval` | Ausgang einer Rückfrage: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (wer geantwortet hat; Pflicht außer bei `timeout`) |
-| `result` | `status`: `executed`, `denied` (mit `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) oder `failed` (mit `error`, ein Code aus Kleinbuchstaben, Ziffern und `_`); optional `duration_ms` |
-| `truncated` | `up_to_seq`, `last_digest` (Abschnitt 9.4) |
+| `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
+| `agent` | `client_id`, optionally `display_name` |
+| `request` | input to the evaluation: `resource`, `action`, `time`, optionally `timezone` and `revoked` |
+| `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest` |
+| `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` |
+| `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (who responded; required except for `timeout`) |
+| `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); optionally `duration_ms` |
+| `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
 
-Für `decision` gilt zusätzlich:
+For `decision`, the following additionally applies:
 
-- `executed` nur mit `evaluation` und `mandate`, und nur wenn `evaluation.decision` `allow`
-  ist oder `ask` mit `approval.outcome: approved`;
-- ist `evaluation.decision` `deny`, dann ist `result` `denied` mit `denied_by: mandate`.
+- `executed` only with `evaluation` and `mandate`, and only if `evaluation.decision` is `allow`
+  or `ask` with `approval.outcome: approved`;
+- if `evaluation.decision` is `deny`, then `result` is `denied` with `denied_by: mandate`.
 
-Einträge enthalten **nie** Token, Nonces, Zugangsdaten oder den Inhalt eines Mandats.
+Entries **never** contain tokens, nonces, credentials or the content of a mandate.
 
-### 9.2 Ereignisse
+### 9.2 Events
 
-| `event` | Pflicht | Wann |
+| `event` | Required | When |
 |---|---|---|
-| `decision` | ja | jede Anfrage eines angemeldeten Agenten, auch wenn sie vor der Auswertung abgelehnt wird (z. B. Tempolimit, Not-Aus) |
-| `mandate.created`, `mandate.updated`, `mandate.revoked` | ja | jede Änderung eines Mandats, mit Fingerabdruck alt und neu |
-| `agent.registered`, `agent.revoked` | ja | Zulassung und Entzug eines Agenten |
-| `emergency_stop.activated`, `emergency_stop.released` | ja | Not-Aus, sofern die Implementierung einen hat |
-| `log.truncated` | ja | vor dem Löschen alter Einträge (Abschnitt 9.4) |
-| `auth.rejected` | nein | abgewiesene Anmeldung oder ungültiges Token |
+| `decision` | yes | every request from an authenticated agent, even if it is rejected before evaluation (e.g. rate limit, emergency stop) |
+| `mandate.created`, `mandate.updated`, `mandate.revoked` | yes | every change to a mandate, with old and new digest |
+| `agent.registered`, `agent.revoked` | yes | admission and revocation of an agent |
+| `emergency_stop.activated`, `emergency_stop.released` | yes | emergency stop, if the implementation has one |
+| `log.truncated` | yes | before deleting old entries (Section 9.4) |
+| `auth.rejected` | no | rejected sign-in or invalid token |
 
-Bei `decision` stimmt `evaluation` mit dem Ergebnis überein, das die Auswertung (Abschnitt 4)
-für `request` und die Fassung `mandate.digest` liefert. Damit lässt sich jede Entscheidung
-nachrechnen.
+For `decision`, `evaluation` matches the result that the evaluation (Section 4)
+returns for `request` and the version `mandate.digest`. This makes every decision
+reproducible.
 
-Tempolimit (`limits`, vom PEP durchgesetzt) und Not-Aus sind Funktionen der Implementierung,
-die diese Spezifikation nicht weiter festlegt. Hat eine Implementierung sie, protokolliert sie
-Absagen mit `denied_by: rate_limit` bzw. `emergency_stop` und den Not-Aus mit den
-`emergency_stop.*`-Ereignissen.
+The rate limit (`limits`, enforced by the PEP) and the emergency stop are functions of the implementation
+that this specification does not define further. If an implementation has them, it logs
+denials with `denied_by: rate_limit` or `emergency_stop` respectively, and the emergency stop with the
+`emergency_stop.*` events.
 
-### 9.3 Aufbewahrung
+### 9.3 Retention
 
-- Jede Mandatsfassung wird mindestens so lange aufbewahrt wie Einträge, die auf ihren
-  Fingerabdruck verweisen.
-- Wie lange Einträge aufbewahrt werden, legt die Implementierung fest. Gelöscht werden
-  dürfen nur die ältesten Einträge (Abschnitt 9.4).
+- Each mandate version is retained at least as long as entries that refer to its
+  digest.
+- How long entries are retained is determined by the implementation. Only the oldest entries
+  MAY be deleted (Section 9.4).
 
-### 9.4 Verkettung und Prüfung
+### 9.4 Hash chain and verification
 
-- Fingerabdruck eines Eintrags: `"sha256:" + hex(SHA-256(JCS(eintrag)))`, über den
-  vollständigen Eintrag einschließlich `prev`.
-- `prev` jedes Eintrags ist der Fingerabdruck seines Vorgängers; beim Eintrag mit `seq` 1
-  ist `prev` `null`.
-- Vor dem Löschen der Einträge bis einschließlich `seq` n wird ein Eintrag `log.truncated`
-  mit `truncated: { up_to_seq: n, last_digest: <Fingerabdruck von Eintrag n> }` angefügt.
-- Austauschformat: JSON Lines (ein Eintrag pro Zeile, UTF-8, aufsteigend nach `seq`).
+- Digest of an entry: `"sha256:" + hex(SHA-256(JCS(entry)))`, computed over the
+  complete entry including `prev`.
+- The `prev` of each entry is the digest of its predecessor; for the entry with `seq` 1,
+  `prev` is `null`.
+- Before the entries up to and including `seq` n are deleted, a `log.truncated` entry
+  with `truncated: { up_to_seq: n, last_digest: <digest of entry n> }` is appended.
+- Exchange format: JSON Lines (one entry per line, UTF-8, in ascending `seq` order).
 
-Ein Protokoll ist **gültig**, wenn in Dateireihenfolge:
+An audit log is **valid** if, in file order:
 
-1. jeder Eintrag das Schema erfüllt;
-2. der erste Eintrag entweder `seq` 1 hat oder ein späterer Eintrag `log.truncated` mit
-   `up_to_seq` = `seq` − 1 und `last_digest` = `prev` des ersten Eintrags vorhanden ist;
-3. jeder weitere Eintrag die `seq` seines Vorgängers plus 1 hat und `prev` dessen
-   Fingerabdruck ist.
+1. every entry conforms to the schema;
+2. the first entry either has `seq` 1, or a later `log.truncated` entry with
+   `up_to_seq` = `seq` − 1 and `last_digest` = `prev` of the first entry is present;
+3. every subsequent entry has the `seq` of its predecessor plus 1 and its `prev` is the
+   predecessor's digest.
 
-Ist ein Protokoll ungültig, meldet die Prüfung `broken_at`: die `seq` des ersten Eintrags in
-Dateireihenfolge, der eine der Bedingungen verletzt. Die Bedingungen werden in der genannten
-Reihenfolge geprüft: zuerst das Schema aller Einträge, dann der Anfang, dann die Kette.
+If an audit log is invalid, verification reports `broken_at`: the `seq` of the first entry in
+file order that violates one of the conditions. The conditions are checked in the order
+given: first the schema of all entries, then the start, then the chain.
 
-Grenze: Die Verkettung zeigt Änderungen, Lücken und Umstellungen **innerhalb** des
-Protokolls. Werden die neuesten Einträge entfernt oder der letzte geändert, erkennt sie das
-nicht. Dafür muss das Ende der Kette außerhalb gesichert werden (Signatur oder Kopie); das
-regelt eine spätere Version.
+Limitation: The hash chain reveals changes, gaps and reorderings **within** the
+audit log. It does not detect removal of the most recent entries or modification of the last one.
+For that, the end of the chain must be secured externally (signature or copy); this
+will be addressed in a later version.
 
-## 10. Test-Schnittstelle
+## 10. Test interface
 
-Folgt mit v0.2.
+To follow with v0.2.
 
-## Änderungsprotokoll
+## Changelog
 
 ### v0.1.0-alpha.1
 
-Inkompatibel:
-- `type` und Schema-`$id` auf die neutrale Domain verschoben:
-  `https://mandate-spec.org/mandate/v0`. Name der Spezifikation: mandate-spec.
-- Neue Gültigkeitsregeln für Mandate (Abschnitt 3.1): `format: date-time` wird geprüft,
-  keine Schaltsekunden, I-JSON, eindeutige Regel-IDs, `time_window` mit verschiedenem Beginn
-  und Ende, Aktionen passend zur Kategorie, höchstens 256 KiB, `expires` nach `valid_from`,
-  Freigabe-Timeout 10 s bis 1 h, keine Steuer- und Formatzeichen in angezeigten Texten.
-- `agent.client_id`: https-URL oder `<namensraum>:<id>` statt des produktspezifischen
-  Präfixes `hm-client:` (bestehende `hm-client:`-IDs bleiben gültig).
-- Anfrage: Entitäts-ID ist Pflicht und muss dem Muster entsprechen, Bereich ebenso; Status
-  des Mandats ist Pflicht (`active` oder `revoked`).
-- Die Schemas sind normativ.
+Incompatible:
+- `type` and schema `$id` moved to the neutral domain:
+  `https://mandate-spec.org/mandate/v0`. Name of the specification: mandate-spec.
+- New validity rules for mandates (Section 3.1): `format: date-time` is validated,
+  no leap seconds, I-JSON, unique rule IDs, `time_window` with distinct start
+  and end, actions matching the category, at most 256 KiB, `expires` after `valid_from`,
+  approval timeout 10 s to 1 h, no control or format characters in displayed texts.
+- `agent.client_id`: https URL or `<namespace>:<id>` instead of the product-specific
+  prefix `hm-client:` (existing `hm-client:` IDs remain valid).
+- Request: the entity ID is required and must match the pattern, as must the area; the status
+  of the mandate is required (`active` or `revoked`).
+- The schemas are normative.
 
-Präzisiert (Abschnitt 4), jeweils mit neuen Konformitätsfällen:
-- Vorprüfung: unbekannte Kategorie, Aktion außerhalb des Vokabulars, ungültige Zeitangabe
-  oder ungültiges Mandat → `deny`.
-- Gültigkeitszeitraum `valid_from ≤ t < expires`; Widerruf als Eingabe der Auswertung.
-- Ortszeit über die Zeitzone des Haushalts; Zeitfenster Beginn einschließlich, Ende
-  ausschließlich; Wochentag des Zeitpunkts; Verhalten bei der Zeitumstellung.
-- `rule_id` und Freigabe-Einstellung im Ergebnis (Abschnitt 4.1).
-- `limits` gehören nicht zur Auswertung.
-- Erweiterungen ohne bekanntes Vokabular → `deny`.
-- Herkunft der Eingaben: Kategorie, Bereich, Zeit, Zeitzone und Status kommen vom PEP,
-  nie vom Agenten; Vergleich zeichengenau mit Groß- und Kleinschreibung.
-- Zeitzonen: nur `UTC` oder IANA-Bezeichner der Form `Gebiet/Ort`; Sekunden werden
-  abgeschnitten.
-- AuthZEN-Abbildung der Felder (Abschnitt 6); Home-Assistant- und Matter-Spalten im
-  Vokabular sind informativ.
-- Protokoll: Pflichtfelder je Ereignis, `executed` nur nach erlaubender Entscheidung,
-  `broken_at` auch bei Schemaverstoß (Abschnitt 9).
+Clarified (Section 4), each with new conformance cases:
+- Pre-check: unknown category, action outside the vocabulary, invalid time specification
+  or invalid mandate → `deny`.
+- Validity period `valid_from ≤ t < expires`; revocation as an input to the evaluation.
+- Local time via the household time zone; time window start inclusive, end
+  exclusive; weekday of the point in time; behavior during daylight saving time transitions.
+- `rule_id` and approval settings in the result (Section 4.1).
+- `limits` are not part of the evaluation.
+- Extensions without a known vocabulary → `deny`.
+- Origin of inputs: category, area, time, time zone and status come from the PEP,
+  never from the agent; comparison exact per character and case-sensitive.
+- Time zones: only `UTC` or IANA identifiers of the form `Area/Location`; seconds are
+  truncated.
+- AuthZEN mapping of the fields (Section 6); the Home Assistant and Matter columns in the
+  vocabulary are informative.
+- Audit log: required fields per event, `executed` only after a permitting decision,
+  `broken_at` also on schema violations (Section 9).
 
-Neu:
-- Fingerabdruck eines Mandats (Abschnitt 3.2), Begründungscodes (Abschnitt 4.1), beides
-  Pflicht im AuthZEN-Antwortkontext (Abschnitt 6).
-- Protokoll mit festem Format und Hash-Kette (Abschnitt 9, `schema/audit-v0.schema.json`).
-- Schema: Zeitfelder zusätzlich mit `pattern`.
+New:
+- Digest of a mandate (Section 3.2), reason codes (Section 4.1), both
+  required in the AuthZEN response context (Section 6).
+- Audit log with a fixed format and hash chain (Section 9, `schema/audit-v0.schema.json`).
+- Schema: time fields additionally with `pattern`.
 
-Konformitätsfälle: neue Felder `reason` (Pflicht), `timezone`, `revoked`, `rule_id`,
-`approval_timeout`; neue Dateien `conformance/invalid-v0.json`, `conformance/digest-v0.json`,
-`conformance/audit-v0.json`; Prüf-Mandate unter `conformance/mandates/`.
+Conformance cases: new fields `reason` (required), `timezone`, `revoked`, `rule_id`,
+`approval_timeout`; new files `conformance/invalid-v0.json`, `conformance/digest-v0.json`,
+`conformance/audit-v0.json`; test mandates under `conformance/mandates/`.

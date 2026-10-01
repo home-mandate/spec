@@ -14,10 +14,10 @@ import (
 	"unicode/utf16"
 )
 
-// maxExactInteger ist 2^53; darüber sind ganze Zahlen in IEEE 754 nicht mehr exakt.
+// maxExactInteger is 2^53; above it, integers are no longer exact in IEEE 754.
 const maxExactInteger = 1 << 53
 
-// digestOf liefert den Fingerabdruck nach SPEC-v0 Abschnitt 3.2.
+// digestOf returns the digest according to SPEC-v0 section 3.2.
 func digestOf(v any) (string, error) {
 	canonical, err := canonicalize(v)
 	if err != nil {
@@ -27,9 +27,9 @@ func digestOf(v any) (string, error) {
 	return "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
-// canonicalize schreibt v in der kanonischen Form nach RFC 8785 (JCS). Unterstützt wird
-// die Teilmenge, die Mandate und Protokolleinträge nutzen: null, Wahrheitswerte,
-// Zeichenketten, ganze Zahlen als json.Number, Listen und Objekte.
+// canonicalize writes v in the canonical form according to RFC 8785 (JCS). It supports
+// the subset used by mandates and audit log entries: null, booleans, strings,
+// integers as json.Number, arrays and objects.
 func canonicalize(v any) ([]byte, error) {
 	var b bytes.Buffer
 	if err := writeCanonical(&b, v); err != nil {
@@ -81,7 +81,7 @@ func writeCanonicalObject(b *bytes.Buffer, object map[string]any) error {
 	for k := range object {
 		keys = append(keys, k)
 	}
-	// RFC 8785 Abschnitt 3.2.3: Sortierung nach UTF-16-Codeeinheiten.
+	// RFC 8785 section 3.2.3: sort by UTF-16 code units.
 	slices.SortFunc(keys, func(a, c string) int {
 		return slices.Compare(utf16.Encode([]rune(a)), utf16.Encode([]rune(c)))
 	})
@@ -100,8 +100,8 @@ func writeCanonicalObject(b *bytes.Buffer, object map[string]any) error {
 	return nil
 }
 
-// canonicalNumber akzeptiert nur ganze Zahlen im exakt darstellbaren Bereich. Für sie
-// entspricht die Zahlendarstellung von RFC 8785 der dezimalen Schreibweise ohne Exponent.
+// canonicalNumber accepts only integers in the exactly representable range. For them,
+// the RFC 8785 number serialization equals decimal notation without an exponent.
 func canonicalNumber(n json.Number) (string, error) {
 	f, err := strconv.ParseFloat(string(n), 64)
 	if err != nil {
@@ -113,8 +113,8 @@ func canonicalNumber(n json.Number) (string, error) {
 	return strconv.FormatInt(int64(f), 10), nil
 }
 
-// writeCanonicalString maskiert nach RFC 8785 Abschnitt 3.2.2.2: nur Anführungszeichen,
-// Backslash und Steuerzeichen unter U+0020; alles andere bleibt UTF-8.
+// writeCanonicalString escapes according to RFC 8785 section 3.2.2.2: only quotation mark,
+// backslash and control characters below U+0020; everything else stays UTF-8.
 func writeCanonicalString(b *bytes.Buffer, s string) {
 	b.WriteByte('"')
 	for _, r := range s {

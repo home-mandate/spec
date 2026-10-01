@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# Eine go.work in einem übergeordneten Verzeichnis darf dieses Modul nicht beeinflussen.
+# A go.work in a parent directory must not affect this module.
 export GOWORK := off
 
 STATICCHECK := honnef.co/go/tools/cmd/staticcheck@v0.8.1
@@ -14,7 +14,7 @@ FUZZ_TARGETS   := FuzzParse FuzzEvaluate
 
 .PHONY: check test cover vet staticcheck vulncheck fuzz mutation
 
-## check: alles, was vor einem Commit grün sein muss
+## check: everything that must be green before a commit
 check: vet staticcheck cover vulncheck
 
 test:
@@ -23,7 +23,7 @@ test:
 cover:
 	go test -race -coverprofile=cover.out ./...
 	@go tool cover -func=cover.out | awk -v min=$(COVER_MIN) '/^total:/ { sub("%", "", $$3); \
-		if ($$3 + 0 < min) { print "Abdeckung " $$3 "% < " min "%"; exit 1 } else print "Abdeckung " $$3 "%" }'
+		if ($$3 + 0 < min) { print "Coverage " $$3 "% < " min "%"; exit 1 } else print "Coverage " $$3 "%" }'
 
 vet:
 	go vet ./...
@@ -34,17 +34,17 @@ staticcheck:
 vulncheck:
 	go run $(GOVULNCHECK) ./...
 
-## fuzz: jedes Ziel FUZZTIME lang, z. B. make fuzz FUZZTIME=30s
+## fuzz: each target for FUZZTIME, e.g. make fuzz FUZZTIME=30s
 fuzz:
 	@for target in $(FUZZ_TARGETS); do \
 		go test ./evaluator/ -run '^$$' -fuzz "^$$target\$$" -fuzztime $(FUZZTIME) || exit 1; \
 	done
 
-## mutation: Mutationstests; Ziel ≥ 90 % getötete Mutanten (Pflicht vor dem Release).
-## Gremlins setzt mit seinem Exit-Code die Schwelle nicht zuverlässig durch, deshalb prüft awk.
-## Ohne höheren Zeitkoeffizienten laufen Mutanten bei warmem Build-Cache in Zeitüberschreitungen.
+## mutation: mutation tests; target ≥ 90 % killed mutants (required before a release).
+## Gremlins does not reliably enforce the threshold via its exit code, so awk checks it.
+## Without a higher timeout coefficient, mutants time out when the build cache is warm.
 mutation:
 	GOFLAGS=-count=1 go run $(GREMLINS) unleash -S lt --timeout-coefficient 20 ./evaluator | tee mutation.out
 	@awk -v min=$(EFFICACY_MIN) '/^Test efficacy:/ { sub("%", "", $$3); found = 1; \
-		if ($$3 + 0 < min) { print "Mutationswert " $$3 "% < " min "%"; exit 1 } else print "Mutationswert " $$3 "%" } \
-		END { if (!found) { print "Mutationswert nicht gefunden"; exit 1 } }' mutation.out
+		if ($$3 + 0 < min) { print "Mutation score " $$3 "% < " min "%"; exit 1 } else print "Mutation score " $$3 "%" } \
+		END { if (!found) { print "Mutation score not found"; exit 1 } }' mutation.out

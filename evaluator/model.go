@@ -12,14 +12,14 @@ import (
 	"unicode"
 )
 
-// Grenzen für approval.timeout (SPEC-v0 Abschnitt 3.1 Nr. 7).
+// Limits for approval.timeout (SPEC-v0 section 3.1 item 7).
 const (
 	minApprovalTimeout = 10 * time.Second
 	maxApprovalTimeout = time.Hour
 )
 
-// Mandate ist ein gültiges Mandat. Es entsteht nur über Parse und ist danach unveränderlich.
-// Der Nullwert ist kein gültiges Mandat; Evaluate liefert dafür ReasonInvalidMandate.
+// Mandate is a valid mandate. It is created only by Parse and is immutable afterwards.
+// The zero value is not a valid mandate; Evaluate returns ReasonInvalidMandate for it.
 type Mandate struct {
 	valid      bool
 	id         string
@@ -31,7 +31,7 @@ type Mandate struct {
 	approval   Approval
 }
 
-// ID liefert die ID des Mandats; leer bei nil.
+// ID returns the mandate ID; empty for nil.
 func (m *Mandate) ID() string {
 	if m == nil {
 		return ""
@@ -39,7 +39,7 @@ func (m *Mandate) ID() string {
 	return m.id
 }
 
-// Digest liefert den Fingerabdruck nach SPEC-v0 Abschnitt 3.2; leer bei nil.
+// Digest returns the digest according to SPEC-v0 section 3.2; empty for nil.
 func (m *Mandate) Digest() string {
 	if m == nil {
 		return ""
@@ -54,7 +54,7 @@ type selector struct {
 	area     string
 }
 
-// weekdaySet hat ein Bit je time.Weekday; 0 heißt: keine Bedingung.
+// weekdaySet has one bit per time.Weekday; 0 means no condition.
 type weekdaySet uint8
 
 type rule struct {
@@ -68,7 +68,7 @@ type rule struct {
 	allowCritical bool
 }
 
-// raw* spiegeln das Schema; sie werden erst nach erfolgreicher Schema-Prüfung befüllt.
+// The raw* types mirror the schema; they are filled only after schema validation succeeds.
 type rawApproval struct {
 	Timeout   string   `json:"timeout"`
 	Approvers []string `json:"approvers"`
@@ -149,7 +149,7 @@ func buildMandate(raw rawMandate, digest string) (*Mandate, error) {
 	return m, nil
 }
 
-// setValidity liest den Gültigkeitszeitraum (SPEC-v0 Abschnitt 3.1 Nr. 0 und 6).
+// setValidity reads the validity period (SPEC-v0 section 3.1 items 0 and 6).
 func (m *Mandate) setValidity(raw rawMandate) error {
 	var err error
 	if m.validFrom, err = parseTimestamp("valid_from", raw.ValidFrom); err != nil {
@@ -223,11 +223,11 @@ func (r *rule) setConditions(rr rawRule) error {
 	return nil
 }
 
-// checkRuleVocabulary setzt SPEC-v0 Abschnitt 3.1 Nr. 4 um.
+// checkRuleVocabulary implements SPEC-v0 section 3.1 item 4.
 func checkRuleVocabulary(rr rawRule) error {
 	category := rr.Resource.Category
 	if _, known := vocabularyV0[category]; !known {
-		return nil // keine Kategorie oder unbekannte Erweiterung: keine Prüfung
+		return nil // no category or unknown extension: no check
 	}
 	for _, action := range rr.Actions {
 		if action == "*" {
@@ -240,7 +240,7 @@ func checkRuleVocabulary(rr rawRule) error {
 	return nil
 }
 
-// buildApproval prüft Timeout (Nr. 7) und Freigebende (Nr. 8) und kopiert die Liste.
+// buildApproval checks the timeout (item 7) and approvers (item 8) and copies the list.
 func buildApproval(field string, a rawApproval) (Approval, error) {
 	if _, err := parseApprovalTimeout(a.Timeout); err != nil {
 		return Approval{}, fmt.Errorf("%s: %w", field, err)
@@ -253,7 +253,7 @@ func buildApproval(field string, a rawApproval) (Approval, error) {
 	return Approval{Timeout: a.Timeout, Approvers: slices.Clone(a.Approvers)}, nil
 }
 
-// parseApprovalTimeout liest PTnM, PTnS oder PTnMnS und prüft die Grenzen 10 s bis 1 h.
+// parseApprovalTimeout reads PTnM, PTnS or PTnMnS and checks the limits of 10 s to 1 h.
 func parseApprovalTimeout(s string) (time.Duration, error) {
 	rest, ok := strings.CutPrefix(s, "PT")
 	if !ok || rest == "" {
@@ -281,8 +281,8 @@ func parseApprovalTimeout(s string) (time.Duration, error) {
 	return total, nil
 }
 
-// checkDisplayedText setzt SPEC-v0 Abschnitt 3.1 Nr. 8 um: keine Steuer-, Format-,
-// Zeilen- oder Absatztrenner in Texten, die Menschen angezeigt werden.
+// checkDisplayedText implements SPEC-v0 section 3.1 item 8: no control or format
+// characters and no line or paragraph separators in text displayed to humans.
 func checkDisplayedText(field, s string) error {
 	for _, r := range s {
 		if unicode.In(r, unicode.Cc, unicode.Cf, unicode.Zl, unicode.Zp) {

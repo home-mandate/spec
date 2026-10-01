@@ -8,15 +8,15 @@ import (
 	"testing"
 )
 
-// r baut eine Zeichenkette aus Codepunkten, damit keine Escapes im Quelltext stehen.
+// r builds a string from code points so that no escapes appear in the source.
 func r(codepoints ...rune) string { return string(codepoints) }
 
-// esc liefert die JSON-Escape-Folge für u (z. B. esc("000f")), zusammengesetzt aus Teilen.
+// esc returns the JSON escape sequence for u (e.g. esc("000f")), assembled from parts.
 func esc(hex string) string { return `\` + "u" + hex }
 
 func TestCanonicalizeSortsKeysByUTF16CodeUnits(t *testing.T) {
-	// RFC 8785 Abschnitt 3.2.3: das Emoji (UTF-16 D83D DE00) steht vor U+FB33,
-	// obwohl es nach Codepunkten dahinter läge.
+	// RFC 8785 section 3.2.3: the emoji (UTF-16 D83D DE00) sorts before U+FB33,
+	// although it would sort after it by code point.
 	in := map[string]any{
 		r(0x20ac): "Euro Sign", r(0x0d): "Carriage Return", r(0xfb33): "Hebrew Letter Dalet With Dagesh",
 		"1": "One", r(0x1f600): "Emoji: Grinning Face", r(0x80): "Control", r(0xf6): "Latin Small Letter O With Diaeresis",
@@ -37,7 +37,7 @@ func TestCanonicalizeSortsKeysByUTF16CodeUnits(t *testing.T) {
 }
 
 func TestCanonicalizeEscapesStringsLikeRFC8785(t *testing.T) {
-	// RFC 8785 Abschnitt 3.2.2.2.
+	// RFC 8785 section 3.2.2.2.
 	in := map[string]any{"a": r(0x20ac) + "$" + r(0x0f) + r(0x0a) + "A'B" + r(0x22) + r(0x5c) + r(0x5c) + r(0x22) + "/"}
 	want := `{"a":"` + r(0x20ac) + `$` + esc("000f") + `\nA'B\"\\\\\"/"}`
 	got, err := canonicalize(in)
@@ -121,7 +121,7 @@ func TestDigestFormat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// SHA-256 von "{}".
+	// SHA-256 of "{}".
 	const want = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
 	if d != want {
 		t.Errorf("got %s, want %s", d, want)

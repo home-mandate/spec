@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package schema stellt die normativen JSON-Schemas von mandate-spec v0 bereit, ohne die
-// Beispiele und Konformitätsfälle mitzubringen.
+// Package schema provides the normative JSON schemas of mandate-spec v0 without pulling
+// in the examples and conformance cases.
 package schema
 
 import (
@@ -9,7 +9,7 @@ import (
 	_ "embed"
 )
 
-// IDs der Schemas, wie sie in "$id" stehen.
+// IDs of the schemas, as given in "$id".
 const (
 	MandateID = "https://mandate-spec.org/mandate/v0/mandate.schema.json"
 	AuditID   = "https://mandate-spec.org/audit/v0/audit.schema.json"
@@ -22,8 +22,8 @@ var (
 	auditSchema []byte
 )
 
-// Mandate liefert eine Kopie des Mandats-Schemas.
+// Mandate returns a copy of the mandate schema.
 func Mandate() []byte { return bytes.Clone(mandateSchema) }
 
-// Audit liefert eine Kopie des Protokoll-Schemas.
+// Audit returns a copy of the audit log schema.
 func Audit() []byte { return bytes.Clone(auditSchema) }

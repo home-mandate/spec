@@ -9,27 +9,27 @@ import (
 	"sync/atomic"
 	"time"
 
-	// Zeitzonendaten eingebettet: Ohne sie wäre in Containern ohne Zoneinfo jede Anfrage
-	// mit Zeitzone deny. Genutzt wird sie nur, wenn das System keine Daten liefert.
+	// Embedded time zone data: without it, every request with a time zone would be denied
+	// in containers without zoneinfo. It is used only if the system provides no data.
 	_ "time/tzdata"
 )
 
-// maxZoneNameLength entspricht der Grenze für timezone im Protokollschema.
+// maxZoneNameLength matches the limit for timezone in the audit log schema.
 const maxZoneNameLength = 64
 
-// locations speichert erfolgreich geladene Zeitzonen. Die Obergrenze verhindert, dass
-// Schreibvarianten auf Dateisystemen ohne Groß-/Kleinschreibung den Speicher füllen;
-// Zonen jenseits der Grenze werden weiter geladen, nur nicht gespeichert.
+// locations caches successfully loaded time zones. The upper bound prevents spelling
+// variants on case-insensitive file systems from filling memory; zones beyond the
+// limit are still loaded, just not cached.
 var (
 	locations      sync.Map // string → *time.Location
 	cachedZones    atomic.Int64
-	maxCachedZones = 256 // Variable, damit Tests die Grenze prüfen können
+	maxCachedZones = 256 // a variable so that tests can check the limit
 )
 
 func cachedZoneCount() int { return int(cachedZones.Load()) }
 
-// localTime rechnet at in die Ortszeit des Haushalts um (SPEC-v0 Abschnitt 4.2).
-// Leere zone: es gilt der Offset von at. ok ist false bei Nullzeit oder unbekannter Zone.
+// localTime converts at to household local time (SPEC-v0 section 4.2).
+// If zone is empty, the offset of at applies. ok is false for the zero time or an unknown zone.
 func localTime(at time.Time, zone string) (time.Time, bool) {
 	if at.IsZero() {
 		return time.Time{}, false
@@ -55,9 +55,9 @@ func localTime(at time.Time, zone string) (time.Time, bool) {
 	return at.In(loc), true
 }
 
-// validZoneName setzt SPEC-v0 Abschnitt 4.2 um: "UTC" oder "Gebiet/Ort", jeder Teil beginnt
-// mit einem Großbuchstaben. Das schließt rechnerabhängige Namen wie "Local", "localtime"
-// oder "posixrules", Kürzel wie "CET" sowie Pfade und Steuerzeichen aus.
+// validZoneName implements SPEC-v0 section 4.2: "UTC" or "Area/Location", each part starting
+// with an upper-case letter. This excludes host-dependent names such as "Local", "localtime"
+// or "posixrules", abbreviations such as "CET", as well as paths and control characters.
 func validZoneName(zone string) bool {
 	if zone == "UTC" {
 		return true
@@ -80,8 +80,8 @@ func validZoneName(zone string) bool {
 	return true
 }
 
-// contains prüft eine Minute seit Mitternacht: Beginn einschließlich, Ende ausschließlich;
-// ist der Beginn größer als das Ende, geht das Fenster über Mitternacht.
+// contains checks a minute since midnight: start inclusive, end exclusive; if the start
+// is greater than the end, the window spans midnight.
 func (w timeWindow) contains(minute int) bool {
 	if w.start < w.end {
 		return minute >= w.start && minute < w.end
@@ -93,7 +93,7 @@ func (s weekdaySet) contains(d time.Weekday) bool {
 	return s&(1<<d) != 0
 }
 
-// conditionsMet prüft die Bedingungen einer Regel für einen Zeitpunkt in Ortszeit.
+// conditionsMet checks a rule's conditions for a point in time in household local time.
 func (r rule) conditionsMet(local time.Time) bool {
 	if r.window.set && !r.window.contains(local.Hour()*60+local.Minute()) {
 		return false
@@ -104,8 +104,8 @@ func (r rule) conditionsMet(local time.Time) bool {
 	return true
 }
 
-// timeWindow ist ein Zeitfenster in Minuten seit Mitternacht (SPEC-v0 Abschnitt 4.2).
-// set ist false, wenn die Regel kein Zeitfenster hat.
+// timeWindow is a time window in minutes since midnight (SPEC-v0 section 4.2).
+// set is false if the rule has no time window.
 type timeWindow struct {
 	start int
 	end   int

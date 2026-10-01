@@ -12,12 +12,12 @@ import (
 	"unicode/utf8"
 )
 
-// maxNestingDepth begrenzt die Verschachtelung; gültige Mandate kommen mit 5 Ebenen aus.
+// maxNestingDepth limits nesting; valid mandates need no more than 5 levels.
 const maxNestingDepth = 32
 
-// checkJSONStructure prüft, was Schema-Validator und encoding/json nicht prüfen
-// (SPEC-v0 Abschnitt 3.1 Nr. 1): genau ein JSON-Wert, gültiges UTF-8, keine einzelnen
-// Surrogate, keine doppelten Schlüssel, begrenzte Tiefe.
+// checkJSONStructure checks what the schema validator and encoding/json do not
+// (SPEC-v0 section 3.1 item 1): exactly one JSON value, valid UTF-8, no lone
+// surrogates, no duplicate keys, bounded depth.
 func checkJSONStructure(data []byte) error {
 	if !utf8.Valid(data) {
 		return fmt.Errorf("%w: invalid UTF-8", ErrMalformed)
@@ -74,7 +74,7 @@ func applyToken(stack []jsonFrame, tok json.Token) ([]jsonFrame, error) {
 	if len(stack) > 0 {
 		top := &stack[len(stack)-1]
 		if top.object && top.expectKey {
-			key, _ := tok.(string) // Decoder garantiert: an Schlüsselposition steht eine Zeichenkette.
+			key, _ := tok.(string) // The decoder guarantees a string in key position.
 			if _, dup := top.keys[key]; dup {
 				return nil, fmt.Errorf("%w: duplicate key %q", ErrMalformed, key)
 			}
@@ -83,7 +83,7 @@ func applyToken(stack []jsonFrame, tok json.Token) ([]jsonFrame, error) {
 			return stack, nil
 		}
 		if top.object {
-			top.expectKey = true // nach diesem Wert folgt wieder ein Schlüssel
+			top.expectKey = true // a key follows again after this value
 		}
 	}
 	if delim, ok := tok.(json.Delim); ok {
@@ -100,9 +100,9 @@ func applyToken(stack []jsonFrame, tok json.Token) ([]jsonFrame, error) {
 	return stack, nil
 }
 
-// checkSurrogates lehnt Escape-Folgen für einzelne UTF-16-Surrogate ab. encoding/json
-// würde sie stillschweigend durch U+FFFD ersetzen; dann hätten verschiedene Eingaben
-// denselben Fingerabdruck. Syntaxfehler überlässt die Funktion checkTokens.
+// checkSurrogates rejects escape sequences for lone UTF-16 surrogates. encoding/json
+// would silently replace them with U+FFFD, so different inputs would have the same
+// digest. Syntax errors are left to checkTokens.
 func checkSurrogates(data []byte) error {
 	inString := false
 	for i := 0; i < len(data); i++ {
@@ -119,7 +119,7 @@ func checkSurrogates(data []byte) error {
 			continue
 		}
 		if data[i+1] != 'u' {
-			i++ // maskiertes Zeichen überspringen, z. B. \" oder \\
+			i++ // skip the escaped character, e.g. \" or \\
 			continue
 		}
 		unit, ok := hex4(data, i+2)

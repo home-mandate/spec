@@ -9,7 +9,7 @@ import (
 )
 
 func TestCheckSurrogatesEdgeCases(t *testing.T) {
-	u := `\` + "u" // zusammengesetzt, damit im Quelltext keine Escape-Folge entsteht
+	u := `\` + "u" // assembled so that no escape sequence appears in the source
 	tests := []struct {
 		name    string
 		data    string

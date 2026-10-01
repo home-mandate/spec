@@ -13,7 +13,7 @@ import (
 
 const baseRules = `[{"id":"r-1","resource":{"category":"light"},"actions":["turn_on"],"decision":"allow"}]`
 
-// mandateWithRules baut ein gültiges Mandat (gültig ab 2026-01-01, ohne Ablauf) mit den Regeln rules.
+// mandateWithRules builds a valid mandate (valid from 2026-01-01, no expiry) with the given rules.
 func mandateWithRules(t *testing.T, rules string) *evaluator.Mandate {
 	t.Helper()
 	m, err := evaluator.Parse(mandateReplacing(baseRules, rules))
@@ -194,7 +194,7 @@ func TestEvaluateConditionsUseHouseholdZone(t *testing.T) {
 	m := mandateWithRules(t, `[{"id":"r-night","resource":{"category":"light"},"actions":["turn_on"],"decision":"allow",
 		"conditions":{"time_window":"22:00-06:00","weekdays":["mon"]}}]`)
 	req := request("light", "flur", "turn_on")
-	req.Time = mustParseTime(t, "2026-10-12T20:30:00Z") // Montag 22:30 in Berlin
+	req.Time = mustParseTime(t, "2026-10-12T20:30:00Z") // Monday 22:30 in Berlin
 	assertDecision(t, evaluator.Evaluate(m, req), evaluator.Deny, evaluator.ReasonNoMatch, "")
 	req.TimeZone = "Europe/Berlin"
 	assertDecision(t, evaluator.Evaluate(m, req), evaluator.Allow, evaluator.ReasonRule, "r-night")
@@ -245,7 +245,7 @@ func TestEvaluateApprovalSettings(t *testing.T) {
 	if fallback.Approval == nil || fallback.Approval.Timeout != "PT2M" || strings.Join(fallback.Approval.Approvers, ",") != "a-1" {
 		t.Fatalf("approval = %+v, want mandate default", fallback.Approval)
 	}
-	// Ergebnis darf das Mandat nicht verändern lassen.
+	// Changing the result must not change the mandate.
 	own.Approval.Approvers[0] = "attacker"
 	again := evaluator.Evaluate(m, request("media", "bad", "set_volume"))
 	if again.Approval.Approvers[0] != "a-2" {
@@ -266,8 +266,8 @@ func TestEvaluateReportsMandateDigest(t *testing.T) {
 }
 
 func TestEvaluateRejectsMalformedRequestFields(t *testing.T) {
-	// Ohne Prüfung der Anfrage würde eine abweichende Schreibweise die deny-Regel umgehen
-	// und über r-locks bei allow landen (Security-Review, Woche 1).
+	// Without checking the request, a different spelling would bypass the deny rule
+	// and end up at allow via r-locks (security review, week 1).
 	m := mandateWithRules(t, `[
 		{"id":"r-cellar","resource":{"entity_id":"lock.keller"},"actions":["*"],"decision":"deny"},
 		{"id":"r-kitchen","resource":{"area":"kueche"},"actions":["*"],"decision":"deny"},
@@ -355,7 +355,7 @@ func TestEvaluateConcurrentUse(t *testing.T) {
 					t.Errorf("goroutine %d: unexpected %+v", g, got)
 					return
 				}
-				got.Approval.Approvers[0] = "changed" // darf andere Goroutinen nicht beeinflussen
+				got.Approval.Approvers[0] = "changed" // must not affect other goroutines
 			}
 		}()
 	}

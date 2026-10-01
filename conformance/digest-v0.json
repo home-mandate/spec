@@ -1,41 +1,41 @@
 {
-  "description": "Fingerabdrücke v0 (Entwurf), SPEC-v0.md Abschnitt 3.2.",
+  "description": "Digests v0 (draft), SPEC-v0.md section 3.2.",
   "cases": [
     {
       "id": "d01",
       "mandate": "examples/voice-assistant.json",
       "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
-      "why": "Datei wie abgelegt"
+      "why": "file as stored"
     },
     {
       "id": "d02",
       "mandate": "examples/energy-agent.json",
       "digest": "sha256:6d54d9b88c083769fdb95626c1e947a0927496ee54f3d53a468f24c7625f3d34",
-      "why": "Datei wie abgelegt"
+      "why": "file as stored"
     },
     {
       "id": "d03",
       "mandate": "examples/shopping-agent.json",
       "digest": "sha256:45ca692de865800185de783125972bfc5e90befc3cd12e858ac03032a6053255",
-      "why": "Datei wie abgelegt"
+      "why": "file as stored"
     },
     {
       "id": "d04",
       "mandate": "conformance/mandates/time.json",
       "digest": "sha256:585f9ea0f66f70c5a99ae90a1da6da6fa0352713ad7d9a99a203a07b2e988285",
-      "why": "Datei wie abgelegt"
+      "why": "file as stored"
     },
     {
       "id": "d05",
       "mandate": "conformance/mandates/precedence.json",
       "digest": "sha256:7bd6d6bcf370ee78f47656051cb28122cac2af0739a65eb5f57f4706ea117de6",
-      "why": "Datei wie abgelegt"
+      "why": "file as stored"
     },
     {
       "id": "d06",
       "mandate_raw": "{\n    \"created_at\": \"2026-10-01T09:12:00+02:00\",\n    \"created_by\": \"user-1\",\n    \"valid_from\": \"2026-10-01T00:00:00+02:00\",\n    \"limits\": {\n        \"max_actions_per_hour\": 60\n    },\n    \"approval\": {\n        \"timeout\": \"PT2M\",\n        \"approvers\": [\n            \"user-1\"\n        ]\n    },\n    \"default\": \"deny\",\n    \"rules\": [\n        {\n            \"id\": \"r-read-all\",\n            \"resource\": {\n                \"any\": true\n            },\n            \"actions\": [\n                \"read\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-lights\",\n            \"resource\": {\n                \"category\": \"light\"\n            },\n            \"actions\": [\n                \"turn_on\",\n                \"turn_off\",\n                \"set\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-climate\",\n            \"resource\": {\n                \"category\": \"climate\"\n            },\n            \"actions\": [\n                \"set_temperature\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-locks\",\n            \"resource\": {\n                \"category\": \"lock\"\n            },\n            \"actions\": [\n                \"unlock\",\n                \"open\"\n            ],\n            \"decision\": \"ask\",\n            \"approval\": {\n                \"timeout\": \"PT2M\",\n                \"approvers\": [\n                    \"user-1\"\n                ]\n            }\n        },\n        {\n            \"id\": \"r-no-cameras\",\n            \"resource\": {\n                \"category\": \"camera\"\n            },\n            \"actions\": [\n                \"*\"\n            ],\n            \"decision\": \"deny\"\n        },\n        {\n            \"id\": \"r-no-alarm\",\n            \"resource\": {\n                \"category\": \"alarm\"\n            },\n            \"actions\": [\n                \"disarm\"\n            ],\n            \"decision\": \"deny\"\n        }\n    ],\n    \"agent\": {\n        \"client_id\": \"hm-client:voice-7c21e9a4\",\n        \"display_name\": \"Sprachassistent\"\n    },\n    \"principal\": \"household:hm-7f3a\",\n    \"id\": \"m-voice-assistant\",\n    \"type\": \"https://mandate-spec.org/mandate/v0\"\n}",
       "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
-      "why": "andere Reihenfolge, Leerraum und \\u-Schreibweise: gleicher Fingerabdruck wie d01"
+      "why": "different order, whitespace and \\u notation: same digest as d01"
     },
     {
       "id": "d07",
@@ -133,7 +133,7 @@
         "created_at": "2026-10-01T09:12:00+02:00"
       },
       "digest": "sha256:890b9a1ef6577de2437dfdfe33066c5c8d7d4cd5cb0c873dec2b09c16ffab52c",
-      "why": "Escape-Regeln nach RFC 8785: Anführungszeichen, Backslash, Nicht-ASCII, Emoji"
+      "why": "escaping rules per RFC 8785: quotation mark, backslash, non-ASCII, emoji"
     },
     {
       "id": "d08",
@@ -231,7 +231,7 @@
         "created_at": "2026-10-01T09:12:00+02:00"
       },
       "digest": "sha256:a06d0865169c724cab618a96d56c62337aceb95ab0fd261ef1bb757cd473c131",
-      "why": "nur limits geändert: anderer Fingerabdruck als d01"
+      "why": "only limits changed: different digest than d01"
     }
   ]
 }

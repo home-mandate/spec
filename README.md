@@ -1,43 +1,43 @@
 # mandate-spec
 
-Herstellerneutrale Spezifikation für **Mandate von Software-Agenten im Haushalt**: was ein
-KI-Agent im Auftrag eines Haushalts tun darf, mit den Entscheidungen erlauben, nachfragen und
-verbieten, plus Prüfwerkzeuge, mit denen jede Implementierung ihre Konformität nachweist.
+Vendor-neutral specification for **mandates of software agents in the household**: what an
+AI agent may do on behalf of a household, with the decisions allow, ask and
+deny, plus test tools with which any implementation demonstrates its conformance.
 
-Status: Entwurf v0. Referenzimplementierung: Home-Mandate.
+Status: Draft v0. Reference implementation: Home-Mandate.
 
-## Inhalt
+## Contents
 
-| Pfad | Inhalt | Lizenz |
+| Path | Contents | License |
 |---|---|---|
-| `SPEC-v0.md` | Spezifikation: Datenmodell, Auswertungsregel, Vokabular, AuthZEN-Abbildung | CC BY 4.0 |
-| `schema/mandate-v0.schema.json` | JSON-Schema des Mandats (Draft 2020-12) | Apache 2.0 |
-| `schema/audit-v0.schema.json` | JSON-Schema eines Protokolleintrags (Draft 2020-12) | Apache 2.0 |
-| `examples/` | Beispiel-Mandate | Apache 2.0 |
-| `conformance/cases-v0.json` | Konformitätsfälle | Apache 2.0 |
-| `conformance/invalid-v0.json` | Ungültige Mandate, die abgelehnt werden müssen | Apache 2.0 |
-| `conformance/mandates/` | Prüf-Mandate für Grenzfälle | Apache 2.0 |
-| `conformance/digest-v0.json` | Fingerabdrücke von Mandaten (RFC 8785 + SHA-256) | Apache 2.0 |
-| `conformance/audit-v0.json` | Protokolle mit erwartetem Ergebnis der Kettenprüfung | Apache 2.0 |
-| `evaluator/` | Referenz-Auswertung als Go-Bibliothek (`github.com/mandate-spec/mandate-spec/evaluator`), nur Standardbibliothek plus JSON-Schema-Validator | Apache 2.0 |
-| `schema/*.go`, `spec.go` | Go-Pakete, die die Schemas (`schema`) bzw. Schemas, Beispiele und Konformitätsfälle (Wurzelpaket) einbetten | Apache 2.0 |
-| `Makefile` | Prüfungen: `make check` (vet, staticcheck, Abdeckung ≥ 95 %, govulncheck), `make fuzz`, `make mutation` (≥ 90 %) | Apache 2.0 |
-| `cmd/mandate-conformance/` *(geplant, v0.2)* | Black-Box-Prüfwerkzeug gegen beliebige AuthZEN-Endpunkte | Apache 2.0 |
+| `SPEC-v0.md` | Specification: data model, evaluation rule, vocabulary, AuthZEN mapping | CC BY 4.0 |
+| `schema/mandate-v0.schema.json` | JSON Schema of the mandate (Draft 2020-12) | Apache 2.0 |
+| `schema/audit-v0.schema.json` | JSON Schema of an audit log entry (Draft 2020-12) | Apache 2.0 |
+| `examples/` | Example mandates | Apache 2.0 |
+| `conformance/cases-v0.json` | Conformance cases | Apache 2.0 |
+| `conformance/invalid-v0.json` | Invalid mandates that MUST be rejected | Apache 2.0 |
+| `conformance/mandates/` | Test mandates for edge cases | Apache 2.0 |
+| `conformance/digest-v0.json` | Digests of mandates (RFC 8785 + SHA-256) | Apache 2.0 |
+| `conformance/audit-v0.json` | Audit logs with the expected result of the hash chain verification | Apache 2.0 |
+| `evaluator/` | Reference evaluator as a Go library (`github.com/mandate-spec/mandate-spec/evaluator`), standard library only plus a JSON Schema validator | Apache 2.0 |
+| `schema/*.go`, `spec.go` | Go packages that embed the schemas (`schema`) and the schemas, examples and conformance cases (root package), respectively | Apache 2.0 |
+| `Makefile` | Checks: `make check` (vet, staticcheck, coverage ≥ 95 %, govulncheck), `make fuzz`, `make mutation` (≥ 90 %) | Apache 2.0 |
+| `cmd/mandate-conformance/` *(planned, v0.2)* | Black-box test tool against arbitrary AuthZEN endpoints | Apache 2.0 |
 
-## Warum ein eigenes Repository
+## Why a separate repository
 
-- **Neutralität:** Andere Hersteller übernehmen einen Standard eher, wenn er nicht im
-  Produkt-Repository eines Wettbewerbers liegt.
-- **Lizenz:** Apache 2.0 mit Patentklausel für alles, was andere einbinden; das Produkt selbst
-  bleibt AGPL.
-- **Versionierung:** Die Spezifikation hat einen eigenen, langsameren Takt (Tags `v0.1.0` …).
-  Implementierungen beziehen sich auf eine konkrete Version.
-- **Glaubwürdigkeit der Prüfung:** Prüffälle und Prüfwerkzeug werden unabhängig vom Produkt
-  gepflegt; auch Home-Mandate muss sie bestehen.
+- **Neutrality:** Other vendors are more likely to adopt a standard if it does not live in a
+  competitor's product repository.
+- **License:** Apache 2.0 with a patent clause for everything that others integrate; the product itself
+  remains AGPL.
+- **Versioning:** The specification has its own, slower cadence (tags `v0.1.0` …).
+  Implementations refer to a specific version.
+- **Credibility of testing:** Test cases and the test tool are maintained independently of the product;
+  Home-Mandate must pass them as well.
 
-## Regeln für Änderungen
+## Rules for changes
 
-- Jede Änderung an der Auswertungsregel braucht neue oder geänderte Konformitätsfälle.
-- Fehler in einer Implementierung, die auf eine Unschärfe der Spezifikation zurückgehen, werden
-  zuerst hier präzisiert.
-- Bis v1.0 sind inkompatible Änderungen erlaubt, müssen aber im Änderungsprotokoll stehen.
+- Every change to the evaluation rule requires new or modified conformance cases.
+- Bugs in an implementation that stem from an ambiguity in the specification are
+  first clarified here.
+- Until v1.0, incompatible changes are permitted but must be recorded in the Changelog.

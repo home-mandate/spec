@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package evaluator ist die Referenz-Auswertung von mandate-spec v0 (SPEC-v0.md
-// Abschnitt 3.1, 3.2 und 4). Sie nutzt nur die Standardbibliothek und einen
-// JSON-Schema-Validator. Im Zweifel ist das Ergebnis immer Deny.
+// Package evaluator is the reference evaluator of mandate-spec v0 (SPEC-v0.md
+// sections 3.1, 3.2 and 4). It uses only the standard library and a
+// JSON Schema validator. When in doubt, the result is always Deny.
 package evaluator
 
 import (
@@ -11,27 +11,27 @@ import (
 	"time"
 )
 
-// Muster für entity_id und area aus schema/mandate-v0.schema.json; gelten auch für die
-// Anfrage (SPEC-v0 Abschnitt 4, Schritt 0). Go-Regexp: $ trifft nur das Textende.
+// Patterns for entity_id and area from schema/mandate-v0.schema.json; they apply to the
+// request as well (SPEC-v0 section 4, step 0). In Go regexps, $ matches only the end of text.
 var (
 	entityIDPattern = regexp.MustCompile(`^[a-z0-9_]+\.[a-z0-9_]+$`)
 	areaPattern     = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
 )
 
-// Decision ist die Entscheidung der Auswertung.
+// Decision is the decision of the evaluation.
 type Decision string
 
-// Entscheidungen nach SPEC-v0 Abschnitt 2.
+// Decisions according to SPEC-v0 section 2.
 const (
 	Allow Decision = "allow"
 	Ask   Decision = "ask"
 	Deny  Decision = "deny"
 )
 
-// Reason ist der Begründungscode nach SPEC-v0 Abschnitt 4.1.
+// Reason is the reason code according to SPEC-v0 section 4.1.
 type Reason string
 
-// Begründungscodes in der Vorrangreihenfolge aus SPEC-v0 Abschnitt 4.1.
+// Reason codes in the precedence order from SPEC-v0 section 4.1.
 const (
 	ReasonInvalidMandate   Reason = "invalid_mandate"
 	ReasonInvalidRequest   Reason = "invalid_request"
@@ -45,54 +45,54 @@ const (
 	ReasonRule             Reason = "rule"
 )
 
-// Resource ist die angefragte Ressource mit bereits aufgelöster Kategorie und Bereich.
+// Resource is the requested resource with category and area already resolved.
 type Resource struct {
 	EntityID string
 	Category string
 	Area     string
 }
 
-// MandateStatus ist der Status des Mandats aus der Verwaltung des PEP.
+// MandateStatus is the status of the mandate as managed by the PEP.
 type MandateStatus string
 
-// Zulässige Status nach SPEC-v0 Abschnitt 4. Jeder andere Wert, auch der leere, ist ungültig.
+// Permitted statuses according to SPEC-v0 section 4. Any other value, including the empty one, is invalid.
 const (
 	StatusActive  MandateStatus = "active"
 	StatusRevoked MandateStatus = "revoked"
 )
 
-// Request ist die Eingabe der Auswertung. Kategorie, Bereich, Zeit, Zeitzone und Status
-// stammen vom PEP, nie vom Agenten (SPEC-v0 Abschnitt 4, Herkunft der Eingaben).
+// Request is the input to the evaluation. Category, area, time, time zone and status
+// come from the PEP, never from the agent (SPEC-v0 section 4, origin of inputs).
 type Request struct {
 	Resource Resource
 	Action   string
 	Time     time.Time
-	// TimeZone ist die Zeitzone des Haushalts als IANA-Name. Leer: es gilt der Offset von Time.
+	// TimeZone is the household's time zone as an IANA name. If empty, the offset of Time applies.
 	TimeZone string
-	// Status ist Pflicht; ein vergessener Status führt zu Deny, nie zu einem aktiven Mandat.
+	// Status is required; a missing status leads to Deny, never to an active mandate.
 	Status MandateStatus
 }
 
-// Approval ist die Freigabe-Einstellung für eine Rückfrage.
+// Approval holds the approval settings for an approval request.
 type Approval struct {
 	Timeout   string
 	Approvers []string
 }
 
-// Result ist das Ergebnis der Auswertung nach SPEC-v0 Abschnitt 4.1.
+// Result is the result of the evaluation according to SPEC-v0 section 4.1.
 type Result struct {
 	Decision Decision
 	Reason   Reason
-	// RuleID ist leer, wenn keine Regel die Entscheidung trägt.
+	// RuleID is empty if no rule determines the decision.
 	RuleID string
-	// Approval ist nur bei Ask gesetzt.
+	// Approval is set only for Ask.
 	Approval *Approval
-	// MandateDigest ist bei ReasonInvalidMandate leer.
+	// MandateDigest is empty for ReasonInvalidMandate.
 	MandateDigest string
 }
 
-// Evaluate wertet req gegen m nach SPEC-v0 Abschnitt 4 aus. Das Ergebnis enthält Kopien;
-// Änderungen daran wirken nicht auf m zurück.
+// Evaluate evaluates req against m according to SPEC-v0 section 4. The result contains
+// copies; changing them does not affect m.
 func Evaluate(m *Mandate, req Request) Result {
 	if m == nil || !m.valid {
 		return Result{Decision: Deny, Reason: ReasonInvalidMandate}
@@ -108,8 +108,9 @@ func Evaluate(m *Mandate, req Request) Result {
 	return decide(m, matched, critical)
 }
 
-// precheck setzt Schritt 0 und 1 aus SPEC-v0 Abschnitt 4 in der Vorrangreihenfolge von
-// Abschnitt 4.1 um. Liefert die Ortszeit, ob die Aktion kritisch ist, und bei Ablehnung den Grund.
+// precheck implements steps 0 and 1 of SPEC-v0 section 4 in the precedence order of
+// section 4.1. It returns the household local time, whether the action is critical and,
+// on denial, the reason.
 func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason Reason) {
 	local, ok := localTime(req.Time, req.TimeZone)
 	if !ok || !validRequest(req) {
@@ -131,8 +132,8 @@ func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason R
 	return local, critical, ""
 }
 
-// validRequest prüft die Felder der Anfrage, die Schritt 0 nennt. Ohne diese Prüfung
-// würde etwa "Lock.keller" eine deny-Regel für "lock.keller" umgehen.
+// validRequest checks the request fields named in step 0. Without this check,
+// "Lock.keller", for example, would bypass a deny rule for "lock.keller".
 func validRequest(req Request) bool {
 	res := req.Resource
 	return res.Category != "" &&
@@ -141,7 +142,7 @@ func validRequest(req Request) bool {
 		(req.Status == StatusActive || req.Status == StatusRevoked)
 }
 
-// matchingRules setzt Schritt 2 um und behält die Dokumentreihenfolge bei.
+// matchingRules implements step 2 and preserves document order.
 func matchingRules(m *Mandate, req Request, local time.Time) []*rule {
 	var matched []*rule
 	for i := range m.rules {
@@ -171,7 +172,7 @@ func (r *rule) coversAction(action string) bool {
 	return false
 }
 
-// decide setzt Schritt 4 und 5 sowie Abschnitt 4.1 um; matched ist nicht leer.
+// decide implements steps 4 and 5 and section 4.1; matched is not empty.
 func decide(m *Mandate, matched []*rule, critical bool) Result {
 	final := Allow
 	for _, r := range matched {
@@ -187,7 +188,7 @@ func decide(m *Mandate, matched []*rule, critical bool) Result {
 		}
 	}
 	if strictness(final) == strictness(Deny) {
-		result.Decision = Deny // unbekannte Entscheidungen zählen wie deny
+		result.Decision = Deny // unknown decisions count as deny
 	}
 	switch {
 	case final == Ask:
@@ -204,7 +205,7 @@ func decide(m *Mandate, matched []*rule, critical bool) Result {
 	return result
 }
 
-// strictness ordnet nach Schritt 4; alles außer allow und ask zählt wie deny.
+// strictness orders decisions according to step 4; anything other than allow and ask counts as deny.
 func strictness(d Decision) int {
 	switch d {
 	case Allow:
@@ -215,8 +216,8 @@ func strictness(d Decision) int {
 	return 2
 }
 
-// askApproval liefert die Freigabe der ersten passenden ask-Regel mit eigenem approval,
-// sonst die des Mandats.
+// askApproval returns the approval settings of the first matching ask rule that has its
+// own approval, otherwise those of the mandate.
 func askApproval(m *Mandate, matched []*rule) *Approval {
 	for _, r := range matched {
 		if r.decision == Ask && r.approval != nil {

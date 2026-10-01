@@ -14,7 +14,7 @@ import (
 	"github.com/mandate-spec/mandate-spec/evaluator"
 )
 
-// baseMandate ist ein minimales gültiges Mandat; %s ist der Rohwert von display_name.
+// baseMandate is a minimal valid mandate; %s is the raw value of display_name.
 const baseMandate = `{"type":"https://mandate-spec.org/mandate/v0","id":"m-test","principal":"household:t",` +
 	`"agent":{"client_id":"hm-client:test-0001","display_name":"%s"},` +
 	`"rules":[{"id":"r-1","resource":{"category":"light"},"actions":["turn_on"],"decision":"allow"}],` +
@@ -78,7 +78,7 @@ func TestParseAcceptsMinimalMandate(t *testing.T) {
 }
 
 func TestParseAcceptsSurrogatePairWithSameDigestAsLiteral(t *testing.T) {
-	// Escape zusammengesetzt, damit es im Quelltext garantiert als Escape steht: 😀.
+	// The escape is assembled so that it is guaranteed to appear as an escape in the source: 😀.
 	pair := `\` + "ud83d" + `\` + "ude00"
 	escaped, err := evaluator.Parse(mandateNamed("Smile " + pair))
 	if err != nil {
@@ -94,7 +94,7 @@ func TestParseAcceptsSurrogatePairWithSameDigestAsLiteral(t *testing.T) {
 }
 
 func TestParseAcceptsIntegerWrittenAsDecimal(t *testing.T) {
-	// JSON Schema zählt 10.0 als integer; der Fingerabdruck muss dem von 10 entsprechen (RFC 8785).
+	// JSON Schema counts 10.0 as an integer; the digest must equal that of 10 (RFC 8785).
 	decimal, err := evaluator.Parse(mandateReplacing(`"max_actions_per_hour":10`, `"max_actions_per_hour":10.0`))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -209,7 +209,7 @@ func TestParseSizeLimitBoundary(t *testing.T) {
 }
 
 func TestParseAllowsUnknownExtensionCategoryWithAnyAction(t *testing.T) {
-	// SPEC-v0 3.1 Nr. 4: Vokabular unbekannter Erweiterungen wird nicht geprüft.
+	// SPEC-v0 3.1 item 4: the vocabulary of unknown extensions is not checked.
 	data := mandateReplacing(`"resource":{"category":"light"},"actions":["turn_on"]`,
 		`"resource":{"category":"paperless:document"},"actions":["tag"]`)
 	if _, err := evaluator.Parse(data); err != nil {

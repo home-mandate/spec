@@ -144,11 +144,11 @@ func TestValidZoneName(t *testing.T) {
 	}
 	invalid := []string{
 		"", "Local", "localtime", "posixrules", "Factory", "CET", "EST5EDT", "GMT", "utc",
-		// "EUROPE/BERLIN" erfüllt die Namensregel; ob es lädt, hängt davon ab, ob das
-		// Dateisystem Groß-/Kleinschreibung unterscheidet (unter Linux nicht ladbar).
+		// "EUROPE/BERLIN" satisfies the naming rule; whether it loads depends on whether the
+		// file system is case-sensitive (not loadable on Linux).
 		"europe/berlin", "Europe/berlin", "Etc/gmt+9",
 		"/Europe", "Europe/", "Europe//Berlin", "A/" + strings.Repeat("A", maxZoneNameLength-1),
-		// Zeichen direkt neben den erlaubten Bereichen und häufige Pfadzeichen.
+		// Characters just outside the allowed ranges and common path characters.
 		"Ab/A@", "Ab/A[", "Ab/A`", "Ab/A{", "Ab/A:", "Ab/A.", "Ab/A ", "Ab/A,", "Ab/A*", "Ab/A\\", "Ab/A" + r(0xe4),
 		"@b/Ab", "[b/Ab", "Ab/@b", "Ab/[b", "Ab/0b",
 	}
@@ -169,7 +169,7 @@ func TestLocalTimeCacheIsBounded(t *testing.T) {
 	if n := cachedZoneCount(); n > maxCachedZones {
 		t.Errorf("cache holds %d zones, limit %d", n, maxCachedZones)
 	}
-	// Auch jenseits der Grenze bleiben Zonen nutzbar, sie werden nur nicht mehr gespeichert.
+	// Zones remain usable beyond the limit; they are just no longer cached.
 	saved := maxCachedZones
 	maxCachedZones = cachedZoneCount()
 	defer func() { maxCachedZones = saved }()

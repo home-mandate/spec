@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package mandatespec bettet die maschinenlesbaren Teile der Spezifikation ein:
-// Schemas, Beispiel-Mandate und Konformitätsfälle. Implementierungen testen damit gegen
-// genau die Version der Spezifikation, die sie als Abhängigkeit einbinden.
+// Package mandatespec embeds the machine-readable parts of the specification:
+// schemas, example mandates and conformance cases. Implementations use it to test against
+// exactly the version of the specification they depend on.
 package mandatespec
 
 import (
@@ -10,7 +10,7 @@ import (
 	"io/fs"
 )
 
-// Pfade innerhalb von FS.
+// Paths within FS.
 const (
 	MandateSchemaPath = "schema/mandate-v0.schema.json"
 	AuditSchemaPath   = "schema/audit-v0.schema.json"
@@ -23,8 +23,8 @@ const (
 //go:embed schema/*.json examples conformance
 var files embed.FS
 
-// FS liefert die eingebetteten Dateien schreibgeschützt. Pfade sind relativ zum
-// Wurzelverzeichnis des Repositorys, wie in den Konformitätsfällen.
+// FS returns the embedded files, read-only. Paths are relative to the repository
+// root, as in the conformance cases.
 func FS() fs.FS {
 	return files
 }

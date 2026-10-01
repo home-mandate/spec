@@ -14,11 +14,11 @@ import (
 	"github.com/mandate-spec/mandate-spec/schema"
 )
 
-// MaxMandateBytes ist die Größengrenze aus SPEC-v0 Abschnitt 3.1 Nr. 5.
+// MaxMandateBytes is the size limit from SPEC-v0 section 3.1 item 5.
 const MaxMandateBytes = 256 << 10
 
-// Fehlerarten von Parse; mit errors.Is prüfbar. Die Ursache bleibt ebenfalls verpackt
-// und ist mit errors.As erreichbar.
+// Error kinds returned by Parse; check them with errors.Is. The underlying cause stays
+// wrapped as well and is reachable with errors.As.
 var (
 	ErrTooLarge  = errors.New("evaluator: mandate too large")
 	ErrMalformed = errors.New("evaluator: malformed mandate JSON")
@@ -26,8 +26,8 @@ var (
 	ErrSemantic  = errors.New("evaluator: mandate violates SPEC-v0 section 3.1")
 )
 
-// mandateSchema kompiliert das eingebettete Schema einmal. Formate werden geprüft
-// (SPEC-v0 Abschnitt 3.1 Nr. 0), nicht nur als Anmerkung behandelt.
+// mandateSchema compiles the embedded schema once. Formats are asserted
+// (SPEC-v0 section 3.1 item 0), not merely treated as annotations.
 var mandateSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
 	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(schema.Mandate()))
 	if err != nil {
@@ -41,9 +41,9 @@ var mandateSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
 	return c.Compile(schema.MandateID)
 })
 
-// Parse prüft data nach SPEC-v0 Abschnitt 3.1 und liefert das gültige Mandat mit seinem
-// Fingerabdruck (Abschnitt 3.2). Bei jedem Fehler ist das Mandat nil. Das Mandat hält
-// keine Referenz auf data.
+// Parse checks data according to SPEC-v0 section 3.1 and returns the valid mandate with
+// its digest (section 3.2). On any error the mandate is nil. The mandate holds no
+// reference to data.
 func Parse(data []byte) (*Mandate, error) {
 	if len(data) > MaxMandateBytes {
 		return nil, fmt.Errorf("%w: %d bytes, limit %d", ErrTooLarge, len(data), MaxMandateBytes)

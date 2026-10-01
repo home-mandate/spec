@@ -2,8 +2,8 @@
 
 package evaluator
 
-// vocabularyV0 ist das Vokabular aus SPEC-v0 Abschnitt 5: Kategorie → Aktion → kritisch.
-// Wird nur gelesen.
+// vocabularyV0 is the vocabulary from SPEC-v0 section 5: category → action → critical.
+// It is read-only.
 var vocabularyV0 = map[string]map[string]bool{
 	"light":   {"read": false, "turn_on": false, "turn_off": false, "set": false},
 	"switch":  {"read": false, "turn_on": false, "turn_off": false},
@@ -20,8 +20,8 @@ var vocabularyV0 = map[string]map[string]bool{
 	"other":   {"read": false, "set": true},
 }
 
-// lookupAction meldet, ob die Kategorie bekannt ist, ob die Aktion zu ihr gehört und ob
-// die Aktion kritisch ist.
+// lookupAction reports whether the category is known, whether the action belongs to it
+// and whether the action is critical.
 func lookupAction(category, action string) (categoryKnown, actionKnown, critical bool) {
 	actions, ok := vocabularyV0[category]
 	if !ok {

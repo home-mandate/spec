@@ -1,9 +1,9 @@
 {
-  "description": "Protokolle v0 (Entwurf) mit erwartetem Ergebnis der Kettenprüfung, SPEC-v0.md Abschnitt 9.4. Mandatsfassung in allen Einträgen: examples/voice-assistant.json.",
+  "description": "Audit logs v0 (draft) with the expected result of the chain verification, SPEC-v0.md section 9.4. Mandate version in all entries: examples/voice-assistant.json.",
   "logs": [
     {
       "id": "a01",
-      "why": "vollständiges Protokoll",
+      "why": "complete audit log",
       "expected": "valid",
       "entry_digests": [
         "sha256:93ee5448e9ef1b786390609b71e2bb4d8d35113bd4d5519147f7eeb5f5392ff7",
@@ -265,7 +265,7 @@
     },
     {
       "id": "a02",
-      "why": "Eintrag 4 nachträglich geändert: Bruch bei seq 5",
+      "why": "entry 4 modified afterwards: break at seq 5",
       "expected": "invalid",
       "broken_at": 5,
       "entries": [
@@ -517,7 +517,7 @@
     },
     {
       "id": "a03",
-      "why": "Eintrag 5 gelöscht",
+      "why": "entry 5 deleted",
       "expected": "invalid",
       "broken_at": 6,
       "entries": [
@@ -728,7 +728,7 @@
     },
     {
       "id": "a04",
-      "why": "Einträge 6 und 7 vertauscht",
+      "why": "entries 6 and 7 swapped",
       "expected": "invalid",
       "broken_at": 7,
       "entries": [
@@ -980,7 +980,7 @@
     },
     {
       "id": "a05",
-      "why": "Einträge 1-3 nach Aufbewahrungsfrist gelöscht, mit log.truncated",
+      "why": "entries 1-3 deleted after the retention period, with log.truncated",
       "expected": "valid",
       "entries": [
         {
@@ -1179,7 +1179,7 @@
     },
     {
       "id": "a06",
-      "why": "Einträge 1-3 ohne log.truncated gelöscht",
+      "why": "entries 1-3 deleted without log.truncated",
       "expected": "invalid",
       "broken_at": 4,
       "entries": [
@@ -1362,7 +1362,7 @@
     },
     {
       "id": "a07",
-      "why": "erster Eintrag mit seq 1 hat prev ungleich null (Schemaverstoß)",
+      "why": "first entry with seq 1 has prev not null (schema violation)",
       "expected": "invalid",
       "broken_at": 1,
       "entries": [
@@ -1614,7 +1614,7 @@
     },
     {
       "id": "a08",
-      "why": "unbekannter Begründungscode (Schemaverstoß)",
+      "why": "unknown reason code (schema violation)",
       "expected": "invalid",
       "broken_at": 3,
       "entries": [
@@ -1866,7 +1866,7 @@
     },
     {
       "id": "a09",
-      "why": "ausgeführt trotz deny (Schemaverstoß)",
+      "why": "executed despite deny (schema violation)",
       "expected": "invalid",
       "broken_at": 6,
       "entries": [
@@ -2117,7 +2117,7 @@
     },
     {
       "id": "a10",
-      "why": "ausgeführt nach ask ohne Freigabe (Schemaverstoß)",
+      "why": "executed after ask without approval (schema violation)",
       "expected": "invalid",
       "broken_at": 4,
       "entries": [

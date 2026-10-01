@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mandate-spec.org/audit/v0/audit.schema.json",
-  "title": "Protokolleintrag v0",
-  "description": "Ein Eintrag im Protokoll einer Implementierung. Einträge sind über prev hash-verkettet. Arbeitsentwurf, siehe SPEC-v0.md Abschnitt 9.",
+  "title": "Audit log entry v0",
+  "description": "An entry in an implementation's audit log. Entries are hash-chained via prev. Working draft, see SPEC-v0.md section 9.",
   "type": "object",
   "additionalProperties": false,
   "required": ["type", "id", "seq", "recorded_at", "event", "principal", "prev"],
   "properties": {
     "type": { "const": "https://mandate-spec.org/audit/v0" },
     "id": {
-      "description": "UUIDv7 (RFC 9562), kleingeschrieben.",
+      "description": "UUIDv7 (RFC 9562), lower case.",
       "type": "string",
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
     },
@@ -27,7 +27,7 @@
     },
     "principal": { "type": "string", "pattern": "^(household|person):[A-Za-z0-9_-]{1,64}$" },
     "actor": {
-      "description": "Wer eine Änderung ausgelöst hat.",
+      "description": "Who triggered a change.",
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "id"],
@@ -52,9 +52,9 @@
       "properties": {
         "time": { "$ref": "#/$defs/date_time" },
         "timezone": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "revoked": { "description": "Widerrufsstatus bei der Auswertung; fehlt = false.", "type": "boolean" },
+        "revoked": { "description": "Revocation status at evaluation time; absent = false.", "type": "boolean" },
         "resource": {
-          "description": "Ressource wie angefragt bzw. aufgelöst; auch unbekannte Kategorien werden unverändert protokolliert.",
+          "description": "Resource as requested or resolved; unknown categories are also logged unchanged.",
           "type": "object",
           "additionalProperties": false,
           "required": ["entity_id"],
@@ -123,7 +123,7 @@
       }
     },
     "prev": {
-      "description": "Fingerabdruck des vorherigen Eintrags; null nur beim ersten Eintrag eines Protokolls (seq 1).",
+      "description": "Digest of the previous entry; null only for the first entry of an audit log (seq 1).",
       "anyOf": [ { "type": "null" }, { "$ref": "#/$defs/digest" } ]
     }
   },
@@ -160,18 +160,18 @@
   ],
   "$defs": {
     "date_time": {
-      "description": "Zeitpunkt nach RFC 3339 mit Offset; format-Prüfung ist Pflicht (SPEC-v0 Abschnitt 3.1 Nr. 0).",
+      "description": "Timestamp according to RFC 3339 with offset; asserting format is required (SPEC-v0 section 3.1 item 0).",
       "type": "string",
       "format": "date-time",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
     },
     "digest": {
-      "description": "SHA-256 über die kanonische Form nach RFC 8785, hexadezimal, kleingeschrieben.",
+      "description": "SHA-256 over the canonical form according to RFC 8785, hexadecimal, lower case.",
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
     },
     "reason": {
-      "description": "Begründungscode der Auswertung, SPEC-v0 Abschnitt 4.1.",
+      "description": "Reason code of the evaluation, SPEC-v0 section 4.1.",
       "enum": ["rule", "critical_demotion", "no_match", "revoked", "not_yet_valid", "expired",
                "invalid_mandate", "invalid_request", "unknown_category", "unknown_action"]
     }
