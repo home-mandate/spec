@@ -1,6 +1,6 @@
 module github.com/mandate-spec/mandate-spec
 
-go 1.26.8
+go 1.27.1
 
 require github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 
