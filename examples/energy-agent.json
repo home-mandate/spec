@@ -1,5 +1,5 @@
 {
-  "type": "https://home-mandate.com/spec/mandate/v0",
+  "type": "https://mandate-spec.org/mandate/v0",
   "id": "m-energy-agent",
   "principal": "household:hm-7f3a",
   "agent": { "client_id": "https://energy-agent.example/oauth/client.json", "display_name": "Energie-Agent" },

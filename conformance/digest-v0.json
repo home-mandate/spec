@@ -1,0 +1,237 @@
+{
+  "description": "Fingerabdrücke v0 (Entwurf), SPEC-v0.md Abschnitt 3.2.",
+  "cases": [
+    {
+      "id": "d01",
+      "mandate": "examples/voice-assistant.json",
+      "digest": "sha256:b59c59ddcab0e6422fa59290ebfff19bbf18f2663059bb9a46af29cc30c3bc43",
+      "why": "Datei wie abgelegt"
+    },
+    {
+      "id": "d02",
+      "mandate": "examples/energy-agent.json",
+      "digest": "sha256:b259c6d7e8eb539eae49a82c83b68837774e610a7b41575a59a73c519c41bb8c",
+      "why": "Datei wie abgelegt"
+    },
+    {
+      "id": "d03",
+      "mandate": "examples/shopping-agent.json",
+      "digest": "sha256:ad7a833e6b1e17a6834689df71709c9834abff5bb8f58c9d5daaca5362690146",
+      "why": "Datei wie abgelegt"
+    },
+    {
+      "id": "d04",
+      "mandate": "conformance/mandates/time.json",
+      "digest": "sha256:585f9ea0f66f70c5a99ae90a1da6da6fa0352713ad7d9a99a203a07b2e988285",
+      "why": "Datei wie abgelegt"
+    },
+    {
+      "id": "d05",
+      "mandate": "conformance/mandates/precedence.json",
+      "digest": "sha256:7bd6d6bcf370ee78f47656051cb28122cac2af0739a65eb5f57f4706ea117de6",
+      "why": "Datei wie abgelegt"
+    },
+    {
+      "id": "d06",
+      "mandate_raw": "{\n    \"created_at\": \"2026-10-01T09:12:00+02:00\",\n    \"created_by\": \"ha-user-markus\",\n    \"valid_from\": \"2026-10-01T00:00:00+02:00\",\n    \"limits\": {\n        \"max_actions_per_hour\": 60\n    },\n    \"approval\": {\n        \"timeout\": \"PT2M\",\n        \"approvers\": [\n            \"ha-user-markus\"\n        ]\n    },\n    \"default\": \"deny\",\n    \"rules\": [\n        {\n            \"id\": \"r-read-all\",\n            \"resource\": {\n                \"any\": true\n            },\n            \"actions\": [\n                \"read\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-lights\",\n            \"resource\": {\n                \"category\": \"light\"\n            },\n            \"actions\": [\n                \"turn_on\",\n                \"turn_off\",\n                \"set\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-climate\",\n            \"resource\": {\n                \"category\": \"climate\"\n            },\n            \"actions\": [\n                \"set_temperature\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-locks\",\n            \"resource\": {\n                \"category\": \"lock\"\n            },\n            \"actions\": [\n                \"unlock\",\n                \"open\"\n            ],\n            \"decision\": \"ask\",\n            \"approval\": {\n                \"timeout\": \"PT2M\",\n                \"approvers\": [\n                    \"ha-user-markus\"\n                ]\n            }\n        },\n        {\n            \"id\": \"r-no-cameras\",\n            \"resource\": {\n                \"category\": \"camera\"\n            },\n            \"actions\": [\n                \"*\"\n            ],\n            \"decision\": \"deny\"\n        },\n        {\n            \"id\": \"r-no-alarm\",\n            \"resource\": {\n                \"category\": \"alarm\"\n            },\n            \"actions\": [\n                \"disarm\"\n            ],\n            \"decision\": \"deny\"\n        }\n    ],\n    \"agent\": {\n        \"client_id\": \"hm-client:voice-7c21e9a4\",\n        \"display_name\": \"Sprachassistent\"\n    },\n    \"principal\": \"household:hm-7f3a\",\n    \"id\": \"m-voice-assistant\",\n    \"type\": \"https://mandate-spec.org/mandate/v0\"\n}",
+      "digest": "sha256:b59c59ddcab0e6422fa59290ebfff19bbf18f2663059bb9a46af29cc30c3bc43",
+      "why": "andere Reihenfolge, Leerraum und \\u-Schreibweise: gleicher Fingerabdruck wie d01"
+    },
+    {
+      "id": "d07",
+      "mandate_inline": {
+        "type": "https://mandate-spec.org/mandate/v0",
+        "id": "m-voice-assistant",
+        "principal": "household:hm-7f3a",
+        "agent": {
+          "client_id": "hm-client:voice-7c21e9a4",
+          "display_name": "Tür \"Ä\" \\ \n\t\u0001 € 😀"
+        },
+        "rules": [
+          {
+            "id": "r-read-all",
+            "resource": {
+              "any": true
+            },
+            "actions": [
+              "read"
+            ],
+            "decision": "allow"
+          },
+          {
+            "id": "r-lights",
+            "resource": {
+              "category": "light"
+            },
+            "actions": [
+              "turn_on",
+              "turn_off",
+              "set"
+            ],
+            "decision": "allow"
+          },
+          {
+            "id": "r-climate",
+            "resource": {
+              "category": "climate"
+            },
+            "actions": [
+              "set_temperature"
+            ],
+            "decision": "allow"
+          },
+          {
+            "id": "r-locks",
+            "resource": {
+              "category": "lock"
+            },
+            "actions": [
+              "unlock",
+              "open"
+            ],
+            "decision": "ask",
+            "approval": {
+              "timeout": "PT2M",
+              "approvers": [
+                "ha-user-markus"
+              ]
+            }
+          },
+          {
+            "id": "r-no-cameras",
+            "resource": {
+              "category": "camera"
+            },
+            "actions": [
+              "*"
+            ],
+            "decision": "deny"
+          },
+          {
+            "id": "r-no-alarm",
+            "resource": {
+              "category": "alarm"
+            },
+            "actions": [
+              "disarm"
+            ],
+            "decision": "deny"
+          }
+        ],
+        "default": "deny",
+        "approval": {
+          "timeout": "PT2M",
+          "approvers": [
+            "ha-user-markus"
+          ]
+        },
+        "limits": {
+          "max_actions_per_hour": 60
+        },
+        "valid_from": "2026-10-01T00:00:00+02:00",
+        "created_by": "ha-user-markus",
+        "created_at": "2026-10-01T09:12:00+02:00"
+      },
+      "digest": "sha256:4ce9cad6ae62e92a3709441de6e8760c96d160ad83ad3b4ea16eca931a9108ab",
+      "why": "Escape-Regeln nach RFC 8785: Anführungszeichen, Backslash, Steuerzeichen, Nicht-ASCII, Emoji"
+    },
+    {
+      "id": "d08",
+      "mandate_inline": {
+        "type": "https://mandate-spec.org/mandate/v0",
+        "id": "m-voice-assistant",
+        "principal": "household:hm-7f3a",
+        "agent": {
+          "client_id": "hm-client:voice-7c21e9a4",
+          "display_name": "Sprachassistent"
+        },
+        "rules": [
+          {
+            "id": "r-read-all",
+            "resource": {
+              "any": true
+            },
+            "actions": [
+              "read"
+            ],
+            "decision": "allow"
+          },
+          {
+            "id": "r-lights",
+            "resource": {
+              "category": "light"
+            },
+            "actions": [
+              "turn_on",
+              "turn_off",
+              "set"
+            ],
+            "decision": "allow"
+          },
+          {
+            "id": "r-climate",
+            "resource": {
+              "category": "climate"
+            },
+            "actions": [
+              "set_temperature"
+            ],
+            "decision": "allow"
+          },
+          {
+            "id": "r-locks",
+            "resource": {
+              "category": "lock"
+            },
+            "actions": [
+              "unlock",
+              "open"
+            ],
+            "decision": "ask",
+            "approval": {
+              "timeout": "PT2M",
+              "approvers": [
+                "ha-user-markus"
+              ]
+            }
+          },
+          {
+            "id": "r-no-cameras",
+            "resource": {
+              "category": "camera"
+            },
+            "actions": [
+              "*"
+            ],
+            "decision": "deny"
+          },
+          {
+            "id": "r-no-alarm",
+            "resource": {
+              "category": "alarm"
+            },
+            "actions": [
+              "disarm"
+            ],
+            "decision": "deny"
+          }
+        ],
+        "default": "deny",
+        "approval": {
+          "timeout": "PT2M",
+          "approvers": [
+            "ha-user-markus"
+          ]
+        },
+        "limits": {
+          "max_actions_per_hour": 61
+        },
+        "valid_from": "2026-10-01T00:00:00+02:00",
+        "created_by": "ha-user-markus",
+        "created_at": "2026-10-01T09:12:00+02:00"
+      },
+      "digest": "sha256:dd7282363ae700e7d9100b03b93b4357aab306e409db3698139716dc4d2fdaa9",
+      "why": "nur limits geändert: anderer Fingerabdruck als d01"
+    }
+  ]
+}

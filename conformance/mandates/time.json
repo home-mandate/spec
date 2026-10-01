@@ -1,0 +1,24 @@
+{
+  "type": "https://mandate-spec.org/mandate/v0",
+  "id": "m-conf-time",
+  "principal": "household:conf",
+  "agent": { "client_id": "hm-client:conf-time-0001", "display_name": "Prüfung Zeit" },
+  "rules": [
+    { "id": "r-sensors", "resource": { "category": "sensor" }, "actions": ["read"], "decision": "allow" },
+    { "id": "r-night-light", "resource": { "category": "light" }, "actions": ["turn_on"], "decision": "allow",
+      "conditions": { "time_window": "22:00-06:00" } },
+    { "id": "r-fri-late", "resource": { "category": "climate" }, "actions": ["set_temperature"], "decision": "allow",
+      "conditions": { "time_window": "22:00-02:00", "weekdays": ["fri"] } },
+    { "id": "r-almost-all-day", "resource": { "category": "media" }, "actions": ["play"], "decision": "allow",
+      "conditions": { "time_window": "00:00-23:59" } },
+    { "id": "r-dst-hour", "resource": { "category": "cover" }, "actions": ["open"], "decision": "allow",
+      "conditions": { "time_window": "02:00-03:00" } }
+  ],
+  "default": "deny",
+  "approval": { "timeout": "PT2M", "approvers": ["approver-1"] },
+  "limits": { "max_actions_per_hour": 60 },
+  "valid_from": "2026-01-01T00:00:00+01:00",
+  "expires": "2027-01-01T00:00:00+01:00",
+  "created_by": "approver-1",
+  "created_at": "2025-12-31T12:00:00+01:00"
+}

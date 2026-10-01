@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mandate-spec.org/audit/v0/audit.schema.json",
+  "title": "Protokolleintrag v0",
+  "description": "Ein Eintrag im Protokoll einer Implementierung. Einträge sind über prev hash-verkettet. Arbeitsentwurf, siehe SPEC-v0.md Abschnitt 9.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "id", "seq", "recorded_at", "event", "principal", "prev"],
+  "properties": {
+    "type": { "const": "https://mandate-spec.org/audit/v0" },
+    "id": {
+      "description": "UUIDv7 (RFC 9562), kleingeschrieben.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "seq": { "type": "integer", "minimum": 1 },
+    "recorded_at": { "$ref": "#/$defs/date_time" },
+    "event": {
+      "enum": [
+        "decision",
+        "mandate.created", "mandate.updated", "mandate.revoked",
+        "agent.registered", "agent.revoked",
+        "emergency_stop.activated", "emergency_stop.released",
+        "auth.rejected",
+        "log.truncated"
+      ]
+    },
+    "principal": { "type": "string", "pattern": "^(household|person):[A-Za-z0-9_-]{1,64}$" },
+    "actor": {
+      "description": "Wer eine Änderung ausgelöst hat.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["user", "agent", "system"] },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["client_id"],
+      "properties": {
+        "client_id": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 80 }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time", "resource", "action"],
+      "properties": {
+        "time": { "$ref": "#/$defs/date_time" },
+        "timezone": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "revoked": { "description": "Widerrufsstatus bei der Auswertung; fehlt = false.", "type": "boolean" },
+        "resource": {
+          "description": "Ressource wie angefragt bzw. aufgelöst; auch unbekannte Kategorien werden unverändert protokolliert.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["entity_id"],
+          "properties": {
+            "entity_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "category": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "area": { "type": "string", "minLength": 1, "maxLength": 64 }
+          }
+        },
+        "action": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    },
+    "mandate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "digest"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{4,64}$" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "previous_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "reason", "rule_id"],
+      "properties": {
+        "decision": { "enum": ["allow", "ask", "deny"] },
+        "reason": { "$ref": "#/$defs/reason" },
+        "rule_id": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+        "approval_timeout": { "type": "string", "pattern": "^PT([0-9]+M|[0-9]+S|[0-9]+M[0-9]+S)$" }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "at"],
+      "properties": {
+        "outcome": { "enum": ["approved", "rejected", "timeout", "invalid_response"] },
+        "by": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "at": { "$ref": "#/$defs/date_time" }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["executed", "denied", "failed"] },
+        "denied_by": { "enum": ["mandate", "approval", "rate_limit", "emergency_stop", "authentication"] },
+        "error": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "duration_ms": { "type": "integer", "minimum": 0 }
+      },
+      "allOf": [
+        { "if": { "properties": { "status": { "const": "denied" } } }, "then": { "required": ["denied_by"] } },
+        { "if": { "properties": { "status": { "const": "failed" } } }, "then": { "required": ["error"] } }
+      ]
+    },
+    "truncated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["up_to_seq", "last_digest"],
+      "properties": {
+        "up_to_seq": { "type": "integer", "minimum": 1 },
+        "last_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "prev": {
+      "description": "Fingerabdruck des vorherigen Eintrags; null nur beim ersten Eintrag eines Protokolls (seq 1).",
+      "anyOf": [ { "type": "null" }, { "$ref": "#/$defs/digest" } ]
+    }
+  },
+  "allOf": [
+    { "if": { "properties": { "event": { "const": "decision" } } },
+      "then": { "required": ["agent", "request", "result"] } },
+    { "if": { "properties": { "event": { "enum": ["mandate.created", "mandate.updated", "mandate.revoked"] } } },
+      "then": { "required": ["actor", "mandate"] } },
+    { "if": { "properties": { "event": { "const": "mandate.updated" } } },
+      "then": { "properties": { "mandate": { "required": ["previous_digest"] } } } },
+    { "if": { "properties": { "event": { "enum": ["agent.registered", "agent.revoked"] } } },
+      "then": { "required": ["actor", "agent"] } },
+    { "if": { "properties": { "event": { "enum": ["emergency_stop.activated", "emergency_stop.released"] } } },
+      "then": { "required": ["actor"] } },
+    { "if": { "properties": { "event": { "const": "auth.rejected" } } },
+      "then": { "required": ["result"] } },
+    { "if": { "properties": { "event": { "const": "log.truncated" } } },
+      "then": { "required": ["actor", "truncated"] } },
+    { "if": { "required": ["approval"] },
+      "then": { "required": ["evaluation"], "properties": { "evaluation": { "properties": { "decision": { "const": "ask" } } } } } },
+    { "if": { "properties": { "seq": { "const": 1 } } },
+      "then": { "properties": { "prev": { "type": "null" } } },
+      "else": { "properties": { "prev": { "$ref": "#/$defs/digest" } } } }
+  ],
+  "$defs": {
+    "date_time": {
+      "description": "Zeitpunkt nach RFC 3339 mit Offset; format-Prüfung ist Pflicht (SPEC-v0 Abschnitt 3.1 Nr. 0).",
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "digest": {
+      "description": "SHA-256 über die kanonische Form nach RFC 8785, hexadezimal, kleingeschrieben.",
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "reason": {
+      "description": "Begründungscode der Auswertung, SPEC-v0 Abschnitt 4.1.",
+      "enum": ["rule", "critical_demotion", "no_match", "revoked", "not_yet_valid", "expired",
+               "invalid_mandate", "invalid_request", "unknown_category", "unknown_action"]
+    }
+  }
+}

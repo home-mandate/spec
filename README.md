@@ -4,7 +4,6 @@ Herstellerneutrale Spezifikation für **Mandate von Software-Agenten im Haushalt
 KI-Agent im Auftrag eines Haushalts tun darf, mit den Entscheidungen erlauben, nachfragen und
 verbieten, plus Prüfwerkzeuge, mit denen jede Implementierung ihre Konformität nachweist.
 
-Arbeitstitel, der endgültige neutrale Name folgt vor der ersten Veröffentlichung.
 Status: Entwurf v0. Referenzimplementierung: Home-Mandate.
 
 ## Inhalt
@@ -12,10 +11,15 @@ Status: Entwurf v0. Referenzimplementierung: Home-Mandate.
 | Pfad | Inhalt | Lizenz |
 |---|---|---|
 | `SPEC-v0.md` | Spezifikation: Datenmodell, Auswertungsregel, Vokabular, AuthZEN-Abbildung | CC BY 4.0 |
-| `schema/mandate-v0.schema.json` | JSON-Schema (Draft 2020-12) | Apache 2.0 |
+| `schema/mandate-v0.schema.json` | JSON-Schema des Mandats (Draft 2020-12) | Apache 2.0 |
+| `schema/audit-v0.schema.json` | JSON-Schema eines Protokolleintrags (Draft 2020-12) | Apache 2.0 |
 | `examples/` | Beispiel-Mandate | Apache 2.0 |
 | `conformance/cases-v0.json` | Konformitätsfälle | Apache 2.0 |
-| `evaluator/` *(geplant, v0.1)* | Referenz-Auswertung als Go-Bibliothek, ohne Abhängigkeiten außer der Standardbibliothek | Apache 2.0 |
+| `conformance/invalid-v0.json` | Ungültige Mandate, die abgelehnt werden müssen | Apache 2.0 |
+| `conformance/mandates/` | Prüf-Mandate für Grenzfälle | Apache 2.0 |
+| `conformance/digest-v0.json` | Fingerabdrücke von Mandaten (RFC 8785 + SHA-256) | Apache 2.0 |
+| `conformance/audit-v0.json` | Protokolle mit erwartetem Ergebnis der Kettenprüfung | Apache 2.0 |
+| `evaluator/` *(geplant, v0.1)* | Referenz-Auswertung als Go-Bibliothek (`github.com/mandate-spec/mandate-spec/evaluator`), nur Standardbibliothek plus JSON-Schema-Validator | Apache 2.0 |
 | `cmd/mandate-conformance/` *(geplant, v0.2)* | Black-Box-Prüfwerkzeug gegen beliebige AuthZEN-Endpunkte | Apache 2.0 |
 
 ## Warum ein eigenes Repository
