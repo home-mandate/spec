@@ -60,7 +60,8 @@ Ein Mandat ist gültig, wenn es das Schema erfüllt **und** zusätzlich:
 
 0. alle Felder mit `format: date-time` gültige Zeitpunkte nach RFC 3339 mit Offset sind
    (Implementierungen müssen `format` prüfen, nicht nur als Anmerkung behandeln);
-1. kein JSON-Objekt darin einen Schlüssel doppelt enthält;
+1. es I-JSON nach RFC 7493 ist: gültiges UTF-8, keine einzelnen Surrogate (z. B. ein
+   allein stehendes `\ud800`), kein JSON-Objekt mit doppeltem Schlüssel, genau ein JSON-Wert;
 2. alle Regel-`id`s innerhalb des Mandats verschieden sind;
 3. bei jedem `time_window` Beginn und Ende verschieden sind;
 4. jede Regel, deren `resource` eine Kategorie aus Abschnitt 5 nennt, nur Aktionen aus deren
