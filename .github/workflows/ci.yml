@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+name: CI
+
+# Unit stage: make check (vet, staticcheck, race tests with coverage, govulncheck) on every
+# push to any branch, every pull request against main and manual runs. Short fuzzing is
+# integration.yml; it runs only for pull requests and main, so that its required check
+# never appears as "skipped" on a plain branch push (GitHub counts that as passed).
+# Mutation tests run before releases.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Go (vet, staticcheck, race tests, coverage, govulncheck)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: make check
