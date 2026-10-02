@@ -267,7 +267,7 @@ func TestEvaluateReportsMandateDigest(t *testing.T) {
 
 func TestEvaluateRejectsMalformedRequestFields(t *testing.T) {
 	// Without checking the request, a different spelling would bypass the deny rule
-	// and end up at allow via r-locks (security review, week 1).
+	// and end up at allow via r-locks (found in a security review).
 	m := mandateWithRules(t, `[
 		{"id":"r-cellar","resource":{"entity_id":"lock.keller"},"actions":["*"],"decision":"deny"},
 		{"id":"r-kitchen","resource":{"area":"kueche"},"actions":["*"],"decision":"deny"},
