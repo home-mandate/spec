@@ -30,3 +30,12 @@ func lookupAction(category, action string) (categoryKnown, actionKnown, critical
 	critical, actionKnown = actions[action]
 	return true, actionKnown, critical
 }
+
+// IsCritical reports whether action is a critical action of category in vocabulary v0
+// (SPEC-v0 section 5), for example to decide how an approval request may be answered.
+// Anything outside the vocabulary counts as critical: an unknown action is never
+// treated as harmless.
+func IsCritical(category, action string) bool {
+	_, known, critical := lookupAction(category, action)
+	return !known || critical
+}

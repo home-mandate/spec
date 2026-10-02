@@ -95,6 +95,11 @@
       "properties": {
         "outcome": { "enum": ["approved", "rejected", "timeout", "invalid_response"] },
         "by": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "via": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "description": "Channel through which the answer arrived, an implementation-defined code such as push or ui. Only together with by."
+        },
         "at": { "$ref": "#/$defs/date_time" }
       }
     },
@@ -145,6 +150,8 @@
     { "if": { "required": ["approval"] },
       "then": { "required": ["evaluation"], "properties": { "evaluation": { "properties": { "decision": { "const": "ask" } } } } } },
     { "if": { "required": ["approval"], "properties": { "approval": { "properties": { "outcome": { "enum": ["approved", "rejected", "invalid_response"] } } } } },
+      "then": { "properties": { "approval": { "required": ["by"] } } } },
+    { "if": { "required": ["approval"], "properties": { "approval": { "required": ["via"] } } },
       "then": { "properties": { "approval": { "required": ["by"] } } } },
     { "if": { "required": ["result"], "properties": { "result": { "required": ["status"], "properties": { "status": { "const": "executed" } } } } },
       "then": { "required": ["evaluation", "mandate"], "properties": { "evaluation": { "properties": { "decision": { "enum": ["allow", "ask"] } } } } } },

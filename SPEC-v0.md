@@ -371,7 +371,7 @@ Depending on the event, the following are added:
 | `request` | input to the evaluation: `resource`, `action`, `time`, optionally `timezone` and `revoked` |
 | `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest` |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` |
-| `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (who responded; required except for `timeout`) |
+| `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (who responded; required except for `timeout`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`) |
 | `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); optionally `duration_ms` |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
 
@@ -442,6 +442,15 @@ will be addressed in a later version.
 To follow with v0.2.
 
 ## Changelog
+
+### Unreleased
+
+New:
+- Audit log: optional `approval.via`, the channel an answer came through (Section 9.1),
+  so that a log shows whether a person confirmed on a phone or in a user interface.
+  Conformance cases `a11`–`a13` in `conformance/audit-v0.json`.
+- Reference evaluator: `IsCritical` exposes the critical actions of the vocabulary
+  (Section 5); anything outside the vocabulary counts as critical.
 
 ### v0.1.0-alpha.1
 
