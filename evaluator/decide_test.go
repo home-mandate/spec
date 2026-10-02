@@ -9,7 +9,7 @@ import (
 )
 
 // Parse admits only allow, ask and deny; these tests additionally guard decide in case
-// a mandate is created some other way (Go review, week 1).
+// a mandate is created some other way (found in a Go review).
 func TestDecideTreatsUnknownDecisionAsDeny(t *testing.T) {
 	m := &Mandate{valid: true, digest: "sha256:x", approval: Approval{Timeout: "PT2M"}}
 	for _, d := range []Decision{"permit", "Deny", "", "ALLOW"} {
