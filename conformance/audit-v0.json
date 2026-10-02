@@ -2361,6 +2361,775 @@
           "prev": "sha256:85d30efc7796e21d2b4a1ac08204e7443b77af495b297b28576d86e9db72ea0f"
         }
       ]
+    },
+    {
+      "id": "a11",
+      "why": "approval answered with the channel it came through (via)",
+      "expected": "valid",
+      "entry_digests": [
+        "sha256:93ee5448e9ef1b786390609b71e2bb4d8d35113bd4d5519147f7eeb5f5392ff7",
+        "sha256:9ab0c70377674b5d8ca3d49f94a9d8474d3c45f4cd81c14ae17e5d96dc539c73",
+        "sha256:e3e5b96b5fb1909a17af94ef63ca7a041835bd1c883c51ee892cb4766405616e",
+        "sha256:4c00d606f18f8b93c32382c48c5987fdcca51e988c958923ab9f617cf3c0777d",
+        "sha256:b16398863c04e7216f99b97c909f32c907236f9ae26df8b8163c42e641e5bb44",
+        "sha256:151d5dfa1005e8bf725d04719084630521ea3305434aaa585f87b2e36ea39c27",
+        "sha256:fe11709e71ed8b9d98dbe3b67735f62017d6ff374a4224dd7536b5d81c0fb393",
+        "sha256:df3633067f0b2475fd23c68cfca7cd5c68738ebf2163f582099695efa058aa09",
+        "sha256:c98d03dd0aa14acef2ddb14ae39aa999617131127ceaed45bd9811f211caf74b"
+      ],
+      "entries": [
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4",
+            "display_name": "Sprachassistent"
+          },
+          "event": "agent.registered",
+          "id": "01a0f64c-7140-7001-9007-00005eed0001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:10:00.000+02:00",
+          "seq": 1,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "event": "mandate.created",
+          "id": "01a0f64e-4600-7002-a00e-00005eed0002",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:93ee5448e9ef1b786390609b71e2bb4d8d35113bd4d5519147f7eeb5f5392ff7",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:12:00.000+02:00",
+          "seq": 2,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "allow",
+            "reason": "rule",
+            "rule_id": "r-lights"
+          },
+          "event": "decision",
+          "id": "01a1310e-8f34-7003-b015-00005eed0003",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:9ab0c70377674b5d8ca3d49f94a9d8474d3c45f4cd81c14ae17e5d96dc539c73",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:00:00.180+02:00",
+          "request": {
+            "action": "turn_on",
+            "resource": {
+              "area": "wohnzimmer",
+              "category": "light",
+              "entity_id": "light.wohnzimmer_decke"
+            },
+            "time": "2026-10-12T19:00:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "duration_ms": 180,
+            "status": "executed"
+          },
+          "seq": 3,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "approval": {
+            "at": "2026-10-12T19:00:31+02:00",
+            "by": "user-1",
+            "outcome": "approved",
+            "via": "ui"
+          },
+          "evaluation": {
+            "approval_timeout": "PT2M",
+            "decision": "ask",
+            "reason": "rule",
+            "rule_id": "r-locks"
+          },
+          "event": "decision",
+          "id": "01a1310f-092a-7004-801c-00005eed0004",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:e3e5b96b5fb1909a17af94ef63ca7a041835bd1c883c51ee892cb4766405616e",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:00:31.402+02:00",
+          "request": {
+            "action": "unlock",
+            "resource": {
+              "area": "flur",
+              "category": "lock",
+              "entity_id": "lock.haustuer"
+            },
+            "time": "2026-10-12T19:00:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "duration_ms": 31402,
+            "status": "executed"
+          },
+          "seq": 4,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "approval": {
+            "at": "2026-10-12T19:07:00+02:00",
+            "outcome": "timeout"
+          },
+          "evaluation": {
+            "approval_timeout": "PT2M",
+            "decision": "ask",
+            "reason": "rule",
+            "rule_id": "r-locks"
+          },
+          "event": "decision",
+          "id": "01a13114-f72a-7005-9023-00005eed0005",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:4c00d606f18f8b93c32382c48c5987fdcca51e988c958923ab9f617cf3c0777d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:07:00.010+02:00",
+          "request": {
+            "action": "unlock",
+            "resource": {
+              "area": "flur",
+              "category": "lock",
+              "entity_id": "lock.haustuer"
+            },
+            "time": "2026-10-12T19:05:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "denied_by": "approval",
+            "duration_ms": 120010,
+            "status": "denied"
+          },
+          "seq": 5,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "rule",
+            "rule_id": "r-no-cameras"
+          },
+          "event": "decision",
+          "id": "01a13117-b644-7006-a02a-00005eed0006",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:b16398863c04e7216f99b97c909f32c907236f9ae26df8b8163c42e641e5bb44",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:10:00.004+02:00",
+          "request": {
+            "action": "read",
+            "resource": {
+              "area": "einfahrt",
+              "category": "camera",
+              "entity_id": "camera.einfahrt"
+            },
+            "time": "2026-10-12T19:10:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "denied_by": "mandate",
+            "duration_ms": 4,
+            "status": "denied"
+          },
+          "seq": 6,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "event": "decision",
+          "id": "01a13118-a0a1-7007-b031-00005eed0007",
+          "prev": "sha256:151d5dfa1005e8bf725d04719084630521ea3305434aaa585f87b2e36ea39c27",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:11:00.001+02:00",
+          "request": {
+            "action": "turn_off",
+            "resource": {
+              "area": "flur",
+              "category": "light",
+              "entity_id": "light.flur"
+            },
+            "time": "2026-10-12T19:11:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "denied_by": "rate_limit",
+            "duration_ms": 1,
+            "status": "denied"
+          },
+          "seq": 7,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "event": "mandate.revoked",
+          "id": "01a13145-7d00-7008-8038-00005eed0008",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:fe11709e71ed8b9d98dbe3b67735f62017d6ff374a4224dd7536b5d81c0fb393",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T20:00:00.000+02:00",
+          "seq": 8,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a13146-6760-7009-903f-00005eed0009",
+          "prev": "sha256:df3633067f0b2475fd23c68cfca7cd5c68738ebf2163f582099695efa058aa09",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T20:01:00.000+02:00",
+          "seq": 9,
+          "type": "https://mandate-spec.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a12",
+      "why": "via that is not a lowercase code (schema violation)",
+      "expected": "invalid",
+      "broken_at": 4,
+      "entries": [
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4",
+            "display_name": "Sprachassistent"
+          },
+          "event": "agent.registered",
+          "id": "01a0f64c-7140-7001-9007-00005eed0001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:10:00.000+02:00",
+          "seq": 1,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "event": "mandate.created",
+          "id": "01a0f64e-4600-7002-a00e-00005eed0002",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:93ee5448e9ef1b786390609b71e2bb4d8d35113bd4d5519147f7eeb5f5392ff7",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:12:00.000+02:00",
+          "seq": 2,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "allow",
+            "reason": "rule",
+            "rule_id": "r-lights"
+          },
+          "event": "decision",
+          "id": "01a1310e-8f34-7003-b015-00005eed0003",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:9ab0c70377674b5d8ca3d49f94a9d8474d3c45f4cd81c14ae17e5d96dc539c73",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:00:00.180+02:00",
+          "request": {
+            "action": "turn_on",
+            "resource": {
+              "area": "wohnzimmer",
+              "category": "light",
+              "entity_id": "light.wohnzimmer_decke"
+            },
+            "time": "2026-10-12T19:00:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "duration_ms": 180,
+            "status": "executed"
+          },
+          "seq": 3,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "approval": {
+            "at": "2026-10-12T19:00:31+02:00",
+            "by": "user-1",
+            "outcome": "approved",
+            "via": "Mobile App"
+          },
+          "evaluation": {
+            "approval_timeout": "PT2M",
+            "decision": "ask",
+            "reason": "rule",
+            "rule_id": "r-locks"
+          },
+          "event": "decision",
+          "id": "01a1310f-092a-7004-801c-00005eed0004",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:e3e5b96b5fb1909a17af94ef63ca7a041835bd1c883c51ee892cb4766405616e",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:00:31.402+02:00",
+          "request": {
+            "action": "unlock",
+            "resource": {
+              "area": "flur",
+              "category": "lock",
+              "entity_id": "lock.haustuer"
+            },
+            "time": "2026-10-12T19:00:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "duration_ms": 31402,
+            "status": "executed"
+          },
+          "seq": 4,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "approval": {
+            "at": "2026-10-12T19:07:00+02:00",
+            "outcome": "timeout"
+          },
+          "evaluation": {
+            "approval_timeout": "PT2M",
+            "decision": "ask",
+            "reason": "rule",
+            "rule_id": "r-locks"
+          },
+          "event": "decision",
+          "id": "01a13114-f72a-7005-9023-00005eed0005",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:e5456b363450a0d15d6895f1baed9636f84c04d6834847dbd51a1e4882e8e158",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:07:00.010+02:00",
+          "request": {
+            "action": "unlock",
+            "resource": {
+              "area": "flur",
+              "category": "lock",
+              "entity_id": "lock.haustuer"
+            },
+            "time": "2026-10-12T19:05:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "denied_by": "approval",
+            "duration_ms": 120010,
+            "status": "denied"
+          },
+          "seq": 5,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "rule",
+            "rule_id": "r-no-cameras"
+          },
+          "event": "decision",
+          "id": "01a13117-b644-7006-a02a-00005eed0006",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:8d65fd0b3fecd50216616b6a580844ce1a8ee34b1b0ba821f0b6641bd7a9cd3d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:10:00.004+02:00",
+          "request": {
+            "action": "read",
+            "resource": {
+              "area": "einfahrt",
+              "category": "camera",
+              "entity_id": "camera.einfahrt"
+            },
+            "time": "2026-10-12T19:10:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "denied_by": "mandate",
+            "duration_ms": 4,
+            "status": "denied"
+          },
+          "seq": 6,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "event": "decision",
+          "id": "01a13118-a0a1-7007-b031-00005eed0007",
+          "prev": "sha256:70d958bccbb2a6058c623ab583e2e4241f27b6ef20cce5beb6fa07d6bfb4f10e",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:11:00.001+02:00",
+          "request": {
+            "action": "turn_off",
+            "resource": {
+              "area": "flur",
+              "category": "light",
+              "entity_id": "light.flur"
+            },
+            "time": "2026-10-12T19:11:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "denied_by": "rate_limit",
+            "duration_ms": 1,
+            "status": "denied"
+          },
+          "seq": 7,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "event": "mandate.revoked",
+          "id": "01a13145-7d00-7008-8038-00005eed0008",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:0f518bef6384934019c69e21f2f9ee10ecbe191583ad82ee66cf22fe82f1086b",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T20:00:00.000+02:00",
+          "seq": 8,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a13146-6760-7009-903f-00005eed0009",
+          "prev": "sha256:cdcb2f027b42e0addfa2f5e6a83ecd86264b5cd51be696ca6871099d195a904b",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T20:01:00.000+02:00",
+          "seq": 9,
+          "type": "https://mandate-spec.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a13",
+      "why": "via on a timeout, where nobody answered (schema violation)",
+      "expected": "invalid",
+      "broken_at": 5,
+      "entries": [
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4",
+            "display_name": "Sprachassistent"
+          },
+          "event": "agent.registered",
+          "id": "01a0f64c-7140-7001-9007-00005eed0001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:10:00.000+02:00",
+          "seq": 1,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "event": "mandate.created",
+          "id": "01a0f64e-4600-7002-a00e-00005eed0002",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:93ee5448e9ef1b786390609b71e2bb4d8d35113bd4d5519147f7eeb5f5392ff7",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:12:00.000+02:00",
+          "seq": 2,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "allow",
+            "reason": "rule",
+            "rule_id": "r-lights"
+          },
+          "event": "decision",
+          "id": "01a1310e-8f34-7003-b015-00005eed0003",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:9ab0c70377674b5d8ca3d49f94a9d8474d3c45f4cd81c14ae17e5d96dc539c73",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:00:00.180+02:00",
+          "request": {
+            "action": "turn_on",
+            "resource": {
+              "area": "wohnzimmer",
+              "category": "light",
+              "entity_id": "light.wohnzimmer_decke"
+            },
+            "time": "2026-10-12T19:00:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "duration_ms": 180,
+            "status": "executed"
+          },
+          "seq": 3,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "approval": {
+            "at": "2026-10-12T19:00:31+02:00",
+            "by": "user-1",
+            "outcome": "approved"
+          },
+          "evaluation": {
+            "approval_timeout": "PT2M",
+            "decision": "ask",
+            "reason": "rule",
+            "rule_id": "r-locks"
+          },
+          "event": "decision",
+          "id": "01a1310f-092a-7004-801c-00005eed0004",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:e3e5b96b5fb1909a17af94ef63ca7a041835bd1c883c51ee892cb4766405616e",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:00:31.402+02:00",
+          "request": {
+            "action": "unlock",
+            "resource": {
+              "area": "flur",
+              "category": "lock",
+              "entity_id": "lock.haustuer"
+            },
+            "time": "2026-10-12T19:00:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "duration_ms": 31402,
+            "status": "executed"
+          },
+          "seq": 4,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "approval": {
+            "at": "2026-10-12T19:07:00+02:00",
+            "outcome": "timeout",
+            "via": "push"
+          },
+          "evaluation": {
+            "approval_timeout": "PT2M",
+            "decision": "ask",
+            "reason": "rule",
+            "rule_id": "r-locks"
+          },
+          "event": "decision",
+          "id": "01a13114-f72a-7005-9023-00005eed0005",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:3767b1fe2f08b8052b2ee7f610fe03bb2b4357f3bafcb4bdc4bdc54d45032e6d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:07:00.010+02:00",
+          "request": {
+            "action": "unlock",
+            "resource": {
+              "area": "flur",
+              "category": "lock",
+              "entity_id": "lock.haustuer"
+            },
+            "time": "2026-10-12T19:05:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "denied_by": "approval",
+            "duration_ms": 120010,
+            "status": "denied"
+          },
+          "seq": 5,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "rule",
+            "rule_id": "r-no-cameras"
+          },
+          "event": "decision",
+          "id": "01a13117-b644-7006-a02a-00005eed0006",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:76c4d19cbf76c581eaa9652ee234e79a44652e441de30b7e15b9ea6de1b2a15d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:10:00.004+02:00",
+          "request": {
+            "action": "read",
+            "resource": {
+              "area": "einfahrt",
+              "category": "camera",
+              "entity_id": "camera.einfahrt"
+            },
+            "time": "2026-10-12T19:10:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "denied_by": "mandate",
+            "duration_ms": 4,
+            "status": "denied"
+          },
+          "seq": 6,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "event": "decision",
+          "id": "01a13118-a0a1-7007-b031-00005eed0007",
+          "prev": "sha256:e4bdabde4c9c8c932e28c04553a3ccdd394f6e55cf4f271e0bf49db459504169",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T19:11:00.001+02:00",
+          "request": {
+            "action": "turn_off",
+            "resource": {
+              "area": "flur",
+              "category": "light",
+              "entity_id": "light.flur"
+            },
+            "time": "2026-10-12T19:11:00+02:00",
+            "timezone": "Europe/Berlin"
+          },
+          "result": {
+            "denied_by": "rate_limit",
+            "duration_ms": 1,
+            "status": "denied"
+          },
+          "seq": 7,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "event": "mandate.revoked",
+          "id": "01a13145-7d00-7008-8038-00005eed0008",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:659697a3147c206288e3e55f4d5cf8723b5b07781dee5e5bf044d65da9da7d14",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T20:00:00.000+02:00",
+          "seq": 8,
+          "type": "https://mandate-spec.org/audit/v0"
+        },
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a13146-6760-7009-903f-00005eed0009",
+          "prev": "sha256:1452375be63a4c7ef647fbc1a8072a3b33f6ee73b35f3a6234de7a5ae356aa7a",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-12T20:01:00.000+02:00",
+          "seq": 9,
+          "type": "https://mandate-spec.org/audit/v0"
+        }
+      ]
     }
   ]
 }
