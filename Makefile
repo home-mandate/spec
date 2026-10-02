@@ -10,7 +10,9 @@ GREMLINS    := github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
 COVER_MIN      := 95
 EFFICACY_MIN   := 90
 FUZZTIME       ?= 10m
-FUZZ_TARGETS   := FuzzParse FuzzEvaluate
+# package:target
+FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate audit:FuzzVerify
+MUTATION_PKGS  := ./evaluator ./audit ./jcs
 
 .PHONY: check test cover vet staticcheck vulncheck fuzz mutation
 
@@ -36,15 +38,18 @@ vulncheck:
 
 ## fuzz: each target for FUZZTIME, e.g. make fuzz FUZZTIME=30s
 fuzz:
-	@for target in $(FUZZ_TARGETS); do \
-		go test ./evaluator/ -run '^$$' -fuzz "^$$target\$$" -fuzztime $(FUZZTIME) || exit 1; \
+	@for spec in $(FUZZ_TARGETS); do \
+		pkg=$${spec%%:*}; target=$${spec#*:}; \
+		go test ./$$pkg/ -run '^$$' -fuzz "^$$target\$$" -fuzztime $(FUZZTIME) || exit 1; \
 	done
 
 ## mutation: mutation tests; target ≥ 90 % killed mutants (required before a release).
 ## Gremlins does not reliably enforce the threshold via its exit code, so awk checks it.
 ## Without a higher timeout coefficient, mutants time out when the build cache is warm.
 mutation:
-	GOFLAGS=-count=1 go run $(GREMLINS) unleash -S lt --timeout-coefficient 20 ./evaluator | tee mutation.out
-	@awk -v min=$(EFFICACY_MIN) '/^Test efficacy:/ { sub("%", "", $$3); found = 1; \
-		if ($$3 + 0 < min) { print "Mutation score " $$3 "% < " min "%"; exit 1 } else print "Mutation score " $$3 "%" } \
-		END { if (!found) { print "Mutation score not found"; exit 1 } }' mutation.out
+	@for pkg in $(MUTATION_PKGS); do \
+		GOFLAGS=-count=1 go run $(GREMLINS) unleash -S lt --timeout-coefficient 20 $$pkg | tee mutation.out; \
+		awk -v min=$(EFFICACY_MIN) -v pkg=$$pkg '/^Test efficacy:/ { sub("%", "", $$3); found = 1; \
+			if ($$3 + 0 < min) { print pkg ": mutation score " $$3 "% < " min "%"; exit 1 } else print pkg ": mutation score " $$3 "%" } \
+			END { if (!found) { print pkg ": mutation score not found"; exit 1 } }' mutation.out || exit 1; \
+	done

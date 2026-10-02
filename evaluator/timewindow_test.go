@@ -149,7 +149,7 @@ func TestValidZoneName(t *testing.T) {
 		"europe/berlin", "Europe/berlin", "Etc/gmt+9",
 		"/Europe", "Europe/", "Europe//Berlin", "A/" + strings.Repeat("A", maxZoneNameLength-1),
 		// Characters just outside the allowed ranges and common path characters.
-		"Ab/A@", "Ab/A[", "Ab/A`", "Ab/A{", "Ab/A:", "Ab/A.", "Ab/A ", "Ab/A,", "Ab/A*", "Ab/A\\", "Ab/A" + r(0xe4),
+		"Ab/A@", "Ab/A[", "Ab/A`", "Ab/A{", "Ab/A:", "Ab/A.", "Ab/A ", "Ab/A,", "Ab/A*", "Ab/A\\", "Ab/A" + string(rune(0xe4)),
 		"@b/Ab", "[b/Ab", "Ab/@b", "Ab/[b", "Ab/0b",
 	}
 	for _, zone := range invalid {

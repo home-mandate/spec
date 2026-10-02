@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package evaluator
+// Package jcs implements the JSON Canonicalization Scheme (RFC 8785) for the subset
+// mandate-spec uses, and the digests of SPEC-v0 sections 3.2 and 9.4.
+package jcs
 
 import (
 	"bytes"
@@ -17,9 +19,10 @@ import (
 // maxExactInteger is 2^53; above it, integers are no longer exact in IEEE 754.
 const maxExactInteger = 1 << 53
 
-// digestOf returns the digest according to SPEC-v0 section 3.2.
-func digestOf(v any) (string, error) {
-	canonical, err := canonicalize(v)
+// Digest returns "sha256:" + hex(SHA-256(JCS(v))) according to SPEC-v0 sections 3.2
+// and 9.4. v is a value decoded with json.Number for numbers.
+func Digest(v any) (string, error) {
+	canonical, err := Canonicalize(v)
 	if err != nil {
 		return "", err
 	}
@@ -27,10 +30,10 @@ func digestOf(v any) (string, error) {
 	return "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
-// canonicalize writes v in the canonical form according to RFC 8785 (JCS). It supports
+// Canonicalize returns v in the canonical form according to RFC 8785 (JCS). It supports
 // the subset used by mandates and audit log entries: null, booleans, strings,
 // integers as json.Number, arrays and objects.
-func canonicalize(v any) ([]byte, error) {
+func Canonicalize(v any) ([]byte, error) {
 	var b bytes.Buffer
 	if err := writeCanonical(&b, v); err != nil {
 		return nil, err

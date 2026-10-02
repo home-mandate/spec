@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package evaluator
+// Package ijson checks the I-JSON rules (RFC 7493) that encoding/json and the schema
+// validator do not: valid UTF-8, no lone surrogates, no duplicate keys, exactly one value,
+// bounded nesting.
+package ijson
 
 import (
 	"bytes"
@@ -12,13 +15,16 @@ import (
 	"unicode/utf8"
 )
 
-// maxNestingDepth limits nesting; valid mandates need no more than 5 levels.
+// ErrMalformed is returned for input that is not I-JSON.
+var ErrMalformed = errors.New("malformed JSON")
+
+// maxNestingDepth limits nesting; valid mandates and audit entries need far fewer levels.
 const maxNestingDepth = 32
 
-// checkJSONStructure checks what the schema validator and encoding/json do not
+// Check checks what the schema validator and encoding/json do not
 // (SPEC-v0 section 3.1 item 1): exactly one JSON value, valid UTF-8, no lone
 // surrogates, no duplicate keys, bounded depth.
-func checkJSONStructure(data []byte) error {
+func Check(data []byte) error {
 	if !utf8.Valid(data) {
 		return fmt.Errorf("%w: invalid UTF-8", ErrMalformed)
 	}

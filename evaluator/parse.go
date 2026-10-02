@@ -11,6 +11,8 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
+	"github.com/mandate-spec/mandate-spec/internal/ijson"
+	"github.com/mandate-spec/mandate-spec/jcs"
 	"github.com/mandate-spec/mandate-spec/schema"
 )
 
@@ -48,8 +50,8 @@ func Parse(data []byte) (*Mandate, error) {
 	if len(data) > MaxMandateBytes {
 		return nil, fmt.Errorf("%w: %d bytes, limit %d", ErrTooLarge, len(data), MaxMandateBytes)
 	}
-	if err := checkJSONStructure(data); err != nil {
-		return nil, err
+	if err := ijson.Check(data); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrMalformed, err)
 	}
 	instance, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
 	if err != nil {
@@ -68,7 +70,7 @@ func Parse(data []byte) (*Mandate, error) {
 	if err := dec.Decode(&raw); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrSchema, err)
 	}
-	digest, err := digestOf(instance)
+	digest, err := jcs.Digest(instance)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrSchema, err)
 	}

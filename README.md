@@ -20,6 +20,8 @@ Status: Draft v0. Reference implementation: Home-Mandate.
 | `conformance/digest-v0.json` | Digests of mandates (RFC 8785 + SHA-256) | Apache 2.0 |
 | `conformance/audit-v0.json` | Audit logs with the expected result of the hash chain verification | Apache 2.0 |
 | `evaluator/` | Reference evaluator as a Go library (`github.com/mandate-spec/mandate-spec/evaluator`), standard library only plus a JSON Schema validator | Apache 2.0 |
+| `audit/` | Entry digests and hash-chain verification of audit logs (SPEC-v0 section 9), checked against `conformance/audit-v0.json` | Apache 2.0 |
+| `jcs/` | JSON Canonicalization Scheme (RFC 8785) for the digests of mandates and audit entries | Apache 2.0 |
 | `schema/*.go`, `spec.go` | Go packages that embed the schemas (`schema`) and the schemas, examples and conformance cases (root package), respectively | Apache 2.0 |
 | `Makefile` | Checks: `make check` (vet, staticcheck, coverage ≥ 95 %, govulncheck), `make fuzz`, `make mutation` (≥ 90 %) | Apache 2.0 |
 | `cmd/mandate-conformance/` *(planned, v0.2)* | Black-box test tool against arbitrary AuthZEN endpoints | Apache 2.0 |

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package evaluator
+package ijson
 
 import (
 	"errors"
@@ -90,5 +90,34 @@ func TestCheckTokensRejectsUnterminatedInput(t *testing.T) {
 		if err := checkTokens([]byte(data)); !errors.Is(err, ErrMalformed) {
 			t.Errorf("checkTokens(%q) = %v, want ErrMalformed", data, err)
 		}
+	}
+}
+
+func TestCheck(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		ok   bool
+	}{
+		{"object", `{"a":[1,{"b":null}],"c":"😀"}`, true},
+		{"invalid UTF-8", "{\"a\":\"\xff\"}", false},
+		{"duplicate key", `{"a":1,"a":2}`, false},
+		{"duplicate key nested", `{"x":{"a":1,"a":2}}`, false},
+		{"same key in sibling objects", `[{"a":1},{"a":2}]`, true},
+		{"lone high surrogate", `{"a":"\ud800"}`, false},
+		{"two values", `{} {}`, false},
+		{"empty", ``, false},
+		{"invalid token", `{"a":tru}`, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := Check([]byte(tt.in))
+			if (err == nil) != tt.ok {
+				t.Fatalf("Check(%q) = %v, want ok=%v", tt.in, err, tt.ok)
+			}
+			if err != nil && !errors.Is(err, ErrMalformed) {
+				t.Errorf("err = %v, want ErrMalformed", err)
+			}
+		})
 	}
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package evaluator
+package jcs
 
 import (
 	"encoding/json"
@@ -21,7 +21,7 @@ func TestCanonicalizeSortsKeysByUTF16CodeUnits(t *testing.T) {
 		r(0x20ac): "Euro Sign", r(0x0d): "Carriage Return", r(0xfb33): "Hebrew Letter Dalet With Dagesh",
 		"1": "One", r(0x1f600): "Emoji: Grinning Face", r(0x80): "Control", r(0xf6): "Latin Small Letter O With Diaeresis",
 	}
-	got, err := canonicalize(in)
+	got, err := Canonicalize(in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestCanonicalizeEscapesStringsLikeRFC8785(t *testing.T) {
 	// RFC 8785 section 3.2.2.2.
 	in := map[string]any{"a": r(0x20ac) + "$" + r(0x0f) + r(0x0a) + "A'B" + r(0x22) + r(0x5c) + r(0x5c) + r(0x22) + "/"}
 	want := `{"a":"` + r(0x20ac) + `$` + esc("000f") + `\nA'B\"\\\\\"/"}`
-	got, err := canonicalize(in)
+	got, err := Canonicalize(in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestCanonicalizeControlCharacters(t *testing.T) {
 		0x00: esc("0000"), 0x1f: esc("001f"), 0x7f: r(0x7f), 0x2028: r(0x2028),
 	}
 	for in, want := range tests {
-		got, err := canonicalize(r(in))
+		got, err := Canonicalize(r(in))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -86,7 +86,7 @@ func TestCanonicalizeLiterals(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := canonicalize(tt.in)
+			got, err := Canonicalize(tt.in)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -109,7 +109,7 @@ func TestCanonicalizeRejectsUnsupportedValues(t *testing.T) {
 	}
 	for name, in := range tests {
 		t.Run(name, func(t *testing.T) {
-			if _, err := canonicalize(in); err == nil {
+			if _, err := Canonicalize(in); err == nil {
 				t.Error("expected error")
 			}
 		})
@@ -117,7 +117,7 @@ func TestCanonicalizeRejectsUnsupportedValues(t *testing.T) {
 }
 
 func TestDigestFormat(t *testing.T) {
-	d, err := digestOf(map[string]any{})
+	d, err := Digest(map[string]any{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestDigestFormat(t *testing.T) {
 	if d != want {
 		t.Errorf("got %s, want %s", d, want)
 	}
-	if _, err := digestOf(json.Number("0.5")); err == nil {
+	if _, err := Digest(json.Number("0.5")); err == nil {
 		t.Error("expected error for unsupported value")
 	}
 }
