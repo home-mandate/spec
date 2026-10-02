@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 name: CI
 
-# Every push to any branch runs make check (vet, staticcheck, race tests with coverage,
-# govulncheck). Pull requests against main (every push into them), pushes to main and
-# manual runs additionally fuzz every target briefly. main is protected: changes only via
-# squash-merged pull requests with all checks green. Mutation tests run before releases.
+# Unit stage: make check (vet, staticcheck, race tests with coverage, govulncheck) on every
+# push to any branch, every pull request against main and manual runs. Short fuzzing is
+# integration.yml; it runs only for pull requests and main, so that its required check
+# never appears as "skipped" on a plain branch push (GitHub counts that as passed).
+# Mutation tests run before releases.
 on:
   push:
     branches: ["**"]
@@ -33,18 +34,3 @@ jobs:
         with:
           go-version-file: go.mod
       - run: make check
-
-  fuzz:
-    name: Fuzz (short)
-    # Integration stage: pull requests, main and manual runs; not plain branch pushes.
-    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-      - run: make fuzz FUZZTIME=60s
