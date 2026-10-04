@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["type", "id", "principal", "agent", "rules", "default", "approval", "limits", "valid_from", "created_by", "created_at"],
+  "dependentRequired": { "issuer": ["version"], "version": ["issuer"] },
   "properties": {
     "type": { "const": "https://mandate-spec.org/mandate/v0" },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{4,64}$" },
@@ -16,13 +17,8 @@
       "required": ["client_id", "display_name"],
       "properties": {
         "client_id": {
-          "description": "OAuth client ID: URL of a Client ID Metadata Document or an ID assigned by the implementation in the form <namespace>:<id>, e.g. for paired agents.",
-          "type": "string",
-          "maxLength": 512,
-          "anyOf": [
-            { "pattern": "^https://[^\\s]+$" },
-            { "pattern": "^[a-z][a-z0-9-]{0,31}:[A-Za-z0-9._~-]{1,128}$" }
-          ]
+          "description": "Identifier of the agent, compared exactly per character (SPEC-v0 section 3.3).",
+          "$ref": "#/$defs/uri"
         },
         "display_name": { "type": "string", "minLength": 1, "maxLength": 80 }
       }
@@ -47,15 +43,37 @@
     },
     "valid_from": { "$ref": "#/$defs/date_time" },
     "expires": { "$ref": "#/$defs/date_time" },
+    "issuer": {
+      "description": "Who issued the mandate; only together with version. Required in a signed mandate (SPEC-v0 sections 3.5 and 7).",
+      "$ref": "#/$defs/uri"
+    },
+    "version": {
+      "description": "Version of the mandate with this id, increasing with every change; only together with issuer.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
     "created_by": { "type": "string", "minLength": 1, "maxLength": 128 },
     "created_at": { "$ref": "#/$defs/date_time" }
   },
   "$defs": {
+    "uri": {
+      "description": "Either an https URL (lower-case host, a path, no userinfo, no fragment) or another URI such as <namespace>:<id>, did:web:..., spiffe://... or urn:.... Printable ASCII only, no dot segments.",
+      "type": "string",
+      "maxLength": 512,
+      "allOf": [
+        { "if": { "pattern": "^https:[!-~]*$" },
+          "then": { "pattern": "^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?/[A-Za-z0-9._~%!$&'()*+,;=:/?-]*$" },
+          "else": { "pattern": "^[a-z][a-z0-9+.-]{0,31}:[A-Za-z0-9._~:/-]{1,256}$", "not": { "pattern": "^http:[!-~]*$" } } },
+        { "not": { "pattern": "^[!-~]*/[.][.]?([/?][!-~]*)?$" } }
+      ]
+    },
     "date_time": {
-      "description": "Timestamp according to RFC 3339 with offset. Asserting format is required (SPEC-v0 section 3.1 item 0); pattern also catches gross errors in validators that treat format only as an annotation.",
+      "description": "Timestamp according to RFC 3339 with offset, at most 9 fractional digits, not in year 0000 and not with the offset -00:00. Asserting format is required (SPEC-v0 section 3.1 item 0); pattern also catches gross errors in validators that treat format only as an annotation.",
       "type": "string",
       "format": "date-time",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$",
+      "not": { "anyOf": [ { "pattern": "^0000[!-~]*$" }, { "pattern": "^[!-~]*-00:00$" } ] }
     },
     "category": {
       "anyOf": [
@@ -68,9 +86,9 @@
       "additionalProperties": false,
       "minProperties": 1,
       "properties": {
-        "entity_id": { "type": "string", "pattern": "^[a-z0-9_]+\\.[a-z0-9_]+$" },
+        "entity_id": { "description": "Identifier of the resource in the directory of the implementation. Opaque: printable ASCII without space, compared exactly per character.", "type": "string", "pattern": "^[!-~]{1,255}$" },
         "category": { "$ref": "#/$defs/category" },
-        "area": { "type": "string", "pattern": "^[a-z0-9_]{1,64}$" },
+        "area": { "description": "Identifier of the area or group the resource belongs to. Opaque, compared exactly per character.", "type": "string", "pattern": "^[!-~]{1,64}$" },
         "any": { "const": true, "description": "Matches every resource. Only allowed on its own." }
       },
       "if": { "required": ["any"] },
@@ -81,7 +99,7 @@
       "additionalProperties": false,
       "required": ["timeout", "approvers"],
       "properties": {
-        "timeout": { "type": "string", "pattern": "^PT([0-9]+M|[0-9]+S|[0-9]+M[0-9]+S)$" },
+        "timeout": { "type": "string", "minLength": 4, "pattern": "^PT([0-9]{1,5}H)?([0-9]{1,5}M)?([0-9]{1,5}S)?$" },
         "approvers": {
           "description": "Identifiers, in the implementation's user management, of the people allowed to confirm approval requests.",
           "type": "array",
@@ -105,6 +123,28 @@
         }
       }
     },
+    "limit": {
+      "description": "An integer in the unit the vocabulary gives the parameter. Mandates contain no fractions, so that the canonical form needs no floating-point serialization.",
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "constraints": {
+      "description": "Only with allow: limits for integer parameters of the action. The rule matches only if the request carries every named parameter with a value within the limits (SPEC-v0 section 4.5).",
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 16,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "min": { "$ref": "#/$defs/limit", "description": "Smallest permitted value, inclusive." },
+          "max": { "$ref": "#/$defs/limit", "description": "Largest permitted value, inclusive." }
+        }
+      }
+    },
     "rule": {
       "type": "object",
       "additionalProperties": false,
@@ -113,7 +153,7 @@
         "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
         "resource": { "$ref": "#/$defs/resource" },
         "actions": {
-          "description": "Actions from the category's vocabulary or \"*\". The implementation checks whether an action fits the category.",
+          "description": "Actions from the vocabulary or \"*\". The implementation checks whether an action fits the category (SPEC-v0 section 3.1 item 4).",
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
@@ -121,15 +161,18 @@
         },
         "decision": { "enum": ["allow", "ask", "deny"] },
         "conditions": { "$ref": "#/$defs/conditions" },
+        "constraints": { "$ref": "#/$defs/constraints" },
         "approval": { "$ref": "#/$defs/approval" },
         "allow_critical": {
-          "description": "Only with allow: permits critical actions without an approval request. Must be confirmed separately in the user interface.",
+          "description": "Only with allow and only with the actions listed, not with \"*\": permits critical actions without an approval request. Must be confirmed separately in the user interface.",
           "const": true
         }
       },
       "allOf": [
         { "if": { "required": ["approval"] }, "then": { "properties": { "decision": { "const": "ask" } } } },
-        { "if": { "required": ["allow_critical"] }, "then": { "properties": { "decision": { "const": "allow" } } } }
+        { "if": { "required": ["allow_critical"] }, "then": { "properties": { "decision": { "const": "allow" } } } },
+        { "if": { "required": ["allow_critical"] }, "then": { "properties": { "actions": { "not": { "contains": { "const": "*" } } } } } },
+        { "if": { "required": ["constraints"] }, "then": { "properties": { "decision": { "const": "allow" }, "actions": { "not": { "contains": { "const": "*" } } } } } }
       ]
     }
   }

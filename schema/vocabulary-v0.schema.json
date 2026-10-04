@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mandate-spec.org/vocabulary/v0/vocabulary.schema.json",
+  "title": "Vocabulary v0",
+  "description": "A vocabulary: categories with their actions. Used for the core vocabulary of SPEC-v0 section 5 and for extensions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "version",
+    "categories"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "id": {
+      "description": "Identifier of the vocabulary, a URI.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[a-z][a-z0-9+.-]{0,31}:[!-~]{1,480}$"
+    },
+    "version": {
+      "description": "Version of the vocabulary. A vocabulary never changes under the same id and version.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$"
+    },
+    "categories": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "description": "A core category (lower case) or a namespaced extension category, e.g. paperless:document.",
+        "pattern": "^[a-z][a-z0-9_-]{0,31}(:[a-z][a-z0-9_]{0,31})?$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "actions"
+        ],
+        "properties": {
+          "actions": {
+            "type": "object",
+            "minProperties": 1,
+            "propertyNames": {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "critical": {
+                  "description": "true: the action is critical (SPEC-v0 section 4, step 5). Absent: not critical.",
+                  "const": true
+                },
+                "parameters": {
+                  "description": "Integer parameters of the action that a rule can constrain (SPEC-v0 section 4.5).",
+                  "type": "object",
+                  "minProperties": 1,
+                  "propertyNames": {
+                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "unit"
+                    ],
+                    "properties": {
+                      "unit": {
+                        "description": "Unit of the integer value, chosen fine enough that no fraction is needed.",
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "minimum": {
+                        "type": "integer"
+                      },
+                      "maximum": {
+                        "type": "integer"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

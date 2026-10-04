@@ -6,17 +6,33 @@
 package evaluator
 
 import (
-	"regexp"
 	"slices"
 	"time"
 )
 
-// Patterns for entity_id and area from schema/mandate-v0.schema.json; they apply to the
-// request as well (SPEC-v0 section 4, step 0). In Go regexps, $ matches only the end of text.
-var (
-	entityIDPattern = regexp.MustCompile(`^[a-z0-9_]+\.[a-z0-9_]+$`)
-	areaPattern     = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
+// Length limits for entity_id and area from schema/mandate-v0.schema.json; they apply
+// to the request as well (SPEC-v0 section 4, step 0).
+const (
+	maxEntityIDLength = 255
+	maxAreaLength     = 64
 )
+
+// actionRead is never critical, not even on a resource marked as critical.
+const actionRead = "read"
+
+// opaque reports whether s is an opaque identifier: 1 to limit printable ASCII
+// characters without space (0x21 to 0x7E). Identifiers are compared byte by byte.
+func opaque(s string, limit int) bool {
+	if s == "" || len(s) > limit {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x21 || s[i] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
 
 // Decision is the decision of the evaluation.
 type Decision string
@@ -33,8 +49,11 @@ type Reason string
 
 // Reason codes in the precedence order from SPEC-v0 section 4.1.
 const (
+	ReasonNoMandate        Reason = "no_mandate"
+	ReasonAmbiguousMandate Reason = "ambiguous_mandate"
 	ReasonInvalidMandate   Reason = "invalid_mandate"
 	ReasonInvalidRequest   Reason = "invalid_request"
+	ReasonUnknownResource  Reason = "unknown_resource"
 	ReasonUnknownCategory  Reason = "unknown_category"
 	ReasonUnknownAction    Reason = "unknown_action"
 	ReasonRevoked          Reason = "revoked"
@@ -45,11 +64,16 @@ const (
 	ReasonRule             Reason = "rule"
 )
 
-// Resource is the requested resource with category and area already resolved.
+// Resource is the requested resource with category and area already resolved. An empty
+// Category means the PEP's directory does not contain the resource.
 type Resource struct {
 	EntityID string
 	Category string
 	Area     string
+	// Critical is true if the directory of the PEP marks the resource as critical. Then
+	// every action except read is critical (SPEC-v0 section 4, step 5). It can only add
+	// protection, never remove it.
+	Critical bool
 }
 
 // MandateStatus is the status of the mandate as managed by the PEP.
@@ -66,7 +90,10 @@ const (
 type Request struct {
 	Resource Resource
 	Action   string
-	Time     time.Time
+	// Parameters are the integer parameters of the action in the units of the vocabulary,
+	// derived by the PEP from what it will execute (SPEC-v0 section 4.5).
+	Parameters map[string]int64
+	Time       time.Time
 	// TimeZone is the household's time zone as an IANA name. If empty, the offset of Time applies.
 	TimeZone string
 	// Status is required; a missing status leads to Deny, never to an active mandate.
@@ -87,7 +114,8 @@ type Result struct {
 	RuleID string
 	// Approval is set only for Ask.
 	Approval *Approval
-	// MandateDigest is empty for ReasonInvalidMandate.
+	// MandateDigest is empty if no valid mandate was evaluated (ReasonNoMandate,
+	// ReasonAmbiguousMandate, ReasonInvalidMandate).
 	MandateDigest string
 }
 
@@ -116,6 +144,9 @@ func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason R
 	if !ok || !validRequest(req) {
 		return time.Time{}, false, ReasonInvalidRequest
 	}
+	if req.Resource.Category == "" {
+		return time.Time{}, false, ReasonUnknownResource
+	}
 	categoryKnown, actionKnown, critical := lookupAction(req.Resource.Category, req.Action)
 	switch {
 	case !categoryKnown:
@@ -129,17 +160,32 @@ func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason R
 	case m.hasExpires && !req.Time.Before(m.expires):
 		return time.Time{}, false, ReasonExpired
 	}
-	return local, critical, ""
+	return local, critical || (req.Resource.Critical && req.Action != actionRead), ""
 }
 
-// validRequest checks the request fields named in step 0. Without this check,
-// "Lock.keller", for example, would bypass a deny rule for "lock.keller".
+// validRequest checks the request fields named in step 0. Identifiers are opaque: the
+// PEP resolves what the agent asked for to the identifier in its directory, because
+// "Lock.keller" and "lock.keller" are different resources here.
 func validRequest(req Request) bool {
 	res := req.Resource
-	return res.Category != "" &&
-		entityIDPattern.MatchString(res.EntityID) &&
-		(res.Area == "" || areaPattern.MatchString(res.Area)) &&
-		(req.Status == StatusActive || req.Status == StatusRevoked)
+	return opaque(res.EntityID, maxEntityIDLength) &&
+		(res.Area == "" || opaque(res.Area, maxAreaLength)) &&
+		(req.Status == StatusActive || req.Status == StatusRevoked) &&
+		exact(req.Parameters)
+}
+
+// maxParameter bounds parameter values to the integers that are exact in every JSON
+// implementation (RFC 7493).
+const maxParameter = 1<<53 - 1
+
+// exact reports whether every parameter can be written to an audit log as it is.
+func exact(parameters map[string]int64) bool {
+	for _, value := range parameters {
+		if value > maxParameter || value < -maxParameter {
+			return false
+		}
+	}
+	return true
 }
 
 // matchingRules implements step 2 and preserves document order.
@@ -147,7 +193,8 @@ func matchingRules(m *Mandate, req Request, local time.Time) []*rule {
 	var matched []*rule
 	for i := range m.rules {
 		r := &m.rules[i]
-		if r.selector.matches(req.Resource) && r.coversAction(req.Action) && r.conditionsMet(local) {
+		if r.selector.matches(req.Resource) && r.coversAction(req.Action) && r.conditionsMet(local) &&
+			r.constraintsMet(req.Parameters) {
 			matched = append(matched, r)
 		}
 	}

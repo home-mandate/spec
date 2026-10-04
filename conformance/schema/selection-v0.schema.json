@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mandate-spec.org/conformance/v0/selection.schema.json",
+  "title": "Mandate selection cases v0 (SPEC-v0 sections 4.3 and 8)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "cases"
+  ],
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "mandates",
+          "subject",
+          "resource",
+          "action",
+          "time",
+          "expected",
+          "reason",
+          "selected"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "mandates": {
+            "description": "The mandates the implementation has stored, for any agent and principal.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mandate_inline"
+              ],
+              "properties": {
+                "mandate_inline": {
+                  "type": "object"
+                },
+                "revoked": {
+                  "type": "boolean",
+                  "description": "true: status revoked; absent or false: active."
+                }
+              }
+            }
+          },
+          "subject": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "client_id",
+              "principal"
+            ],
+            "properties": {
+              "client_id": {
+                "type": "string"
+              },
+              "principal": {
+                "type": "string"
+              }
+            }
+          },
+          "resource": {
+            "description": "Resource as the PEP resolved it. Not constrained further: cases also cover invalid requests.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "entity_id": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "area": {
+                "type": "string"
+              },
+              "critical": {
+                "type": "boolean",
+                "description": "true: the directory of the PEP marks the resource as critical (SPEC-v0 section 4, step 5)."
+              }
+            }
+          },
+          "action": {
+            "type": "string"
+          },
+          "time": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "expected": {
+            "enum": [
+              "allow",
+              "ask",
+              "deny"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "rule_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "selected": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "id of the mandate that is evaluated; null if none is selected."
+          },
+          "why": {
+            "type": "string"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Parameters of the action as the PEP derived them, in the units of the vocabulary (SPEC-v0 section 4.5). Numbers that are not integers make the request invalid.",
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    }
+  }
+}

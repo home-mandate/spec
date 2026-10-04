@@ -1,0 +1,2 @@
+# Hashes in conformance/manifest.json are computed over the bytes in the repository.
+*.json text eol=lf

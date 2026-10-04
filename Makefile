@@ -11,10 +11,10 @@ COVER_MIN      := 95
 EFFICACY_MIN   := 90
 FUZZTIME       ?= 10m
 # package:target
-FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate audit:FuzzVerify
-MUTATION_PKGS  := ./evaluator ./audit ./jcs
+FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate audit:FuzzVerify jws:FuzzVerify internal/harness:FuzzServe
+MUTATION_PKGS  := ./evaluator ./audit ./jcs ./jws ./displaytext ./ratelimit
 
-.PHONY: check test cover vet staticcheck vulncheck fuzz mutation
+.PHONY: check test cover vet staticcheck vulncheck fuzz mutation manifest
 
 ## check: everything that must be green before a commit
 check: vet staticcheck cover vulncheck
@@ -35,6 +35,10 @@ staticcheck:
 
 vulncheck:
 	go run $(GOVULNCHECK) ./...
+
+## manifest: rewrite conformance/manifest.json after changing schemas, examples or cases
+manifest:
+	go run ./tools/vectors manifest
 
 ## fuzz: each target for FUZZTIME, e.g. make fuzz FUZZTIME=30s
 fuzz:

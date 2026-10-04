@@ -1,0 +1,21 @@
+{
+  "$schema": "https://mandate-spec.org/vocabulary/v0/vocabulary.schema.json",
+  "description": "Vocabulary v0 of mandate-spec (SPEC-v0.md section 5): categories, their actions, which actions are critical and which parameters an action has. Normative.",
+  "id": "https://mandate-spec.org/vocabulary/v0",
+  "version": "v0",
+  "categories": {
+    "light": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}, "set": {"parameters": {"brightness": {"unit": "percent", "minimum": 0, "maximum": 100}}}}},
+    "switch": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}}},
+    "climate": {"actions": {"read": {}, "set_temperature": {"parameters": {"temperature": {"unit": "0.01 degree Celsius"}}}, "set_mode": {}}},
+    "cover": {"actions": {"read": {}, "open": {}, "close": {}, "stop": {}, "set_position": {"parameters": {"position": {"unit": "percent open", "minimum": 0, "maximum": 100}}}}},
+    "gate": {"actions": {"read": {}, "open": {"critical": true}, "close": {}}},
+    "lock": {"actions": {"read": {}, "lock": {}, "unlock": {"critical": true}, "open": {"critical": true}}},
+    "alarm": {"actions": {"read": {}, "arm": {}, "disarm": {"critical": true}}},
+    "camera": {"actions": {"read": {}, "snapshot": {"critical": true}}},
+    "media": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}, "play": {}, "pause": {}, "set_volume": {"parameters": {"volume": {"unit": "percent", "minimum": 0, "maximum": 100}}}}},
+    "sensor": {"actions": {"read": {}}},
+    "scene": {"actions": {"read": {}, "activate": {"critical": true}}},
+    "script": {"actions": {"read": {}, "run": {"critical": true}}},
+    "other": {"actions": {"read": {}, "set": {"critical": true}}}
+  }
+}

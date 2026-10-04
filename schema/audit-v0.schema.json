@@ -22,7 +22,7 @@
         "agent.registered", "agent.revoked",
         "emergency_stop.activated", "emergency_stop.released",
         "auth.rejected",
-        "log.truncated"
+        "log.truncated", "log.checkpoint"
       ]
     },
     "principal": { "type": "string", "pattern": "^(household|person):[A-Za-z0-9_-]{1,64}$" },
@@ -61,10 +61,18 @@
           "properties": {
             "entity_id": { "type": "string", "minLength": 1, "maxLength": 255 },
             "category": { "type": "string", "minLength": 1, "maxLength": 128 },
-            "area": { "type": "string", "minLength": 1, "maxLength": 64 }
+            "area": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "critical": { "description": "true: the directory marked the resource as critical at evaluation time; absent = false.", "type": "boolean" }
           }
         },
-        "action": { "type": "string", "minLength": 1, "maxLength": 64 }
+        "action": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "parameters": {
+          "description": "Parameters of the action that were input to the evaluation (SPEC-v0 section 4.5).",
+          "type": "object",
+          "maxProperties": 16,
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+          "additionalProperties": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+        }
       }
     },
     "mandate": {
@@ -85,8 +93,16 @@
         "decision": { "enum": ["allow", "ask", "deny"] },
         "reason": { "$ref": "#/$defs/reason" },
         "rule_id": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9_-]{1,64}$" },
-        "approval_timeout": { "type": "string", "pattern": "^PT([0-9]+M|[0-9]+S|[0-9]+M[0-9]+S)$" }
-      }
+        "approval_timeout": { "type": "string", "minLength": 4, "pattern": "^PT([0-9]{1,5}H)?([0-9]{1,5}M)?([0-9]{1,5}S)?$" }
+      },
+      "allOf": [
+        { "if": { "properties": { "decision": { "const": "allow" } } },
+          "then": { "properties": { "reason": { "const": "rule" } } } },
+        { "if": { "properties": { "decision": { "const": "ask" } } },
+          "then": { "properties": { "reason": { "enum": ["rule", "critical_demotion"] } } } },
+        { "if": { "properties": { "decision": { "const": "deny" } } },
+          "then": { "properties": { "reason": { "not": { "const": "critical_demotion" } } } } }
+      ]
     },
     "approval": {
       "type": "object",
@@ -111,11 +127,19 @@
         "status": { "enum": ["executed", "denied", "failed"] },
         "denied_by": { "enum": ["mandate", "approval", "rate_limit", "emergency_stop", "authentication"] },
         "error": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
-        "duration_ms": { "type": "integer", "minimum": 0 }
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "count": {
+          "description": "Number of consecutive requests of the agent that this entry stands for. Only with denied_by rate_limit (SPEC-v0 section 11.2).",
+          "type": "integer",
+          "minimum": 2
+        }
       },
       "allOf": [
-        { "if": { "properties": { "status": { "const": "denied" } } }, "then": { "required": ["denied_by"] } },
-        { "if": { "properties": { "status": { "const": "failed" } } }, "then": { "required": ["error"] } }
+        { "if": { "properties": { "status": { "const": "denied" } } },
+          "then": { "required": ["denied_by"] }, "else": { "not": { "required": ["denied_by"] } } },
+        { "if": { "properties": { "status": { "const": "failed" } } }, "then": { "required": ["error"] } },
+        { "if": { "properties": { "status": { "const": "executed" } } }, "then": { "not": { "required": ["error"] } } },
+        { "if": { "required": ["count"] }, "then": { "properties": { "denied_by": { "const": "rate_limit" } } } }
       ]
     },
     "truncated": {
@@ -125,6 +149,25 @@
       "properties": {
         "up_to_seq": { "type": "integer", "minimum": 1 },
         "last_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "checkpoint": {
+      "description": "Signed statement about the log up to and including the previous entry (SPEC-v0 section 9.5).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["log_id", "signature"],
+      "properties": {
+        "log_id": {
+          "description": "Identifier of the audit log, a UUID in lower case; the same in every checkpoint of the log.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "signature": {
+          "description": "Compact JWS with detached payload (RFC 7515 appendix F), algorithm EdDSA or ES256.",
+          "type": "string",
+          "maxLength": 1024,
+          "pattern": "^[A-Za-z0-9_-]+[.][.][A-Za-z0-9_-]+$"
+        }
       }
     },
     "prev": {
@@ -146,7 +189,10 @@
     { "if": { "properties": { "event": { "const": "auth.rejected" } } },
       "then": { "required": ["result"] } },
     { "if": { "properties": { "event": { "const": "log.truncated" } } },
-      "then": { "required": ["actor", "truncated"] } },
+      "then": { "required": ["actor", "truncated"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } } },
+    { "if": { "properties": { "event": { "const": "log.checkpoint" } } },
+      "then": { "required": ["checkpoint"], "properties": { "seq": { "minimum": 2 } } },
+      "else": { "not": { "required": ["checkpoint"] } } },
     { "if": { "required": ["approval"] },
       "then": { "required": ["evaluation"], "properties": { "evaluation": { "properties": { "decision": { "const": "ask" } } } } } },
     { "if": { "required": ["approval"], "properties": { "approval": { "properties": { "outcome": { "enum": ["approved", "rejected", "invalid_response"] } } } } },
@@ -170,7 +216,8 @@
       "description": "Timestamp according to RFC 3339 with offset; asserting format is required (SPEC-v0 section 3.1 item 0).",
       "type": "string",
       "format": "date-time",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$",
+      "not": { "anyOf": [ { "pattern": "^0000[!-~]*$" }, { "pattern": "^[!-~]*-00:00$" } ] }
     },
     "digest": {
       "description": "SHA-256 over the canonical form according to RFC 8785, hexadecimal, lower case.",
@@ -180,7 +227,7 @@
     "reason": {
       "description": "Reason code of the evaluation, SPEC-v0 section 4.1.",
       "enum": ["rule", "critical_demotion", "no_match", "revoked", "not_yet_valid", "expired",
-               "invalid_mandate", "invalid_request", "unknown_category", "unknown_action"]
+               "no_mandate", "ambiguous_mandate", "invalid_mandate", "invalid_request", "unknown_resource", "unknown_category", "unknown_action"]
     }
   }
 }

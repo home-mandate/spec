@@ -1,0 +1,136 @@
+{
+  "spec": "v0",
+  "files": [
+    {
+      "path": "conformance/audit-v0.json",
+      "sha256": "f3a950fdfc5c78e88807b7b08422a36983d09af6b32cfd38185810bc26cc1491",
+      "cases": 49
+    },
+    {
+      "path": "conformance/cases-v0.json",
+      "sha256": "0d0b80631d892a0349c46286eec190cb68cb344c4963f0b25146425198e75771",
+      "cases": 132
+    },
+    {
+      "path": "conformance/digest-v0.json",
+      "sha256": "9a0757afeb14c859bd1bc05a2e1e63c57e9d30da6894f6c6a6d54688b5abb8e4",
+      "cases": 39
+    },
+    {
+      "path": "conformance/invalid-v0.json",
+      "sha256": "41788b0278b402a129dbe6da9de0e0128b12b9dfc3c4fa69349188361b53daac",
+      "cases": 126
+    },
+    {
+      "path": "conformance/keys/test-keys.json",
+      "sha256": "3522c5e7079528a7ec2f519d4a9182c737d6e9d57f5af44fba93ff58e16769fb"
+    },
+    {
+      "path": "conformance/keys/test-keys.private.json",
+      "sha256": "1e8e632b1530b0eafe79f3dab057390e8404725ba28a82a5c728aa29d65aab91"
+    },
+    {
+      "path": "conformance/mandates/constraints.json",
+      "sha256": "1faa553926d02102ec11403abf932214e917badc0edb002f1491b1b7b76fc772"
+    },
+    {
+      "path": "conformance/mandates/critical-order.json",
+      "sha256": "7b0802040e626e1a0c07b20ace64a139fa158ef00badee466f0b4e2dd141fece"
+    },
+    {
+      "path": "conformance/mandates/critical.json",
+      "sha256": "6077d219974fae6599a77b2b2d4ed5be4faa8ad852dc750731444088ac96981f"
+    },
+    {
+      "path": "conformance/mandates/identifiers.json",
+      "sha256": "632487e544fed85011f1837fd095f2ad25724b4221bebcc2fef3ab9f70b54476"
+    },
+    {
+      "path": "conformance/mandates/precedence.json",
+      "sha256": "ea1cd8a4d66286efb6030c0c8cb1c2c8bed6549e210cf3b6a1f728b5687eb6fe"
+    },
+    {
+      "path": "conformance/mandates/time.json",
+      "sha256": "ba0067f5516f8f6c500b24c1b2f3263aac61a4ddea46304fc3d73e88edb7c625"
+    },
+    {
+      "path": "conformance/schema/audit-v0.schema.json",
+      "sha256": "2d12ccbc9883552b088a2ad62424d08d0ae55645248b31ced3ae2a5d4152b8e2"
+    },
+    {
+      "path": "conformance/schema/cases-v0.schema.json",
+      "sha256": "42be42983d7637b9c7fd5c3b5bc03b9aaf9897614871112921b3f09cc50bd43c"
+    },
+    {
+      "path": "conformance/schema/digest-v0.schema.json",
+      "sha256": "5a2a303db07f52d3e08eb40c1c8c91a90ee5ad7d5dbcc050f794cabaa9ed3ecb"
+    },
+    {
+      "path": "conformance/schema/invalid-v0.schema.json",
+      "sha256": "28088ef997616692d8d1dc4dbaef1baa3ec8f72af4700525d97be05c0c8ca624"
+    },
+    {
+      "path": "conformance/schema/manifest.schema.json",
+      "sha256": "aa83d7376830b2dd92399ea2ce12a5b2650d04182fd531d40cb656e71356ce2d"
+    },
+    {
+      "path": "conformance/schema/selection-v0.schema.json",
+      "sha256": "5c4ed949bc8b67174701cc1a4b98bc9677825c919934a4ed9cabba7b97c3482c"
+    },
+    {
+      "path": "conformance/schema/signed-v0.schema.json",
+      "sha256": "83375aa3ba30eec3effcf2261292c6fa328f892f67469a34aee3158a60803659"
+    },
+    {
+      "path": "conformance/schema/succession-v0.schema.json",
+      "sha256": "42b9f5ab78ae99963d6d3e5dfbd6e8815c915322672e614a7a2753c324ca834e"
+    },
+    {
+      "path": "conformance/selection-v0.json",
+      "sha256": "f04ee9fae95fa1c152d971f62a431d1a9629f6f45c37ef328583e8a523e44650",
+      "cases": 19
+    },
+    {
+      "path": "conformance/signed-v0.json",
+      "sha256": "f2d5eddd6e5738dce91d3a9c5c5a083194f2604be8a0c8a0a87d9e38929ba0cf",
+      "cases": 18
+    },
+    {
+      "path": "conformance/succession-v0.json",
+      "sha256": "b310c205c73480c8c998640a38723b50d3fdf6e3fa1700388650629f44efb6d9",
+      "cases": 12
+    },
+    {
+      "path": "data/forbidden-codepoints-v0.json",
+      "sha256": "5ca3aacfad06d91dbd3f6185e1a3cb19f5272115436ada65c781826b05c42930"
+    },
+    {
+      "path": "examples/energy-agent.json",
+      "sha256": "0579b0ad11ea07a2818e081bda60bd1be5208c8a414f93c055f372827e60031f"
+    },
+    {
+      "path": "examples/shopping-agent.json",
+      "sha256": "c589eb3c7bec3f52d4d49a273c93dd9dd7d76eb23dc61f11583b1baa8720084f"
+    },
+    {
+      "path": "examples/voice-assistant.json",
+      "sha256": "ae646fe6de9abb27f3594c02771ae2fefc30baa5b45232d6048bc1b6062b8a8a"
+    },
+    {
+      "path": "schema/audit-v0.schema.json",
+      "sha256": "702add882af0ee1b005b39c96a91392d5eb9601986ae3995d944b6af0a65caf7"
+    },
+    {
+      "path": "schema/mandate-v0.schema.json",
+      "sha256": "338d22ddc10c2f81bd6f50289864444fb9db4e8e2123e6cacef047133a1ad4ef"
+    },
+    {
+      "path": "schema/vocabulary-v0.schema.json",
+      "sha256": "84a45b7c98712bd5c415fa3ea66771506c29aa817b565d516b9c6178875dd82c"
+    },
+    {
+      "path": "vocabulary/v0.json",
+      "sha256": "10d3644ab4bdeb36e072d495acf97dd9b340a609f589fdb2ca7726f223fc0e6b"
+    }
+  ]
+}

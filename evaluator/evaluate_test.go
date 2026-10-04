@@ -57,12 +57,18 @@ func TestEvaluateInvalidRequest(t *testing.T) {
 	unknownZone := request("light", "flur", "turn_on")
 	unknownZone.TimeZone = "Mars/Olympus_Mons"
 	for name, req := range map[string]evaluator.Request{
-		"missing category": missingCategory, "zero time": zeroTime, "unknown zone": unknownZone,
+		"zero time": zeroTime, "unknown zone": unknownZone,
 	} {
 		t.Run(name, func(t *testing.T) {
 			assertDecision(t, evaluator.Evaluate(m, req), evaluator.Deny, evaluator.ReasonInvalidRequest, "")
 		})
 	}
+	// A resource the PEP did not find in its directory has no category.
+	assertDecision(t, evaluator.Evaluate(m, missingCategory), evaluator.Deny, evaluator.ReasonUnknownResource, "")
+	missingCategory.TimeZone = "Mars/Olympus_Mons"
+	assertDecision(t, evaluator.Evaluate(m, missingCategory), evaluator.Deny, evaluator.ReasonInvalidRequest, "")
+	missingCategory.TimeZone, missingCategory.Status = "", evaluator.StatusRevoked
+	assertDecision(t, evaluator.Evaluate(m, missingCategory), evaluator.Deny, evaluator.ReasonUnknownResource, "")
 }
 
 func TestEvaluateUnknownCategoryAndAction(t *testing.T) {
@@ -271,7 +277,7 @@ func TestEvaluateRejectsMalformedRequestFields(t *testing.T) {
 	m := mandateWithRules(t, `[
 		{"id":"r-cellar","resource":{"entity_id":"lock.keller"},"actions":["*"],"decision":"deny"},
 		{"id":"r-kitchen","resource":{"area":"kueche"},"actions":["*"],"decision":"deny"},
-		{"id":"r-locks","resource":{"category":"lock"},"actions":["*"],"decision":"allow","allow_critical":true}]`)
+		{"id":"r-locks","resource":{"category":"lock"},"actions":["unlock"],"decision":"allow","allow_critical":true}]`)
 	req := func(entity, area string) evaluator.Request {
 		r := request("lock", area, "unlock")
 		r.Resource.EntityID = entity
@@ -280,23 +286,51 @@ func TestEvaluateRejectsMalformedRequestFields(t *testing.T) {
 	assertDecision(t, evaluator.Evaluate(m, req("lock.keller", "flur")), evaluator.Deny, evaluator.ReasonRule, "r-cellar")
 	assertDecision(t, evaluator.Evaluate(m, req("lock.haustuer", "")), evaluator.Allow, evaluator.ReasonRule, "r-locks")
 	for name, r := range map[string]evaluator.Request{
-		"upper case entity":  req("Lock.keller", "flur"),
-		"trailing space":     req("lock.keller ", "flur"),
-		"leading space":      req(" lock.keller", "flur"),
-		"empty entity":       req("", "flur"),
-		"nul byte":           req("lock.keller\x00", "flur"),
-		"newline":            req("lock.keller\n", "flur"),
-		"missing domain":     req("keller", "flur"),
-		"two dots":           req("lock.keller.x", "flur"),
-		"non-ascii":          req("lock.k"+string(rune(0xe4))+"ller", "flur"),
-		"upper case area":    req("lock.haustuer", "Kueche"),
-		"area with space":    req("lock.haustuer", "kueche "),
-		"area with hyphen":   req("lock.haustuer", "kue-che"),
-		"area too long":      req("lock.haustuer", strings.Repeat("a", 65)),
-		"wildcard as entity": req("*", "flur"),
+		"trailing space":   req("lock.keller ", "flur"),
+		"leading space":    req(" lock.keller", "flur"),
+		"inner space":      req("lock keller", "flur"),
+		"empty entity":     req("", "flur"),
+		"nul byte":         req("lock.keller\x00", "flur"),
+		"newline":          req("lock.keller\n", "flur"),
+		"delete character": req("lock.keller\x7f", "flur"),
+		"non-ascii":        req("lock.k"+string(rune(0xe4))+"ller", "flur"),
+		"entity too long":  req(strings.Repeat("a", 256), "flur"),
+		"area with space":  req("lock.haustuer", "kueche "),
+		"area with tab":    req("lock.haustuer", "kue\tche"),
+		"area non-ascii":   req("lock.haustuer", "k"+string(rune(0xfc))+"che"),
+		"area too long":    req("lock.haustuer", strings.Repeat("a", 65)),
 	} {
 		t.Run(name, func(t *testing.T) {
 			assertDecision(t, evaluator.Evaluate(m, r), evaluator.Deny, evaluator.ReasonInvalidRequest, "")
+		})
+	}
+}
+
+func TestEvaluateComparesIdentifiersExactly(t *testing.T) {
+	// Identifiers are opaque. A different spelling is a different resource, so the PEP
+	// must pass the identifier from its directory, not the text the agent sent.
+	m := mandateWithRules(t, `[
+		{"id":"r-cellar","resource":{"entity_id":"lock.keller"},"actions":["*"],"decision":"deny"},
+		{"id":"r-kitchen","resource":{"area":"kueche"},"actions":["*"],"decision":"deny"},
+		{"id":"r-locks","resource":{"category":"lock"},"actions":["unlock"],"decision":"allow","allow_critical":true}]`)
+	req := func(entity, area string) evaluator.Request {
+		r := request("lock", area, "unlock")
+		r.Resource.EntityID = entity
+		return r
+	}
+	assertDecision(t, evaluator.Evaluate(m, req("lock.keller", "flur")), evaluator.Deny, evaluator.ReasonRule, "r-cellar")
+	assertDecision(t, evaluator.Evaluate(m, req("lock.haustuer", "kueche")), evaluator.Deny, evaluator.ReasonRule, "r-kitchen")
+	for name, r := range map[string]evaluator.Request{
+		"upper case entity":  req("Lock.keller", "flur"),
+		"entity with suffix": req("lock.keller.x", "flur"),
+		"upper case area":    req("lock.haustuer", "Kueche"),
+		"area with hyphen":   req("lock.haustuer", "kue-che"),
+		"longest entity":     req(strings.Repeat("a", 255), "flur"),
+		"longest area":       req("lock.haustuer", strings.Repeat("a", 64)),
+		"single character":   req("*", "!"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			assertDecision(t, evaluator.Evaluate(m, r), evaluator.Allow, evaluator.ReasonRule, "r-locks")
 		})
 	}
 }
@@ -369,4 +403,63 @@ func mustParseTime(t *testing.T, s string) time.Time {
 		t.Fatal(err)
 	}
 	return at
+}
+
+func TestEvaluateCriticalResource(t *testing.T) {
+	m := mandateWithRules(t, `[
+		{"id":"r-switches","resource":{"category":"switch"},"actions":["read","turn_on"],"decision":"allow"},
+		{"id":"r-opener","resource":{"entity_id":"door-opener"},"actions":["turn_off"],"decision":"allow","allow_critical":true}]`)
+	req := func(entity, action string, critical bool) evaluator.Request {
+		r := request("switch", "", action)
+		r.Resource.EntityID, r.Resource.Critical = entity, critical
+		return r
+	}
+	assertDecision(t, evaluator.Evaluate(m, req("plug", "turn_on", false)), evaluator.Allow, evaluator.ReasonRule, "r-switches")
+	assertDecision(t, evaluator.Evaluate(m, req("plug", "turn_on", true)), evaluator.Ask, evaluator.ReasonCriticalDemotion, "r-switches")
+	assertDecision(t, evaluator.Evaluate(m, req("plug", "read", true)), evaluator.Allow, evaluator.ReasonRule, "r-switches")
+	assertDecision(t, evaluator.Evaluate(m, req("door-opener", "turn_off", true)), evaluator.Allow, evaluator.ReasonRule, "r-opener")
+	// The demotion carries the approval settings of the mandate.
+	if got := evaluator.Evaluate(m, req("plug", "turn_on", true)); got.Approval == nil || got.Approval.Timeout != "PT2M" {
+		t.Errorf("approval = %+v, want the mandate's PT2M", got.Approval)
+	}
+}
+
+func TestEvaluateConstraints(t *testing.T) {
+	m := mandateWithRules(t, `[
+		{"id":"r-two","resource":{"category":"light"},"actions":["set"],"decision":"allow",
+		 "constraints":{"brightness":{"min":10,"max":60}}},
+		{"id":"r-heat","resource":{"category":"climate"},"actions":["set_temperature"],"decision":"allow",
+		 "constraints":{"temperature":{"max":2250}}},
+		{"id":"r-blind","resource":{"category":"cover"},"actions":["set_position"],"decision":"allow",
+		 "constraints":{"position":{"min":2e1}}}]`)
+	req := func(category, action string, parameters map[string]int64) evaluator.Request {
+		r := request(category, "", action)
+		r.Parameters = parameters
+		return r
+	}
+	for name, tt := range map[string]struct {
+		req    evaluator.Request
+		reason evaluator.Reason
+	}{
+		"lower limit":       {req("light", "set", map[string]int64{"brightness": 10}), evaluator.ReasonRule},
+		"upper limit":       {req("light", "set", map[string]int64{"brightness": 60}), evaluator.ReasonRule},
+		"just above":        {req("light", "set", map[string]int64{"brightness": 61}), evaluator.ReasonNoMatch},
+		"just below":        {req("light", "set", map[string]int64{"brightness": 9}), evaluator.ReasonNoMatch},
+		"nil parameters":    {req("light", "set", nil), evaluator.ReasonNoMatch},
+		"only max, far low": {req("climate", "set_temperature", map[string]int64{"temperature": -1 << 52}), evaluator.ReasonRule},
+		"only max, at max":  {req("climate", "set_temperature", map[string]int64{"temperature": 2250}), evaluator.ReasonRule},
+		"only max, above":   {req("climate", "set_temperature", map[string]int64{"temperature": 2251}), evaluator.ReasonNoMatch},
+		"only min, at min":  {req("cover", "set_position", map[string]int64{"position": 20}), evaluator.ReasonRule},
+		"only min, far up":  {req("cover", "set_position", map[string]int64{"position": 1<<53 - 1}), evaluator.ReasonRule},
+		"only min, below":   {req("cover", "set_position", map[string]int64{"position": 19}), evaluator.ReasonNoMatch},
+		"too large":         {req("cover", "set_position", map[string]int64{"position": 1 << 53}), evaluator.ReasonInvalidRequest},
+		"too small":         {req("light", "set", map[string]int64{"brightness": 20, "x": -1 << 53}), evaluator.ReasonInvalidRequest},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := evaluator.Evaluate(m, tt.req)
+			if got.Reason != tt.reason || (got.Decision == evaluator.Allow) != (tt.reason == evaluator.ReasonRule) {
+				t.Errorf("got (%s, %s), want reason %s", got.Decision, got.Reason, tt.reason)
+			}
+		})
+	}
 }

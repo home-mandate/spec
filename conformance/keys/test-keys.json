@@ -1,0 +1,7 @@
+{
+  "description": "TEST KEYS of the mandate-spec conformance cases. The private parts are public; never use these keys for anything else.",
+  "keys": [
+    {"kty": "OKP", "crv": "Ed25519", "kid": "test-ed25519", "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"},
+    {"kty": "EC", "crv": "P-256", "kid": "test-p256", "x": "WupG9mWOmSKFbalHc48yFp1y9He74AA9RYfjSIltfcw", "y": "LUi44Ps1pqhnvldy2SDGj7CeNY5raxOpHuAN7y6SDGg"}
+  ]
+}

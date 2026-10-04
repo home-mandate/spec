@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mandate-spec.org/conformance/v0/audit.schema.json",
+  "title": "Audit logs v0 (SPEC-v0 sections 8 and 9.4)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "logs"
+  ],
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "logs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "expected"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "why": {
+            "type": "string"
+          },
+          "expected": {
+            "enum": [
+              "valid",
+              "invalid"
+            ]
+          },
+          "broken_at": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "seq of the first violating entry; 0 if it has no readable seq."
+          },
+          "entry_digests": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          },
+          "entries": {
+            "type": "array",
+            "description": "Entries in file order. Deliberately unconstrained: invalid logs contain entries that violate the audit schema."
+          },
+          "jsonl": {
+            "type": "string",
+            "description": "The log in the exchange format (SPEC-v0 section 9.4) as one string, for cases about line separators."
+          },
+          "keys": {
+            "type": "string",
+            "description": "Path to a JWK Set with the public keys that may sign checkpoints of the log (SPEC-v0 section 9.5), relative to the repository root. If present, the signatures of checkpoints are verified."
+          },
+          "log_id": {
+            "type": "string",
+            "description": "Expected identifier of the log; only with keys."
+          },
+          "anchored": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "For a valid log verified with keys: the seq up to which a verified checkpoint covers the log; 0 if none."
+          }
+        },
+        "if": {
+          "properties": {
+            "expected": {
+              "const": "invalid"
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "broken_at"
+          ]
+        },
+        "else": {
+          "not": {
+            "required": [
+              "broken_at"
+            ]
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "entries"
+            ]
+          },
+          {
+            "required": [
+              "jsonl"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

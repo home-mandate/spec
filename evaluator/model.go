@@ -5,11 +5,13 @@ package evaluator
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
+
+	"github.com/mandate-spec/mandate-spec/displaytext"
 )
 
 // Limits for approval.timeout (SPEC-v0 section 3.1 item 7).
@@ -23,6 +25,10 @@ const (
 type Mandate struct {
 	valid      bool
 	id         string
+	clientID   string
+	principal  string
+	issuer     string
+	version    int64 // 0 if the mandate has no version
 	digest     string
 	validFrom  time.Time
 	expires    time.Time
@@ -37,6 +43,38 @@ func (m *Mandate) ID() string {
 		return ""
 	}
 	return m.id
+}
+
+// ClientID returns agent.client_id; empty for nil.
+func (m *Mandate) ClientID() string {
+	if m == nil {
+		return ""
+	}
+	return m.clientID
+}
+
+// Principal returns the principal; empty for nil.
+func (m *Mandate) Principal() string {
+	if m == nil {
+		return ""
+	}
+	return m.principal
+}
+
+// Issuer returns the issuer; empty for nil and for a mandate without issuer.
+func (m *Mandate) Issuer() string {
+	if m == nil {
+		return ""
+	}
+	return m.issuer
+}
+
+// Version returns the version; 0 for nil and for a mandate without version.
+func (m *Mandate) Version() int64 {
+	if m == nil {
+		return 0
+	}
+	return m.version
 }
 
 // Digest returns the digest according to SPEC-v0 section 3.2; empty for nil.
@@ -66,6 +104,14 @@ type rule struct {
 	weekdays      weekdaySet
 	approval      *Approval
 	allowCritical bool
+	constraints   []constraint
+}
+
+// constraint limits one integer parameter of the action (SPEC-v0 section 4.5); a limit
+// that the rule does not give is the smallest or largest int64.
+type constraint struct {
+	parameter string
+	min, max  int64
 }
 
 // The raw* types mirror the schema; they are filled only after schema validation succeeds.
@@ -88,6 +134,10 @@ type rawRule struct {
 		TimeWindow string   `json:"time_window"`
 		Weekdays   []string `json:"weekdays"`
 	} `json:"conditions"`
+	Constraints map[string]struct {
+		Min *json.Number `json:"min"`
+		Max *json.Number `json:"max"`
+	} `json:"constraints"`
 	Approval      *rawApproval `json:"approval"`
 	AllowCritical bool         `json:"allow_critical"`
 }
@@ -106,10 +156,12 @@ type rawMandate struct {
 	Limits   struct {
 		MaxActionsPerHour json.Number `json:"max_actions_per_hour"`
 	} `json:"limits"`
-	ValidFrom string `json:"valid_from"`
-	Expires   string `json:"expires"`
-	CreatedBy string `json:"created_by"`
-	CreatedAt string `json:"created_at"`
+	Issuer    string      `json:"issuer"`
+	Version   json.Number `json:"version"`
+	ValidFrom string      `json:"valid_from"`
+	Expires   string      `json:"expires"`
+	CreatedBy string      `json:"created_by"`
+	CreatedAt string      `json:"created_at"`
 }
 
 var weekdayNames = map[string]time.Weekday{
@@ -118,9 +170,17 @@ var weekdayNames = map[string]time.Weekday{
 }
 
 func buildMandate(raw rawMandate, digest string) (*Mandate, error) {
-	m := &Mandate{id: raw.ID, digest: digest, rules: make([]rule, 0, len(raw.Rules))}
+	m := &Mandate{id: raw.ID, clientID: raw.Agent.ClientID, principal: raw.Principal, digest: digest,
+		rules: make([]rule, 0, len(raw.Rules))}
 	if err := m.setValidity(raw); err != nil {
 		return nil, err
+	}
+	if raw.Version != "" {
+		version, ok := integerValue(raw.Version)
+		if !ok {
+			return nil, fmt.Errorf("%w: version is not an integer", ErrSchema)
+		}
+		m.issuer, m.version = raw.Issuer, version
 	}
 	if err := checkDisplayedText("agent.display_name", raw.Agent.DisplayName); err != nil {
 		return nil, err
@@ -199,7 +259,74 @@ func buildRule(rr rawRule) (rule, error) {
 	if err := r.setConditions(rr); err != nil {
 		return rule{}, err
 	}
+	if err := r.setConstraints(rr); err != nil {
+		return rule{}, err
+	}
 	return r, nil
+}
+
+// setConstraints implements SPEC-v0 section 3.1 item 10. The schema already restricts
+// constraints to allow rules without "*".
+func (r *rule) setConstraints(rr rawRule) error {
+	category := rr.Resource.Category
+	_, categoryKnown := vocabularyV0()[category]
+	checked := category == "" || categoryKnown // extension categories are not checked
+	names := make([]string, 0, len(rr.Constraints))
+	for name := range rr.Constraints {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		limits := rr.Constraints[name]
+		c := constraint{parameter: name, min: math.MinInt64, max: math.MaxInt64}
+		for _, limit := range []struct {
+			raw    *json.Number
+			target *int64
+		}{{limits.Min, &c.min}, {limits.Max, &c.max}} {
+			if limit.raw == nil {
+				continue
+			}
+			value, ok := integerValue(*limit.raw)
+			if !ok {
+				return fmt.Errorf("%w: rule %q: constraint %q is not an integer", ErrSchema, rr.ID, name)
+			}
+			*limit.target = value
+		}
+		if c.min > c.max {
+			return fmt.Errorf("%w: rule %q: constraint %q has min greater than max", ErrSemantic, rr.ID, name)
+		}
+		for _, action := range rr.Actions {
+			if checked && !hasParameter(category, action, name) {
+				return fmt.Errorf("%w: rule %q: action %q has no parameter %q", ErrSemantic, rr.ID, action, name)
+			}
+		}
+		r.constraints = append(r.constraints, c)
+	}
+	return nil
+}
+
+// maxExactInteger is the largest integer that I-JSON (RFC 7493) guarantees to be exact.
+const maxExactInteger = 1 << 53
+
+// integerValue reads an integer by its value: 20, 20.0 and 2e1 are the same number.
+func integerValue(n json.Number) (int64, bool) {
+	f, err := strconv.ParseFloat(n.String(), 64)
+	if err != nil || f != math.Trunc(f) || math.Abs(f) >= maxExactInteger {
+		return 0, false
+	}
+	return int64(f), true
+}
+
+// constraintsMet reports whether the request carries every constrained parameter with
+// a value within the limits, both inclusive.
+func (r *rule) constraintsMet(parameters map[string]int64) bool {
+	for _, c := range r.constraints {
+		value, ok := parameters[c.parameter]
+		if !ok || value < c.min || value > c.max {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *rule) setConditions(rr rawRule) error {
@@ -223,18 +350,26 @@ func (r *rule) setConditions(rr rawRule) error {
 	return nil
 }
 
-// checkRuleVocabulary implements SPEC-v0 section 3.1 item 4.
+// checkRuleVocabulary implements SPEC-v0 section 3.1 item 4. A rule that names a
+// category of the vocabulary may use that category's actions; a rule without a category
+// may use any action of the vocabulary. This keeps a misspelled action from silently
+// disabling a rule. Rules for an extension category are not checked.
 func checkRuleVocabulary(rr rawRule) error {
 	category := rr.Resource.Category
-	if _, known := vocabularyV0[category]; !known {
-		return nil // no category or unknown extension: no check
+	_, categoryKnown := vocabularyV0()[category]
+	if category != "" && !categoryKnown {
+		return nil // extension: its vocabulary is not known here
 	}
 	for _, action := range rr.Actions {
 		if action == "*" {
 			continue
 		}
-		if _, actionKnown, _ := lookupAction(category, action); !actionKnown {
-			return fmt.Errorf("%w: rule %q: action %q not in vocabulary of %q", ErrSemantic, rr.ID, action, category)
+		known := knownAction(action)
+		if categoryKnown {
+			_, known, _ = lookupAction(category, action)
+		}
+		if !known {
+			return fmt.Errorf("%w: rule %q: action %q not in the vocabulary", ErrSemantic, rr.ID, action)
 		}
 	}
 	return nil
@@ -253,27 +388,46 @@ func buildApproval(field string, a rawApproval) (Approval, error) {
 	return Approval{Timeout: a.Timeout, Approvers: slices.Clone(a.Approvers)}, nil
 }
 
-// parseApprovalTimeout reads PTnM, PTnS or PTnMnS and checks the limits of 10 s to 1 h.
+// Duration returns the timeout as a duration; 0 if Timeout is not a valid timeout.
+// Approval settings returned by Evaluate always carry a valid one.
+func (a Approval) Duration() time.Duration {
+	d, err := parseApprovalTimeout(a.Timeout)
+	if err != nil {
+		return 0
+	}
+	return d
+}
+
+// timeoutUnits are the components of a timeout in the order the schema requires.
+var timeoutUnits = []struct {
+	suffix string
+	unit   time.Duration
+}{{"H", time.Hour}, {"M", time.Minute}, {"S", time.Second}}
+
+// maxTimeoutDigits matches the schema: at most 5 digits per component.
+const maxTimeoutDigits = 5
+
+// parseApprovalTimeout reads PT[nH][nM][nS] with at least one component and checks the
+// limits of 10 s to 1 h.
 func parseApprovalTimeout(s string) (time.Duration, error) {
 	rest, ok := strings.CutPrefix(s, "PT")
 	if !ok || rest == "" {
 		return 0, fmt.Errorf("%w: timeout %q", ErrSchema, s)
 	}
 	var total time.Duration
-	if minutes, after, found := strings.Cut(rest, "M"); found {
-		n, err := strconv.ParseUint(minutes, 10, 32)
-		if err != nil {
+	for _, u := range timeoutUnits {
+		digits, after, found := strings.Cut(rest, u.suffix)
+		if !found {
+			continue
+		}
+		n, err := strconv.ParseUint(digits, 10, 32)
+		if err != nil || len(digits) > maxTimeoutDigits {
 			return 0, fmt.Errorf("%w: timeout %q", ErrSchema, s)
 		}
-		total, rest = time.Duration(n)*time.Minute, after
+		total, rest = total+time.Duration(n)*u.unit, after
 	}
 	if rest != "" {
-		seconds, ok := strings.CutSuffix(rest, "S")
-		n, err := strconv.ParseUint(seconds, 10, 32)
-		if !ok || err != nil {
-			return 0, fmt.Errorf("%w: timeout %q", ErrSchema, s)
-		}
-		total += time.Duration(n) * time.Second
+		return 0, fmt.Errorf("%w: timeout %q", ErrSchema, s)
 	}
 	if total < minApprovalTimeout || total > maxApprovalTimeout {
 		return 0, fmt.Errorf("%w: timeout %q outside 10s..1h", ErrSemantic, s)
@@ -281,13 +435,10 @@ func parseApprovalTimeout(s string) (time.Duration, error) {
 	return total, nil
 }
 
-// checkDisplayedText implements SPEC-v0 section 3.1 item 8: no control or format
-// characters and no line or paragraph separators in text displayed to humans.
+// checkDisplayedText implements SPEC-v0 section 3.1 item 8 for text displayed to humans.
 func checkDisplayedText(field, s string) error {
-	for _, r := range s {
-		if unicode.In(r, unicode.Cc, unicode.Cf, unicode.Zl, unicode.Zp) {
-			return fmt.Errorf("%w: %s contains U+%04X", ErrSemantic, field, r)
-		}
+	if err := displaytext.Check(s); err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrSemantic, field, err)
 	}
 	return nil
 }
