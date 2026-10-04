@@ -13,13 +13,13 @@
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "eee51a61ef86680beae5c8e9d89190a47a0318c9a7702ef49e6ffc48a0a83b46",
-      "cases": 38
+      "sha256": "9a0757afeb14c859bd1bc05a2e1e63c57e9d30da6894f6c6a6d54688b5abb8e4",
+      "cases": 39
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "f421ea359ef0abd3b46b9225486f2b07bff26ec0fe3b7d9501a4b3f40a665298",
-      "cases": 117
+      "sha256": "41788b0278b402a129dbe6da9de0e0128b12b9dfc3c4fa69349188361b53daac",
+      "cases": 126
     },
     {
       "path": "conformance/keys/test-keys.json",
@@ -87,22 +87,22 @@
     },
     {
       "path": "conformance/selection-v0.json",
-      "sha256": "d9407fdbb502b8c847eb347dc00db37f7a2736cc8d97f633bceafdf1a3b18027",
-      "cases": 17
+      "sha256": "f04ee9fae95fa1c152d971f62a431d1a9629f6f45c37ef328583e8a523e44650",
+      "cases": 19
     },
     {
       "path": "conformance/signed-v0.json",
-      "sha256": "643e076e34a9f9a7592dce3d4575977db87ef628e18a95806c3176bd84f0f78c",
-      "cases": 11
+      "sha256": "f2d5eddd6e5738dce91d3a9c5c5a083194f2604be8a0c8a0a87d9e38929ba0cf",
+      "cases": 18
     },
     {
       "path": "conformance/succession-v0.json",
-      "sha256": "635ff1a46e5a8c07141ed0fc89b6d57aba2da1a520434ead831ce2b777737ec3",
-      "cases": 10
+      "sha256": "b310c205c73480c8c998640a38723b50d3fdf6e3fa1700388650629f44efb6d9",
+      "cases": 12
     },
     {
       "path": "data/forbidden-codepoints-v0.json",
-      "sha256": "5be93e2ede60dc8b963e1f2f618d7bb2166a6de858c16277e943e12930bad550"
+      "sha256": "5ca3aacfad06d91dbd3f6185e1a3cb19f5272115436ada65c781826b05c42930"
     },
     {
       "path": "examples/energy-agent.json",

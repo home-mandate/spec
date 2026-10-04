@@ -96,12 +96,12 @@ func ParseSigned(compact string, trusted Issuers) (*Mandate, error) {
 // only to choose the keys; nothing else of the payload is used unverified.
 func unverifiedIssuer(compact string) (string, error) {
 	parts := strings.Split(compact, ".")
-	if len(parts) != 3 || parts[1] == "" {
+	if len(compact) > jws.MaxCompactBytes || len(parts) != 3 || parts[1] == "" {
 		return "", fmt.Errorf("%w: not a compact JWS with payload", ErrSignature)
 	}
 	payload, err := base64.RawURLEncoding.Strict().DecodeString(parts[1])
-	if err != nil {
-		return "", fmt.Errorf("%w: payload: %w", ErrSignature, err)
+	if err != nil || strings.ContainsAny(parts[1], "\r\n") {
+		return "", fmt.Errorf("%w: payload is not base64url", ErrSignature)
 	}
 	if err := ijson.Check(payload); err != nil {
 		return "", fmt.Errorf("%w: %w", ErrMalformed, err)
@@ -117,7 +117,11 @@ func unverifiedIssuer(compact string) (string, error) {
 
 // CheckSuccessor reports whether offered may replace stored as the next version of a
 // mandate (SPEC-v0 section 3.5). It protects against rollback: an older version with a
-// valid digest or signature is not accepted again. stored is nil if nothing is stored.
+// valid digest or signature is not accepted again. stored is nil if nothing is stored
+// and nothing was stored before: an implementation keeps the highest version it has
+// seen per mandate, also after the mandate was revoked or deleted, and passes it here.
+// The check does not decide whether the issuer may issue mandates for the principal;
+// that is the caller's decision (SPEC-v0 section 7.1).
 func CheckSuccessor(stored, offered *Mandate) error {
 	switch {
 	case offered == nil || !offered.valid:
@@ -126,6 +130,8 @@ func CheckSuccessor(stored, offered *Mandate) error {
 		return nil
 	case offered.id != stored.id:
 		return fmt.Errorf("%w: mandate %q does not replace %q", ErrSemantic, offered.id, stored.id)
+	case offered.clientID != stored.clientID || offered.principal != stored.principal:
+		return fmt.Errorf("%w: a replacement keeps agent and principal", ErrSemantic)
 	case stored.version == 0:
 		return nil // the stored mandate has no version; anything may follow
 	case offered.issuer != stored.issuer:

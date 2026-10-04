@@ -112,7 +112,9 @@ func runProcess(ctx context.Context, fsys fs.FS, argv []string) (Report, error) 
 }
 
 func summarize(w io.Writer, report Report, required []string) {
-	fmt.Fprintf(w, "implementation: %s %s\nmanifest: %s\n", report.Implementation.Name, report.Implementation.Version, report.Manifest)
+	// Everything the implementation under test supplied is quoted: it could contain
+	// control sequences for the terminal.
+	fmt.Fprintf(w, "implementation: %q %q\nmanifest: %s\n", report.Implementation.Name, report.Implementation.Version, report.Manifest)
 	for _, name := range report.ClassNames() {
 		c := report.Classes[name]
 		verdict := "does not conform"
@@ -122,7 +124,7 @@ func summarize(w io.Writer, report Report, required []string) {
 		fmt.Fprintf(w, "%-15s %4d cases, %4d passed, %3d failed, %3d skipped: %s\n", name, c.Cases, c.Passed, c.Failed, c.Skipped, verdict)
 	}
 	for _, f := range report.Failures {
-		fmt.Fprintf(w, "FAIL %s %s %s\n     got  %s\n     want %s\n", f.Class, f.File, f.ID, f.Got, f.Want)
+		fmt.Fprintf(w, "FAIL %s %s %s\n     got  %q\n     want %q\n", f.Class, f.File, f.ID, f.Got, f.Want)
 	}
 	fmt.Fprintf(w, "required: %s\n", strings.Join(required, ", "))
 }

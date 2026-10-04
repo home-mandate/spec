@@ -180,3 +180,19 @@ func TestBoundHoldsForRandomTraffic(t *testing.T) {
 		}
 	}
 }
+
+func TestIdleKeysAreDropped(t *testing.T) {
+	c := newClock()
+	l := ratelimit.New(c.Now)
+	for _, key := range []string{"m-1", "m-2", "m-3"} {
+		l.Allow(key, 5)
+	}
+	if got := l.Keys(); got != 3 {
+		t.Fatalf("Keys() = %d, want 3", got)
+	}
+	c.advance(2 * time.Hour)
+	l.Allow("m-1", 5) // any call sweeps what has expired
+	if got := l.Keys(); got != 1 {
+		t.Errorf("Keys() after the window = %d, want 1", got)
+	}
+}

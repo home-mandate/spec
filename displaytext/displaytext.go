@@ -24,7 +24,7 @@ type table struct {
 	UnicodeVersion string    `json:"unicode_version"`
 	Forbidden      [][2]rune `json:"forbidden"`
 	Joiners        []rune    `json:"joiners"`
-	WhiteSpace     [][2]rune `json:"white_space"`
+	NotFirst       [][2]rune `json:"not_first"`
 }
 
 // The list is embedded and covered by the tests; a list that cannot be read forbids
@@ -40,9 +40,9 @@ var load = sync.OnceValue(func() table {
 // UnicodeVersion is the version of the Unicode Character Database the list was derived from.
 func UnicodeVersion() string { return load().UnicodeVersion }
 
-// Check reports whether s may be displayed: no forbidden code point, no white space at
-// either end, and a joiner (ZWNJ, ZWJ) only between two other code points. The error
-// wraps ErrMisleading.
+// Check reports whether s may be displayed: no forbidden code point, no space at either
+// end, no combining character at the start, and a joiner (ZWNJ, ZWJ) only between two
+// other code points. The error wraps ErrMisleading.
 func Check(s string) error {
 	if s == "" {
 		return fmt.Errorf("%w: empty", ErrMisleading)
@@ -54,12 +54,15 @@ func Check(s string) error {
 	first, _ := utf8.DecodeRuneInString(s)
 	last, _ := utf8.DecodeLastRuneInString(s)
 	for _, edge := range []rune{first, last} {
-		if in(t.WhiteSpace, edge) {
-			return fmt.Errorf("%w: white space U+%04X at the start or end", ErrMisleading, edge)
+		if edge == ' ' {
+			return fmt.Errorf("%w: space at the start or end", ErrMisleading)
 		}
 		if slices.Contains(t.Joiners, edge) {
 			return fmt.Errorf("%w: joiner U+%04X at the start or end", ErrMisleading, edge)
 		}
+	}
+	if in(t.NotFirst, first) {
+		return fmt.Errorf("%w: starts with the combining character U+%04X", ErrMisleading, first)
 	}
 	afterJoiner := false
 	for _, r := range s {

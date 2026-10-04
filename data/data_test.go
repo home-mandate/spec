@@ -14,7 +14,7 @@ func TestForbiddenCodepointsIsSortedAndDisjoint(t *testing.T) {
 		UnicodeVersion string   `json:"unicode_version"`
 		Forbidden      [][2]int `json:"forbidden"`
 		Joiners        []int    `json:"joiners"`
-		WhiteSpace     [][2]int `json:"white_space"`
+		NotFirst       [][2]int `json:"not_first"`
 	}
 	if err := json.Unmarshal(data.ForbiddenCodepoints(), &doc); err != nil {
 		t.Fatal(err)
@@ -22,7 +22,7 @@ func TestForbiddenCodepointsIsSortedAndDisjoint(t *testing.T) {
 	if doc.UnicodeVersion == "" || len(doc.Joiners) != 2 {
 		t.Errorf("version %q, joiners %v", doc.UnicodeVersion, doc.Joiners)
 	}
-	for name, list := range map[string][][2]int{"forbidden": doc.Forbidden, "white_space": doc.WhiteSpace} {
+	for name, list := range map[string][][2]int{"forbidden": doc.Forbidden, "not_first": doc.NotFirst} {
 		if len(list) == 0 {
 			t.Errorf("%s is empty", name)
 		}

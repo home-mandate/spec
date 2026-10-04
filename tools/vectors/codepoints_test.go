@@ -26,6 +26,8 @@ D800;<Non Private Use High Surrogate, First>;Cs;0;L;;;;;N;;;;;
 DB7F;<Non Private Use High Surrogate, Last>;Cs;0;L;;;;;N;;;;;
 E000;<Private Use, First>;Co;0;L;;;;;N;;;;;
 F8FF;<Private Use, Last>;Co;0;L;;;;;N;;;;;
+0301;COMBINING ACUTE ACCENT;Mn;230;NSM;;;;;N;NON-SPACING ACUTE;;;;
+2800;BRAILLE PATTERN BLANK;So;0;L;;;;;N;;;;;
 FE0F;VARIATION SELECTOR-16;Mn;0;NSM;;;;;N;;;;;
 `
 
@@ -41,7 +43,9 @@ const testPropList = `# PropList-17.0.0.txt
 0009..000D    ; White_Space # Cc   [5] <control-0009>..<control-000D>
 0020          ; White_Space # Zs       SPACE
 2028          ; White_Space # Zl       LINE SEPARATOR
+00A0          ; White_Space # Zs       NO-BREAK SPACE
 FE00..FE0F    ; Variation_Selector # Mn  [16] VARIATION SELECTOR-1..VARIATION SELECTOR-16
+FDD0..FDEF    ; Noncharacter_Code_Point # Cn  [32] <noncharacter-FDD0>..<noncharacter-FDEF>
 `
 
 func writeUCD(t *testing.T, unicodeData, derived, propList string) string {
@@ -68,7 +72,7 @@ func TestCodepointsDerivesTheListFromTheUCD(t *testing.T) {
 		UnicodeVersion string   `json:"unicode_version"`
 		Forbidden      [][2]int `json:"forbidden"`
 		Joiners        []int    `json:"joiners"`
-		WhiteSpace     [][2]int `json:"white_space"`
+		NotFirst       [][2]int `json:"not_first"`
 	}
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
 		t.Fatalf("output is not JSON: %v\n%s", err, out)
@@ -76,18 +80,19 @@ func TestCodepointsDerivesTheListFromTheUCD(t *testing.T) {
 	if got.UnicodeVersion != "17.0.0" || got.Description == "" {
 		t.Errorf("version %q, description %q", got.UnicodeVersion, got.Description)
 	}
-	// Cc 0-1, soft hyphen, 200B and 200E-200F (200C and 200D are joiners), Zl and Zp,
-	// Hangul filler, surrogates, private use; the variation selectors are exempt.
-	wantForbidden := [][2]int{{0x0, 0x1}, {0xAD, 0xAD}, {0x200B, 0x200B}, {0x200E, 0x200F}, {0x2028, 0x2029},
-		{0x3164, 0x3164}, {0xD800, 0xDB7F}, {0xE000, 0xF8FF}}
+	// Cc 0-1 and the white space 9-D, no-break space, soft hyphen, 200B and 200E-200F (200C
+	// and 200D are joiners), Zl and Zp, braille blank, Hangul filler, surrogates, private
+	// use, noncharacters, object replacement; the space and the variation selectors are exempt.
+	wantForbidden := [][2]int{{0x0, 0x1}, {0x9, 0xD}, {0xA0, 0xA0}, {0xAD, 0xAD}, {0x200B, 0x200B}, {0x200E, 0x200F},
+		{0x2028, 0x2029}, {0x2800, 0x2800}, {0x3164, 0x3164}, {0xD800, 0xDB7F}, {0xE000, 0xF8FF}, {0xFDD0, 0xFDEF}, {0xFFFC, 0xFFFC}}
 	if !reflect.DeepEqual(got.Forbidden, wantForbidden) {
 		t.Errorf("forbidden = %x\nwant        %x", got.Forbidden, wantForbidden)
 	}
 	if !reflect.DeepEqual(got.Joiners, []int{0x200C, 0x200D}) {
 		t.Errorf("joiners = %x", got.Joiners)
 	}
-	if want := [][2]int{{0x9, 0xD}, {0x20, 0x20}, {0x2028, 0x2028}}; !reflect.DeepEqual(got.WhiteSpace, want) {
-		t.Errorf("white_space = %x, want %x", got.WhiteSpace, want)
+	if want := [][2]int{{0x301, 0x301}, {0xFE00, 0xFE0F}}; !reflect.DeepEqual(got.NotFirst, want) {
+		t.Errorf("not_first = %x, want %x", got.NotFirst, want)
 	}
 }
 

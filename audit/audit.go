@@ -49,6 +49,13 @@ type Result struct {
 	AnchoredSeq int64
 	// LogID is the identifier the checkpoints of a valid log carry; empty without one.
 	LogID string
+	// FirstSeq is the seq of the first entry of a valid log; greater than 1 if the
+	// beginning was deleted and a log.truncated entry accounts for it.
+	FirstSeq int64
+	// TruncationAnchored is true if FirstSeq is greater than 1 and the log.truncated
+	// entry that accounts for the deleted beginning is covered by a verified checkpoint.
+	// Otherwise whoever can write the log may have deleted the beginning.
+	TruncationAnchored bool
 }
 
 var auditSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
@@ -134,8 +141,10 @@ type verifier struct {
 	count    int
 	first    link
 	previous link
-	// startCovered: a log.truncated entry accounts for everything before the first entry.
+	// startCovered: a log.truncated entry accounts for everything before the first entry;
+	// coveredAt is the seq of that entry.
 	startCovered bool
+	coveredAt    int64
 	// chainBreak is the first violation of the chain. It is reported only at the end,
 	// because a schema violation further down and a wrong start come first.
 	chainBreak *Result
@@ -166,7 +175,9 @@ func (v *verifier) add(entry []byte) (result Result, done bool) {
 	case v.count == 0:
 		v.first = l
 	case l.event == eventTruncated && l.upToSeq == v.first.seq-1 && l.lastDigest == v.first.prev:
-		v.startCovered = true
+		if !v.startCovered {
+			v.startCovered, v.coveredAt = true, l.seq
+		}
 	}
 	if v.count > 0 && v.chainBreak == nil && (l.seq != v.previous.seq+1 || l.prev != v.previous.digest) {
 		r := broken(v.count, l.seq)
@@ -193,7 +204,8 @@ func (v *verifier) finish() Result {
 		return *v.checkpointBreak
 	}
 	r := valid(v.count)
-	r.AnchoredSeq, r.LogID = v.anchoredSeq, v.logID
+	r.AnchoredSeq, r.LogID, r.FirstSeq = v.anchoredSeq, v.logID, v.first.seq
+	r.TruncationAnchored = v.startCovered && v.first.seq != 1 && v.coveredAt <= v.anchoredSeq
 	return r
 }
 
@@ -241,7 +253,8 @@ func displayable(obj map[string]any) bool {
 	return true
 }
 
-// maxExactInteger is the largest integer that I-JSON (RFC 7493) guarantees to be exact.
+// maxExactInteger is 2^53; integers below it are exact in every JSON implementation
+// (RFC 7493).
 const maxExactInteger = 1 << 53
 
 // intField reads an integer by its value, not by its spelling: 1, 1.0 and 1e0 are the
@@ -253,7 +266,7 @@ func intField(obj map[string]any, key string) int64 {
 		return 0
 	}
 	f, err := strconv.ParseFloat(n.String(), 64)
-	if err != nil || f != math.Trunc(f) || math.Abs(f) > maxExactInteger {
+	if err != nil || f != math.Trunc(f) || math.Abs(f) >= maxExactInteger {
 		return 0
 	}
 	return int64(f)
@@ -276,7 +289,8 @@ func verifyLines(r io.Reader, anchor *Anchor) (Result, error) {
 		return Result{}, err
 	}
 	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 0, 4096), MaxEntryBytes+1)
+	// Room for an entry of the maximum size followed by a carriage return.
+	scanner.Buffer(make([]byte, 0, 4096), MaxEntryBytes+2)
 	for scanner.Scan() {
 		if result, done := v.add(scanner.Bytes()); done {
 			return result, nil

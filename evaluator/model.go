@@ -421,7 +421,7 @@ func parseApprovalTimeout(s string) (time.Duration, error) {
 			continue
 		}
 		n, err := strconv.ParseUint(digits, 10, 32)
-		if err != nil || len(digits) > maxTimeoutDigits || digits[0] == '+' {
+		if err != nil || len(digits) > maxTimeoutDigits {
 			return 0, fmt.Errorf("%w: timeout %q", ErrSchema, s)
 		}
 		total, rest = total+time.Duration(n)*u.unit, after

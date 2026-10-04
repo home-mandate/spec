@@ -5,6 +5,8 @@ package evaluator
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/mandate-spec/mandate-spec/internal/ijson"
 )
 
 // Stored is a mandate as an implementation has stored it, with its status. It is
@@ -28,14 +30,17 @@ func NewStored(document []byte, status MandateStatus) Stored {
 		s.mandate, s.clientID, s.principal, s.readable = m, m.clientID, m.principal, true
 		return s
 	}
-	var loose struct {
-		Principal *string `json:"principal"`
-		Agent     struct {
-			ClientID *string `json:"client_id"`
-		} `json:"agent"`
+	// A document that is not I-JSON cannot be attributed reliably (which of two equal
+	// keys counts?); it then counts for every agent and principal.
+	if ijson.Check(document) != nil {
+		return s
 	}
-	if json.Unmarshal(document, &loose) == nil && loose.Principal != nil && loose.Agent.ClientID != nil {
-		s.clientID, s.principal, s.readable = *loose.Agent.ClientID, *loose.Principal, true
+	var top map[string]json.RawMessage
+	var agent map[string]json.RawMessage
+	var principal, clientID string
+	if json.Unmarshal(document, &top) == nil && json.Unmarshal(top["agent"], &agent) == nil &&
+		json.Unmarshal(top["principal"], &principal) == nil && json.Unmarshal(agent["client_id"], &clientID) == nil {
+		s.clientID, s.principal, s.readable = clientID, principal, true
 	}
 	return s
 }

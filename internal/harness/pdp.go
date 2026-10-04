@@ -11,9 +11,13 @@ import (
 	"io/fs"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/mandate-spec/mandate-spec/evaluator"
 )
+
+// requestTimeout bounds one request to the implementation under test.
+const requestTimeout = 30 * time.Second
 
 // maxResponseBytes bounds what the tool reads from the implementation under test.
 const maxResponseBytes = 1 << 20
@@ -75,7 +79,10 @@ func RunPDP(ctx context.Context, fsys fs.FS, pdp PDP) (Report, error) {
 		return Report{}, err
 	}
 	if pdp.Client == nil {
-		pdp.Client = http.DefaultClient
+		// No redirects: a redirected POST would arrive as a GET without its body.
+		pdp.Client = &http.Client{Timeout: requestTimeout, CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		}}
 	}
 	r := &runner{fsys: fsys, report: report}
 	cases, err := load[evaluationCase](fsys, fileCases, "cases")
@@ -101,6 +108,9 @@ func RunPDP(ctx context.Context, fsys fs.FS, pdp PDP) (Report, error) {
 		return Report{}, err
 	}
 	for _, c := range selection {
+		if c.Subject == nil {
+			return Report{}, fmt.Errorf("conformance: case %s has no subject", c.ID)
+		}
 		stored := []StoredMandate{}
 		storable := true
 		for _, m := range c.Mandates {

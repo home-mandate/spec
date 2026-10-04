@@ -262,3 +262,29 @@ func TestCanonicalRejectsWhatIsNotIJSON(t *testing.T) {
 		t.Errorf("Canonical = %s, %v", out, err)
 	}
 }
+
+func TestCheckSuccessorKeepsAgentAndPrincipal(t *testing.T) {
+	parse := func(data []byte) *evaluator.Mandate {
+		m, err := evaluator.Parse(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	stored := parse(mandateNamed("Test"))
+	otherAgent := parse(bytes.Replace(issuedMandate("1"), []byte("hm-client:test-0001"), []byte("hm-client:test-0002"), 1))
+	otherPrincipal := parse(bytes.Replace(issuedMandate("1"), []byte("household:t"), []byte("household:u"), 1))
+	if evaluator.CheckSuccessor(stored, otherAgent) == nil {
+		t.Error("a mandate for another agent replaced the stored one")
+	}
+	if evaluator.CheckSuccessor(stored, otherPrincipal) == nil {
+		t.Error("a mandate for another principal replaced the stored one")
+	}
+}
+
+func TestParseSignedBoundsItsInput(t *testing.T) {
+	huge := "a." + strings.Repeat("A", 600<<10) + ".b"
+	if _, err := evaluator.ParseSigned(huge, trusted()); !errors.Is(err, evaluator.ErrSignature) {
+		t.Errorf("oversized signed mandate: %v, want ErrSignature", err)
+	}
+}

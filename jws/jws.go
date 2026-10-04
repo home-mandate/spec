@@ -9,7 +9,6 @@
 package jws
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
@@ -46,9 +45,30 @@ const maxCompactBytes = 512 << 10
 
 const p256Bytes = 32
 
+// halfOrder is half the order of P-256. An ES256 signature (r, s) is accepted only with
+// s in the lower half, so that a signature has exactly one form.
+var halfOrder = new(big.Int).Rsh(elliptic.P256().Params().N, 1)
+
+// MaxCompactBytes is the largest JWS the package accepts.
+const MaxCompactBytes = maxCompactBytes
+
 var kidPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
 
 var b64 = base64.RawURLEncoding.Strict()
+
+// decodeSegment decodes one segment of a compact JWS. Go's decoder skips line breaks,
+// so the segment is compared with its re-encoding: every byte string has exactly one
+// accepted spelling.
+func decodeSegment(segment string) ([]byte, error) {
+	decoded, err := b64.DecodeString(segment)
+	if err != nil {
+		return nil, err
+	}
+	if b64.EncodeToString(decoded) != segment {
+		return nil, errors.New("not canonical base64url")
+	}
+	return decoded, nil
+}
 
 // Keys are public keys by key ID: ed25519.PublicKey or *ecdsa.PublicKey on P-256.
 type Keys map[string]crypto.PublicKey
@@ -123,6 +143,10 @@ func signInput(alg string, signer any, input []byte) ([]byte, error) {
 			if err != nil {
 				return nil, fmt.Errorf("jws: sign: %w", err)
 			}
+			// Of the two valid values s and n-s, the lower one is used (as in verifyInput).
+			if s.Cmp(halfOrder) > 0 {
+				s.Sub(elliptic.P256().Params().N, s)
+			}
 			out := make([]byte, 2*p256Bytes)
 			r.FillBytes(out[:p256Bytes])
 			s.FillBytes(out[p256Bytes:])
@@ -142,7 +166,7 @@ func verifyInput(alg string, key crypto.PublicKey, input, sig []byte) bool {
 		}
 		digest := sha256.Sum256(input)
 		r, s := new(big.Int).SetBytes(sig[:p256Bytes]), new(big.Int).SetBytes(sig[p256Bytes:])
-		return ecdsa.Verify(k, digest[:], r, s)
+		return s.Cmp(halfOrder) <= 0 && ecdsa.Verify(k, digest[:], r, s)
 	}
 	return false
 }
@@ -156,7 +180,7 @@ func Verify(compact string, keys Keys) (payload []byte, kid string, err error) {
 	if body == "" {
 		return nil, "", fmt.Errorf("%w: no payload", ErrMalformed)
 	}
-	payload, err = b64.DecodeString(body)
+	payload, err = decodeSegment(body)
 	if err != nil {
 		return nil, "", fmt.Errorf("%w: payload: %w", ErrMalformed, err)
 	}
@@ -193,7 +217,7 @@ func verify(head string, payload []byte, sig string, keys Keys) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	raw, err := b64.DecodeString(sig)
+	raw, err := decodeSegment(sig)
 	if err != nil {
 		return "", fmt.Errorf("%w: signature: %w", ErrMalformed, err)
 	}
@@ -211,17 +235,21 @@ func verify(head string, payload []byte, sig string, keys Keys) (string, error) 
 // b64, jwk or jku, would change how the signature must be checked.
 func parseHeader(head string) (protectedHeader, error) {
 	var h protectedHeader
-	encoded, err := b64.DecodeString(head)
+	encoded, err := decodeSegment(head)
 	if err != nil {
 		return h, fmt.Errorf("%w: header: %w", ErrMalformed, err)
 	}
 	if err := ijson.Check(encoded); err != nil {
 		return h, fmt.Errorf("%w: header: %w", ErrMalformed, err)
 	}
-	dec := json.NewDecoder(bytes.NewReader(encoded))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&h); err != nil {
-		return h, fmt.Errorf("%w: header: %w", ErrMalformed, err)
+	// encoding/json matches member names without regard to case; the members are read
+	// by their exact names instead.
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &members); err != nil || len(members) != 2 {
+		return h, fmt.Errorf("%w: header must have exactly alg and kid", ErrMalformed)
+	}
+	if json.Unmarshal(members["alg"], &h.Alg) != nil || json.Unmarshal(members["kid"], &h.Kid) != nil {
+		return h, fmt.Errorf("%w: header must have exactly alg and kid", ErrMalformed)
 	}
 	if h.Alg != AlgEdDSA && h.Alg != AlgES256 {
 		return h, fmt.Errorf("%w: algorithm %q", ErrMalformed, h.Alg)
@@ -249,6 +277,9 @@ type jwks struct {
 // key types other than Ed25519 and P-256 are rejected.
 func ParseJWKS(data []byte) (Keys, error) {
 	var set jwks
+	if err := ijson.Check(data); err != nil {
+		return nil, fmt.Errorf("%w: JWK Set: %w", ErrMalformed, err)
+	}
 	if err := json.Unmarshal(data, &set); err != nil {
 		return nil, fmt.Errorf("%w: JWK Set: %w", ErrMalformed, err)
 	}

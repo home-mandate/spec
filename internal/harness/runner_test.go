@@ -112,6 +112,17 @@ func TestRunDetectsDeviations(t *testing.T) {
 			}
 			return r, nil
 		}, harness.ClassAudit},
+		"reports no entry count": {func(req harness.Request, r harness.Response) (harness.Response, error) {
+			r.Entries = nil
+			return r, nil
+		}, harness.ClassAudit},
+		"reports a wrong entry count": {func(req harness.Request, r harness.Response) (harness.Response, error) {
+			if r.Entries != nil {
+				wrong := *r.Entries + 1
+				r.Entries = &wrong
+			}
+			return r, nil
+		}, harness.ClassAnchored},
 		"reports no result for logs": {func(req harness.Request, r harness.Response) (harness.Response, error) {
 			if req.Op == harness.OpVerifyAudit {
 				return harness.Response{}, nil

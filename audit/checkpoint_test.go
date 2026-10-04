@@ -206,3 +206,31 @@ func TestSignCheckpointRejectsBadInput(t *testing.T) {
 		}
 	}
 }
+
+// TestResultReportsWhereTheLogStarts: a log whose beginning was deleted is valid if a
+// log.truncated entry accounts for it; the result says from which seq the log is present.
+func TestResultReportsWhereTheLogStarts(t *testing.T) {
+	b := &logBuilder{t: t}
+	b.stop()
+	b.stop()
+	b.stop()
+	b.checkpoint(testLogID, "log-key-1", testSigner())
+	full, _ := audit.VerifyAnchored(b.entries, anchor())
+	if !full.Valid || full.FirstSeq != 1 {
+		t.Fatalf("full log: %+v, want FirstSeq 1", full)
+	}
+	// Someone with write access removes the first two entries and appends a matching
+	// log.truncated after the last checkpoint.
+	secondDigest, _ := audit.Digest(b.entries[1])
+	b.add(`"event":"log.truncated","actor":{"kind":"system","id":"retention"},"truncated":{"up_to_seq":2,"last_digest":"` + secondDigest + `"}`)
+	cut, err := audit.VerifyAnchored(b.entries[2:], anchor())
+	if err != nil || !cut.Valid || cut.FirstSeq != 3 || cut.TruncationAnchored {
+		t.Errorf("cut log: %+v, %v; want valid, FirstSeq 3, truncation not anchored", cut, err)
+	}
+	// A checkpoint after the truncation anchors it.
+	b.checkpoint(testLogID, "log-key-1", testSigner())
+	anchored, _ := audit.VerifyAnchored(b.entries[2:], anchor())
+	if !anchored.Valid || anchored.FirstSeq != 3 || !anchored.TruncationAnchored {
+		t.Errorf("after a checkpoint: %+v, want the truncation anchored", anchored)
+	}
+}

@@ -36,20 +36,40 @@ func New(now func() time.Time) *Limiter {
 // it. A denied request is not counted. A non-positive limit denies. If the clock was
 // set back, requests recorded with a later time still count.
 func (l *Limiter) Allow(key string, perHour int) bool {
-	if perHour <= 0 {
-		return false
-	}
 	now := l.now()
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	times := current(l.allowed[key], now)
+	l.sweep(now)
+	times := l.allowed[key]
 	if len(times) >= perHour {
-		l.allowed[key] = times
 		return false
 	}
 	l.allowed[key] = insert(times, now)
 	return true
+}
+
+// sweep drops the expired times of every key, so that keys which are no longer used
+// do not accumulate. A household has few mandates; the cost per call is small.
+func (l *Limiter) sweep(now time.Time) {
+	for key, times := range l.allowed {
+		l.keep(key, current(times, now))
+	}
+}
+
+func (l *Limiter) keep(key string, times []time.Time) {
+	if len(times) == 0 {
+		delete(l.allowed, key)
+		return
+	}
+	l.allowed[key] = times
+}
+
+// Keys returns the number of keys the limiter currently holds times for.
+func (l *Limiter) Keys() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return len(l.allowed)
 }
 
 // Restore counts requests that were allowed earlier, for example before a restart.
@@ -63,7 +83,7 @@ func (l *Limiter) Restore(key string, earlier []time.Time) {
 	for _, t := range earlier {
 		times = insert(times, t)
 	}
-	l.allowed[key] = current(times, now)
+	l.keep(key, current(times, now))
 }
 
 // Forget drops the state of a key, for example when its mandate is deleted.

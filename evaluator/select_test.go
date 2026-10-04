@@ -104,3 +104,28 @@ func TestSelectTreatsAnUnknownStatusAsACandidateThatDenies(t *testing.T) {
 	_, got := evaluator.SelectAndEvaluate(stored, "hm-client:test-0001", "household:t", request("light", "flur", "turn_on"))
 	assertDecision(t, got, evaluator.Deny, evaluator.ReasonInvalidRequest, "")
 }
+
+// TestInvalidStoredDocumentIsNeverSilentlyIgnored: a stored document that is not I-JSON
+// (for example with a duplicate principal) cannot be attributed, so it counts for every
+// agent and principal and denies.
+func TestInvalidStoredDocumentIsNeverSilentlyIgnored(t *testing.T) {
+	good := mandateNamed("Test")
+	for name, bad := range map[string]string{
+		"duplicate principal": `{"principal":"household:t","principal":"household:other","agent":{"client_id":"hm-client:test-0001"}}`,
+		"duplicate agent":     `{"principal":"household:t","agent":{"client_id":"hm-client:test-0001"},"agent":{"client_id":"x:y"}}`,
+		"case variant":        `{"principal":"household:t","Principal":"household:other","agent":{"client_id":"hm-client:test-0001"}}`,
+		"not JSON":            `nope`,
+		"agent is a string":   `{"principal":"household:other","agent":"x"}`,
+	} {
+		stored := []evaluator.Stored{evaluator.NewStored([]byte(bad), evaluator.StatusActive), evaluator.NewStored(good, evaluator.StatusActive)}
+		_, got := evaluator.SelectAndEvaluate(stored, "hm-client:test-0001", "household:t", request("light", "flur", "turn_on"))
+		if got.Decision != evaluator.Deny {
+			t.Errorf("%s: got (%s, %s), want deny", name, got.Decision, got.Reason)
+		}
+	}
+	// A readable invalid document of another agent does not concern this one.
+	other := `{"principal":"household:t","agent":{"client_id":"x:other"}}`
+	stored := []evaluator.Stored{evaluator.NewStored([]byte(other), evaluator.StatusActive), evaluator.NewStored(good, evaluator.StatusActive)}
+	_, got := evaluator.SelectAndEvaluate(stored, "hm-client:test-0001", "household:t", request("light", "flur", "turn_on"))
+	assertDecision(t, got, evaluator.Allow, evaluator.ReasonRule, "r-1")
+}

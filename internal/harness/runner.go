@@ -391,6 +391,9 @@ func (r *runner) audit() error {
 			}
 			req.Keys = keys
 		}
+		if len(c.EntryDigests) > len(c.Entries) {
+			return fmt.Errorf("conformance: log %s has more digests than entries", c.ID)
+		}
 		resp, doErr := r.impl.Do(req)
 		got, want := auditOutcome(c, resp)
 		r.record(class, fileAudit, c.ID, resp, doErr, got, want)
@@ -409,6 +412,15 @@ func auditOutcome(c auditCase, resp Response) (got, want string) {
 		want = fmt.Sprintf("invalid broken_at=%d", c.BrokenAt)
 	} else if c.Anchored != nil {
 		want = fmt.Sprintf("valid anchored=%d", *c.Anchored)
+	}
+	// A valid log is reported with the number of its entries (SPEC-v0 section 9.4).
+	if c.Expected == "valid" && c.JSONL == nil {
+		want += fmt.Sprintf(" entries=%d", len(c.Entries))
+		defer func() {
+			if resp.Valid != nil && *resp.Valid && resp.Entries != nil {
+				got += fmt.Sprintf(" entries=%d", *resp.Entries)
+			}
+		}()
 	}
 	switch {
 	case resp.Valid == nil:

@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"math/big"
 	"strings"
 	"testing"
 )
@@ -204,5 +205,89 @@ func TestParseJWKS(t *testing.T) {
 	}
 	if _, err := MarshalJWKS(Keys{"k": "not a key"}); err == nil {
 		t.Error("MarshalJWKS accepted an unsupported key")
+	}
+}
+
+// TestSegmentsMustBeCanonicalBase64URL: Go's base64 decoder skips line breaks, so the
+// segments are checked before decoding. One signed object has exactly one string.
+func TestSegmentsMustBeCanonicalBase64URL(t *testing.T) {
+	ed := rfcKey(t)
+	keys := Keys{"ed-1": ed.Public()}
+	payload := []byte(`{"a":1}`)
+	compact, _ := Sign(payload, "ed-1", ed)
+	detached, _ := SignDetached(payload, "ed-1", ed)
+	parts := strings.Split(compact, ".")
+	for name, altered := range map[string]string{
+		"line feed in payload":       parts[0] + "." + parts[1][:4] + "\n" + parts[1][4:] + "." + parts[2],
+		"carriage return in payload": parts[0] + "." + parts[1][:4] + "\r" + parts[1][4:] + "." + parts[2],
+		"line feed in signature":     parts[0] + "." + parts[1] + "." + parts[2][:8] + "\n" + parts[2][8:],
+		"line feed in header":        parts[0][:4] + "\n" + parts[0][4:] + "." + parts[1] + "." + parts[2],
+		"padding on payload":         parts[0] + "." + parts[1] + "=." + parts[2],
+		"standard alphabet":          parts[0] + "." + parts[1] + "." + strings.NewReplacer("-", "+", "_", "/").Replace(parts[2]) + "+",
+		"space in signature":         parts[0] + "." + parts[1] + "." + parts[2] + " ",
+	} {
+		if _, _, err := Verify(altered, keys); err == nil {
+			t.Errorf("%s: Verify accepted", name)
+		}
+	}
+	sig := detached[strings.LastIndex(detached, ".")+1:]
+	if _, err := VerifyDetached(parts[0]+".."+sig[:8]+"\n"+sig[8:], payload, keys); err == nil {
+		t.Error("line feed in a detached signature: accepted")
+	}
+	// Trailing bits that are not zero decode to the same bytes in lenient decoders.
+	last := sig[len(sig)-1]
+	if other := string(rune(last + 1)); other != "" {
+		if _, err := VerifyDetached(parts[0]+".."+sig[:len(sig)-1]+other, payload, keys); err == nil {
+			t.Error("signature with other trailing bits: accepted")
+		}
+	}
+}
+
+func TestParseJWKSRejectsDuplicateMembers(t *testing.T) {
+	doc := `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","kid":"k2","x":"` + rfc8037Public + `"}]}`
+	if _, err := ParseJWKS([]byte(doc)); err == nil {
+		t.Error("JWK with a duplicate member accepted")
+	}
+}
+
+func TestHeaderMemberNamesAreCaseSensitive(t *testing.T) {
+	ed := rfcKey(t)
+	keys := Keys{"ed-1": ed.Public()}
+	payload := []byte("x")
+	for _, head := range []string{`{"ALG":"EdDSA","KID":"ed-1"}`, `{"alg":"EdDSA","Kid":"ed-1"}`, `{"alg":"EdDSA","kid":"ed-1","Alg":"EdDSA"}`} {
+		encoded := header(t, head)
+		sig, err := signInput(AlgEdDSA, ed, signingInput(encoded, payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := VerifyDetached(encoded+".."+b64.EncodeToString(sig), payload, keys); err == nil {
+			t.Errorf("header %s accepted", head)
+		}
+	}
+}
+
+// TestES256RequiresLowS: for every ES256 signature (r, s) the pair (r, n-s) verifies as
+// well. Only the lower s is accepted, so that a signature has one form.
+func TestES256RequiresLowS(t *testing.T) {
+	ec := ecKey(t)
+	keys := Keys{"ec-1": ec.Public()}
+	payload := []byte("x")
+	n := elliptic.P256().Params().N
+	for range 8 {
+		detached, err := SignDetached(payload, "ec-1", ec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		head, sigText := detached[:strings.Index(detached, ".")], detached[strings.LastIndex(detached, ".")+1:]
+		sig, _ := b64.DecodeString(sigText)
+		s := new(big.Int).SetBytes(sig[32:])
+		if s.Cmp(new(big.Int).Rsh(n, 1)) > 0 {
+			t.Fatal("SignDetached produced a high s")
+		}
+		high := append([]byte{}, sig[:32]...)
+		high = append(high, new(big.Int).Sub(n, s).FillBytes(make([]byte, 32))...)
+		if _, err := VerifyDetached(head+".."+b64.EncodeToString(high), payload, keys); err == nil {
+			t.Fatal("signature with the high s accepted")
+		}
 	}
 }

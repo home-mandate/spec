@@ -233,7 +233,7 @@ func TestEntrySizeLimitBoundary(t *testing.T) {
 func TestValidResultHasNoIndex(t *testing.T) {
 	c := loadCases(t)[0]
 	got, err := audit.Verify(raw(c.Entries))
-	if err != nil || got != (audit.Result{Valid: true, Index: -1, Entries: len(c.Entries)}) {
+	if err != nil || got != (audit.Result{Valid: true, Index: -1, Entries: len(c.Entries), FirstSeq: 1}) {
 		t.Errorf("Verify = %+v, %v; want {Valid:true Index:-1 BrokenAt:0}", got, err)
 	}
 	if got, _ := audit.Verify(nil); got.Index != -1 || got.Entries != 0 {

@@ -118,9 +118,13 @@ A mandate is valid if it conforms to the schema **and** additionally:
      `data/forbidden-codepoints-v0.json`. The list is normative and fixed; it was derived
      from Unicode 17.0.0 and contains the general categories Cc, Cf, Zl, Zp, Co and Cs
      (control and format characters, bidirectional controls, line and paragraph
-     separators, private use, surrogates) and the property Default_Ignorable_Code_Point
-     (invisible characters), except variation selectors and the two joiners;
-   - does not begin or end with a code point listed under `white_space`;
+     separators, private use, surrogates), the properties Default_Ignorable_Code_Point
+     (invisible characters), White_Space except U+0020, and Noncharacter_Code_Point, and
+     the blank characters U+2800 and U+FFFC; not on it are variation selectors and the
+     two joiners;
+   - does not begin or end with a space (U+0020), the only white space permitted;
+   - does not begin with a code point listed under `not_first` (combining marks and
+     variation selectors, which need a character before them);
    - contains the joiners U+200C (zero width non-joiner) and U+200D (zero width joiner)
      only between two other code points: not first, not last, and not directly after
      another joiner. Persian, Indic scripts and emoji sequences need them.
@@ -237,13 +241,21 @@ document is; it does not say which of two documents is newer. Without a version,
 and more generous mandate with a valid digest cannot be told from the current one.
 
 An implementation that stores a mandate and is offered a replacement with the same `id`
-accepts it only if (**succession**):
+accepts it only if (**succession**) the offered mandate names the same agent
+(`agent.client_id`) and the same `principal`, and
 
 1. the stored mandate has no `version`, or
 2. the offered mandate has the same `issuer` and a `version` greater than the stored one.
 
 A mandate without `version` therefore never replaces one that has a version, and an older
-version is never accepted again (rollback). A mandate that leaves the implementation that
+version is not accepted while the newer one is known (rollback). This protection is local
+state: an implementation MUST keep the highest `version` it has accepted for an `issuer`
+and `id`, also after the mandate was revoked or deleted, for as long as an older version
+could still be valid, and it MUST treat a restore from a backup like the arrival of
+mandates from outside. A revocation is local as well: a signed mandate stays verifiable
+until it expires, so a revoked mandate MUST NOT be accepted again by way of its signature.
+An issuer can end the sequence of an `id` by issuing the highest possible version; the
+mandate then needs a new `id`. A mandate that leaves the implementation that
 created it, signed per Section 7, MUST carry `issuer` and `version`.
 
 ## 4. Evaluation rule
@@ -569,11 +581,21 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
   any other header member (such as `crit`, `b64`, `jwk`, `jku`, `x5c`) make the signed
   mandate invalid: a key is never taken from the signed object itself.
 - `kid` is 1 to 64 characters from `A–Z a–z 0–9 . _ -` and names a key of the issuer.
+- A signed object has exactly one spelling. The three segments are base64url without
+  padding and without any other character (no line breaks); the names of the header
+  members are case-sensitive; and of the two values of `s` that verify for an ES256
+  signature, only the lower one (`s` ≤ n/2) is accepted, and signers produce it. A
+  verifier MUST reject everything else, even if the signature would verify.
+- Keys that sign mandates MUST NOT be used to sign checkpoints (Section 9.5), and vice
+  versa.
 
 A verifier accepts a signed mandate only if
 
 1. it holds public keys that it trusts **for the issuer the mandate names**, and the
    signature verifies with the key `kid` among them;
+   it has also decided, by its own configuration, that this issuer may issue mandates for
+   the `principal` and the agent the mandate names. A key that is trusted for one
+   household MUST NOT be accepted for another;
 2. the payload is canonical and a valid mandate (Section 3.1);
 3. succession holds against what the verifier has stored (Section 3.5).
 
@@ -829,8 +851,7 @@ checkpoint: { "log_id": <UUID of the log>, "signature": <JWS> }
 ```
 
 It covers the log up to and including its predecessor: the entry with `seq` − 1, whose
-digest is the checkpoint's `prev`. A checkpoint is therefore never the first entry of a
-log (`seq` ≥ 2).
+digest is the checkpoint's `prev`. A checkpoint therefore never has `seq` 1.
 
 - `log_id` is a UUID in lower case that the implementation chooses once per audit log.
   Every checkpoint of a log carries the same `log_id`; two logs never share one.
@@ -850,17 +871,27 @@ Verification (Section 9.4) gains a fourth condition, checked after the chain:
    checkpoint's signature verifies with one of these keys. `broken_at` is the `seq` of the
    first checkpoint that violates this.
 
-A verifier that was given keys additionally reports up to which `seq` the log is
-**anchored**: the position covered by the last checkpoint. Entries after it are consistent
-but not anchored. Without keys, the signatures are not checked and nothing is anchored.
+A verifier that was given keys additionally reports
+
+- up to which `seq` the log is **anchored**: the position covered by the last checkpoint.
+  Entries after it are consistent but not anchored;
+- the `seq` of the first entry present, and, if the beginning of the log was deleted,
+  whether the `log.truncated` entry that accounts for it is itself anchored (its `seq` is
+  not greater than the anchored `seq`). A `log.truncated` entry after the last checkpoint
+  can have been written by anyone who can write the log.
+
+Without keys, the signatures are not checked and nothing is anchored. An implementation
+MUST therefore write a checkpoint directly after every `log.truncated` entry, and a
+relying party SHOULD give the verifier the `log_id` it expects: without it, the log of
+another household signed with the same key would verify.
 
 What a checkpoint adds: a log that was rewritten or replaced no longer matches the
 checkpoints signed before, and nobody without the key can sign new ones. What it does not
 add: it does not prevent the removal of entries after the last checkpoint, and a verifier
 that does not know how far the log should reach cannot tell that the log and its last
 checkpoints were removed together. Implementations SHOULD write a checkpoint at regular
-intervals and before every `log.truncated`, and a party that relies on the log SHOULD keep
-the `log_id` and the highest anchored `seq` it has seen.
+intervals, and a party that relies on the log SHOULD keep the `log_id` and the highest
+anchored `seq` it has seen.
 
 ## 10. Test interface
 
@@ -997,11 +1028,12 @@ answered and, optionally, through which channel.
 act or decide.
 
 - In every period of 3600 seconds, at most N requests of the agent under the mandate
-  reach the evaluation. Further requests are denied without evaluation
+  reach the evaluation. The count belongs to the mandate (`id`), not to a version of it:
+  a new version does not reset it. Further requests are denied without evaluation
   (`denied_by: rate_limit`).
 - Every request of the authenticated agent counts, whatever the action and whatever the
   result: `read`, requests that are denied and requests that lead to `ask`. Requests
-  denied by the rate limit itself do not count.
+  denied by the rate limit itself or by the emergency stop do not count.
 - The bound is normative, the algorithm is not. A sliding window meets it; a token bucket
   that is full after an idle period does not, because it lets up to 2N requests pass
   within one hour.
@@ -1048,10 +1080,11 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 |---|---|---|
 | **Agent that is malicious or was manipulated** (prompt injection through a website, an e-mail, a document) | The decision is made outside the agent. Default `deny`, most restrictive rule wins, critical actions need `allow_critical` or a human (Section 4). The agent supplies only the resource and the action; category, area, time and status come from the PEP. Rate limit and a limit on waiting approval requests (Section 11) | Everything the mandate allows, the agent can do. A mandate with a broad `allow` is a broad permission |
 | **Agent that tries to obtain a confirmation** | The confirmation is bound to one request, used once, comes from a named approver on a path the agent does not control, and the request is evaluated again afterwards (Section 11.1) | A human who confirms without reading. The implementation MUST show what is confirmed; it cannot make the human read |
-| **Agent that imitates a trusted name** | Displayed text carries no invisible or direction-changing characters (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names. Interfaces SHOULD show the `client_id` next to the `display_name` |
+| **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); the critical marking can only add protection | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource |
-| **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored (Sections 9.4, 9.5) | Entries after the last checkpoint. Without checkpoints, the chain proves consistency only |
-| **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7) | Mandates without `version` are not ordered |
+| **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only |
+| **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
+| **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal (Section 3.5) | The specification does not define how this trust is configured |
 | **Attacker between PEP and PDP** | The connection MUST be authenticated in both directions; the PDP MUST NOT be reachable by agents (Section 6) | The specification does not define the mechanism |
 | **Compromised PEP** | Nothing. The PEP executes; a PEP that ignores a `deny` cannot be stopped by a format | – |
 
@@ -1163,8 +1196,9 @@ denies every request. Implementations SHOULD check their stored mandates before 
 - Displayed text (Section 3.1 item 8): fixed code point list
   `data/forbidden-codepoints-v0.json` instead of the Unicode categories of the runtime;
   additionally forbidden are private-use and invisible (default ignorable) characters and
-  white space at the start or end; newly permitted are ZWNJ and ZWJ between other
-  characters. The rule now also applies to `actor.id`, `agent.display_name` and
+  characters, blank characters, noncharacters, every white space other than U+0020, a
+  space at the start or end and a combining mark at the start; newly permitted are ZWNJ
+  and ZWJ between other characters. The rule now also applies to `actor.id`, `agent.display_name` and
   `approval.by` in the audit log.
 
 Clarified, each with new conformance cases:
@@ -1191,8 +1225,8 @@ New:
   words of BCP 14.
 - Mandates can carry `issuer` and `version`; succession protects against rollback
   (Section 3.5, `conformance/succession-v0.json`).
-- Signed mandates: compact JWS over the canonical form with EdDSA or ES256; Section 7 is
-  normative now (`conformance/signed-v0.json`).
+- Signed mandates: compact JWS over the canonical form with EdDSA or ES256, with exactly
+  one accepted spelling; Section 7 is normative now (`conformance/signed-v0.json`).
 - Checkpoints anchor the audit log: event `log.checkpoint` with a `log_id` and a detached
   JWS over the position and digest of the log (Section 9.5); verification with keys reports
   up to which `seq` the log is anchored.

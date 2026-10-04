@@ -11,7 +11,11 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 )
+
+// waitDelay bounds how long Close waits for the pipes of a killed process.
+const waitDelay = 5 * time.Second
 
 // Process is an implementation started as a child process that speaks the process
 // binding on its standard input and output.
@@ -28,6 +32,8 @@ func StartProcess(ctx context.Context, argv []string) (*Process, error) {
 	}
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Stderr = os.Stderr
+	// After the context ends, do not wait forever for a child that keeps the pipes open.
+	cmd.WaitDelay = waitDelay
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("conformance: %w", err)
