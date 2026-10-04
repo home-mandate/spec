@@ -39,7 +39,20 @@ product that implements the specification is Home-Mandate.
 | `schema/*.go`, `spec.go` | Go packages that embed the schemas (`schema`) and the schemas, examples and conformance cases (root package), respectively | Apache 2.0 |
 | `tools/vectors/` | Helper for maintaining the conformance files: manifest, mandate digests, chaining audit entries | Apache 2.0 |
 | `Makefile` | Checks: `make check` (vet, staticcheck, coverage ≥ 95 %, govulncheck), `make fuzz`, `make mutation` (≥ 90 %) | Apache 2.0 |
-| `cmd/mandate-conformance/` *(planned, v0.2)* | Black-box test tool against arbitrary AuthZEN endpoints | Apache 2.0 |
+| `cmd/mandate-conformance/` | Test tool: plays the conformance cases against any implementation, over standard input and output or over HTTP (SPEC-v0 section 10) | Apache 2.0 |
+| `cmd/mandate-harness/` | The reference code behind the process binding of the test interface; example for implementers | Apache 2.0 |
+
+## Testing an implementation
+
+```
+go install github.com/mandate-spec/mandate-spec/cmd/mandate-conformance@latest
+mandate-conformance -report report.json -exec ./your-harness
+```
+
+Your harness reads one JSON request per line and writes one JSON response per line
+(SPEC-v0 section 10.2); it can be written in any language and needs no network. The
+report states which conformance classes the implementation passes and for which exact
+set of cases.
 
 ## Licenses
 

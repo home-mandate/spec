@@ -655,18 +655,39 @@ specification (schemas, examples, conformance files) with the SHA-256 of its byt
 conformance files, the number of cases. A test report SHOULD name the manifest it was
 produced with, so that it states exactly which cases were run.
 
-Two ways of testing:
+### 8.1 Conformance classes
 
-1. **Library:** Implementations in Go can embed the reference evaluator from this
-   repository or test their own evaluator against the cases.
-2. **Black box:** The test tool `mandate-conformance` replays all cases against the
-   AuthZEN endpoint of any implementation, independent of language and vendor.
-   For this purpose, it loads the mandates via a test interface defined in Section 10
-   (to follow with v0.2).
+Not every implementation does everything. An evaluator library has no HTTP endpoint; a
+verification tool for audit logs evaluates nothing. An implementation therefore conforms to
+one or more **classes**, and it conforms to a class of a version if it passes all cases of
+that class in that version.
 
-An implementation conforms to a version if it passes all cases of that version.
-The test report is machine-readable and can be published. A formal
-certification program with a logo will follow only once the specification is frozen.
+| Class | What it does | Cases |
+|---|---|---|
+| `evaluator` | validates mandates, computes digests, evaluates requests (Sections 3 and 4) | `cases-v0.json`, `invalid-v0.json`, `digest-v0.json` |
+| `selection` | selects the mandate among several (Section 4.3) | `selection-v0.json` |
+| `signatures` | verifies signed mandates and succession (Sections 3.5 and 7) | `signed-v0.json`, `succession-v0.json` |
+| `audit` | verifies the hash chain of audit logs and computes entry digests (Section 9.4) | logs in `audit-v0.json` without `keys` |
+| `audit-anchored` | additionally verifies checkpoints (Section 9.5) | logs in `audit-v0.json` with `keys` |
+| `pdp` | answers AuthZEN requests from its own mandate store and resource directory (Sections 4.3 and 6) | the cases of `cases-v0.json` and `selection-v0.json` whose mandates are valid, over HTTP |
+
+`evaluator` is the basis: an implementation that claims any conformance to the
+evaluation conforms to it. The obligations of the PEP (Section 11: approval, rate limit,
+revocation) cannot be tested from outside in this version; an implementation states for
+each item of Section 11 how it meets it.
+
+A claim of conformance names the version (the tag of this repository), the classes and
+the manifest (`conformance/manifest.json`, by its SHA-256). The report of the test tool
+contains all three and can be published. A formal certification program will follow only
+once the specification is frozen.
+
+### 8.2 Ways of testing
+
+1. **Library:** Implementations in Go can embed the reference code of this repository or
+   test their own code against the cases directly.
+2. **Test tool:** `mandate-conformance` (in `cmd/`) plays the cases against any
+   implementation through the test interface of Section 10, independent of language and
+   vendor, and writes a machine-readable report.
 
 ## 9. Audit log
 
@@ -840,7 +861,87 @@ the `log_id` and the highest anchored `seq` it has seen.
 
 ## 10. Test interface
 
-To follow with v0.2.
+So that an implementation in any language and of any shape can be tested, the test
+interface has two bindings. They are equivalent in what a passed case means; an
+implementation offers the one that fits it. Neither is needed in operation.
+
+### 10.1 Safety
+
+The test interface lets its caller choose the mandates, the directory and the clock. An
+implementation MUST NOT offer it in operation: not in a release build, or only after an
+explicit start option that is off by default and that the implementation reports clearly.
+State set through it MUST NOT mix with the household's real mandates and audit log.
+
+### 10.2 Process binding
+
+The implementation provides a program (a **harness**) that reads requests from its
+standard input and writes responses to its standard output: one JSON object per line
+(UTF-8, separated by line feed), one response for every request, in order. It needs no
+network and no server. The harness ends when its input ends.
+
+Mandates, audit entries and logs are passed as JSON **text inside a string**, so that they
+arrive byte for byte (duplicate keys, number spellings and line separators are part of the
+cases).
+
+| `op` | Request members | Response members |
+|---|---|---|
+| `capabilities` | – | `name`, `version`, `ops` (the operations offered) |
+| `validate` | `mandate` | `valid`; `digest` if valid |
+| `evaluate` | `mandate`, `request` | `decision`, `reason`, `rule_id` if Section 4.1 provides one, `approval_timeout` and `approvers` for `ask`, `mandate_digest` unless absent per Section 4.1 |
+| `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate) if one was selected |
+| `succession` | `stored`, `offered` | `accept` |
+| `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer) | `valid`; `digest` if valid |
+| `verify_audit` | `entries` (array of entry texts) or `jsonl` (the exchange format); optionally `keys` and `log_id` | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given |
+| `entry_digest` | `entry` | `digest` |
+
+`request` is the input of the evaluation as the PEP determines it: `resource`
+(`entity_id`, optionally `category`, `area`, `critical`), `action`, optionally `parameters`,
+`time`, optionally `timezone` and `revoked`. A `time` that is no RFC 3339 timestamp or a
+parameter that is no integer yields `deny` with `invalid_request`.
+
+For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
+cases of that operation then count as not passed for their class. Any other `error` is a
+failed case. Every request can carry `id`, the identifier of the case, for diagnostics.
+
+```
+→ {"op":"evaluate","id":"c02","mandate":"{…}","request":{"resource":{"entity_id":"lock.haustuer","category":"lock","area":"flur"},"action":"unlock","time":"2026-10-12T19:00:00+02:00"}}
+← {"decision":"ask","reason":"rule","rule_id":"r-locks","approval_timeout":"PT2M","approvers":["user-1"],"mandate_digest":"sha256:…"}
+```
+
+### 10.3 HTTP binding
+
+For the class `pdp`. The implementation offers its AuthZEN endpoint (Section 6) and one
+additional **control resource** at a URL of its choice. Before every case the test tool
+sets the complete state with
+
+```
+PUT <control>
+{ "mandates":  [ { "mandate": "<JSON text>", "revoked": false } ],
+  "directory": [ { "entity_id": "…", "category": "…", "area": "…", "critical": false } ],
+  "time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin" }
+```
+
+which replaces everything set before: the stored mandates with their status, the resource
+directory, the point in time the PDP uses as its clock, and the household time zone
+(absent: the offset of `time` applies). The answer is a 2xx status. Then the tool sends the
+request of the case to `POST <authzen>/access/v1/evaluation` with `subject` (type `agent`,
+`id`, `properties.principal`), `action` (`name`, `properties` for parameters) and
+`resource.id` only: category, area and the critical marking come from the directory. It
+compares `decision` and, in the response context, `outcome`, `reason`, `rule_id` and
+`approval_timeout`.
+
+The tool sends the HTTP headers it was given (for example `Authorization`) with every
+request; the control resource SHOULD require authentication even in a test build.
+
+### 10.4 Test tool
+
+`mandate-conformance -exec <command>` uses the process binding,
+`mandate-conformance -authzen <url> -control <url>` the HTTP binding. The tool contains the
+cases of its version. Its report (`-report`) is a JSON object with `spec`, `manifest` (the
+SHA-256 of `conformance/manifest.json`), `binding`, `implementation`, per class the number
+of cases passed, failed and skipped and whether the implementation conforms, and the list
+of failed cases with what was expected and what was received. `cmd/mandate-harness` is the
+harness of the reference code and an example for implementers.
 
 ## 11. Obligations of the PEP
 
@@ -1076,6 +1177,12 @@ Clarified, each with new conformance cases:
   empty lines (Section 9.4). `conformance/audit-v0.json` has the new field `jsonl` for it.
 
 New:
+- Conformance classes (Section 8.1): `evaluator`, `selection`, `signatures`, `audit`,
+  `audit-anchored`, `pdp`.
+- Test interface (Section 10) with a process binding (JSON lines over standard input and
+  output, no network) and an HTTP binding for PDPs; test tool `cmd/mandate-conformance`
+  with a machine-readable report and `cmd/mandate-harness` as the harness of the
+  reference code.
 - Sections 12 to 14: security considerations with the attackers and assumptions, privacy
   considerations, versions and compatibility. More requirements are stated with the key
   words of BCP 14.

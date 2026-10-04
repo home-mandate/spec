@@ -250,3 +250,15 @@ func TestConformanceSuccession(t *testing.T) {
 		})
 	}
 }
+
+func TestCanonicalRejectsWhatIsNotIJSON(t *testing.T) {
+	for _, in := range []string{``, `{`, `{"a":1,"a":2}`, `{"n":0.5}`, `[1] [2]`} {
+		if _, err := evaluator.Canonical([]byte(in)); !errors.Is(err, evaluator.ErrMalformed) {
+			t.Errorf("Canonical(%q) = %v, want ErrMalformed", in, err)
+		}
+	}
+	out, err := evaluator.Canonical([]byte(`{ "b": [1, 2.0], "a": null }`))
+	if err != nil || string(out) != `{"a":null,"b":[1,2]}` {
+		t.Errorf("Canonical = %s, %v", out, err)
+	}
+}
