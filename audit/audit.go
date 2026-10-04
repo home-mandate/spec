@@ -218,7 +218,7 @@ func check(compiled *jsonschema.Schema, entry []byte) (link, bool) {
 	}
 	obj, _ := v.(map[string]any)
 	l := link{seq: intField(obj, "seq")}
-	if compiled.Validate(v) != nil || !displayable(obj) {
+	if compiled.Validate(v) != nil || !displayable(obj) || !distinctIdentifiers(obj) {
 		return l, false
 	}
 	digest, err := digestOf(v)
@@ -251,6 +251,15 @@ func displayable(obj map[string]any) bool {
 		}
 	}
 	return true
+}
+
+// distinctIdentifiers reports whether a directory change that names a former identifier
+// names one other than the current one (SPEC-v0 section 9.1); JSON Schema cannot compare
+// two members.
+func distinctIdentifiers(obj map[string]any) bool {
+	d, _ := obj["directory"].(map[string]any)
+	previous, ok := d["previous_entity_id"].(string)
+	return !ok || previous != d["entity_id"]
 }
 
 // maxExactInteger is 2^53; integers below it are exact in every JSON implementation

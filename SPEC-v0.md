@@ -747,6 +747,7 @@ Depending on the event, the following are added:
 | `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
 | `checkpoint` | `log_id`, `signature` (Section 9.5) |
+| `directory` | change to the resource directory (Section 11.4): `change` (`critical_marked`, `critical_unmarked`, `renamed`, `rename_applied`, `rename_dismissed`), `entity_id` and, except for `critical_marked` and `critical_unmarked`, `previous_entity_id`, both identifiers per Section 3.4 and different from each other. For `renamed`, `entity_id` is the new and `previous_entity_id` the former identifier; for `rename_applied` (a human took the rename over into the mandates) and `rename_dismissed`, `entity_id` is the current identifier and `previous_entity_id` the former one that was resolved, one entry per former identifier. Only with `directory.changed` |
 
 For `decision`, the following additionally applies:
 
@@ -760,7 +761,7 @@ For `decision`, the following additionally applies:
   reached, or the agent already had too many requests waiting (Section 11.1).
 
 A `log.truncated` entry has an `actor` of kind `user` or `system`; an agent never deletes
-entries.
+entries. The same holds for `directory.changed`: an agent never changes the directory.
 
 `actor.id`, `agent.display_name` and `approval.by` are displayed text; Section 3.1 item 8
 applies to them, and an entry that violates it is invalid.
@@ -777,6 +778,7 @@ Entries MUST NOT contain tokens, nonces, credentials or the content of a mandate
 | `emergency_stop.activated`, `emergency_stop.released` | yes | emergency stop, if the implementation has one |
 | `log.truncated` | yes | before deleting old entries (Section 9.4) |
 | `log.checkpoint` | no | signed statement about the log so far (Section 9.5) |
+| `directory.changed` | yes, if the implementation lets humans change the critical marking or tracks renamed resources | every such change to the directory, and every rename a human resolves (Section 11.4) |
 | `auth.rejected` | no | rejected sign-in or invalid token |
 
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
@@ -1065,7 +1067,13 @@ The validity period, time windows and the audit log depend on the clock of the P
 evaluation on its resource directory. An implementation SHOULD synchronize its clock and
 SHOULD deny requests while it has reason to believe the clock is wrong (for example a time
 before the newest entry of its audit log). Changes to the directory are covered by
-Section 3.4.
+Section 3.4. Changes that affect the evaluation (the critical marking, renamed resources)
+are recorded with `directory.changed` (Section 9.2).
+
+When a resource is renamed, an implementation SHOULD keep applying the rules that name its
+former identifier to it, together with the rules that name the new one, and take the
+stricter decision (Section 4, most restrictive wins) until a human resolves the rename:
+takes it over into the mandates or dismisses it. A rename then fails closed.
 
 ## 12. Security considerations
 
@@ -1081,7 +1089,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Agent that is malicious or was manipulated** (prompt injection through a website, an e-mail, a document) | The decision is made outside the agent. Default `deny`, most restrictive rule wins, critical actions need `allow_critical` or a human (Section 4). The agent supplies only the resource and the action; category, area, time and status come from the PEP. Rate limit and a limit on waiting approval requests (Section 11) | Everything the mandate allows, the agent can do. A mandate with a broad `allow` is a broad permission |
 | **Agent that tries to obtain a confirmation** | The confirmation is bound to one request, used once, comes from a named approver on a path the agent does not control, and the request is evaluated again afterwards (Section 11.1) | A human who confirms without reading. The implementation MUST show what is confirmed; it cannot make the human read |
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
-| **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); the critical marking can only add protection | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource |
+| **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); the critical marking can only add protection; changes to it and renames are recorded (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource |
 | **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only |
 | **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
 | **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal (Section 3.5) | The specification does not define how this trust is configured |
@@ -1116,6 +1124,10 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
 - **Parameters.** Only parameters of the vocabulary can be constrained. Whatever else a
   platform accepts with a command passes unchecked; a PEP SHOULD forward only what it has
   evaluated (Section 4.5).
+- **Renamed resources.** A `deny` or `ask` rule that names the former identifier of a
+  renamed resource no longer protects it, and a broader `allow` rule may apply instead.
+  Applying the rules of both identifiers until a human resolves the rename keeps the
+  protection (Section 11.4).
 - **Size and time.** Implementations SHOULD bound the size of inputs before parsing them
   (Section 3.1 item 5, nesting depth) and SHOULD verify signatures and schemas before any
   further processing.
@@ -1267,6 +1279,13 @@ New:
   Conformance cases `a11`–`a13` in `conformance/audit-v0.json`.
 - Reference evaluator: `IsCritical` exposes the critical actions of the vocabulary
   (Section 5); anything outside the vocabulary counts as critical.
+- Audit log: event `directory.changed` with the member `directory` records changes to the
+  resource directory that affect the evaluation: the critical marking, renamed resources
+  and how a human resolved a rename (Sections 9.1, 9.2 and 11.4). Required for
+  implementations that let humans change the critical marking or track renamed resources.
+  Compatible for logs: every entry that was valid remains valid. A verifier that does not
+  know the event rejects a log that contains it (Section 14, unknown members). Conformance
+  cases `a50`–`a57` in `conformance/audit-v0.json`.
 
 ### v0.1.0-alpha.1
 

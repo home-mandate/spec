@@ -22,7 +22,8 @@
         "agent.registered", "agent.revoked",
         "emergency_stop.activated", "emergency_stop.released",
         "auth.rejected",
-        "log.truncated", "log.checkpoint"
+        "log.truncated", "log.checkpoint",
+        "directory.changed"
       ]
     },
     "principal": { "type": "string", "pattern": "^(household|person):[A-Za-z0-9_-]{1,64}$" },
@@ -170,6 +171,21 @@
         }
       }
     },
+    "directory": {
+      "description": "Change to the resource directory that affects the evaluation (SPEC-v0 section 11.4).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["change", "entity_id"],
+      "properties": {
+        "change": { "enum": ["critical_marked", "critical_unmarked", "renamed", "rename_applied", "rename_dismissed"] },
+        "entity_id": { "$ref": "#/$defs/entity_id" },
+        "previous_entity_id": { "$ref": "#/$defs/entity_id" }
+      },
+      "allOf": [
+        { "if": { "properties": { "change": { "enum": ["renamed", "rename_applied", "rename_dismissed"] } } },
+          "then": { "required": ["previous_entity_id"] }, "else": { "not": { "required": ["previous_entity_id"] } } }
+      ]
+    },
     "prev": {
       "description": "Digest of the previous entry; null only for the first entry of an audit log (seq 1).",
       "anyOf": [ { "type": "null" }, { "$ref": "#/$defs/digest" } ]
@@ -190,6 +206,9 @@
       "then": { "required": ["result"] } },
     { "if": { "properties": { "event": { "const": "log.truncated" } } },
       "then": { "required": ["actor", "truncated"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } } },
+    { "if": { "properties": { "event": { "const": "directory.changed" } } },
+      "then": { "required": ["actor", "directory"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } },
+      "else": { "not": { "required": ["directory"] } } },
     { "if": { "properties": { "event": { "const": "log.checkpoint" } } },
       "then": { "required": ["checkpoint"], "properties": { "seq": { "minimum": 2 } } },
       "else": { "not": { "required": ["checkpoint"] } } },
@@ -218,6 +237,11 @@
       "format": "date-time",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$",
       "not": { "anyOf": [ { "pattern": "^0000[!-~]*$" }, { "pattern": "^[!-~]*-00:00$" } ] }
+    },
+    "entity_id": {
+      "description": "Identifier of a resource in the directory: printable ASCII without space, compared exactly per character (SPEC-v0 section 3.4).",
+      "type": "string",
+      "pattern": "^[!-~]{1,255}$"
     },
     "digest": {
       "description": "SHA-256 over the canonical form according to RFC 8785, hexadecimal, lower case.",
