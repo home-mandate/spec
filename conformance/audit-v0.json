@@ -3130,6 +3130,88 @@
           "type": "https://mandate-spec.org/audit/v0"
         }
       ]
+    },
+    {
+      "id": "a14",
+      "why": "seq written as 1.0, 2e0 and 0.3e1: the numbers 1, 2 and 3 (RFC 8785)",
+      "expected": "valid",
+      "entry_digests": ["sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "sha256:c3ce14196cd97cb7b21c99e1823cee631bd70f8bbff0ac3b659c08c8b5cf12fb"],
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1.0, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2e0, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10003", "prev": "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:00+02:00", "seq": 0.3e1, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a15",
+      "why": "exchange format: one entry per line, separated by LF, with a final LF",
+      "expected": "valid",
+      "jsonl": "{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10001\",\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:01:00+02:00\",\"seq\":1,\"type\":\"https://mandate-spec.org/audit/v0\"}\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.released\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10002\",\"prev\":\"sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:02:00+02:00\",\"seq\":2,\"type\":\"https://mandate-spec.org/audit/v0\"}\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10003\",\"prev\":\"sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:03:00+02:00\",\"seq\":3,\"type\":\"https://mandate-spec.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a16",
+      "why": "exchange format: no LF after the last entry",
+      "expected": "valid",
+      "jsonl": "{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10001\",\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:01:00+02:00\",\"seq\":1,\"type\":\"https://mandate-spec.org/audit/v0\"}\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.released\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10002\",\"prev\":\"sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:02:00+02:00\",\"seq\":2,\"type\":\"https://mandate-spec.org/audit/v0\"}\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10003\",\"prev\":\"sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:03:00+02:00\",\"seq\":3,\"type\":\"https://mandate-spec.org/audit/v0\"}"
+    },
+    {
+      "id": "a17",
+      "why": "exchange format: CR before LF is JSON whitespace",
+      "expected": "valid",
+      "jsonl": "{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10001\",\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:01:00+02:00\",\"seq\":1,\"type\":\"https://mandate-spec.org/audit/v0\"}\r\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.released\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10002\",\"prev\":\"sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:02:00+02:00\",\"seq\":2,\"type\":\"https://mandate-spec.org/audit/v0\"}\r\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10003\",\"prev\":\"sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:03:00+02:00\",\"seq\":3,\"type\":\"https://mandate-spec.org/audit/v0\"}\r\n"
+    },
+    {
+      "id": "a18",
+      "why": "exchange format: byte order mark before the first entry",
+      "expected": "invalid",
+      "broken_at": 0,
+      "jsonl": "\ufeff{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10001\",\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:01:00+02:00\",\"seq\":1,\"type\":\"https://mandate-spec.org/audit/v0\"}\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.released\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10002\",\"prev\":\"sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:02:00+02:00\",\"seq\":2,\"type\":\"https://mandate-spec.org/audit/v0\"}\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10003\",\"prev\":\"sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:03:00+02:00\",\"seq\":3,\"type\":\"https://mandate-spec.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a19",
+      "why": "exchange format: empty line between entries",
+      "expected": "invalid",
+      "broken_at": 0,
+      "jsonl": "{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10001\",\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:01:00+02:00\",\"seq\":1,\"type\":\"https://mandate-spec.org/audit/v0\"}\n\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.released\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10002\",\"prev\":\"sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:02:00+02:00\",\"seq\":2,\"type\":\"https://mandate-spec.org/audit/v0\"}\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10003\",\"prev\":\"sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:03:00+02:00\",\"seq\":3,\"type\":\"https://mandate-spec.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a20",
+      "why": "exchange format: empty line at the end",
+      "expected": "invalid",
+      "broken_at": 0,
+      "jsonl": "{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10001\",\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:01:00+02:00\",\"seq\":1,\"type\":\"https://mandate-spec.org/audit/v0\"}\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.released\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10002\",\"prev\":\"sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:02:00+02:00\",\"seq\":2,\"type\":\"https://mandate-spec.org/audit/v0\"}\n{\"actor\":{\"kind\":\"user\",\"id\":\"user-1\"},\"event\":\"emergency_stop.activated\",\"id\":\"01a0f64c-7140-7001-9007-0000a0d10003\",\"prev\":\"sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e\",\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:03:00+02:00\",\"seq\":3,\"type\":\"https://mandate-spec.org/audit/v0\"}\n\n"
+    },
+    {
+      "id": "a21",
+      "why": "bidi override in actor.id: displayed text (3.1 no. 8)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user\u202e1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10003", "prev": "sha256:ddd6a46445732d97ee388d3fdf191a00fbf73b5c176e1810f7fc622134517ed2", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:00+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a22",
+      "why": "leading white space in actor.id: displayed text (3.1 no. 8)",
+      "expected": "invalid",
+      "broken_at": 3,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": " user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10003", "prev": "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:00+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a23",
+      "why": "zero width space in agent.display_name: displayed text (3.1 no. 8)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice\u200b" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000a0d20002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" }
+      ]
     }
   ]
 }

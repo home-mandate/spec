@@ -20,8 +20,7 @@
         "additionalProperties": false,
         "required": [
           "id",
-          "expected",
-          "entries"
+          "expected"
         ],
         "properties": {
           "id": {
@@ -52,6 +51,10 @@
           "entries": {
             "type": "array",
             "description": "Entries in file order. Deliberately unconstrained: invalid logs contain entries that violate the audit schema."
+          },
+          "jsonl": {
+            "type": "string",
+            "description": "The log in the exchange format (SPEC-v0 section 9.4) as one string, for cases about line separators."
           }
         },
         "if": {
@@ -72,7 +75,19 @@
               "broken_at"
             ]
           }
-        }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "entries"
+            ]
+          },
+          {
+            "required": [
+              "jsonl"
+            ]
+          }
+        ]
       }
     }
   }

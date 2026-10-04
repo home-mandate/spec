@@ -6,6 +6,8 @@
 //	vectors digest <mandate>    print the digest of a mandate (SPEC-v0 section 3.2)
 //	vectors chain < entries     link a JSON array of audit entries by prev and print them
 //	                            with their digests (SPEC-v0 section 9.4)
+//	vectors codepoints <ucd>    print data/forbidden-codepoints-v0.json from the Unicode
+//	                            Character Database (SPEC-v0 section 3.1 item 8)
 //
 // Run it from the repository root: go run ./tools/vectors <command>.
 package main
@@ -36,7 +38,7 @@ func main() {
 // run executes one command with paths relative to dir.
 func run(args []string, dir string, stdin io.Reader, stdout io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: vectors manifest [-check] | digest <mandate> | chain")
+		return errors.New("usage: vectors manifest [-check] | digest <mandate> | chain | codepoints <ucd>")
 	}
 	switch args[0] {
 	case "manifest":
@@ -45,6 +47,8 @@ func run(args []string, dir string, stdin io.Reader, stdout io.Writer) error {
 		return runDigest(args[1:], dir, stdout)
 	case "chain":
 		return runChain(stdin, stdout)
+	case "codepoints":
+		return runCodepoints(args[1:], stdout)
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }
@@ -90,7 +94,11 @@ func runDigest(args []string, dir string, stdout io.Writer) error {
 	if len(args) != 1 {
 		return errors.New("usage: vectors digest <mandate>")
 	}
-	data, err := os.ReadFile(filepath.Join(dir, args[0]))
+	path := args[0]
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(dir, path)
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read mandate: %w", err)
 	}

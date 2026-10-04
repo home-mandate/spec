@@ -16,12 +16,14 @@
       "required": ["client_id", "display_name"],
       "properties": {
         "client_id": {
-          "description": "OAuth client ID: URL of a Client ID Metadata Document or an ID assigned by the implementation in the form <namespace>:<id>, e.g. for paired agents.",
+          "description": "Identifier of the agent, compared exactly per character. Either an https URL (lower-case host, a path, no userinfo, no fragment, e.g. the URL of a Client ID Metadata Document) or another URI such as <namespace>:<id>, did:web:..., spiffe://... or urn:.... Printable ASCII only, no dot segments.",
           "type": "string",
           "maxLength": 512,
-          "anyOf": [
-            { "pattern": "^https://[^\\s]+$" },
-            { "pattern": "^[a-z][a-z0-9-]{0,31}:[A-Za-z0-9._~-]{1,128}$" }
+          "allOf": [
+            { "if": { "pattern": "^https:[!-~]*$" },
+              "then": { "pattern": "^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?/[A-Za-z0-9._~%!$&'()*+,;=:/?-]*$" },
+              "else": { "pattern": "^[a-z][a-z0-9+.-]{0,31}:[A-Za-z0-9._~:/-]{1,256}$", "not": { "pattern": "^http:[!-~]*$" } } },
+            { "not": { "pattern": "^[!-~]*/[.][.]?([/?][!-~]*)?$" } }
           ]
         },
         "display_name": { "type": "string", "minLength": 1, "maxLength": 80 }
@@ -52,10 +54,11 @@
   },
   "$defs": {
     "date_time": {
-      "description": "Timestamp according to RFC 3339 with offset. Asserting format is required (SPEC-v0 section 3.1 item 0); pattern also catches gross errors in validators that treat format only as an annotation.",
+      "description": "Timestamp according to RFC 3339 with offset, at most 9 fractional digits, not in year 0000 and not with the offset -00:00. Asserting format is required (SPEC-v0 section 3.1 item 0); pattern also catches gross errors in validators that treat format only as an annotation.",
       "type": "string",
       "format": "date-time",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$",
+      "not": { "anyOf": [ { "pattern": "^0000[!-~]*$" }, { "pattern": "^[!-~]*-00:00$" } ] }
     },
     "category": {
       "anyOf": [
@@ -81,7 +84,7 @@
       "additionalProperties": false,
       "required": ["timeout", "approvers"],
       "properties": {
-        "timeout": { "type": "string", "pattern": "^PT([0-9]+M|[0-9]+S|[0-9]+M[0-9]+S)$" },
+        "timeout": { "type": "string", "minLength": 4, "pattern": "^PT([0-9]{1,5}H)?([0-9]{1,5}M)?([0-9]{1,5}S)?$" },
         "approvers": {
           "description": "Identifiers, in the implementation's user management, of the people allowed to confirm approval requests.",
           "type": "array",

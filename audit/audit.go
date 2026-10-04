@@ -13,10 +13,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"strconv"
 	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
+	"github.com/mandate-spec/mandate-spec/displaytext"
 	"github.com/mandate-spec/mandate-spec/internal/ijson"
 	"github.com/mandate-spec/mandate-spec/jcs"
 	"github.com/mandate-spec/mandate-spec/schema"
@@ -133,7 +136,7 @@ func check(compiled *jsonschema.Schema, entry []byte) (link, bool) {
 	}
 	obj, _ := v.(map[string]any)
 	l := link{seq: intField(obj, "seq")}
-	if compiled.Validate(v) != nil {
+	if compiled.Validate(v) != nil || !displayable(obj) {
 		return l, false
 	}
 	digest, err := digestOf(v)
@@ -148,6 +151,20 @@ func check(compiled *jsonschema.Schema, entry []byte) (link, bool) {
 		l.lastDigest, _ = t["last_digest"].(string)
 	}
 	return l, true
+}
+
+// displayedFields are the members that user interfaces show to humans; the rule for
+// displayed text applies to them as in a mandate (SPEC-v0 section 3.1 item 8).
+var displayedFields = [][2]string{{"actor", "id"}, {"agent", "display_name"}, {"approval", "by"}}
+
+func displayable(obj map[string]any) bool {
+	for _, path := range displayedFields {
+		parent, _ := obj[path[0]].(map[string]any)
+		if text, ok := parent[path[1]].(string); ok && displaytext.Check(text) != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // validStart: the first entry has seq 1, or a later log.truncated entry covers
@@ -165,16 +182,22 @@ func validStart(links []link) bool {
 	return false
 }
 
+// maxExactInteger is the largest integer that I-JSON (RFC 7493) guarantees to be exact.
+const maxExactInteger = 1 << 53
+
+// intField reads an integer by its value, not by its spelling: 1, 1.0 and 1e0 are the
+// same number and have the same canonical form (RFC 8785). It returns 0 if the member
+// is missing, is no integer or lies outside the exact range.
 func intField(obj map[string]any, key string) int64 {
 	n, ok := obj[key].(json.Number)
 	if !ok {
 		return 0
 	}
-	i, err := n.Int64()
-	if err != nil {
+	f, err := strconv.ParseFloat(n.String(), 64)
+	if err != nil || f != math.Trunc(f) || math.Abs(f) > maxExactInteger {
 		return 0
 	}
-	return i
+	return int64(f)
 }
 
 func valid() Result { return Result{Valid: true, Index: -1} }

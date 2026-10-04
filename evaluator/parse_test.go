@@ -151,7 +151,7 @@ func TestParseRejects(t *testing.T) {
 		{"line separator in created_by", mandateReplacing(`"created_by":"a-1"`, `"created_by":"a-1`+string(rune(0x2028))+`"`), evaluator.ErrSemantic},
 		{"control character in approver", mandateReplacing(`"approvers":["a-1"]`, `"approvers":["a-1\n"]`), evaluator.ErrSemantic},
 		{"control character in rule approver", mandateReplacing(`"decision":"allow"`, `"decision":"ask","approval":{"timeout":"PT1M","approvers":["a\t2"]}`), evaluator.ErrSemantic},
-		{"unknown client_id scheme", mandateReplacing(`"client_id":"hm-client:test-0001"`, `"client_id":"ftp://agent.example"`), evaluator.ErrSchema},
+		{"client_id that is not a URI", mandateReplacing(`"client_id":"hm-client:test-0001"`, `"client_id":"agent"`), evaluator.ErrSchema},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

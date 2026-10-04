@@ -34,6 +34,7 @@ func TestBuildRuleRejectsUnknownDecision(t *testing.T) {
 func TestParseApprovalTimeout(t *testing.T) {
 	tests := map[string]time.Duration{
 		"PT10S": 10 * time.Second, "PT2M": 2 * time.Minute, "PT1M30S": 90 * time.Second, "PT60M": time.Hour,
+		"PT1H": time.Hour, "PT0H59M60S": time.Hour, "PT0H1M": time.Minute, "PT00010S": 10 * time.Second,
 	}
 	for in, want := range tests {
 		got, err := parseApprovalTimeout(in)
@@ -41,9 +42,19 @@ func TestParseApprovalTimeout(t *testing.T) {
 			t.Errorf("parseApprovalTimeout(%q) = %v, %v; want %v", in, got, err, want)
 		}
 	}
-	for _, in := range []string{"PT9S", "PT0M", "PT61M", "PT60M1S", "PT", "P1D", "PT1H", "PTxM", "PT-5S", "PT99999999999999999999M"} {
+	for _, in := range []string{"PT9S", "PT0M", "PT61M", "PT60M1S", "PT", "P1D", "PT2H", "PT1H1S", "PTxM", "PT-5S", "PT+5M", "PT99999999999999999999M",
+		"PT000010S", "PT5S1M", "PT1M1H", "PT1M1M", "PT1.5M", "PT1M ", "pt1m", "PTM", "1M"} {
 		if _, err := parseApprovalTimeout(in); err == nil {
 			t.Errorf("parseApprovalTimeout(%q) accepted", in)
 		}
+	}
+}
+
+func TestApprovalDuration(t *testing.T) {
+	if got := (Approval{Timeout: "PT1M30S"}).Duration(); got != 90*time.Second {
+		t.Errorf("Duration() = %v, want 1m30s", got)
+	}
+	if got := (Approval{Timeout: "soon"}).Duration(); got != 0 {
+		t.Errorf("Duration() of an invalid timeout = %v, want 0", got)
 	}
 }

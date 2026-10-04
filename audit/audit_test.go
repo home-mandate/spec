@@ -22,6 +22,15 @@ type auditCase struct {
 	BrokenAt     int64             `json:"broken_at"`
 	EntryDigests []string          `json:"entry_digests"`
 	Entries      []json.RawMessage `json:"entries"`
+	JSONL        *string           `json:"jsonl"`
+}
+
+// verify runs the case through the entry point its form calls for.
+func (c auditCase) verify() (audit.Result, error) {
+	if c.JSONL != nil {
+		return audit.VerifyJSONLines(strings.NewReader(*c.JSONL))
+	}
+	return audit.Verify(raw(c.Entries))
 }
 
 func loadCases(t *testing.T) []auditCase {
@@ -53,7 +62,7 @@ func raw(entries []json.RawMessage) [][]byte {
 func TestConformanceAuditLogs(t *testing.T) {
 	for _, c := range loadCases(t) {
 		t.Run(c.ID+" "+c.Why, func(t *testing.T) {
-			got, err := audit.Verify(raw(c.Entries))
+			got, err := c.verify()
 			if err != nil {
 				t.Fatalf("Verify: %v", err)
 			}
@@ -163,7 +172,18 @@ func TestLimitsAndUnreadableInput(t *testing.T) {
 	if _, err := audit.VerifyJSONLines(iotest.ErrReader(errors.New("disk"))); err == nil {
 		t.Error("VerifyJSONLines with a failing reader succeeded")
 	}
-	// A seq that is not a valid int64 is reported as 0.
+	// A seq that is no integer or does not fit is reported as 0.
+	for _, seq := range []string{"1.5", "1e-1", "1e400", "-1e400"} {
+		got, err = audit.Verify([][]byte{[]byte(`{"seq":` + seq + `}`)})
+		if err != nil || got.Valid || got.BrokenAt != 0 {
+			t.Errorf("Verify(seq %s) = %+v, %v; want invalid with broken_at 0", seq, got, err)
+		}
+	}
+	// A readable seq is reported even if it is written with a fraction or an exponent.
+	got, err = audit.Verify([][]byte{[]byte(`{"seq":7.0}`)})
+	if err != nil || got.Valid || got.BrokenAt != 7 {
+		t.Errorf("Verify(seq 7.0) = %+v, %v; want invalid with broken_at 7", got, err)
+	}
 	got, err = audit.Verify([][]byte{[]byte(`{"seq":99999999999999999999}`)})
 	if err != nil || got.Valid || got.BrokenAt != 0 {
 		t.Errorf("Verify(huge seq) = %+v, %v; want invalid with broken_at 0", got, err)

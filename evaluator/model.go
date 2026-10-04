@@ -9,7 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
+
+	"github.com/mandate-spec/mandate-spec/displaytext"
 )
 
 // Limits for approval.timeout (SPEC-v0 section 3.1 item 7).
@@ -253,27 +254,46 @@ func buildApproval(field string, a rawApproval) (Approval, error) {
 	return Approval{Timeout: a.Timeout, Approvers: slices.Clone(a.Approvers)}, nil
 }
 
-// parseApprovalTimeout reads PTnM, PTnS or PTnMnS and checks the limits of 10 s to 1 h.
+// Duration returns the timeout as a duration; 0 if Timeout is not a valid timeout.
+// Approval settings returned by Evaluate always carry a valid one.
+func (a Approval) Duration() time.Duration {
+	d, err := parseApprovalTimeout(a.Timeout)
+	if err != nil {
+		return 0
+	}
+	return d
+}
+
+// timeoutUnits are the components of a timeout in the order the schema requires.
+var timeoutUnits = []struct {
+	suffix string
+	unit   time.Duration
+}{{"H", time.Hour}, {"M", time.Minute}, {"S", time.Second}}
+
+// maxTimeoutDigits matches the schema: at most 5 digits per component.
+const maxTimeoutDigits = 5
+
+// parseApprovalTimeout reads PT[nH][nM][nS] with at least one component and checks the
+// limits of 10 s to 1 h.
 func parseApprovalTimeout(s string) (time.Duration, error) {
 	rest, ok := strings.CutPrefix(s, "PT")
 	if !ok || rest == "" {
 		return 0, fmt.Errorf("%w: timeout %q", ErrSchema, s)
 	}
 	var total time.Duration
-	if minutes, after, found := strings.Cut(rest, "M"); found {
-		n, err := strconv.ParseUint(minutes, 10, 32)
-		if err != nil {
+	for _, u := range timeoutUnits {
+		digits, after, found := strings.Cut(rest, u.suffix)
+		if !found {
+			continue
+		}
+		n, err := strconv.ParseUint(digits, 10, 32)
+		if err != nil || len(digits) > maxTimeoutDigits || digits[0] == '+' {
 			return 0, fmt.Errorf("%w: timeout %q", ErrSchema, s)
 		}
-		total, rest = time.Duration(n)*time.Minute, after
+		total, rest = total+time.Duration(n)*u.unit, after
 	}
 	if rest != "" {
-		seconds, ok := strings.CutSuffix(rest, "S")
-		n, err := strconv.ParseUint(seconds, 10, 32)
-		if !ok || err != nil {
-			return 0, fmt.Errorf("%w: timeout %q", ErrSchema, s)
-		}
-		total += time.Duration(n) * time.Second
+		return 0, fmt.Errorf("%w: timeout %q", ErrSchema, s)
 	}
 	if total < minApprovalTimeout || total > maxApprovalTimeout {
 		return 0, fmt.Errorf("%w: timeout %q outside 10s..1h", ErrSemantic, s)
@@ -281,13 +301,10 @@ func parseApprovalTimeout(s string) (time.Duration, error) {
 	return total, nil
 }
 
-// checkDisplayedText implements SPEC-v0 section 3.1 item 8: no control or format
-// characters and no line or paragraph separators in text displayed to humans.
+// checkDisplayedText implements SPEC-v0 section 3.1 item 8 for text displayed to humans.
 func checkDisplayedText(field, s string) error {
-	for _, r := range s {
-		if unicode.In(r, unicode.Cc, unicode.Cf, unicode.Zl, unicode.Zp) {
-			return fmt.Errorf("%w: %s contains U+%04X", ErrSemantic, field, r)
-		}
+	if err := displaytext.Check(s); err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrSemantic, field, err)
 	}
 	return nil
 }

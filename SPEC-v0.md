@@ -39,14 +39,25 @@ protection classes and the evaluation rule.
 
 Machine-readable: `schema/mandate-v0.schema.json`. The schemas in `schema/` are normative;
 this text and the schemas MUST agree, and any contradiction is an error in the
-specification. Summary:
+specification.
+
+**Patterns.** A `pattern` in the schemas applies to the entire string: a string matches only
+if the pattern matches from its first to its last character. In particular, a trailing line
+feed is not ignored. Regular expression dialects differ (ECMA-262, RE2, PCRE and others), so
+the schemas use only constructs that mean the same in all of them: literal ASCII characters,
+explicit character classes and ranges, groups, alternation, quantifiers, and `^` and `$` as
+the first and last character. They do not use `\s`, `\d`, `\w`, `\b`, a bare `.`, flags or
+lookarounds. An implementation MAY use any regular expression engine or none, as long as it
+accepts exactly the strings the patterns describe.
+
+Summary:
 
 ```
 Mandate
 ├── type          "https://mandate-spec.org/mandate/v0"
 ├── id            unique ID
 ├── principal     "household:<id>" or "person:<id>"
-├── agent         { client_id, display_name }
+├── agent         { client_id, display_name }   client_id: see Section 3.3
 ├── rules[]       rule
 │   ├── id
 │   ├── resource  selector: entity_id | category | area (at least one) or any: true alone
@@ -67,8 +78,10 @@ Mandate
 A mandate is valid if it conforms to the schema **and** additionally:
 
 0. all fields with `format: date-time` are valid RFC 3339 timestamps with an offset
-   (implementations MUST validate `format`, not merely treat it as an annotation);
-   leap seconds (`:60`) are not permitted;
+   (implementations MUST validate `format`, not merely treat it as an annotation), written
+   with an upper-case `T` and either `Z` or a numeric offset. Not permitted are: leap seconds
+   (`:60`), more than 9 fractional digits, the year `0000` and the offset `-00:00`.
+   Timestamps are compared as points in time with nanosecond precision;
 1. it is I-JSON as defined in RFC 7493: valid UTF-8, no lone surrogates (e.g. a
    standalone `\ud800`), no JSON object with a duplicate key, exactly one JSON value;
 2. all rule `id`s within the mandate are distinct;
@@ -79,11 +92,29 @@ A mandate is valid if it conforms to the schema **and** additionally:
    know, this check is skipped; such rules never match during evaluation (Section 4);
 5. it is at most 262 144 bytes (256 KiB) in size;
 6. `expires`, if present, is later than `valid_from`;
-7. every `approval.timeout` is between 10 seconds and 1 hour (both inclusive);
-8. `agent.display_name`, `created_by` and all `approvers` contain no characters of the
-   Unicode categories Cc, Cf, Zl and Zp (control characters, bidirectional and
-   invisible format characters, line and paragraph separators). These texts are displayed
-   to humans, for example in an approval request, and MUST NOT be able to mislead them.
+7. every `approval.timeout` is between 10 seconds and 1 hour (both inclusive). A timeout
+   has the form `PT[nH][nM][nS]` with at least one component, in this order, each `n` a
+   decimal number of 1 to 5 digits (`PT2M`, `PT1M30S`, `PT1H`). Its value is the sum of the
+   components. Different spellings of the same duration are different mandates with
+   different digests;
+8. `agent.display_name`, `created_by` and all `approvers` are **displayed text**: they are
+   shown to humans, for example in an approval request, and MUST NOT be able to mislead
+   them. A displayed text
+   - contains no code point listed under `forbidden` in
+     `data/forbidden-codepoints-v0.json`. The list is normative and fixed; it was derived
+     from Unicode 17.0.0 and contains the general categories Cc, Cf, Zl, Zp, Co and Cs
+     (control and format characters, bidirectional controls, line and paragraph
+     separators, private use, surrogates) and the property Default_Ignorable_Code_Point
+     (invisible characters), except variation selectors and the two joiners;
+   - does not begin or end with a code point listed under `white_space`;
+   - contains the joiners U+200C (zero width non-joiner) and U+200D (zero width joiner)
+     only between two other code points: not first, not last, and not directly after
+     another joiner. Persian, Indic scripts and emoji sequences need them.
+
+   Implementations MUST use the list, not the character tables of their runtime, so that
+   validity does not change with a Unicode version. The rule cannot prevent look-alike
+   letters from different scripts (homoglyphs); user interfaces SHOULD therefore show the
+   `client_id` together with the `display_name`.
 
 Implementations MAY reject JSON input with a nesting depth greater than 32 before
 validating it against the schema; valid mandates never reach this depth.
@@ -111,6 +142,27 @@ digest = "sha256:" + hex(SHA-256(JCS(mandate)))
 
 In the audit log (Section 9), the digest refers to the version on which the decision was
 based, without writing the content of the mandate to the audit log.
+
+Numbers are canonicalized by their value: `10`, `10.0` and `1e1` are the same number and
+yield the same digest.
+
+### 3.3 Agent identifier
+
+`agent.client_id` identifies the agent. It is printable ASCII, at most 512 characters, and
+has one of two forms:
+
+- an **https URL** with a lower-case host, optionally a port, and a path; without userinfo
+  (`user@`) and without a fragment (`#…`). This is the form of an OAuth Client ID Metadata
+  Document URL;
+- any **other URI**: a lower-case scheme, `:`, and 1 to 256 characters from
+  `A–Z a–z 0–9 . _ ~ : / -`, for example an identifier assigned by the implementation
+  (`<namespace>:<id>`), a DID (`did:web:agent.example`), a SPIFFE ID
+  (`spiffe://example.org/agents/voice`) or a URN. The scheme `http` is not permitted.
+
+Neither form contains a dot segment (`/./` or `/../`). Identifiers are compared exactly per
+character, without normalization: two identifiers that differ in any character identify
+different agents. How an implementation authenticates the agent behind an identifier is
+outside this specification.
 
 ## 4. Evaluation rule
 
@@ -191,8 +243,12 @@ time**: the point in time is converted to the household's time zone.
   case-sensitive: `UTC` or the form `Area/Location` (e.g. `Europe/Berlin`,
   `America/Argentina/Buenos_Aires`, `Etc/GMT+9`), where each part begins with an uppercase letter
   and contains only `A–Z`, `a–z`, `0–9`, `_`, `-`, `+`; at most 64 characters.
-  Other names (including `Local`, `localtime` or abbreviations such as `CET`) and names that the
-  implementation does not know result in `invalid_request`.
+  Other names (including `Local`, `localtime`, `GMT` or abbreviations such as `CET`) and names that the
+  implementation does not know result in `invalid_request`. Names of this form that the
+  database defines as links to another zone (such as `US/Eastern`) are permitted.
+  The rules of a zone change with the release of the database; implementations SHOULD keep
+  it current, and two implementations can differ for points in time that a newer release
+  treats differently.
 - If no time zone is given, the offset with which the point in time is expressed applies.
 - For the comparison, the hour and minute of local time are used; seconds and fractions are
   truncated (23:58:59 is 23:58).
@@ -327,7 +383,8 @@ error cannot be represented as a JSON object, such as duplicate keys).
 `conformance/audit-v0.json` contains, under `logs`, audit logs: `entries` (the entries in
 file order), `expected` (`valid` or `invalid`), for `invalid` the expected position
 `broken_at` (Section 9.4) and optionally `entry_digests` (the digest of each entry, for
-debugging).
+debugging). Instead of `entries`, a log can be given as `jsonl`: the exchange format
+(Section 9.4) as one string, for cases about line separators.
 
 In addition to `cases` or `logs` respectively, every file has a `description`; every case has a
 unique `id` and optionally `why`.
@@ -366,7 +423,7 @@ Each entry is a JSON object with `type: "https://mandate-spec.org/audit/v0"` and
 | Field | Contents |
 |---|---|
 | `id` | UUIDv7 (RFC 9562) |
-| `seq` | sequential number in the audit log, starting at 1, without gaps |
+| `seq` | sequential number in the audit log, starting at 1, without gaps. Read by its value: `1`, `1.0` and `1e0` are the same number; writers SHOULD use the plain form |
 | `recorded_at` | point in time of the entry (RFC 3339) |
 | `event` | event type (Section 9.2) |
 | `principal` | principal |
@@ -390,6 +447,9 @@ For `decision`, the following additionally applies:
 - `executed` only with `evaluation` and `mandate`, and only if `evaluation.decision` is `allow`
   or `ask` with `approval.outcome: approved`;
 - if `evaluation.decision` is `deny`, then `result` is `denied` with `denied_by: mandate`.
+
+`actor.id`, `agent.display_name` and `approval.by` are displayed text; Section 3.1 item 8
+applies to them, and an entry that violates it is invalid.
 
 Entries **never** contain tokens, nonces, credentials or the content of a mandate.
 
@@ -428,7 +488,12 @@ denials with `denied_by: rate_limit` or `emergency_stop` respectively, and the e
   `prev` is `null`.
 - Before the entries up to and including `seq` n are deleted, a `log.truncated` entry
   with `truncated: { up_to_seq: n, last_digest: <digest of entry n> }` is appended.
-- Exchange format: JSON Lines (one entry per line, UTF-8, in ascending `seq` order).
+- Exchange format: JSON Lines, UTF-8, in ascending `seq` order. Lines are separated by
+  U+000A (line feed) and by nothing else: readers MUST NOT split at any other character,
+  such as U+2028 inside a string. Every line is exactly one entry; white space that JSON
+  permits around a value, including a carriage return before the line feed, is ignored. A
+  line feed after the last entry is optional. A byte order mark and empty lines are not
+  permitted; such a line counts as an entry that violates the schema.
 
 An audit log is **valid** if, in file order:
 
@@ -455,7 +520,35 @@ To follow with v0.2.
 
 ### Unreleased
 
+Incompatible; mandates that were valid before can become invalid, and an invalid mandate
+denies every request. Implementations SHOULD check their stored mandates before they update:
+- `agent.client_id` (new Section 3.3): https URLs need a lower-case host and a path and
+  must not contain userinfo, a fragment, white space or non-ASCII characters; no dot
+  segments. Newly permitted: other URIs such as `did:…`, `spiffe://…`, `urn:…`.
+  Identifiers of the form `<namespace>:<id>` remain valid.
+- Timestamps: at most 9 fractional digits; the year `0000` and the offset `-00:00` are
+  invalid (Section 3.1 item 0).
+- Displayed text (Section 3.1 item 8): fixed code point list
+  `data/forbidden-codepoints-v0.json` instead of the Unicode categories of the runtime;
+  additionally forbidden are private-use and invisible (default ignorable) characters and
+  white space at the start or end; newly permitted are ZWNJ and ZWJ between other
+  characters. The rule now also applies to `actor.id`, `agent.display_name` and
+  `approval.by` in the audit log.
+
+Clarified, each with new conformance cases:
+- Patterns apply to the entire string and use only a portable subset of regular
+  expressions (Section 3).
+- `approval.timeout`: hours are permitted (`PT1H`); at most 5 digits per component
+  (Section 3.1 item 7).
+- Numbers are read by their value: digest of a mandate (Section 3.2) and `seq` in the audit
+  log (Section 9.1).
+- Time zones: links of the time zone database such as `US/Eastern` are permitted
+  (Section 4.2).
+- Exchange format of the audit log: line feed as the only separator, no byte order mark, no
+  empty lines (Section 9.4). `conformance/audit-v0.json` has the new field `jsonl` for it.
+
 New:
+- Reference code: `displaytext.Check`, `evaluator.Approval.Duration`.
 - `conformance/schema/`: JSON Schemas of the conformance files; `conformance/manifest.json`:
   all machine-readable files with SHA-256 and number of cases (Section 8).
 - `LICENSE` (Apache 2.0), `LICENSE-docs` (CC BY 4.0), `SECURITY.md`, `CONTRIBUTING.md`.
