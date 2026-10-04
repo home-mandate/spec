@@ -68,6 +68,7 @@ Mandate
 │   ├── actions[] actions from the vocabulary or "*"
 │   ├── decision  allow | ask | deny
 │   ├── conditions? { time_window, weekdays }
+│   ├── constraints? { <parameter>: { min, max } }   only with allow, see Section 4.5
 │   ├── approval?   { timeout, approvers }   only with ask
 │   └── allow_critical?  true, required for allow on critical actions; not together with "*"
 ├── default       always "deny" in v0
@@ -130,6 +131,17 @@ A mandate is valid if it conforms to the schema **and** additionally:
    permits critical actions without an approval request names them, so that a later
    vocabulary cannot add to them silently.
 
+10. `constraints` appear only in rules with `decision: allow` that list their actions
+    (no `"*"`). For every constraint, `min` is not greater than `max`, and the named
+    parameter is a parameter of **every** action of the rule: in the vocabulary of the
+    rule's category or, if the rule names no category, of that action in at least one
+    category from Section 5. Rules for an extension category are not checked. A
+    constraint on a `deny` or `ask` rule would fail open, because a request without the
+    parameter would not match the rule; therefore it is invalid.
+
+All numbers in a mandate are integers whose magnitude is at most 2^53 − 1; the schema
+permits nothing else.
+
 Implementations MAY reject JSON input with a nesting depth greater than 32 before
 validating it against the schema; valid mandates never reach this depth.
 
@@ -158,7 +170,9 @@ In the audit log (Section 9), the digest refers to the version on which the deci
 based, without writing the content of the mandate to the audit log.
 
 Numbers are canonicalized by their value: `10`, `10.0` and `1e1` are the same number and
-yield the same digest.
+yield the same digest. Because mandates and audit log entries contain only integers, an
+implementation needs no floating-point serialization for the canonical form: an integer
+is written in decimal notation without fraction and exponent.
 
 ### 3.3 Agent identifier
 
@@ -205,8 +219,8 @@ that moves to another implementation needs them replaced.
 ## 4. Evaluation rule
 
 Input: mandate, resource (entity ID, category, area, and whether the directory marks it as
-critical), action, point in time, household time zone, status of the mandate (`active` or
-`revoked`). Which mandate is evaluated is determined by Section 4.3.
+critical), action, optionally parameters of the action (Section 4.5), point in time,
+household time zone, status of the mandate (`active` or `revoked`). Which mandate is evaluated is determined by Section 4.3.
 
 **Origin of inputs:** The PEP determines the category, the area and the critical marking from its own resource
 directory, the point in time from its own clock, the time zone from the household
@@ -223,7 +237,7 @@ contain has no category; the result is `deny` with `unknown_resource`.
    - the mandate is invalid (Section 3.1);
    - the request is invalid: the entity ID is missing or does not match the pattern of
      `entity_id` in the schema, a given area does not match the pattern of `area`,
-     the point in time or the time zone is invalid or unknown, or the
+     a parameter is not an integer of magnitude at most 2^53 − 1, the point in time or the time zone is invalid or unknown, or the
      status is neither `active` nor `revoked`;
    - the category is missing: the resource is not in the directory of the PEP;
    - the category is neither listed in Section 5 nor an extension whose vocabulary
@@ -233,7 +247,8 @@ contain has no category; the result is `deny` with `unknown_resource`.
    It is valid for points in time `t` with `valid_from ≤ t < expires` (without `expires`:
    `valid_from ≤ t`). Points in time are compared, not clock times.
 2. Collect all rules whose `resource` matches the resource **and** whose `actions` contain the
-   action **and** whose `conditions` are satisfied at the point in time.
+   action **and** whose `conditions` are satisfied at the point in time **and** whose
+   `constraints` are satisfied by the parameters (Section 4.5).
    - `resource` matches if **all** specified fields match
      (e.g. `category: light` and `area: wohnzimmer` = lights in the living room).
      `any: true` matches every resource. Comparison is exact per character, case-sensitive
@@ -351,6 +366,34 @@ A resource whose activation acts on other resources (a scene, a script, a group 
 platform executes itself) is evaluated as the resource it is; this is why `scene.activate`
 and `script.run` are critical.
 
+### 4.5 Parameters and constraints
+
+Some actions carry a value: a temperature, a position, a volume. The vocabulary names
+these **parameters** per action, with the unit in which they are expressed (Section 5).
+Parameters are integers; the units are chosen fine enough that no fraction is needed
+(a temperature is given in hundredths of a degree Celsius, 21.5 °C is `2150`).
+
+The PEP derives the parameters from the request of the agent and converts them to the
+unit of the vocabulary. It MUST execute exactly the values that were evaluated: whatever
+it sends to the platform MUST NOT set a constrained quantity to another value, by rounding
+or through a second, platform-specific parameter for the same quantity. A value that
+cannot be expressed as an integer in the unit makes the request invalid.
+
+A rule with `constraints` matches only if the request carries **every** named parameter
+and each value `v` satisfies `min ≤ v ≤ max`; a limit that is not given does not restrict.
+A request without the parameter does not match the rule. Parameters that no constraint
+names do not influence the evaluation.
+
+```json
+{ "id": "r-heating", "resource": { "category": "climate" }, "actions": ["set_temperature"],
+  "decision": "allow", "constraints": { "temperature": { "min": 1600, "max": 2300 } } }
+```
+
+Constraints narrow an `allow`. Whoever wants a confirmation for values outside the limits
+adds an `ask` rule for the same action without constraints; `ask` then wins inside the
+limits as well, so the usual form is: `allow` with constraints, and nothing else, which
+denies everything outside.
+
 ## 5. Vocabulary v0
 
 Machine-readable and normative: `vocabulary/v0.json` (format:
@@ -371,6 +414,15 @@ Machine-readable and normative: `vocabulary/v0.json` (format:
 | `scene` | read, activate | activate |
 | `script` | read, run | run |
 | `other` | read, set | set |
+
+Parameters (Section 4.5):
+
+| Action | Parameter | Unit | Range |
+|---|---|---|---|
+| `light.set` | `brightness` | percent | 0 to 100 |
+| `climate.set_temperature` | `temperature` | 0.01 degree Celsius | – |
+| `cover.set_position` | `position` | percent open | 0 to 100 |
+| `media.set_volume` | `volume` | percent | 0 to 100 |
 
 `scene.activate`, `script.run` and `other.set` are critical because scenes, scripts and
 unknown entities can have arbitrary consequences, including opening doors. What else is
@@ -429,6 +481,7 @@ Field mapping:
 | `resource.type` | category |
 | `resource.properties.area` | area |
 | `action.name` | action |
+| `action.properties` | parameters (Section 4.5): an object of parameter names and integers |
 | `context.time` | point in time |
 
 The PDP does not use `resource.type`, `resource.properties.area` and `context.time` without
@@ -466,6 +519,7 @@ Fields of a case:
 | `mandate` / `mandate_inline` | one of them | path to the mandate, or the mandate inline in the case |
 | `resource` | yes | `entity_id`, `category`, `area` of the resource as the PEP resolved it, and optionally `critical: true` if the directory marks it as critical; without `category` the directory does not contain it |
 | `action` | yes | requested action |
+| `parameters` | no | parameters of the action (Section 4.5); a value that is not an integer stands for a request the PEP cannot express, the expected result is then `invalid_request` |
 | `time` | yes | point in time per RFC 3339 |
 | `timezone` | no | household time zone (IANA); if absent, the offset in `time` applies |
 | `revoked` | no | `true`: status `revoked`; if the field is absent or `false`: status `active` |
@@ -543,7 +597,7 @@ Depending on the event, the following are added:
 |---|---|
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
-| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `area` and `critical`), `action`, `time`, optionally `timezone` and `revoked` |
+| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `area` and `critical`), `action`, `time`, optionally `parameters`, `timezone` and `revoked` |
 | `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest` |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (who responded; required except for `timeout`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`) |
@@ -673,6 +727,11 @@ New:
 - Critical resources: the resource directory can mark a resource as critical; then every
   action except `read` is critical (Section 4, step 5). New optional input `critical` of
   the evaluation, in the conformance cases and in `request.resource` of the audit log.
+- Parameters and constraints (Section 4.5, Section 3.1 item 10): an `allow` rule can limit
+  integer parameters of an action (`temperature`, `position`, `volume`, `brightness`);
+  the vocabulary names the parameters and their units. New optional input `parameters`
+  of the evaluation, in the conformance cases, in `action.properties` of the AuthZEN
+  request and in `request.parameters` of the audit log.
 - Selection of the mandate (Section 4.3) with `conformance/selection-v0.json`; requests for
   several resources (Section 4.4).
 - `vocabulary/v0.json`: the vocabulary of Section 5 as a normative file, with
@@ -682,7 +741,8 @@ New:
 - Conformance cases with identifiers in the style of several platforms
   (`conformance/mandates/identifiers.json`).
 - Reference code: `displaytext.Check`, `evaluator.Approval.Duration`,
-  `evaluator.SelectAndEvaluate`, `evaluator.Resource.Critical`.
+  `evaluator.SelectAndEvaluate`, `evaluator.Resource.Critical`,
+  `evaluator.Request.Parameters`.
 - `conformance/schema/`: JSON Schemas of the conformance files; `conformance/manifest.json`:
   all machine-readable files with SHA-256 and number of cases (Section 8).
 - `LICENSE` (Apache 2.0), `LICENSE-docs` (CC BY 4.0), `SECURITY.md`, `CONTRIBUTING.md`.

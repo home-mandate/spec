@@ -8,18 +8,22 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "ddcee44903fc332b25ef7861781226b9ad1903ce3ce58c8b789fd8404be0d5a8",
-      "cases": 110
+      "sha256": "218877b1722728d645bbd872a458829e1d44f61e82dfc1d8bf298893bd54f046",
+      "cases": 131
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "7d53a1b6075f92ac8af20e6ee769025c8771b126d43cf7bc73dc97c7ffd2046d",
-      "cases": 27
+      "sha256": "a50060f8d4d30f5a087702bb1b90faa5d6923cd71e741620a6bd01c04223b150",
+      "cases": 32
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "aee983ebaccfebe35fb01eb547c9c99b818c37e9d8700594bf7a3698cdd650ca",
-      "cases": 94
+      "sha256": "f4082821e39fc1e5c6c97494f7cefc03348985fc67ef6edc9c9c6ef35155f649",
+      "cases": 108
+    },
+    {
+      "path": "conformance/mandates/constraints.json",
+      "sha256": "1faa553926d02102ec11403abf932214e917badc0edb002f1491b1b7b76fc772"
     },
     {
       "path": "conformance/mandates/critical-order.json",
@@ -47,7 +51,7 @@
     },
     {
       "path": "conformance/schema/cases-v0.schema.json",
-      "sha256": "23fa678dfd507e52014fbead0fa47580c79cbf5812637c24e9f2635c7cf1758a"
+      "sha256": "42be42983d7637b9c7fd5c3b5bc03b9aaf9897614871112921b3f09cc50bd43c"
     },
     {
       "path": "conformance/schema/digest-v0.schema.json",
@@ -63,7 +67,7 @@
     },
     {
       "path": "conformance/schema/selection-v0.schema.json",
-      "sha256": "168a2ba4e8181400b3af158b5a78f3cd9d818a5444c7dfb8dd7d61b308e42b40"
+      "sha256": "5c4ed949bc8b67174701cc1a4b98bc9677825c919934a4ed9cabba7b97c3482c"
     },
     {
       "path": "conformance/selection-v0.json",
@@ -88,19 +92,19 @@
     },
     {
       "path": "schema/audit-v0.schema.json",
-      "sha256": "ae1aa84dc48ba986867215739c165e4270ec4a5021cda1a2e1216f3b0e83cab7"
+      "sha256": "e44468294220df68f54d18f55211166df1b516813986190809bf4eddb17650a9"
     },
     {
       "path": "schema/mandate-v0.schema.json",
-      "sha256": "8d32c159fd614f7d786a419f76145f91c71c43350ec7df517ee75ca9c5acd820"
+      "sha256": "36eb96e474457b26a932c2160e5ff11844b220bcec769199f1753c0c07fe51fd"
     },
     {
       "path": "schema/vocabulary-v0.schema.json",
-      "sha256": "79da78d4b6009b5d8037a4108c01f4e08f24f5571e8830addf91c6404ff8de5a"
+      "sha256": "84a45b7c98712bd5c415fa3ea66771506c29aa817b565d516b9c6178875dd82c"
     },
     {
       "path": "vocabulary/v0.json",
-      "sha256": "348c2bc13698a95d5a50a3d9fe8fa717e6cdd1bc4b035362e117313696f58567"
+      "sha256": "10d3644ab4bdeb36e072d495acf97dd9b340a609f589fdb2ca7726f223fc0e6b"
     }
   ]
 }

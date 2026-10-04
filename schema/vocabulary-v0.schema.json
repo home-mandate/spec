@@ -56,6 +56,38 @@
                 "critical": {
                   "description": "true: the action is critical (SPEC-v0 section 4, step 5). Absent: not critical.",
                   "const": true
+                },
+                "parameters": {
+                  "description": "Integer parameters of the action that a rule can constrain (SPEC-v0 section 4.5).",
+                  "type": "object",
+                  "minProperties": 1,
+                  "propertyNames": {
+                    "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "unit"
+                    ],
+                    "properties": {
+                      "unit": {
+                        "description": "Unit of the integer value, chosen fine enough that no fraction is needed.",
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "minimum": {
+                        "type": "integer"
+                      },
+                      "maximum": {
+                        "type": "integer"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 }
               }
             }

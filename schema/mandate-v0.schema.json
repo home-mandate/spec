@@ -108,6 +108,28 @@
         }
       }
     },
+    "limit": {
+      "description": "An integer in the unit the vocabulary gives the parameter. Mandates contain no fractions, so that the canonical form needs no floating-point serialization.",
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "constraints": {
+      "description": "Only with allow: limits for integer parameters of the action. The rule matches only if the request carries every named parameter with a value within the limits (SPEC-v0 section 4.5).",
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 16,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "min": { "$ref": "#/$defs/limit", "description": "Smallest permitted value, inclusive." },
+          "max": { "$ref": "#/$defs/limit", "description": "Largest permitted value, inclusive." }
+        }
+      }
+    },
     "rule": {
       "type": "object",
       "additionalProperties": false,
@@ -124,6 +146,7 @@
         },
         "decision": { "enum": ["allow", "ask", "deny"] },
         "conditions": { "$ref": "#/$defs/conditions" },
+        "constraints": { "$ref": "#/$defs/constraints" },
         "approval": { "$ref": "#/$defs/approval" },
         "allow_critical": {
           "description": "Only with allow and only with the actions listed, not with \"*\": permits critical actions without an approval request. Must be confirmed separately in the user interface.",
@@ -133,7 +156,8 @@
       "allOf": [
         { "if": { "required": ["approval"] }, "then": { "properties": { "decision": { "const": "ask" } } } },
         { "if": { "required": ["allow_critical"] }, "then": { "properties": { "decision": { "const": "allow" } } } },
-        { "if": { "required": ["allow_critical"] }, "then": { "properties": { "actions": { "not": { "contains": { "const": "*" } } } } } }
+        { "if": { "required": ["allow_critical"] }, "then": { "properties": { "actions": { "not": { "contains": { "const": "*" } } } } } },
+        { "if": { "required": ["constraints"] }, "then": { "properties": { "decision": { "const": "allow" }, "actions": { "not": { "contains": { "const": "*" } } } } } }
       ]
     }
   }

@@ -423,3 +423,43 @@ func TestEvaluateCriticalResource(t *testing.T) {
 		t.Errorf("approval = %+v, want the mandate's PT2M", got.Approval)
 	}
 }
+
+func TestEvaluateConstraints(t *testing.T) {
+	m := mandateWithRules(t, `[
+		{"id":"r-two","resource":{"category":"light"},"actions":["set"],"decision":"allow",
+		 "constraints":{"brightness":{"min":10,"max":60}}},
+		{"id":"r-heat","resource":{"category":"climate"},"actions":["set_temperature"],"decision":"allow",
+		 "constraints":{"temperature":{"max":2250}}},
+		{"id":"r-blind","resource":{"category":"cover"},"actions":["set_position"],"decision":"allow",
+		 "constraints":{"position":{"min":2e1}}}]`)
+	req := func(category, action string, parameters map[string]int64) evaluator.Request {
+		r := request(category, "", action)
+		r.Parameters = parameters
+		return r
+	}
+	for name, tt := range map[string]struct {
+		req    evaluator.Request
+		reason evaluator.Reason
+	}{
+		"lower limit":       {req("light", "set", map[string]int64{"brightness": 10}), evaluator.ReasonRule},
+		"upper limit":       {req("light", "set", map[string]int64{"brightness": 60}), evaluator.ReasonRule},
+		"just above":        {req("light", "set", map[string]int64{"brightness": 61}), evaluator.ReasonNoMatch},
+		"just below":        {req("light", "set", map[string]int64{"brightness": 9}), evaluator.ReasonNoMatch},
+		"nil parameters":    {req("light", "set", nil), evaluator.ReasonNoMatch},
+		"only max, far low": {req("climate", "set_temperature", map[string]int64{"temperature": -1 << 52}), evaluator.ReasonRule},
+		"only max, at max":  {req("climate", "set_temperature", map[string]int64{"temperature": 2250}), evaluator.ReasonRule},
+		"only max, above":   {req("climate", "set_temperature", map[string]int64{"temperature": 2251}), evaluator.ReasonNoMatch},
+		"only min, at min":  {req("cover", "set_position", map[string]int64{"position": 20}), evaluator.ReasonRule},
+		"only min, far up":  {req("cover", "set_position", map[string]int64{"position": 1<<53 - 1}), evaluator.ReasonRule},
+		"only min, below":   {req("cover", "set_position", map[string]int64{"position": 19}), evaluator.ReasonNoMatch},
+		"too large":         {req("cover", "set_position", map[string]int64{"position": 1 << 53}), evaluator.ReasonInvalidRequest},
+		"too small":         {req("light", "set", map[string]int64{"brightness": 20, "x": -1 << 53}), evaluator.ReasonInvalidRequest},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := evaluator.Evaluate(m, tt.req)
+			if got.Reason != tt.reason || (got.Decision == evaluator.Allow) != (tt.reason == evaluator.ReasonRule) {
+				t.Errorf("got (%s, %s), want reason %s", got.Decision, got.Reason, tt.reason)
+			}
+		})
+	}
+}

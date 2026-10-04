@@ -90,7 +90,10 @@ const (
 type Request struct {
 	Resource Resource
 	Action   string
-	Time     time.Time
+	// Parameters are the integer parameters of the action in the units of the vocabulary,
+	// derived by the PEP from what it will execute (SPEC-v0 section 4.5).
+	Parameters map[string]int64
+	Time       time.Time
 	// TimeZone is the household's time zone as an IANA name. If empty, the offset of Time applies.
 	TimeZone string
 	// Status is required; a missing status leads to Deny, never to an active mandate.
@@ -167,7 +170,22 @@ func validRequest(req Request) bool {
 	res := req.Resource
 	return opaque(res.EntityID, maxEntityIDLength) &&
 		(res.Area == "" || opaque(res.Area, maxAreaLength)) &&
-		(req.Status == StatusActive || req.Status == StatusRevoked)
+		(req.Status == StatusActive || req.Status == StatusRevoked) &&
+		exact(req.Parameters)
+}
+
+// maxParameter bounds parameter values to the integers that are exact in every JSON
+// implementation (RFC 7493).
+const maxParameter = 1<<53 - 1
+
+// exact reports whether every parameter can be written to an audit log as it is.
+func exact(parameters map[string]int64) bool {
+	for _, value := range parameters {
+		if value > maxParameter || value < -maxParameter {
+			return false
+		}
+	}
+	return true
 }
 
 // matchingRules implements step 2 and preserves document order.
@@ -175,7 +193,8 @@ func matchingRules(m *Mandate, req Request, local time.Time) []*rule {
 	var matched []*rule
 	for i := range m.rules {
 		r := &m.rules[i]
-		if r.selector.matches(req.Resource) && r.coversAction(req.Action) && r.conditionsMet(local) {
+		if r.selector.matches(req.Resource) && r.coversAction(req.Action) && r.conditionsMet(local) &&
+			r.constraintsMet(req.Parameters) {
 			matched = append(matched, r)
 		}
 	}

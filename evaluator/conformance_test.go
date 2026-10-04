@@ -47,15 +47,16 @@ type conformanceCase struct {
 		Area     string `json:"area"`
 		Critical bool   `json:"critical"`
 	} `json:"resource"`
-	Action          string          `json:"action"`
-	Time            string          `json:"time"`
-	Timezone        string          `json:"timezone"`
-	Revoked         bool            `json:"revoked"`
-	Expected        string          `json:"expected"`
-	Reason          string          `json:"reason"`
-	RuleID          json.RawMessage `json:"rule_id"`
-	ApprovalTimeout string          `json:"approval_timeout"`
-	Why             string          `json:"why"`
+	Action          string                 `json:"action"`
+	Parameters      map[string]json.Number `json:"parameters"`
+	Time            string                 `json:"time"`
+	Timezone        string                 `json:"timezone"`
+	Revoked         bool                   `json:"revoked"`
+	Expected        string                 `json:"expected"`
+	Reason          string                 `json:"reason"`
+	RuleID          json.RawMessage        `json:"rule_id"`
+	ApprovalTimeout string                 `json:"approval_timeout"`
+	Why             string                 `json:"why"`
 }
 
 func loadCases[T any](t *testing.T, path, key string) []T {
@@ -91,10 +92,19 @@ func TestConformanceCases(t *testing.T) {
 			if err != nil {
 				t.Fatalf("case time: %v", err)
 			}
+			parameters, integers := integerParameters(c.Parameters)
+			if !integers {
+				// A PEP cannot pass such a request on; the result is fixed (SPEC-v0 section 4.5).
+				if c.Expected != "deny" || c.Reason != "invalid_request" {
+					t.Fatalf("case with a parameter that is no integer expects (%s, %s)", c.Expected, c.Reason)
+				}
+				return
+			}
 			got := evaluator.Evaluate(m, evaluator.Request{
-				Resource: evaluator.Resource{EntityID: c.Resource.EntityID, Category: c.Resource.Category, Area: c.Resource.Area, Critical: c.Resource.Critical},
-				Action:   c.Action,
-				Time:     at,
+				Resource:   evaluator.Resource{EntityID: c.Resource.EntityID, Category: c.Resource.Category, Area: c.Resource.Area, Critical: c.Resource.Critical},
+				Action:     c.Action,
+				Parameters: parameters,
+				Time:       at,
 				TimeZone: c.Timezone,
 				Status:   statusOf(c.Revoked),
 			})
@@ -186,4 +196,17 @@ func TestConformanceDigests(t *testing.T) {
 			}
 		})
 	}
+}
+
+// integerParameters converts the parameters of a case; ok is false if one is no integer.
+func integerParameters(raw map[string]json.Number) (map[string]int64, bool) {
+	out := make(map[string]int64, len(raw))
+	for name, n := range raw {
+		f, err := n.Float64()
+		if err != nil || f != float64(int64(f)) {
+			return nil, false
+		}
+		out[name] = int64(f)
+	}
+	return out, true
 }

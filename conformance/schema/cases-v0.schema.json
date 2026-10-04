@@ -106,6 +106,13 @@
           },
           "why": {
             "type": "string"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Parameters of the action as the PEP derived them, in the units of the vocabulary (SPEC-v0 section 4.5). Numbers that are not integers make the request invalid.",
+            "additionalProperties": {
+              "type": "number"
+            }
           }
         }
       }

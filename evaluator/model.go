@@ -5,6 +5,7 @@ package evaluator
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -85,6 +86,14 @@ type rule struct {
 	weekdays      weekdaySet
 	approval      *Approval
 	allowCritical bool
+	constraints   []constraint
+}
+
+// constraint limits one integer parameter of the action (SPEC-v0 section 4.5); a limit
+// that the rule does not give is the smallest or largest int64.
+type constraint struct {
+	parameter string
+	min, max  int64
 }
 
 // The raw* types mirror the schema; they are filled only after schema validation succeeds.
@@ -107,6 +116,10 @@ type rawRule struct {
 		TimeWindow string   `json:"time_window"`
 		Weekdays   []string `json:"weekdays"`
 	} `json:"conditions"`
+	Constraints map[string]struct {
+		Min *json.Number `json:"min"`
+		Max *json.Number `json:"max"`
+	} `json:"constraints"`
 	Approval      *rawApproval `json:"approval"`
 	AllowCritical bool         `json:"allow_critical"`
 }
@@ -219,7 +232,74 @@ func buildRule(rr rawRule) (rule, error) {
 	if err := r.setConditions(rr); err != nil {
 		return rule{}, err
 	}
+	if err := r.setConstraints(rr); err != nil {
+		return rule{}, err
+	}
 	return r, nil
+}
+
+// setConstraints implements SPEC-v0 section 3.1 item 10. The schema already restricts
+// constraints to allow rules without "*".
+func (r *rule) setConstraints(rr rawRule) error {
+	category := rr.Resource.Category
+	_, categoryKnown := vocabularyV0()[category]
+	checked := category == "" || categoryKnown // extension categories are not checked
+	names := make([]string, 0, len(rr.Constraints))
+	for name := range rr.Constraints {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		limits := rr.Constraints[name]
+		c := constraint{parameter: name, min: math.MinInt64, max: math.MaxInt64}
+		for _, limit := range []struct {
+			raw    *json.Number
+			target *int64
+		}{{limits.Min, &c.min}, {limits.Max, &c.max}} {
+			if limit.raw == nil {
+				continue
+			}
+			value, ok := integerValue(*limit.raw)
+			if !ok {
+				return fmt.Errorf("%w: rule %q: constraint %q is not an integer", ErrSchema, rr.ID, name)
+			}
+			*limit.target = value
+		}
+		if c.min > c.max {
+			return fmt.Errorf("%w: rule %q: constraint %q has min greater than max", ErrSemantic, rr.ID, name)
+		}
+		for _, action := range rr.Actions {
+			if checked && !hasParameter(category, action, name) {
+				return fmt.Errorf("%w: rule %q: action %q has no parameter %q", ErrSemantic, rr.ID, action, name)
+			}
+		}
+		r.constraints = append(r.constraints, c)
+	}
+	return nil
+}
+
+// maxExactInteger is the largest integer that I-JSON (RFC 7493) guarantees to be exact.
+const maxExactInteger = 1 << 53
+
+// integerValue reads an integer by its value: 20, 20.0 and 2e1 are the same number.
+func integerValue(n json.Number) (int64, bool) {
+	f, err := strconv.ParseFloat(n.String(), 64)
+	if err != nil || f != math.Trunc(f) || math.Abs(f) >= maxExactInteger {
+		return 0, false
+	}
+	return int64(f), true
+}
+
+// constraintsMet reports whether the request carries every constrained parameter with
+// a value within the limits, both inclusive.
+func (r *rule) constraintsMet(parameters map[string]int64) bool {
+	for _, c := range r.constraints {
+		value, ok := parameters[c.parameter]
+		if !ok || value < c.min || value > c.max {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *rule) setConditions(rr rawRule) error {
