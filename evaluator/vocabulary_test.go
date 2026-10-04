@@ -22,6 +22,7 @@ func TestIsCritical(t *testing.T) {
 		{"camera", "snapshot", true},
 		{"script", "run", true},
 		{"other", "set", true},
+		{"scene", "activate", true},
 
 		{"gate", "close", false},
 		{"lock", "lock", false},
@@ -32,7 +33,7 @@ func TestIsCritical(t *testing.T) {
 		{"climate", "set_temperature", false},
 		{"cover", "open", false},
 		{"media", "set_volume", false},
-		{"scene", "activate", false},
+		{"scene", "read", false},
 		{"sensor", "read", false},
 
 		// Outside the vocabulary: treated as critical, never as harmless.

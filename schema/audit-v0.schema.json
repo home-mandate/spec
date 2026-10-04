@@ -61,7 +61,8 @@
           "properties": {
             "entity_id": { "type": "string", "minLength": 1, "maxLength": 255 },
             "category": { "type": "string", "minLength": 1, "maxLength": 128 },
-            "area": { "type": "string", "minLength": 1, "maxLength": 64 }
+            "area": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "critical": { "description": "true: the directory marked the resource as critical at evaluation time; absent = false.", "type": "boolean" }
           }
         },
         "action": { "type": "string", "minLength": 1, "maxLength": 64 }
@@ -181,7 +182,7 @@
     "reason": {
       "description": "Reason code of the evaluation, SPEC-v0 section 4.1.",
       "enum": ["rule", "critical_demotion", "no_match", "revoked", "not_yet_valid", "expired",
-               "invalid_mandate", "invalid_request", "unknown_resource", "unknown_category", "unknown_action"]
+               "no_mandate", "ambiguous_mandate", "invalid_mandate", "invalid_request", "unknown_resource", "unknown_category", "unknown_action"]
     }
   }
 }

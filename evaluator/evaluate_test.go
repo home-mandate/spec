@@ -277,7 +277,7 @@ func TestEvaluateRejectsMalformedRequestFields(t *testing.T) {
 	m := mandateWithRules(t, `[
 		{"id":"r-cellar","resource":{"entity_id":"lock.keller"},"actions":["*"],"decision":"deny"},
 		{"id":"r-kitchen","resource":{"area":"kueche"},"actions":["*"],"decision":"deny"},
-		{"id":"r-locks","resource":{"category":"lock"},"actions":["*"],"decision":"allow","allow_critical":true}]`)
+		{"id":"r-locks","resource":{"category":"lock"},"actions":["unlock"],"decision":"allow","allow_critical":true}]`)
 	req := func(entity, area string) evaluator.Request {
 		r := request("lock", area, "unlock")
 		r.Resource.EntityID = entity
@@ -312,7 +312,7 @@ func TestEvaluateComparesIdentifiersExactly(t *testing.T) {
 	m := mandateWithRules(t, `[
 		{"id":"r-cellar","resource":{"entity_id":"lock.keller"},"actions":["*"],"decision":"deny"},
 		{"id":"r-kitchen","resource":{"area":"kueche"},"actions":["*"],"decision":"deny"},
-		{"id":"r-locks","resource":{"category":"lock"},"actions":["*"],"decision":"allow","allow_critical":true}]`)
+		{"id":"r-locks","resource":{"category":"lock"},"actions":["unlock"],"decision":"allow","allow_critical":true}]`)
 	req := func(entity, area string) evaluator.Request {
 		r := request("lock", area, "unlock")
 		r.Resource.EntityID = entity
@@ -403,4 +403,23 @@ func mustParseTime(t *testing.T, s string) time.Time {
 		t.Fatal(err)
 	}
 	return at
+}
+
+func TestEvaluateCriticalResource(t *testing.T) {
+	m := mandateWithRules(t, `[
+		{"id":"r-switches","resource":{"category":"switch"},"actions":["read","turn_on"],"decision":"allow"},
+		{"id":"r-opener","resource":{"entity_id":"door-opener"},"actions":["turn_off"],"decision":"allow","allow_critical":true}]`)
+	req := func(entity, action string, critical bool) evaluator.Request {
+		r := request("switch", "", action)
+		r.Resource.EntityID, r.Resource.Critical = entity, critical
+		return r
+	}
+	assertDecision(t, evaluator.Evaluate(m, req("plug", "turn_on", false)), evaluator.Allow, evaluator.ReasonRule, "r-switches")
+	assertDecision(t, evaluator.Evaluate(m, req("plug", "turn_on", true)), evaluator.Ask, evaluator.ReasonCriticalDemotion, "r-switches")
+	assertDecision(t, evaluator.Evaluate(m, req("plug", "read", true)), evaluator.Allow, evaluator.ReasonRule, "r-switches")
+	assertDecision(t, evaluator.Evaluate(m, req("door-opener", "turn_off", true)), evaluator.Allow, evaluator.ReasonRule, "r-opener")
+	// The demotion carries the approval settings of the mandate.
+	if got := evaluator.Evaluate(m, req("plug", "turn_on", true)); got.Approval == nil || got.Approval.Timeout != "PT2M" {
+		t.Errorf("approval = %+v, want the mandate's PT2M", got.Approval)
+	}
 }

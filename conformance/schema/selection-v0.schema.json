@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mandate-spec.org/conformance/v0/cases.schema.json",
-  "title": "Evaluation cases v0 (SPEC-v0 section 8)",
+  "$id": "https://mandate-spec.org/conformance/v0/selection.schema.json",
+  "title": "Mandate selection cases v0 (SPEC-v0 sections 4.3 and 8)",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -20,37 +20,55 @@
         "additionalProperties": false,
         "required": [
           "id",
+          "mandates",
+          "subject",
           "resource",
           "action",
           "time",
           "expected",
-          "reason"
-        ],
-        "oneOf": [
-          {
-            "required": [
-              "mandate"
-            ]
-          },
-          {
-            "required": [
-              "mandate_inline"
-            ]
-          }
+          "reason",
+          "selected"
         ],
         "properties": {
           "id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]{0,31}$"
           },
-          "mandate": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Path to a mandate, relative to the repository root."
+          "mandates": {
+            "description": "The mandates the implementation has stored, for any agent and principal.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mandate_inline"
+              ],
+              "properties": {
+                "mandate_inline": {
+                  "type": "object"
+                },
+                "revoked": {
+                  "type": "boolean",
+                  "description": "true: status revoked; absent or false: active."
+                }
+              }
+            }
           },
-          "mandate_inline": {
+          "subject": {
             "type": "object",
-            "description": "The mandate inline."
+            "additionalProperties": false,
+            "required": [
+              "client_id",
+              "principal"
+            ],
+            "properties": {
+              "client_id": {
+                "type": "string"
+              },
+              "principal": {
+                "type": "string"
+              }
+            }
           },
           "resource": {
             "description": "Resource as the PEP resolved it. Not constrained further: cases also cover invalid requests.",
@@ -81,9 +99,6 @@
           "timezone": {
             "type": "string"
           },
-          "revoked": {
-            "type": "boolean"
-          },
           "expected": {
             "enum": [
               "allow",
@@ -101,8 +116,12 @@
               "null"
             ]
           },
-          "approval_timeout": {
-            "type": "string"
+          "selected": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "id of the mandate that is evaluated; null if none is selected."
           },
           "why": {
             "type": "string"

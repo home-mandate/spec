@@ -69,7 +69,7 @@ Mandate
 │   ├── decision  allow | ask | deny
 │   ├── conditions? { time_window, weekdays }
 │   ├── approval?   { timeout, approvers }   only with ask
-│   └── allow_critical?  true, required for allow on critical actions
+│   └── allow_critical?  true, required for allow on critical actions; not together with "*"
 ├── default       always "deny" in v0
 ├── approval      default for ask: { timeout, approvers }
 ├── limits        { max_actions_per_hour }
@@ -125,6 +125,10 @@ A mandate is valid if it conforms to the schema **and** additionally:
    validity does not change with a Unicode version. The rule cannot prevent look-alike
    letters from different scripts (homoglyphs); user interfaces SHOULD therefore show the
    `client_id` together with the `display_name`.
+
+9. a rule with `allow_critical` lists its actions; it does not contain `"*"`. Whoever
+   permits critical actions without an approval request names them, so that a later
+   vocabulary cannot add to them silently.
 
 Implementations MAY reject JSON input with a nesting depth greater than 32 before
 validating it against the schema; valid mandates never reach this depth.
@@ -200,10 +204,11 @@ that moves to another implementation needs them replaced.
 
 ## 4. Evaluation rule
 
-Input: mandate, resource (entity ID, category, area), action, point in time,
-household time zone, status of the mandate (`active` or `revoked`).
+Input: mandate, resource (entity ID, category, area, and whether the directory marks it as
+critical), action, point in time, household time zone, status of the mandate (`active` or
+`revoked`). Which mandate is evaluated is determined by Section 4.3.
 
-**Origin of inputs:** The PEP determines the category and area from its own resource
+**Origin of inputs:** The PEP determines the category, the area and the critical marking from its own resource
 directory, the point in time from its own clock, the time zone from the household
 configuration and the status from its own mandate management. It takes none of these
 from the agent; only the requested resource and action originate from the agent.
@@ -237,9 +242,15 @@ contain has no category; the result is `deny` with `unknown_resource`.
    - `read` is an action in its own right. Write permissions do not include read permissions.
 3. No rule found → `default` (`deny`).
 4. Otherwise the **most restrictive** decision wins: `deny` over `ask` over `allow`.
-5. Protection class: If the action is **critical** (Section 5) and the result is `allow`, but
+5. Protection class: If the action is **critical** and the result is `allow`, but
    not **every** one of the matching `allow` rules carries `allow_critical: true` → the result becomes `ask`.
-   For non-critical actions, `allow_critical` has no effect.
+   For non-critical actions, `allow_critical` has no effect. An action is critical if
+   - the vocabulary marks it as critical (Section 5), or
+   - the resource directory marks the **resource** as critical and the action is not `read`.
+
+   The marking of a resource lets a household protect what the vocabulary cannot know: a
+   switch that drives a door opener, a ground-floor window, a heater. It can only add
+   protection. An implementation SHOULD let the household mark resources as critical.
 
 The rule is deliberately simple: whoever allows something broadly and denies individual items
 gets the denial. Whoever sets something broadly to `ask` and allows individual items gets `ask`.
@@ -256,6 +267,8 @@ In addition to the decision, the evaluation returns:
 
   | Code | Decision | Meaning |
   |---|---|---|
+  | `no_mandate` | deny | no mandate for the agent and the principal (Section 4.3) |
+  | `ambiguous_mandate` | deny | several mandates for the agent and the principal (Section 4.3) |
   | `invalid_mandate` | deny | mandate invalid (Section 3.1) |
   | `invalid_request` | deny | request invalid (step 0, second item) |
   | `unknown_resource` | deny | resource not in the directory of the PEP (no category) |
@@ -269,7 +282,7 @@ In addition to the decision, the evaluation returns:
   | `rule` | allow, ask, deny | decision of a rule per step 4 |
 
 - **`mandate_digest`:** digest of the evaluated mandate (Section 3.2); absent for
-  `invalid_mandate`.
+  `no_mandate`, `ambiguous_mandate` and `invalid_mandate`.
 - **`rule_id`:** the first rule in document order that carries the final decision.
   For step 5, this is the first matching `allow` rule without `allow_critical`.
   For the pre-check, step 1 and step 3, there is no `rule_id`.
@@ -304,6 +317,40 @@ time**: the point in time is converted to the household's time zone.
   decisive, including for windows spanning midnight (Friday 22:00 to Saturday 02:00 with
   `weekdays: ["fri"]` matches only until midnight).
 
+### 4.3 Selection of the mandate
+
+An implementation can store several mandates. Which one is evaluated for a request is
+determined by the agent (`agent.client_id`) and the principal of the request, both compared
+exactly. `household:x` and `person:x` are different principals; nothing is inherited from
+one to the other. The PEP determines the principal; it does not take it from the agent.
+
+1. Candidates are the stored mandates of the agent and the principal that are not revoked.
+   A stored document that is not a valid mandate (Section 3.1) is a candidate as well.
+2. No candidate → `deny` with `no_mandate`.
+3. Of the candidates, those are *current* that are valid at the point in time
+   (`valid_from ≤ t < expires`); an invalid document always counts as current.
+   - exactly one current candidate → it is evaluated (Section 4);
+   - several current candidates → `deny` with `ambiguous_mandate`. No mandate wins, and
+     mandates are never combined;
+   - no current candidate: if there is exactly one candidate, it is evaluated and yields
+     `not_yet_valid` or `expired`; otherwise `deny` with `no_mandate`.
+
+An agent can therefore have mandates that follow one another in time, but never two at
+the same time. Implementations SHOULD refuse to store a mandate whose validity period
+overlaps with another mandate of the same agent and principal that is not revoked.
+
+### 4.4 Requests for several resources
+
+The evaluation always concerns exactly one resource and one action. If an agent addresses
+several resources at once (an area, a group, a list), the PEP resolves them with its
+directory and evaluates each resource separately. Unless the PEP documents otherwise, the
+request is executed only if every single evaluation permits it: one `deny` denies the whole
+request, and one `ask` requires a confirmation that names all resources concerned.
+
+A resource whose activation acts on other resources (a scene, a script, a group that the
+platform executes itself) is evaluated as the resource it is; this is why `scene.activate`
+and `script.run` are critical.
+
 ## 5. Vocabulary v0
 
 Machine-readable and normative: `vocabulary/v0.json` (format:
@@ -321,12 +368,14 @@ Machine-readable and normative: `vocabulary/v0.json` (format:
 | `camera` | read, snapshot | snapshot |
 | `media` | read, turn_on, turn_off, play, pause, set_volume | – |
 | `sensor` | read | – |
-| `scene` | read, activate | – |
+| `scene` | read, activate | activate |
 | `script` | read, run | run |
 | `other` | read, set | set |
 
-`script.run` and `other.set` are critical because scripts and unknown entities can have
-arbitrary consequences, including opening doors.
+`scene.activate`, `script.run` and `other.set` are critical because scenes, scripts and
+unknown entities can have arbitrary consequences, including opening doors. What else is
+critical in a particular household (a switch on a door opener, a ground-floor window) the
+household marks in the resource directory (Section 4, step 5).
 
 How an implementation assigns its resources to categories is its own matter and part of
 its resource directory. A resource that fits no other category belongs to `other`.
@@ -368,7 +417,7 @@ context:
                "mandate_digest": "sha256:9f2c…" } }
 ```
 
-`reason` is REQUIRED, as is `mandate_digest` except for `invalid_mandate`; `rule_id` and
+`reason` is REQUIRED, as is `mandate_digest` unless Section 4.1 says it is absent; `rule_id` and
 `approval_timeout` are included in the context when Section 4.1 provides for them.
 
 Field mapping:
@@ -383,8 +432,10 @@ Field mapping:
 | `context.time` | point in time |
 
 The PDP does not use `resource.type`, `resource.properties.area` and `context.time` without
-verification, but in accordance with Section 4 "Origin of inputs". If the PDP finds no mandate
-for the agent and principal, the result is `deny` with `reason: invalid_mandate`.
+verification, but in accordance with Section 4 "Origin of inputs"; the critical marking of a
+resource likewise comes from the directory, never from the request. The mandate is selected
+per Section 4.3; if there is none for the agent and principal, the result is `deny` with
+`reason: no_mandate`.
 
 - `outcome: allow` → `decision: true`
 - `outcome: ask` → `decision: false`; the PEP MUST obtain a confirmation and MUST NOT execute
@@ -413,7 +464,7 @@ Fields of a case:
 |---|---|---|
 | `id` | yes | unique identifier |
 | `mandate` / `mandate_inline` | one of them | path to the mandate, or the mandate inline in the case |
-| `resource` | yes | `entity_id`, `category`, `area` of the resource as the PEP resolved it; without `category` the directory does not contain it |
+| `resource` | yes | `entity_id`, `category`, `area` of the resource as the PEP resolved it, and optionally `critical: true` if the directory marks it as critical; without `category` the directory does not contain it |
 | `action` | yes | requested action |
 | `time` | yes | point in time per RFC 3339 |
 | `timezone` | no | household time zone (IANA); if absent, the offset in `time` applies |
@@ -427,6 +478,12 @@ Fields of a case:
 `conformance/invalid-v0.json` contains mandates that are invalid per Section 3.1 and
 MUST be rejected (`mandate_inline`, or `mandate_raw` as a string if the
 error cannot be represented as a JSON object, such as duplicate keys).
+
+`conformance/selection-v0.json` contains cases for Section 4.3: `mandates` (the stored
+mandates, each as `mandate_inline` with an optional `revoked`), `subject` (`client_id` and
+`principal` of the request), the request as in `cases-v0.json`, `selected` (the `id` of the
+mandate that is evaluated, or `null`) and the expected `expected`, `reason` and optionally
+`rule_id`.
 
 `conformance/digest-v0.json` contains, under `cases`, mandates (`mandate`, `mandate_inline` or
 `mandate_raw`) with their expected digest `digest` (Section 3.2).
@@ -486,7 +543,7 @@ Depending on the event, the following are added:
 |---|---|
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
-| `request` | input to the evaluation: `resource`, `action`, `time`, optionally `timezone` and `revoked` |
+| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `area` and `critical`), `action`, `time`, optionally `timezone` and `revoked` |
 | `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest` |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (who responded; required except for `timeout`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`) |
@@ -587,6 +644,12 @@ denies every request. Implementations SHOULD check their stored mandates before 
   instead of `invalid_request` (Section 4.1).
 - A rule without category may only use actions that some category of the vocabulary has
   (Section 3.1 item 4); before, such actions were not checked.
+- `scene.activate` is critical (Section 5): an `allow` rule without `allow_critical` now
+  yields `ask`.
+- `allow_critical` together with `"*"` is invalid (Section 3.1 item 9).
+- "No mandate for the agent and principal" is `deny` with the new reason code `no_mandate`
+  instead of `invalid_mandate`; several mandates at the same time are `ambiguous_mandate`
+  (Sections 4.1, 4.3 and 6).
 - Displayed text (Section 3.1 item 8): fixed code point list
   `data/forbidden-codepoints-v0.json` instead of the Unicode categories of the runtime;
   additionally forbidden are private-use and invisible (default ignorable) characters and
@@ -607,13 +670,19 @@ Clarified, each with new conformance cases:
   empty lines (Section 9.4). `conformance/audit-v0.json` has the new field `jsonl` for it.
 
 New:
+- Critical resources: the resource directory can mark a resource as critical; then every
+  action except `read` is critical (Section 4, step 5). New optional input `critical` of
+  the evaluation, in the conformance cases and in `request.resource` of the audit log.
+- Selection of the mandate (Section 4.3) with `conformance/selection-v0.json`; requests for
+  several resources (Section 4.4).
 - `vocabulary/v0.json`: the vocabulary of Section 5 as a normative file, with
   `schema/vocabulary-v0.schema.json`; the same format for extensions (Section 5.1).
 - `profiles/`: informative mappings of platforms to the vocabulary. The Home Assistant and
   Matter columns left the table in Section 5.
 - Conformance cases with identifiers in the style of several platforms
   (`conformance/mandates/identifiers.json`).
-- Reference code: `displaytext.Check`, `evaluator.Approval.Duration`.
+- Reference code: `displaytext.Check`, `evaluator.Approval.Duration`,
+  `evaluator.SelectAndEvaluate`, `evaluator.Resource.Critical`.
 - `conformance/schema/`: JSON Schemas of the conformance files; `conformance/manifest.json`:
   all machine-readable files with SHA-256 and number of cases (Section 8).
 - `LICENSE` (Apache 2.0), `LICENSE-docs` (CC BY 4.0), `SECURITY.md`, `CONTRIBUTING.md`.

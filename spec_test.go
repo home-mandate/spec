@@ -93,11 +93,12 @@ func TestManifestMatchesEmbeddedFiles(t *testing.T) {
 
 func TestConformanceFilesMatchTheirSchemas(t *testing.T) {
 	for file, schemaPath := range map[string]string{
-		mandatespec.CasesPath:        "conformance/schema/cases-v0.schema.json",
-		mandatespec.InvalidCasesPath: "conformance/schema/invalid-v0.schema.json",
-		mandatespec.DigestCasesPath:  "conformance/schema/digest-v0.schema.json",
-		mandatespec.AuditCasesPath:   "conformance/schema/audit-v0.schema.json",
-		mandatespec.ManifestPath:     "conformance/schema/manifest.schema.json",
+		mandatespec.CasesPath:          "conformance/schema/cases-v0.schema.json",
+		mandatespec.InvalidCasesPath:   "conformance/schema/invalid-v0.schema.json",
+		mandatespec.DigestCasesPath:    "conformance/schema/digest-v0.schema.json",
+		mandatespec.AuditCasesPath:     "conformance/schema/audit-v0.schema.json",
+		mandatespec.SelectionCasesPath: "conformance/schema/selection-v0.schema.json",
+		mandatespec.ManifestPath:       "conformance/schema/manifest.schema.json",
 	} {
 		t.Run(file, func(t *testing.T) {
 			compiled := compileSchema(t, schemaPath)
@@ -123,6 +124,7 @@ func TestConformanceCaseIDsAreUnique(t *testing.T) {
 	for file, key := range map[string]string{
 		mandatespec.CasesPath: "cases", mandatespec.InvalidCasesPath: "cases",
 		mandatespec.DigestCasesPath: "cases", mandatespec.AuditCasesPath: "logs",
+		mandatespec.SelectionCasesPath: "cases",
 	} {
 		doc, _ := readJSON(t, file).(map[string]any)
 		cases, _ := doc[key].([]any)

@@ -126,13 +126,14 @@
         "conditions": { "$ref": "#/$defs/conditions" },
         "approval": { "$ref": "#/$defs/approval" },
         "allow_critical": {
-          "description": "Only with allow: permits critical actions without an approval request. Must be confirmed separately in the user interface.",
+          "description": "Only with allow and only with the actions listed, not with \"*\": permits critical actions without an approval request. Must be confirmed separately in the user interface.",
           "const": true
         }
       },
       "allOf": [
         { "if": { "required": ["approval"] }, "then": { "properties": { "decision": { "const": "ask" } } } },
-        { "if": { "required": ["allow_critical"] }, "then": { "properties": { "decision": { "const": "allow" } } } }
+        { "if": { "required": ["allow_critical"] }, "then": { "properties": { "decision": { "const": "allow" } } } },
+        { "if": { "required": ["allow_critical"] }, "then": { "properties": { "actions": { "not": { "contains": { "const": "*" } } } } } }
       ]
     }
   }

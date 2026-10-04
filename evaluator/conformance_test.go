@@ -45,6 +45,7 @@ type conformanceCase struct {
 		EntityID string `json:"entity_id"`
 		Category string `json:"category"`
 		Area     string `json:"area"`
+		Critical bool   `json:"critical"`
 	} `json:"resource"`
 	Action          string          `json:"action"`
 	Time            string          `json:"time"`
@@ -91,7 +92,7 @@ func TestConformanceCases(t *testing.T) {
 				t.Fatalf("case time: %v", err)
 			}
 			got := evaluator.Evaluate(m, evaluator.Request{
-				Resource: evaluator.Resource{EntityID: c.Resource.EntityID, Category: c.Resource.Category, Area: c.Resource.Area},
+				Resource: evaluator.Resource{EntityID: c.Resource.EntityID, Category: c.Resource.Category, Area: c.Resource.Area, Critical: c.Resource.Critical},
 				Action:   c.Action,
 				Time:     at,
 				TimeZone: c.Timezone,

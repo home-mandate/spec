@@ -8,22 +8,26 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "b038187b68932c635ca79ce314fdc607839fd3067cd8fe6c6dfa3ddc45dcedb6",
-      "cases": 95
+      "sha256": "ddcee44903fc332b25ef7861781226b9ad1903ce3ce58c8b789fd8404be0d5a8",
+      "cases": 110
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "c32f18d8ab47943e0dbf5735587d010f925a5d9a54d68825ee358dfed21bf203",
-      "cases": 26
+      "sha256": "7d53a1b6075f92ac8af20e6ee769025c8771b126d43cf7bc73dc97c7ffd2046d",
+      "cases": 27
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "12153671849dd306d74cb1f85b45cd860e0154879507ebad7019cbfc719383ac",
-      "cases": 92
+      "sha256": "aee983ebaccfebe35fb01eb547c9c99b818c37e9d8700594bf7a3698cdd650ca",
+      "cases": 94
     },
     {
       "path": "conformance/mandates/critical-order.json",
       "sha256": "7b0802040e626e1a0c07b20ace64a139fa158ef00badee466f0b4e2dd141fece"
+    },
+    {
+      "path": "conformance/mandates/critical.json",
+      "sha256": "6077d219974fae6599a77b2b2d4ed5be4faa8ad852dc750731444088ac96981f"
     },
     {
       "path": "conformance/mandates/identifiers.json",
@@ -43,7 +47,7 @@
     },
     {
       "path": "conformance/schema/cases-v0.schema.json",
-      "sha256": "56309459ee4cf4d3074f614667983bc9e3886c5a09cb1e4f89bf622c73aa363c"
+      "sha256": "23fa678dfd507e52014fbead0fa47580c79cbf5812637c24e9f2635c7cf1758a"
     },
     {
       "path": "conformance/schema/digest-v0.schema.json",
@@ -56,6 +60,15 @@
     {
       "path": "conformance/schema/manifest.schema.json",
       "sha256": "aa83d7376830b2dd92399ea2ce12a5b2650d04182fd531d40cb656e71356ce2d"
+    },
+    {
+      "path": "conformance/schema/selection-v0.schema.json",
+      "sha256": "168a2ba4e8181400b3af158b5a78f3cd9d818a5444c7dfb8dd7d61b308e42b40"
+    },
+    {
+      "path": "conformance/selection-v0.json",
+      "sha256": "d9407fdbb502b8c847eb347dc00db37f7a2736cc8d97f633bceafdf1a3b18027",
+      "cases": 17
     },
     {
       "path": "data/forbidden-codepoints-v0.json",
@@ -75,11 +88,11 @@
     },
     {
       "path": "schema/audit-v0.schema.json",
-      "sha256": "ee8fd1950140c646f058e32d8263f20c038b8a012700714086003909858d0fc4"
+      "sha256": "ae1aa84dc48ba986867215739c165e4270ec4a5021cda1a2e1216f3b0e83cab7"
     },
     {
       "path": "schema/mandate-v0.schema.json",
-      "sha256": "d4d943436b264455934d1257f21fb60796c7edb8a7265819c85b98de3337adb7"
+      "sha256": "8d32c159fd614f7d786a419f76145f91c71c43350ec7df517ee75ca9c5acd820"
     },
     {
       "path": "schema/vocabulary-v0.schema.json",
@@ -87,7 +100,7 @@
     },
     {
       "path": "vocabulary/v0.json",
-      "sha256": "007196d6b213236a2ba85ecc2174ac7a48be38417421864fd4d50d3c5cbdf2c0"
+      "sha256": "348c2bc13698a95d5a50a3d9fe8fa717e6cdd1bc4b035362e117313696f58567"
     }
   ]
 }

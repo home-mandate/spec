@@ -17,6 +17,9 @@ const (
 	maxAreaLength     = 64
 )
 
+// actionRead is never critical, not even on a resource marked as critical.
+const actionRead = "read"
+
 // opaque reports whether s is an opaque identifier: 1 to limit printable ASCII
 // characters without space (0x21 to 0x7E). Identifiers are compared byte by byte.
 func opaque(s string, limit int) bool {
@@ -46,6 +49,8 @@ type Reason string
 
 // Reason codes in the precedence order from SPEC-v0 section 4.1.
 const (
+	ReasonNoMandate        Reason = "no_mandate"
+	ReasonAmbiguousMandate Reason = "ambiguous_mandate"
 	ReasonInvalidMandate   Reason = "invalid_mandate"
 	ReasonInvalidRequest   Reason = "invalid_request"
 	ReasonUnknownResource  Reason = "unknown_resource"
@@ -65,6 +70,10 @@ type Resource struct {
 	EntityID string
 	Category string
 	Area     string
+	// Critical is true if the directory of the PEP marks the resource as critical. Then
+	// every action except read is critical (SPEC-v0 section 4, step 5). It can only add
+	// protection, never remove it.
+	Critical bool
 }
 
 // MandateStatus is the status of the mandate as managed by the PEP.
@@ -102,7 +111,8 @@ type Result struct {
 	RuleID string
 	// Approval is set only for Ask.
 	Approval *Approval
-	// MandateDigest is empty for ReasonInvalidMandate.
+	// MandateDigest is empty if no valid mandate was evaluated (ReasonNoMandate,
+	// ReasonAmbiguousMandate, ReasonInvalidMandate).
 	MandateDigest string
 }
 
@@ -147,7 +157,7 @@ func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason R
 	case m.hasExpires && !req.Time.Before(m.expires):
 		return time.Time{}, false, ReasonExpired
 	}
-	return local, critical, ""
+	return local, critical || (req.Resource.Critical && req.Action != actionRead), ""
 }
 
 // validRequest checks the request fields named in step 0. Identifiers are opaque: the

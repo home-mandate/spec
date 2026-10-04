@@ -24,6 +24,8 @@ const (
 type Mandate struct {
 	valid      bool
 	id         string
+	clientID   string
+	principal  string
 	digest     string
 	validFrom  time.Time
 	expires    time.Time
@@ -38,6 +40,22 @@ func (m *Mandate) ID() string {
 		return ""
 	}
 	return m.id
+}
+
+// ClientID returns agent.client_id; empty for nil.
+func (m *Mandate) ClientID() string {
+	if m == nil {
+		return ""
+	}
+	return m.clientID
+}
+
+// Principal returns the principal; empty for nil.
+func (m *Mandate) Principal() string {
+	if m == nil {
+		return ""
+	}
+	return m.principal
 }
 
 // Digest returns the digest according to SPEC-v0 section 3.2; empty for nil.
@@ -119,7 +137,8 @@ var weekdayNames = map[string]time.Weekday{
 }
 
 func buildMandate(raw rawMandate, digest string) (*Mandate, error) {
-	m := &Mandate{id: raw.ID, digest: digest, rules: make([]rule, 0, len(raw.Rules))}
+	m := &Mandate{id: raw.ID, clientID: raw.Agent.ClientID, principal: raw.Principal, digest: digest,
+		rules: make([]rule, 0, len(raw.Rules))}
 	if err := m.setValidity(raw); err != nil {
 		return nil, err
 	}

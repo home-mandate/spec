@@ -14,7 +14,7 @@
     "camera": {"actions": {"read": {}, "snapshot": {"critical": true}}},
     "media": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}, "play": {}, "pause": {}, "set_volume": {}}},
     "sensor": {"actions": {"read": {}}},
-    "scene": {"actions": {"read": {}, "activate": {}}},
+    "scene": {"actions": {"read": {}, "activate": {"critical": true}}},
     "script": {"actions": {"read": {}, "run": {"critical": true}}},
     "other": {"actions": {"read": {}, "set": {"critical": true}}}
   }
