@@ -8,18 +8,18 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "218877b1722728d645bbd872a458829e1d44f61e82dfc1d8bf298893bd54f046",
-      "cases": 131
+      "sha256": "0d0b80631d892a0349c46286eec190cb68cb344c4963f0b25146425198e75771",
+      "cases": 132
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "7a13c8af02040311868b9f696b97741777185426fa671c74d29d6feaf1a2cd22",
-      "cases": 33
+      "sha256": "eee51a61ef86680beae5c8e9d89190a47a0318c9a7702ef49e6ffc48a0a83b46",
+      "cases": 38
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "8fddcc56c9e22e150486257225ae906ec772fa67fe5a9269d45d3d75f806f162",
-      "cases": 112
+      "sha256": "f421ea359ef0abd3b46b9225486f2b07bff26ec0fe3b7d9501a4b3f40a665298",
+      "cases": 117
     },
     {
       "path": "conformance/keys/test-keys.json",

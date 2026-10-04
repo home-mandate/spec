@@ -103,7 +103,8 @@ A mandate is valid if it conforms to the schema **and** additionally:
    - if it names an extension category, the actions are not checked: whether a mandate
      is valid MUST NOT depend on which extensions an implementation knows. Rules for an
      extension that the implementation does not know never match (Section 4);
-5. it is at most 262 144 bytes (256 KiB) in size;
+5. it is at most 262 144 bytes (256 KiB) in size. Lengths of strings in the schemas
+   (`maxLength`, `minLength`) count Unicode code points, not bytes and not UTF-16 code units;
 6. `expires`, if present, is later than `valid_from`;
 7. every `approval.timeout` is between 10 seconds and 1 hour (both inclusive). A timeout
    has the form `PT[nH][nM][nS]` with at least one component, in this order, each `n` a
@@ -343,7 +344,9 @@ time**: the point in time is converted to the household's time zone.
   `America/Argentina/Buenos_Aires`, `Etc/GMT+9`), where each part begins with an uppercase letter
   and contains only `A–Z`, `a–z`, `0–9`, `_`, `-`, `+`; at most 64 characters.
   Other names (including `Local`, `localtime`, `GMT` or abbreviations such as `CET`) and names that the
-  implementation does not know result in `invalid_request`. Names of this form that the
+  implementation does not know result in `invalid_request`. Some time zone libraries match
+  names without regard to case; an implementation that uses one MUST compare the spelling
+  itself (`Europe/BERLIN` is not a name of the database). Names of this form that the
   database defines as links to another zone (such as `US/Eastern`) are permitted.
   The rules of a zone change with the release of the database; implementations SHOULD keep
   it current, and two implementations can differ for points in time that a newer release
