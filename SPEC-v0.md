@@ -147,11 +147,16 @@ permits nothing else.
 Implementations MAY reject JSON input with a nesting depth greater than 32 before
 validating it against the schema; valid mandates never reach this depth.
 
-Implementations reject invalid mandates when they are stored. If an invalid mandate is
-nevertheless evaluated, the result is always `deny`.
+Implementations MUST reject invalid mandates when they are stored. If an invalid mandate is
+nevertheless evaluated, the result MUST be `deny`.
 
 Revocation of a mandate is not a field of the mandate but a state that the
-implementation maintains and passes to the evaluation.
+implementation maintains and passes to the evaluation (Section 11.3).
+
+Requirements in this document are written with the key words of BCP 14. Where a rule of
+the data model, the evaluation or the audit log is stated as a fact ("the result is
+`deny`", "seconds are truncated"), it is part of the definition and every conforming
+implementation behaves that way.
 
 ### 3.2 Digest of a mandate
 
@@ -246,9 +251,9 @@ Input: mandate, resource (entity ID, category, area, and whether the directory m
 critical), action, optionally parameters of the action (Section 4.5), point in time,
 household time zone, status of the mandate (`active` or `revoked`). Which mandate is evaluated is determined by Section 4.3.
 
-**Origin of inputs:** The PEP determines the category, the area and the critical marking from its own resource
+**Origin of inputs:** The PEP MUST determine the category, the area and the critical marking from its own resource
 directory, the point in time from its own clock, the time zone from the household
-configuration and the status from its own mandate management. It takes none of these
+configuration and the status from its own mandate management. It MUST NOT take any of these
 from the agent; only the requested resource and action originate from the agent.
 
 The PEP MUST resolve the resource the agent names to the identifier under which its
@@ -344,6 +349,8 @@ time**: the point in time is converted to the household's time zone.
   it current, and two implementations can differ for points in time that a newer release
   treats differently.
 - If no time zone is given, the offset with which the point in time is expressed applies.
+  A PEP SHOULD always pass the household time zone; without it, whoever chooses the offset
+  of the point in time chooses the local time.
 - For the comparison, the hour and minute of local time are used; seconds and fractions are
   truncated (23:58:59 is 23:58).
 
@@ -663,7 +670,7 @@ certification program with a logo will follow only once the specification is fro
 
 ## 9. Audit log
 
-Every implementation maintains an audit log that shows **which agent did what, when, on the
+Every implementation MUST maintain an audit log that shows **which agent did what, when, on the
 basis of which configuration**. The format and the hash chain are fixed so that
 audit logs of different implementations can be verified with the same tools.
 Machine-readable: `schema/audit-v0.schema.json`.
@@ -712,7 +719,7 @@ entries.
 `actor.id`, `agent.display_name` and `approval.by` are displayed text; Section 3.1 item 8
 applies to them, and an entry that violates it is invalid.
 
-Entries **never** contain tokens, nonces, credentials or the content of a mandate.
+Entries MUST NOT contain tokens, nonces, credentials or the content of a mandate.
 
 ### 9.2 Events
 
@@ -736,7 +743,7 @@ with the `emergency_stop.*` events.
 
 ### 9.3 Retention
 
-- Each mandate version is retained at least as long as entries that refer to its
+- Each mandate version MUST be retained at least as long as entries that refer to its
   digest.
 - How long entries are retained is determined by the implementation. Only the oldest entries
   MAY be deleted (Section 9.4).
@@ -924,6 +931,102 @@ SHOULD deny requests while it has reason to believe the clock is wrong (for exam
 before the newest entry of its audit log). Changes to the directory are covered by
 Section 3.4.
 
+## 12. Security considerations
+
+### 12.1 What the specification protects
+
+Assets: the physical security of the home (locks, gates, alarm), the privacy of its
+inhabitants (cameras, presence, habits) and the integrity of the record of what agents did.
+
+### 12.2 Attackers
+
+| Attacker | What the specification does | What remains |
+|---|---|---|
+| **Agent that is malicious or was manipulated** (prompt injection through a website, an e-mail, a document) | The decision is made outside the agent. Default `deny`, most restrictive rule wins, critical actions need `allow_critical` or a human (Section 4). The agent supplies only the resource and the action; category, area, time and status come from the PEP. Rate limit and a limit on waiting approval requests (Section 11) | Everything the mandate allows, the agent can do. A mandate with a broad `allow` is a broad permission |
+| **Agent that tries to obtain a confirmation** | The confirmation is bound to one request, used once, comes from a named approver on a path the agent does not control, and the request is evaluated again afterwards (Section 11.1) | A human who confirms without reading. The implementation MUST show what is confirmed; it cannot make the human read |
+| **Agent that imitates a trusted name** | Displayed text carries no invisible or direction-changing characters (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names. Interfaces SHOULD show the `client_id` next to the `display_name` |
+| **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); the critical marking can only add protection | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource |
+| **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored (Sections 9.4, 9.5) | Entries after the last checkpoint. Without checkpoints, the chain proves consistency only |
+| **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7) | Mandates without `version` are not ordered |
+| **Attacker between PEP and PDP** | The connection MUST be authenticated in both directions; the PDP MUST NOT be reachable by agents (Section 6) | The specification does not define the mechanism |
+| **Compromised PEP** | Nothing. The PEP executes; a PEP that ignores a `deny` cannot be stopped by a format | – |
+
+### 12.3 Assumptions
+
+The evaluation is only as trustworthy as its inputs. A conforming implementation relies on:
+
+- **the resource directory**: it assigns category, area and the critical marking. A wrong
+  category makes the wrong vocabulary and the wrong rules apply;
+- **the clock**: validity periods and time windows depend on it (Section 11.4);
+- **the user management**: it decides who an approver is and authenticates the person;
+- **the approval channel**: it reaches the approver and nobody else can answer on it;
+- **the authentication of the agent**: the specification assumes that the agent behind
+  a `client_id` was authenticated; how is outside its scope;
+- **the keys**: of issuers (Section 7) and of the audit log (Section 9.5).
+
+### 12.4 Advice for implementers
+
+- **Broad mandates.** `{"any": true}` with `"*"` and no `expires` is valid. Interfaces
+  SHOULD warn before such a mandate is stored, SHOULD require a separate confirmation for
+  every rule with `allow_critical`, and SHOULD suggest an `expires` for mandates that allow
+  critical actions without approval.
+- **Indirect effects.** A resource can act on others: a switch on a door opener, a scene
+  that unlocks. The vocabulary cannot know this; the critical marking of the resource
+  (Section 4, step 5) is the means for it.
+- **Reading is not harmless.** `read` is never critical, but presence sensors, door
+  contacts and cameras reveal who is at home. Mandates SHOULD allow `read` per category,
+  not for `any`.
+- **Parameters.** Only parameters of the vocabulary can be constrained. Whatever else a
+  platform accepts with a command passes unchecked; a PEP SHOULD forward only what it has
+  evaluated (Section 4.5).
+- **Size and time.** Implementations SHOULD bound the size of inputs before parsing them
+  (Section 3.1 item 5, nesting depth) and SHOULD verify signatures and schemas before any
+  further processing.
+
+## 13. Privacy considerations
+
+The audit log records who caused which device to do what and when. It is a record of the
+behavior of the people in a household and MUST be protected like the devices themselves.
+
+- **Minimization.** Entries contain identifiers, not content: no tokens, no mandate text
+  (Section 9.1), and no state that a `read` returned. Implementations SHOULD NOT add
+  free text.
+- **Retention.** How long entries are kept is up to the implementation and SHOULD be
+  configurable by the household. The chain permits deletion from the oldest end
+  (`log.truncated`); a checkpoint SHOULD precede it.
+- **Persons.** `actor.id` and `approval.by` name people. Implementations SHOULD use
+  identifiers from their user management rather than names, so that a person's name does
+  not have to be removed from a chained log. Removing the data of a single person from the
+  middle of a log is not possible without breaking the chain; this version offers no
+  remedy other than retention limits.
+- **Export.** An exported log leaves the protection of the implementation. Exports SHOULD
+  be created only by a human and SHOULD be recorded.
+- **Agents.** What an agent learns through `read` leaves the household with the agent.
+  A mandate is also a decision about which data an agent may see.
+
+## 14. Versions and compatibility
+
+- **Identifier.** The `type` of a mandate (`https://mandate-spec.org/mandate/v0`) and of an
+  audit entry name the major version. They are identifiers, not addresses that must
+  resolve.
+- **Draft.** Until v1.0, v0 can change incompatibly; every such change is listed in the
+  Changelog together with what happens to mandates that were valid before. Releases of this
+  repository are tagged (`v0.2.0`, …); an implementation states which tag it conforms to,
+  and `conformance/manifest.json` identifies the exact cases.
+- **Unknown members.** Mandates and audit entries have no extension points: a member
+  that the schema does not define makes the document invalid. This is deliberate. An
+  implementation that silently ignored a restriction it does not know would allow more
+  than the household intended.
+- **Consequence.** A newer mandate that uses a member an older implementation does not
+  know is invalid there and denies everything. Implementations SHOULD therefore state
+  which version they support before a mandate is transferred to them, and issuers SHOULD
+  NOT use members the receiver does not support.
+- **After v1.0.** A change that makes a valid v1 mandate invalid or changes the result of
+  an evaluation requires a new `type`. Additions that an older implementation would have
+  to understand to decide correctly require a new `type` as well.
+- **Vocabulary and extensions** carry their own `id` and `version` (Section 5.1) and never
+  change under the same pair.
+
 ## Changelog
 
 ### Unreleased
@@ -973,6 +1076,9 @@ Clarified, each with new conformance cases:
   empty lines (Section 9.4). `conformance/audit-v0.json` has the new field `jsonl` for it.
 
 New:
+- Sections 12 to 14: security considerations with the attackers and assumptions, privacy
+  considerations, versions and compatibility. More requirements are stated with the key
+  words of BCP 14.
 - Mandates can carry `issuer` and `version`; succession protects against rollback
   (Section 3.5, `conformance/succession-v0.json`).
 - Signed mandates: compact JWS over the canonical form with EdDSA or ES256; Section 7 is
