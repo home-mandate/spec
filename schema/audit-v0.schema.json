@@ -137,8 +137,8 @@
       "allOf": [
         { "if": { "properties": { "status": { "const": "denied" } } },
           "then": { "required": ["denied_by"] }, "else": { "not": { "required": ["denied_by"] } } },
-        { "if": { "properties": { "status": { "const": "failed" } } },
-          "then": { "required": ["error"] }, "else": { "not": { "required": ["error"] } } },
+        { "if": { "properties": { "status": { "const": "failed" } } }, "then": { "required": ["error"] } },
+        { "if": { "properties": { "status": { "const": "executed" } } }, "then": { "not": { "required": ["error"] } } },
         { "if": { "required": ["count"] }, "then": { "properties": { "denied_by": { "const": "rate_limit" } } } }
       ]
     },

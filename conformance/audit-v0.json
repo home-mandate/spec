@@ -3267,9 +3267,8 @@
     },
     {
       "id": "a27",
-      "why": "denied together with error",
-      "expected": "invalid",
-      "broken_at": 6,
+      "why": "denied with an error code that says why, for example which check of the authentication failed",
+      "expected": "valid",
       "entries": [
         { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Sprachassistent" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-00005eed0001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00.000+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
         { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.created", "id": "01a0f64e-4600-7002-a00e-00005eed0002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:93ee5448e9ef1b786390609b71e2bb4d8d35113bd4d5519147f7eeb5f5392ff7", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:12:00.000+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },

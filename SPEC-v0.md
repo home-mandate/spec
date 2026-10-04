@@ -744,7 +744,7 @@ Depending on the event, the following are added:
 | `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest` |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (who responded; required except for `timeout`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`) |
-| `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`, `error` only with `failed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
+| `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
 | `checkpoint` | `log_id`, `signature` (Section 9.5) |
 
@@ -1190,7 +1190,7 @@ denies every request. Implementations SHOULD check their stored mandates before 
 - "No mandate for the agent and principal" is `deny` with the new reason code `no_mandate`
   instead of `invalid_mandate`; several mandates at the same time are `ambiguous_mandate`
   (Sections 4.1, 4.3 and 6).
-- Audit log: `denied_by` only with `denied` and `error` only with `failed`;
+- Audit log: `denied_by` only with `denied`, no `error` with `executed`;
   `evaluation.reason` must belong to `evaluation.decision`; `log.truncated` only by a user
   or the system (Section 9.1).
 - Displayed text (Section 3.1 item 8): fixed code point list
