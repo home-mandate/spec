@@ -11,8 +11,8 @@ COVER_MIN      := 95
 EFFICACY_MIN   := 90
 FUZZTIME       ?= 10m
 # package:target
-FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate audit:FuzzVerify
-MUTATION_PKGS  := ./evaluator ./audit ./jcs
+FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate audit:FuzzVerify jws:FuzzVerify internal/harness:FuzzServe
+MUTATION_PKGS  := ./evaluator ./audit ./jcs ./jws ./displaytext ./ratelimit
 
 .PHONY: check test cover vet staticcheck vulncheck fuzz mutation manifest
 
