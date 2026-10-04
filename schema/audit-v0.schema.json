@@ -22,7 +22,7 @@
         "agent.registered", "agent.revoked",
         "emergency_stop.activated", "emergency_stop.released",
         "auth.rejected",
-        "log.truncated"
+        "log.truncated", "log.checkpoint"
       ]
     },
     "principal": { "type": "string", "pattern": "^(household|person):[A-Za-z0-9_-]{1,64}$" },
@@ -151,6 +151,25 @@
         "last_digest": { "$ref": "#/$defs/digest" }
       }
     },
+    "checkpoint": {
+      "description": "Signed statement about the log up to and including the previous entry (SPEC-v0 section 9.5).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["log_id", "signature"],
+      "properties": {
+        "log_id": {
+          "description": "Identifier of the audit log, a UUID in lower case; the same in every checkpoint of the log.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "signature": {
+          "description": "Compact JWS with detached payload (RFC 7515 appendix F), algorithm EdDSA or ES256.",
+          "type": "string",
+          "maxLength": 1024,
+          "pattern": "^[A-Za-z0-9_-]+[.][.][A-Za-z0-9_-]+$"
+        }
+      }
+    },
     "prev": {
       "description": "Digest of the previous entry; null only for the first entry of an audit log (seq 1).",
       "anyOf": [ { "type": "null" }, { "$ref": "#/$defs/digest" } ]
@@ -171,6 +190,9 @@
       "then": { "required": ["result"] } },
     { "if": { "properties": { "event": { "const": "log.truncated" } } },
       "then": { "required": ["actor", "truncated"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } } },
+    { "if": { "properties": { "event": { "const": "log.checkpoint" } } },
+      "then": { "required": ["checkpoint"], "properties": { "seq": { "minimum": 2 } } },
+      "else": { "not": { "required": ["checkpoint"] } } },
     { "if": { "required": ["approval"] },
       "then": { "required": ["evaluation"], "properties": { "evaluation": { "properties": { "decision": { "const": "ask" } } } } } },
     { "if": { "required": ["approval"], "properties": { "approval": { "properties": { "outcome": { "enum": ["approved", "rejected", "invalid_response"] } } } } },

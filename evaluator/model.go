@@ -27,6 +27,8 @@ type Mandate struct {
 	id         string
 	clientID   string
 	principal  string
+	issuer     string
+	version    int64 // 0 if the mandate has no version
 	digest     string
 	validFrom  time.Time
 	expires    time.Time
@@ -57,6 +59,22 @@ func (m *Mandate) Principal() string {
 		return ""
 	}
 	return m.principal
+}
+
+// Issuer returns the issuer; empty for nil and for a mandate without issuer.
+func (m *Mandate) Issuer() string {
+	if m == nil {
+		return ""
+	}
+	return m.issuer
+}
+
+// Version returns the version; 0 for nil and for a mandate without version.
+func (m *Mandate) Version() int64 {
+	if m == nil {
+		return 0
+	}
+	return m.version
 }
 
 // Digest returns the digest according to SPEC-v0 section 3.2; empty for nil.
@@ -138,10 +156,12 @@ type rawMandate struct {
 	Limits   struct {
 		MaxActionsPerHour json.Number `json:"max_actions_per_hour"`
 	} `json:"limits"`
-	ValidFrom string `json:"valid_from"`
-	Expires   string `json:"expires"`
-	CreatedBy string `json:"created_by"`
-	CreatedAt string `json:"created_at"`
+	Issuer    string      `json:"issuer"`
+	Version   json.Number `json:"version"`
+	ValidFrom string      `json:"valid_from"`
+	Expires   string      `json:"expires"`
+	CreatedBy string      `json:"created_by"`
+	CreatedAt string      `json:"created_at"`
 }
 
 var weekdayNames = map[string]time.Weekday{
@@ -154,6 +174,13 @@ func buildMandate(raw rawMandate, digest string) (*Mandate, error) {
 		rules: make([]rule, 0, len(raw.Rules))}
 	if err := m.setValidity(raw); err != nil {
 		return nil, err
+	}
+	if raw.Version != "" {
+		version, ok := integerValue(raw.Version)
+		if !ok {
+			return nil, fmt.Errorf("%w: version is not an integer", ErrSchema)
+		}
+		m.issuer, m.version = raw.Issuer, version
 	}
 	if err := checkDisplayedText("agent.display_name", raw.Agent.DisplayName); err != nil {
 		return nil, err

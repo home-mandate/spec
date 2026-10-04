@@ -21,6 +21,9 @@ product that implements the specification is Home-Mandate.
 | `examples/` | Example mandates | Apache 2.0 |
 | `conformance/cases-v0.json` | Conformance cases | Apache 2.0 |
 | `conformance/selection-v0.json` | Cases for the selection of the mandate among several stored ones | Apache 2.0 |
+| `conformance/succession-v0.json` | Cases for the succession of mandate versions (rollback protection) | Apache 2.0 |
+| `conformance/signed-v0.json` | Signed mandates that are accepted or rejected | Apache 2.0 |
+| `conformance/keys/` | Test keys of the conformance cases; the private parts are public | Apache 2.0 |
 | `conformance/invalid-v0.json` | Invalid mandates that MUST be rejected | Apache 2.0 |
 | `conformance/mandates/` | Test mandates for edge cases | Apache 2.0 |
 | `conformance/digest-v0.json` | Digests of mandates (RFC 8785 + SHA-256) | Apache 2.0 |
@@ -30,6 +33,7 @@ product that implements the specification is Home-Mandate.
 | `evaluator/` | Reference evaluator as a Go library (`github.com/mandate-spec/mandate-spec/evaluator`), standard library only plus a JSON Schema validator | Apache 2.0 |
 | `audit/` | Entry digests and hash-chain verification of audit logs (SPEC-v0 section 9), checked against `conformance/audit-v0.json` | Apache 2.0 |
 | `displaytext/` | Check of text displayed to humans against the code point list | Apache 2.0 |
+| `jws/` | The part of JSON Web Signature the specification uses: compact serialization, EdDSA and ES256, JWK Sets; standard library only | Apache 2.0 |
 | `ratelimit/` | Reference for the rate limit bound of SPEC-v0 section 11.2 | Apache 2.0 |
 | `jcs/` | JSON Canonicalization Scheme (RFC 8785) for the digests of mandates and audit entries | Apache 2.0 |
 | `schema/*.go`, `spec.go` | Go packages that embed the schemas (`schema`) and the schemas, examples and conformance cases (root package), respectively | Apache 2.0 |

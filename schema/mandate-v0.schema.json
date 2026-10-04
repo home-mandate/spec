@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["type", "id", "principal", "agent", "rules", "default", "approval", "limits", "valid_from", "created_by", "created_at"],
+  "dependentRequired": { "issuer": ["version"], "version": ["issuer"] },
   "properties": {
     "type": { "const": "https://mandate-spec.org/mandate/v0" },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{4,64}$" },
@@ -16,15 +17,8 @@
       "required": ["client_id", "display_name"],
       "properties": {
         "client_id": {
-          "description": "Identifier of the agent, compared exactly per character. Either an https URL (lower-case host, a path, no userinfo, no fragment, e.g. the URL of a Client ID Metadata Document) or another URI such as <namespace>:<id>, did:web:..., spiffe://... or urn:.... Printable ASCII only, no dot segments.",
-          "type": "string",
-          "maxLength": 512,
-          "allOf": [
-            { "if": { "pattern": "^https:[!-~]*$" },
-              "then": { "pattern": "^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?/[A-Za-z0-9._~%!$&'()*+,;=:/?-]*$" },
-              "else": { "pattern": "^[a-z][a-z0-9+.-]{0,31}:[A-Za-z0-9._~:/-]{1,256}$", "not": { "pattern": "^http:[!-~]*$" } } },
-            { "not": { "pattern": "^[!-~]*/[.][.]?([/?][!-~]*)?$" } }
-          ]
+          "description": "Identifier of the agent, compared exactly per character (SPEC-v0 section 3.3).",
+          "$ref": "#/$defs/uri"
         },
         "display_name": { "type": "string", "minLength": 1, "maxLength": 80 }
       }
@@ -49,10 +43,31 @@
     },
     "valid_from": { "$ref": "#/$defs/date_time" },
     "expires": { "$ref": "#/$defs/date_time" },
+    "issuer": {
+      "description": "Who issued the mandate; only together with version. Required in a signed mandate (SPEC-v0 sections 3.5 and 7).",
+      "$ref": "#/$defs/uri"
+    },
+    "version": {
+      "description": "Version of the mandate with this id, increasing with every change; only together with issuer.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
     "created_by": { "type": "string", "minLength": 1, "maxLength": 128 },
     "created_at": { "$ref": "#/$defs/date_time" }
   },
   "$defs": {
+    "uri": {
+      "description": "Either an https URL (lower-case host, a path, no userinfo, no fragment) or another URI such as <namespace>:<id>, did:web:..., spiffe://... or urn:.... Printable ASCII only, no dot segments.",
+      "type": "string",
+      "maxLength": 512,
+      "allOf": [
+        { "if": { "pattern": "^https:[!-~]*$" },
+          "then": { "pattern": "^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?/[A-Za-z0-9._~%!$&'()*+,;=:/?-]*$" },
+          "else": { "pattern": "^[a-z][a-z0-9+.-]{0,31}:[A-Za-z0-9._~:/-]{1,256}$", "not": { "pattern": "^http:[!-~]*$" } } },
+        { "not": { "pattern": "^[!-~]*/[.][.]?([/?][!-~]*)?$" } }
+      ]
+    },
     "date_time": {
       "description": "Timestamp according to RFC 3339 with offset, at most 9 fractional digits, not in year 0000 and not with the offset -00:00. Asserting format is required (SPEC-v0 section 3.1 item 0); pattern also catches gross errors in validators that treat format only as an annotation.",
       "type": "string",

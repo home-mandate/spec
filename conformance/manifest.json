@@ -3,8 +3,8 @@
   "files": [
     {
       "path": "conformance/audit-v0.json",
-      "sha256": "b60ea708688dd178b6dc915cd48a9418d2310f25f41ce7b718ff8ae7da7437aa",
-      "cases": 38
+      "sha256": "dc28cba7302891c78aa5c7265d4f6d7f247cd51b9a1c4bb5f0502f208118d24d",
+      "cases": 49
     },
     {
       "path": "conformance/cases-v0.json",
@@ -13,13 +13,21 @@
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "a50060f8d4d30f5a087702bb1b90faa5d6923cd71e741620a6bd01c04223b150",
-      "cases": 32
+      "sha256": "7a13c8af02040311868b9f696b97741777185426fa671c74d29d6feaf1a2cd22",
+      "cases": 33
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "f4082821e39fc1e5c6c97494f7cefc03348985fc67ef6edc9c9c6ef35155f649",
-      "cases": 108
+      "sha256": "8fddcc56c9e22e150486257225ae906ec772fa67fe5a9269d45d3d75f806f162",
+      "cases": 112
+    },
+    {
+      "path": "conformance/keys/test-keys.json",
+      "sha256": "3522c5e7079528a7ec2f519d4a9182c737d6e9d57f5af44fba93ff58e16769fb"
+    },
+    {
+      "path": "conformance/keys/test-keys.private.json",
+      "sha256": "1e8e632b1530b0eafe79f3dab057390e8404725ba28a82a5c728aa29d65aab91"
     },
     {
       "path": "conformance/mandates/constraints.json",
@@ -47,7 +55,7 @@
     },
     {
       "path": "conformance/schema/audit-v0.schema.json",
-      "sha256": "240323a3ab5349100d90bc0a26e42b576b0ea6538ebae082c81e66c8887d97c1"
+      "sha256": "2d12ccbc9883552b088a2ad62424d08d0ae55645248b31ced3ae2a5d4152b8e2"
     },
     {
       "path": "conformance/schema/cases-v0.schema.json",
@@ -70,9 +78,27 @@
       "sha256": "5c4ed949bc8b67174701cc1a4b98bc9677825c919934a4ed9cabba7b97c3482c"
     },
     {
+      "path": "conformance/schema/signed-v0.schema.json",
+      "sha256": "83375aa3ba30eec3effcf2261292c6fa328f892f67469a34aee3158a60803659"
+    },
+    {
+      "path": "conformance/schema/succession-v0.schema.json",
+      "sha256": "42b9f5ab78ae99963d6d3e5dfbd6e8815c915322672e614a7a2753c324ca834e"
+    },
+    {
       "path": "conformance/selection-v0.json",
       "sha256": "d9407fdbb502b8c847eb347dc00db37f7a2736cc8d97f633bceafdf1a3b18027",
       "cases": 17
+    },
+    {
+      "path": "conformance/signed-v0.json",
+      "sha256": "643e076e34a9f9a7592dce3d4575977db87ef628e18a95806c3176bd84f0f78c",
+      "cases": 11
+    },
+    {
+      "path": "conformance/succession-v0.json",
+      "sha256": "635ff1a46e5a8c07141ed0fc89b6d57aba2da1a520434ead831ce2b777737ec3",
+      "cases": 10
     },
     {
       "path": "data/forbidden-codepoints-v0.json",
@@ -92,11 +118,11 @@
     },
     {
       "path": "schema/audit-v0.schema.json",
-      "sha256": "decddab12e6a4384ce84e687ad6fca7fa796b84cc98543a7c63c40c3ae1760d1"
+      "sha256": "c48d2fe255df223606e52ac4a1d41e7af4f1cee90e0977d59601d2c33d37e33c"
     },
     {
       "path": "schema/mandate-v0.schema.json",
-      "sha256": "36eb96e474457b26a932c2160e5ff11844b220bcec769199f1753c0c07fe51fd"
+      "sha256": "338d22ddc10c2f81bd6f50289864444fb9db4e8e2123e6cacef047133a1ad4ef"
     },
     {
       "path": "schema/vocabulary-v0.schema.json",

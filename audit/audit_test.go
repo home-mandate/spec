@@ -15,6 +15,7 @@ import (
 
 	mandatespec "github.com/mandate-spec/mandate-spec"
 	"github.com/mandate-spec/mandate-spec/audit"
+	"github.com/mandate-spec/mandate-spec/jws"
 )
 
 type auditCase struct {
@@ -25,10 +26,24 @@ type auditCase struct {
 	EntryDigests []string          `json:"entry_digests"`
 	Entries      []json.RawMessage `json:"entries"`
 	JSONL        *string           `json:"jsonl"`
+	Keys         string            `json:"keys"`
+	LogID        string            `json:"log_id"`
+	Anchored     *int64            `json:"anchored"`
 }
 
 // verify runs the case through the entry point its form calls for.
 func (c auditCase) verify() (audit.Result, error) {
+	if c.Keys != "" {
+		data, err := fs.ReadFile(mandatespec.FS(), c.Keys)
+		if err != nil {
+			return audit.Result{}, err
+		}
+		keys, err := jws.ParseJWKS(data)
+		if err != nil {
+			return audit.Result{}, err
+		}
+		return audit.VerifyAnchored(raw(c.Entries), audit.Anchor{Keys: keys, LogID: c.LogID})
+	}
 	if c.JSONL != nil {
 		return audit.VerifyJSONLines(strings.NewReader(*c.JSONL))
 	}
@@ -72,6 +87,9 @@ func TestConformanceAuditLogs(t *testing.T) {
 			case "valid":
 				if !got.Valid {
 					t.Errorf("result = %+v, want valid", got)
+				}
+				if c.Anchored != nil && got.AnchoredSeq != *c.Anchored {
+					t.Errorf("anchored up to seq %d, want %d", got.AnchoredSeq, *c.Anchored)
 				}
 			case "invalid":
 				if got.Valid || got.BrokenAt != c.BrokenAt {

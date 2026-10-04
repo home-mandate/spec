@@ -55,6 +55,19 @@
           "jsonl": {
             "type": "string",
             "description": "The log in the exchange format (SPEC-v0 section 9.4) as one string, for cases about line separators."
+          },
+          "keys": {
+            "type": "string",
+            "description": "Path to a JWK Set with the public keys that may sign checkpoints of the log (SPEC-v0 section 9.5), relative to the repository root. If present, the signatures of checkpoints are verified."
+          },
+          "log_id": {
+            "type": "string",
+            "description": "Expected identifier of the log; only with keys."
+          },
+          "anchored": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "For a valid log verified with keys: the seq up to which a verified checkpoint covers the log; 0 if none."
           }
         },
         "if": {

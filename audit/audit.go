@@ -44,6 +44,11 @@ type Result struct {
 	// Entries is the number of entries of a valid log; 0 for an invalid one. A valid log
 	// with 0 entries proves nothing: an emptied log looks the same.
 	Entries int
+	// AnchoredSeq is the seq up to which a verified checkpoint covers a valid log; 0 if
+	// none does or the signatures were not checked (SPEC-v0 section 9.5).
+	AnchoredSeq int64
+	// LogID is the identifier the checkpoints of a valid log carry; empty without one.
+	LogID string
 }
 
 var auditSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
@@ -98,13 +103,19 @@ type link struct {
 	upToSeq    int64
 	lastDigest string
 	digest     string
+	logID      string // of a checkpoint
+	signature  string // of a checkpoint
 }
 
 // Verify checks entries in file order: first the schema of all entries, then the start
 // of the log, then the chain (SPEC-v0 section 9.4). The error is reserved for failures
 // of the verifier itself; an invalid log is reported in the Result.
 func Verify(entries [][]byte) (Result, error) {
-	v, err := newVerifier()
+	return verifyEntries(entries, nil)
+}
+
+func verifyEntries(entries [][]byte, anchor *Anchor) (Result, error) {
+	v, err := newVerifier(anchor)
 	if err != nil {
 		return Result{}, err
 	}
@@ -128,14 +139,20 @@ type verifier struct {
 	// chainBreak is the first violation of the chain. It is reported only at the end,
 	// because a schema violation further down and a wrong start come first.
 	chainBreak *Result
+	// anchor is nil if the signatures of checkpoints are not checked.
+	anchor      *Anchor
+	logID       string
+	anchoredSeq int64
+	// checkpointBreak is the first checkpoint that violates section 9.5; it comes last.
+	checkpointBreak *Result
 }
 
-func newVerifier() (*verifier, error) {
+func newVerifier(anchor *Anchor) (*verifier, error) {
 	compiled, err := auditSchema()
 	if err != nil {
 		return nil, fmt.Errorf("audit: load schema: %w", err)
 	}
-	return &verifier{compiled: compiled}, nil
+	return &verifier{compiled: compiled, anchor: anchor}, nil
 }
 
 // add checks the next entry. done is true if the result is final: the entry violates
@@ -155,6 +172,10 @@ func (v *verifier) add(entry []byte) (result Result, done bool) {
 		r := broken(v.count, l.seq)
 		v.chainBreak = &r
 	}
+	if l.event == eventCheckpoint && v.checkpointBreak == nil && v.checkpoint(l) {
+		r := broken(v.count, l.seq)
+		v.checkpointBreak = &r
+	}
 	v.previous = l
 	v.count++
 	return Result{}, false
@@ -168,8 +189,12 @@ func (v *verifier) finish() Result {
 		return broken(0, v.first.seq)
 	case v.chainBreak != nil:
 		return *v.chainBreak
+	case v.checkpointBreak != nil:
+		return *v.checkpointBreak
 	}
-	return valid(v.count)
+	r := valid(v.count)
+	r.AnchoredSeq, r.LogID = v.anchoredSeq, v.logID
+	return r
 }
 
 // check validates one entry against the schema. On failure it still returns the seq if
@@ -191,6 +216,10 @@ func check(compiled *jsonschema.Schema, entry []byte) (link, bool) {
 	l.prev, _ = obj["prev"].(string)
 	l.event, _ = obj["event"].(string)
 	l.digest = digest
+	if c, ok := obj["checkpoint"].(map[string]any); ok {
+		l.logID, _ = c["log_id"].(string)
+		l.signature, _ = c["signature"].(string)
+	}
 	if t, ok := obj["truncated"].(map[string]any); ok {
 		l.upToSeq = intField(t, "up_to_seq")
 		l.lastDigest, _ = t["last_digest"].(string)
@@ -238,7 +267,11 @@ func broken(index int, seq int64) Result { return Result{Index: index, BrokenAt:
 // separated by line feeds, UTF-8, in ascending seq order (SPEC-v0 section 9.4). It
 // reads the log as a stream and does not keep it in memory.
 func VerifyJSONLines(r io.Reader) (Result, error) {
-	v, err := newVerifier()
+	return verifyLines(r, nil)
+}
+
+func verifyLines(r io.Reader, anchor *Anchor) (Result, error) {
+	v, err := newVerifier(anchor)
 	if err != nil {
 		return Result{}, err
 	}

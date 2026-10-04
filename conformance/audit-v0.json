@@ -3466,6 +3466,150 @@
         { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.revoked", "id": "01a13145-7d00-7008-8038-00005eed0008", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:032b1997233815ea77f08568031759d76db3511e636973ae5411d89d98101a69", "principal": "household:hm-7f3a", "recorded_at": "2026-10-12T20:00:00.000+02:00", "seq": 8, "type": "https://mandate-spec.org/audit/v0" },
         { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a13146-6760-7009-903f-00005eed0009", "prev": "sha256:f3538e5418eb99109b47026980f9195265a9f2ff812888786a6d69cc28a29309", "principal": "household:hm-7f3a", "recorded_at": "2026-10-12T20:01:00.000+02:00", "seq": 9, "type": "https://mandate-spec.org/audit/v0" }
       ]
+    },
+    {
+      "id": "a39",
+      "why": "checkpoint signed with EdDSA over the first three entries",
+      "expected": "valid",
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "anchored": 3,
+      "entry_digests": ["sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "sha256:c3ce14196cd97cb7b21c99e1823cee631bd70f8bbff0ac3b659c08c8b5cf12fb", "sha256:0b167e881702c9d02299e7df1987480edb9e362f817b6781f735a6d8b8cb621f"],
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10003", "prev": "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:00+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..2Yjw5mVUpWtUZApLkwxB_E_K3hIW_8BaZ6f2t_QZvDQfBNUVn_r7wv7LQ4zfg6PpK-TSXVo3wyzKPeeB_DJCDA" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40004", "prev": "sha256:c3ce14196cd97cb7b21c99e1823cee631bd70f8bbff0ac3b659c08c8b5cf12fb", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:04:30+02:00", "seq": 4, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a40",
+      "why": "entries after the checkpoint are not covered by it",
+      "expected": "valid",
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "anchored": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..RdYfITCrwPqUSTrDuaszovPUkefg7hV0l2WZ6SduVJyRvIF07EwkUAeMvP2ypG3EqaKJmD2Tcyn4kYlSBJFHBA" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40003", "prev": "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:30+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10004", "prev": "sha256:212d5d2ed1f0dd2c70666d7698b784403e673db9ffc93995a09148d49c5260df", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:04:00+02:00", "seq": 4, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10005", "prev": "sha256:7020678b031cd14e2c5c940617a2812e00d7c16f6740cfb5c271d70e664ad395", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:05:00+02:00", "seq": 5, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a41",
+      "why": "two checkpoints: the later one counts",
+      "expected": "valid",
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "anchored": 4,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..fd8PH9LEWSVfofP9vmUjTWSQA4VADiKyZKnvCPurLw5S9Vp1Gs8c8cKxqwQ73Cuy1ZSVjE5aUc6ylwEthTnwCg" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:30+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10003", "prev": "sha256:ad79b12551e0cfe2395365b5a4e10aae3b9dcc11e20a11da1d81ae023dac463e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:00+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10004", "prev": "sha256:999ccbaef80e1d0057e786b88783dfbf668441416f0c7eef1ab40fbb92e15744", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:04:00+02:00", "seq": 4, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..WRfy-_fpa6-1hUaYhQxPab_3RHycDI7zR1YY-YOZHCbPa_7735am8eWUCD7jhoHcm79nsqZt4TzXZCQdVz16CQ" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40005", "prev": "sha256:b04c6b3dde0b124e19ca83069dabc67c54f0a521e74d2f376a177287c70f1c0c", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:05:30+02:00", "seq": 5, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a42",
+      "why": "checkpoint signed with ES256",
+      "expected": "valid",
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "anchored": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6InRlc3QtcDI1NiJ9..FOgaCNhxr_6xT1f67gGVdMrdQBSpdw3j9dNCCRWeT08etYi8yl9GsTejOlGYj5uteM4cveT44pmd0zhzuWTRlA" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40003", "prev": "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:30+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a43",
+      "why": "no expected log ID: the first checkpoint sets it",
+      "expected": "valid",
+      "keys": "conformance/keys/test-keys.json",
+      "anchored": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..RdYfITCrwPqUSTrDuaszovPUkefg7hV0l2WZ6SduVJyRvIF07EwkUAeMvP2ypG3EqaKJmD2Tcyn4kYlSBJFHBA" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40003", "prev": "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:30+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a44",
+      "why": "verification without keys: the chain is valid, nothing is anchored",
+      "expected": "valid",
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..RdYfITCrwPqUSTrDuaszovPUkefg7hV0l2WZ6SduVJyRvIF07EwkUAeMvP2ypG3EqaKJmD2Tcyn4kYlSBJFHBA" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40003", "prev": "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:30+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a45",
+      "why": "log without checkpoint, verified with keys: valid, nothing is anchored",
+      "expected": "valid",
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "anchored": 0,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a46",
+      "why": "checkpoint signed over another digest: the log was rewritten",
+      "expected": "invalid",
+      "broken_at": 3,
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..wWrkW13SeouUgzH8yGST3yq1vM_PO3PFYxiqsEZFVsmD71atyccAcbfzeoMf3CV7JSxXNwZfHuGRkZZXO2EUCw" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40003", "prev": "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:30+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a47",
+      "why": "checkpoint signed for another position",
+      "expected": "invalid",
+      "broken_at": 3,
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..tJw_SRI5ep626BN_PaBak34BolqElQcaaJ1PMyBhCcH-MDNJ_3KiVtbOFsEcjqtrKU1QGJK__EycAuyTuLtkAw" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40003", "prev": "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:30+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a48",
+      "why": "checkpoint of another log than the expected one",
+      "expected": "invalid",
+      "broken_at": 3,
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000a0d10002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000beef", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..pSKFopo1ZMcKOkz9RRdieNCa-UnVuh068BRNjHzByXQPZKi9h9apyQBhf2FnAwZCLwwMyoe9Xe3O64ewnoLzDA" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40003", "prev": "sha256:4753caa82e552faeda41a5bbb47a92e42cf5f542de47f5c213cbb75a1dc3bb8e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:30+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a49",
+      "why": "two checkpoints with different log IDs",
+      "expected": "invalid",
+      "broken_at": 4,
+      "keys": "conformance/keys/test-keys.json",
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..fd8PH9LEWSVfofP9vmUjTWSQA4VADiKyZKnvCPurLw5S9Vp1Gs8c8cKxqwQ73Cuy1ZSVjE5aUc6ylwEthTnwCg" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40002", "prev": "sha256:b560e364fc502cb555ad473e01ff73f5282dbaf0b1a6172d5dd88ec3a5b17828", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:30+02:00", "seq": 2, "type": "https://mandate-spec.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a0d10003", "prev": "sha256:ad79b12551e0cfe2395365b5a4e10aae3b9dcc11e20a11da1d81ae023dac463e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:00+02:00", "seq": 3, "type": "https://mandate-spec.org/audit/v0" },
+        { "checkpoint": { "log_id": "0198f1c2-7c3a-7000-8000-00000000beef", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..pDLgLgNkjM3KQUeSG2GeQ8AyUvxoPy3GvqLSFghP4k4DFwSqUCGlTBdxE06XHPl6TF4UnwIZ1Txi6fa7myMTBw" }, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000a0d40004", "prev": "sha256:999ccbaef80e1d0057e786b88783dfbf668441416f0c7eef1ab40fbb92e15744", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:04:30+02:00", "seq": 4, "type": "https://mandate-spec.org/audit/v0" }
+      ]
     }
   ]
 }

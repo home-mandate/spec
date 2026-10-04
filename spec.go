@@ -12,14 +12,16 @@ import (
 
 // Paths within FS.
 const (
-	MandateSchemaPath  = "schema/mandate-v0.schema.json"
-	AuditSchemaPath    = "schema/audit-v0.schema.json"
-	CasesPath          = "conformance/cases-v0.json"
-	InvalidCasesPath   = "conformance/invalid-v0.json"
-	DigestCasesPath    = "conformance/digest-v0.json"
-	AuditCasesPath     = "conformance/audit-v0.json"
-	SelectionCasesPath = "conformance/selection-v0.json"
-	ManifestPath       = "conformance/manifest.json"
+	MandateSchemaPath   = "schema/mandate-v0.schema.json"
+	AuditSchemaPath     = "schema/audit-v0.schema.json"
+	CasesPath           = "conformance/cases-v0.json"
+	InvalidCasesPath    = "conformance/invalid-v0.json"
+	DigestCasesPath     = "conformance/digest-v0.json"
+	AuditCasesPath      = "conformance/audit-v0.json"
+	SelectionCasesPath  = "conformance/selection-v0.json"
+	SignedCasesPath     = "conformance/signed-v0.json"
+	SuccessionCasesPath = "conformance/succession-v0.json"
+	ManifestPath        = "conformance/manifest.json"
 )
 
 //go:embed schema/*.json examples conformance data/*.json vocabulary/*.json

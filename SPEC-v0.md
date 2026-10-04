@@ -21,6 +21,7 @@ specification builds on existing standards and defines only what is missing:
 |---|---|
 | Decision interface | OpenID AuthZEN Authorization API 1.0 |
 | Transport of the mandate in the OAuth flow | Rich Authorization Requests (RFC 9396), `authorization_details` |
+| Signatures | JSON Web Signature (RFC 7515) with EdDSA (RFC 8037) or ES256, keys as JWK (RFC 7517) |
 | Agent identity | OAuth 2.1 client ID (for MCP: Client ID Metadata Document) |
 | Device vocabulary | own categories (`vocabulary/v0.json`); informative mappings to platforms in `profiles/` |
 
@@ -75,6 +76,7 @@ Mandate
 ├── approval      default for ask: { timeout, approvers }
 ├── limits        { max_actions_per_hour }
 ├── valid_from, expires?
+├── issuer?, version?   only together, see Section 3.5
 └── created_by, created_at
 ```
 
@@ -215,6 +217,28 @@ SHOULD express restrictions by category or by identifier, not by area alone.
 floor or group can be mapped to it. `approvers` and `created_by` are identifiers from
 the user management of the implementation and have no meaning outside it; a mandate
 that moves to another implementation needs them replaced.
+
+### 3.5 Issuer and version
+
+A mandate MAY name who issued it and which version it is:
+
+- `issuer`: a URI with the same form as `agent.client_id` (Section 3.3), compared exactly.
+- `version`: an integer of at least 1. Among the mandates with the same `id` from the same
+  issuer, every change gets a higher version than every earlier one.
+
+Both appear together or not at all. The digest (Section 3.2) says *which* version a
+document is; it does not say which of two documents is newer. Without a version, an older
+and more generous mandate with a valid digest cannot be told from the current one.
+
+An implementation that stores a mandate and is offered a replacement with the same `id`
+accepts it only if (**succession**):
+
+1. the stored mandate has no `version`, or
+2. the offered mandate has the same `issuer` and a `version` greater than the stored one.
+
+A mandate without `version` therefore never replaces one that has a version, and an older
+version is never accepted again (rollback). A mandate that leaves the implementation that
+created it, signed per Section 7, MUST carry `issuer` and `version`.
 
 ## 4. Evaluation rule
 
@@ -511,12 +535,54 @@ not authenticated, and it MUST NOT be reachable by agents. A PDP that does not h
 directory itself takes `resource.type`, `resource.properties` and `context.time` from the
 authenticated PEP, and only from it.
 
-## 7. Transport in the OAuth flow (planned)
+## 7. Signed mandates and transport
+
+As long as a mandate stays inside the implementation that stores and evaluates it, it
+needs no signature. A mandate that travels (between an issuer and a PDP, between
+implementations, or in an OAuth flow) is signed, so that the receiver can tell who
+issued it and that it was not changed.
+
+### 7.1 Signed mandate
+
+A **signed mandate** is a JSON Web Signature in compact serialization (RFC 7515):
+
+```
+BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
+```
+
+- The payload is the canonical form of the mandate (Section 3.2), byte for byte. A verifier
+  MUST reject a payload that is not canonical; one mandate thus has exactly one payload.
+- The mandate carries `issuer` and `version` (Section 3.5).
+- The protected header has exactly two members: `alg` and `kid`. `alg` is `EdDSA` with
+  Ed25519 (RFC 8037) or `ES256`. Every implementation that verifies signed mandates MUST
+  support `EdDSA` and MAY support `ES256`. Any other algorithm (in particular `none`) and
+  any other header member (such as `crit`, `b64`, `jwk`, `jku`, `x5c`) make the signed
+  mandate invalid: a key is never taken from the signed object itself.
+- `kid` is 1 to 64 characters from `A–Z a–z 0–9 . _ -` and names a key of the issuer.
+
+A verifier accepts a signed mandate only if
+
+1. it holds public keys that it trusts **for the issuer the mandate names**, and the
+   signature verifies with the key `kid` among them;
+2. the payload is canonical and a valid mandate (Section 3.1);
+3. succession holds against what the verifier has stored (Section 3.5).
+
+How a verifier comes to trust the keys of an issuer is outside this specification
+(configuration, pairing, a JWK Set under the issuer's URL, …). Keys are exchanged as JWK or
+JWK Set (RFC 7517): `{"kty":"OKP","crv":"Ed25519","x":…}` or
+`{"kty":"EC","crv":"P-256","x":…,"y":…}`, each with a `kid`.
+
+The algorithms are fixed per version of the specification. The prefix of a digest
+(`sha256:`) and the `alg` of a signature name the algorithm, so that a later version can
+add others without changing the format.
+
+### 7.2 OAuth flow (informative)
 
 A mandate can be represented as an `authorization_details` object (RFC 9396) with
-`type: "https://mandate-spec.org/mandate/v0"`, e.g. in
-token introspection or when an agent proposes a desired mandate at sign-in.
-In v0.1, the human always chooses the mandate; proposals by the agent are only pre-filled defaults.
+`type: "https://mandate-spec.org/mandate/v0"`, e.g. in token introspection or when an agent
+proposes a desired mandate at sign-in. The human always chooses the mandate; a proposal by
+the agent is only a pre-filled default and is never evaluated. Where the object leaves the
+party that issued it, the signed form of Section 7.1 is used.
 
 ## 8. Conformance and certification
 
@@ -552,6 +618,14 @@ mandates, each as `mandate_inline` with an optional `revoked`), `subject` (`clie
 mandate that is evaluated, or `null`) and the expected `expected`, `reason` and optionally
 `rule_id`.
 
+`conformance/succession-v0.json` contains cases for Section 3.5: `stored` and `offered`
+(two valid mandates) and `expected` (`accept` or `reject`).
+
+`conformance/signed-v0.json` contains cases for Section 7.1: `jws` (the signed mandate),
+`keys` (path to the JWK Set the verifier trusts), `issuer` (the issuer the keys are trusted
+for), `expected` (`valid` or `invalid`) and, for `valid`, the `digest` of the mandate. The
+keys in `conformance/keys/` are test keys whose private parts are public.
+
 `conformance/digest-v0.json` contains, under `cases`, mandates (`mandate`, `mandate_inline` or
 `mandate_raw`) with their expected digest `digest` (Section 3.2).
 
@@ -559,7 +633,10 @@ mandate that is evaluated, or `null`) and the expected `expected`, `reason` and 
 file order), `expected` (`valid` or `invalid`), for `invalid` the expected position
 `broken_at` (Section 9.4) and optionally `entry_digests` (the digest of each entry, for
 debugging). Instead of `entries`, a log can be given as `jsonl`: the exchange format
-(Section 9.4) as one string, for cases about line separators.
+(Section 9.4) as one string, for cases about line separators. With `keys` (path to a JWK
+Set) the signatures of checkpoints are verified (Section 9.5), optionally against the
+expected `log_id`; `anchored` is then the expected `seq` up to which a verified checkpoint
+covers the log.
 
 In addition to `cases` or `logs` respectively, every file has a `description`; every case has a
 unique `id` and optionally `why`.
@@ -616,6 +693,7 @@ Depending on the event, the following are added:
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (who responded; required except for `timeout`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`) |
 | `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`, `error` only with `failed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
+| `checkpoint` | `log_id`, `signature` (Section 9.5) |
 
 For `decision`, the following additionally applies:
 
@@ -645,6 +723,7 @@ Entries **never** contain tokens, nonces, credentials or the content of a mandat
 | `agent.registered`, `agent.revoked` | yes | admission and revocation of an agent |
 | `emergency_stop.activated`, `emergency_stop.released` | yes | emergency stop, if the implementation has one |
 | `log.truncated` | yes | before deleting old entries (Section 9.4) |
+| `log.checkpoint` | no | signed statement about the log so far (Section 9.5) |
 | `auth.rejected` | no | rejected sign-in or invalid token |
 
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
@@ -705,6 +784,52 @@ wrote. Whoever can write the log can
 A valid chain is therefore evidence only together with an anchor outside the log:
 a checkpoint (Section 9.5), or a copy of the log or of its latest digest kept where the
 writer of the log cannot change it.
+
+### 9.5 Checkpoints
+
+A checkpoint anchors the log: a signed statement that the log with a certain identifier
+had a certain entry at a certain position. The key that signs it MUST NOT be available to
+whoever can merely write the log file; the public key is kept outside the log.
+
+A checkpoint is an entry with `event: log.checkpoint` and
+
+```
+checkpoint: { "log_id": <UUID of the log>, "signature": <JWS> }
+```
+
+It covers the log up to and including its predecessor: the entry with `seq` − 1, whose
+digest is the checkpoint's `prev`. A checkpoint is therefore never the first entry of a
+log (`seq` ≥ 2).
+
+- `log_id` is a UUID in lower case that the implementation chooses once per audit log.
+  Every checkpoint of a log carries the same `log_id`; two logs never share one.
+- `signature` is a JWS in compact serialization with **detached payload**
+  (RFC 7515 appendix F, `header..signature`), with the header and algorithms of
+  Section 7.1. The payload is the canonical form (RFC 8785) of
+
+  ```json
+  { "type": "https://mandate-spec.org/audit-checkpoint/v0",
+    "log_id": <log_id>, "seq": <seq of the checkpoint entry − 1>, "digest": <prev of the checkpoint entry> }
+  ```
+
+Verification (Section 9.4) gains a fourth condition, checked after the chain:
+
+4. all checkpoints carry the same `log_id`; and, if the verifier was given the public keys
+   of the log, the `log_id` is the expected one (if the verifier expects one) and every
+   checkpoint's signature verifies with one of these keys. `broken_at` is the `seq` of the
+   first checkpoint that violates this.
+
+A verifier that was given keys additionally reports up to which `seq` the log is
+**anchored**: the position covered by the last checkpoint. Entries after it are consistent
+but not anchored. Without keys, the signatures are not checked and nothing is anchored.
+
+What a checkpoint adds: a log that was rewritten or replaced no longer matches the
+checkpoints signed before, and nobody without the key can sign new ones. What it does not
+add: it does not prevent the removal of entries after the last checkpoint, and a verifier
+that does not know how far the log should reach cannot tell that the log and its last
+checkpoints were removed together. Implementations SHOULD write a checkpoint at regular
+intervals and before every `log.truncated`, and a party that relies on the log SHOULD keep
+the `log_id` and the highest anchored `seq` it has seen.
 
 ## 10. Test interface
 
@@ -848,6 +973,13 @@ Clarified, each with new conformance cases:
   empty lines (Section 9.4). `conformance/audit-v0.json` has the new field `jsonl` for it.
 
 New:
+- Mandates can carry `issuer` and `version`; succession protects against rollback
+  (Section 3.5, `conformance/succession-v0.json`).
+- Signed mandates: compact JWS over the canonical form with EdDSA or ES256; Section 7 is
+  normative now (`conformance/signed-v0.json`).
+- Checkpoints anchor the audit log: event `log.checkpoint` with a `log_id` and a detached
+  JWS over the position and digest of the log (Section 9.5); verification with keys reports
+  up to which `seq` the log is anchored.
 - Section 11, obligations of the PEP: approval (binding, single use, independence from the
   agent, re-evaluation, limits), rate limit (at most N requests in every period of 3600
   seconds, every request counts), revocation and emergency stop, clock.
@@ -874,7 +1006,9 @@ New:
 - Reference code: `displaytext.Check`, `evaluator.Approval.Duration`,
   `evaluator.SelectAndEvaluate`, `evaluator.Resource.Critical`,
   `evaluator.Request.Parameters`, package `ratelimit` (a limiter that meets the bound
-  of Section 11.2), `audit.VerifyJSONLines` reads the log as a stream.
+  of Section 11.2), `audit.VerifyJSONLines` reads the log as a stream, package `jws`,
+  `evaluator.Sign`, `evaluator.ParseSigned`, `evaluator.CheckSuccessor`,
+  `audit.SignCheckpoint`, `audit.VerifyAnchored`.
 - `conformance/schema/`: JSON Schemas of the conformance files; `conformance/manifest.json`:
   all machine-readable files with SHA-256 and number of cases (Section 8).
 - `LICENSE` (Apache 2.0), `LICENSE-docs` (CC BY 4.0), `SECURITY.md`, `CONTRIBUTING.md`.

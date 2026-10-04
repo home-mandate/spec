@@ -4,6 +4,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/mandate-spec/mandate-spec/audit"
 	"github.com/mandate-spec/mandate-spec/internal/manifest"
+	"github.com/mandate-spec/mandate-spec/jws"
 )
 
 const entryTemplate = `{"type":"https://mandate-spec.org/audit/v0","id":"01928b2e-7c3a-7000-8000-00000000000N","seq":N,` +
@@ -133,6 +136,101 @@ func TestUnknownCommandIsAnError(t *testing.T) {
 	for _, args := range [][]string{nil, {"nope"}, {"manifest", "-nope"}} {
 		if _, err := runTool(t, ".", "", args...); err == nil {
 			t.Errorf("run(%v) succeeded", args)
+		}
+	}
+}
+
+const testPrivateKeys = `{"keys":[
+ {"kty":"OKP","crv":"Ed25519","kid":"test-ed25519","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo","d":"nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A"}]}`
+
+func TestCheckpointSignsWithATestKey(t *testing.T) {
+	dir := t.TempDir()
+	keyFile := filepath.Join(dir, "keys.json")
+	if err := os.WriteFile(keyFile, []byte(testPrivateKeys), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	const logID = "0198f1c2-7c3a-7000-8000-0000000000aa"
+	digest := "sha256:" + strings.Repeat("a", 64)
+	out, err := runTool(t, dir, "", "checkpoint", keyFile, "test-ed25519", logID, "2", digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := audit.SignCheckpoint(logID, 2, digest, "test-ed25519", ed25519.NewKeyFromSeed(mustDecode(t, "nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A")))
+	if err != nil || strings.TrimSpace(out) != want {
+		t.Errorf("checkpoint = %q, want %q (%v)", out, want, err)
+	}
+	for name, args := range map[string][]string{
+		"too few arguments": {"checkpoint", keyFile, "test-ed25519", logID, "2"},
+		"unknown key":       {"checkpoint", keyFile, "nope", logID, "2", digest},
+		"seq not a number":  {"checkpoint", keyFile, "test-ed25519", logID, "two", digest},
+		"missing key file":  {"checkpoint", filepath.Join(dir, "none.json"), "test-ed25519", logID, "2", digest},
+		"bad log ID":        {"checkpoint", keyFile, "test-ed25519", "log", "2", digest},
+	} {
+		if _, err := runTool(t, dir, "", args...); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	for name, content := range map[string]string{
+		"not JSON":      `nope`,
+		"public only":   `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"test-ed25519","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"}]}`,
+		"bad seed":      `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"test-ed25519","d":"AQAB"}]}`,
+		"bad EC scalar": `{"keys":[{"kty":"EC","crv":"P-256","kid":"test-ed25519","d":"AQAB"}]}`,
+		"unknown type":  `{"keys":[{"kty":"RSA","kid":"test-ed25519","d":"AQAB"}]}`,
+		"d not base64":  `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"test-ed25519","d":"!!"}]}`,
+	} {
+		if err := os.WriteFile(keyFile, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runTool(t, dir, "", "checkpoint", keyFile, "test-ed25519", logID, "2", digest); err == nil {
+			t.Errorf("key file %s: accepted", name)
+		}
+	}
+}
+
+func mustDecode(t *testing.T, s string) []byte {
+	t.Helper()
+	b, err := base64.RawURLEncoding.DecodeString(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func TestSignProducesASignedMandate(t *testing.T) {
+	dir := t.TempDir()
+	keyFile, file := filepath.Join(dir, "keys.json"), filepath.Join(dir, "m.json")
+	if err := os.WriteFile(keyFile, []byte(testPrivateKeys), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte(`{ "b": 1,  "a": 2 }`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	keys := jws.Keys{"test-ed25519": ed25519.NewKeyFromSeed(mustDecode(t, "nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A")).Public()}
+	for flag, want := range map[string]string{"": `{"a":2,"b":1}`, "-raw": `{ "b": 1,  "a": 2 }`} {
+		args := []string{"sign", keyFile, "test-ed25519", file}
+		if flag != "" {
+			args = []string{"sign", flag, keyFile, "test-ed25519", file}
+		}
+		out, err := runTool(t, dir, "", args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		payload, _, err := jws.Verify(strings.TrimSpace(out), keys)
+		if err != nil || string(payload) != want {
+			t.Errorf("sign %s: payload %q, %v; want %q", flag, payload, err, want)
+		}
+	}
+	if err := os.WriteFile(file, []byte(`nope`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for name, args := range map[string][]string{
+		"too few arguments": {"sign", keyFile, "test-ed25519"},
+		"unknown key":       {"sign", keyFile, "nope", file},
+		"missing file":      {"sign", keyFile, "test-ed25519", filepath.Join(dir, "none.json")},
+		"not JSON":          {"sign", keyFile, "test-ed25519", file},
+	} {
+		if _, err := runTool(t, dir, "", args...); err == nil {
+			t.Errorf("%s: accepted", name)
 		}
 	}
 }
