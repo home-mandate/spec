@@ -94,7 +94,15 @@
         "reason": { "$ref": "#/$defs/reason" },
         "rule_id": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9_-]{1,64}$" },
         "approval_timeout": { "type": "string", "minLength": 4, "pattern": "^PT([0-9]{1,5}H)?([0-9]{1,5}M)?([0-9]{1,5}S)?$" }
-      }
+      },
+      "allOf": [
+        { "if": { "properties": { "decision": { "const": "allow" } } },
+          "then": { "properties": { "reason": { "const": "rule" } } } },
+        { "if": { "properties": { "decision": { "const": "ask" } } },
+          "then": { "properties": { "reason": { "enum": ["rule", "critical_demotion"] } } } },
+        { "if": { "properties": { "decision": { "const": "deny" } } },
+          "then": { "properties": { "reason": { "not": { "const": "critical_demotion" } } } } }
+      ]
     },
     "approval": {
       "type": "object",
@@ -119,11 +127,19 @@
         "status": { "enum": ["executed", "denied", "failed"] },
         "denied_by": { "enum": ["mandate", "approval", "rate_limit", "emergency_stop", "authentication"] },
         "error": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
-        "duration_ms": { "type": "integer", "minimum": 0 }
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "count": {
+          "description": "Number of consecutive requests of the agent that this entry stands for. Only with denied_by rate_limit (SPEC-v0 section 11.2).",
+          "type": "integer",
+          "minimum": 2
+        }
       },
       "allOf": [
-        { "if": { "properties": { "status": { "const": "denied" } } }, "then": { "required": ["denied_by"] } },
-        { "if": { "properties": { "status": { "const": "failed" } } }, "then": { "required": ["error"] } }
+        { "if": { "properties": { "status": { "const": "denied" } } },
+          "then": { "required": ["denied_by"] }, "else": { "not": { "required": ["denied_by"] } } },
+        { "if": { "properties": { "status": { "const": "failed" } } },
+          "then": { "required": ["error"] }, "else": { "not": { "required": ["error"] } } },
+        { "if": { "required": ["count"] }, "then": { "properties": { "denied_by": { "const": "rate_limit" } } } }
       ]
     },
     "truncated": {
@@ -154,7 +170,7 @@
     { "if": { "properties": { "event": { "const": "auth.rejected" } } },
       "then": { "required": ["result"] } },
     { "if": { "properties": { "event": { "const": "log.truncated" } } },
-      "then": { "required": ["actor", "truncated"] } },
+      "then": { "required": ["actor", "truncated"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } } },
     { "if": { "required": ["approval"] },
       "then": { "required": ["evaluation"], "properties": { "evaluation": { "properties": { "decision": { "const": "ask" } } } } } },
     { "if": { "required": ["approval"], "properties": { "approval": { "properties": { "outcome": { "enum": ["approved", "rejected", "invalid_response"] } } } } },

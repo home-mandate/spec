@@ -41,6 +41,9 @@ type Result struct {
 	Index int
 	// BrokenAt is the seq of that entry ("broken_at"); 0 if it has no readable seq.
 	BrokenAt int64
+	// Entries is the number of entries of a valid log; 0 for an invalid one. A valid log
+	// with 0 entries proves nothing: an emptied log looks the same.
+	Entries int
 }
 
 var auditSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
@@ -101,30 +104,72 @@ type link struct {
 // of the log, then the chain (SPEC-v0 section 9.4). The error is reserved for failures
 // of the verifier itself; an invalid log is reported in the Result.
 func Verify(entries [][]byte) (Result, error) {
+	v, err := newVerifier()
+	if err != nil {
+		return Result{}, err
+	}
+	for _, e := range entries {
+		if r, done := v.add(e); done {
+			return r, nil
+		}
+	}
+	return v.finish(), nil
+}
+
+// verifier checks a log entry by entry and keeps only what the rest of the log can
+// still depend on, so that a log of any length is verified in constant memory.
+type verifier struct {
+	compiled *jsonschema.Schema
+	count    int
+	first    link
+	previous link
+	// startCovered: a log.truncated entry accounts for everything before the first entry.
+	startCovered bool
+	// chainBreak is the first violation of the chain. It is reported only at the end,
+	// because a schema violation further down and a wrong start come first.
+	chainBreak *Result
+}
+
+func newVerifier() (*verifier, error) {
 	compiled, err := auditSchema()
 	if err != nil {
-		return Result{}, fmt.Errorf("audit: load schema: %w", err)
+		return nil, fmt.Errorf("audit: load schema: %w", err)
 	}
-	links := make([]link, len(entries))
-	for i, e := range entries {
-		l, ok := check(compiled, e)
-		if !ok {
-			return broken(i, l.seq), nil
-		}
-		links[i] = l
+	return &verifier{compiled: compiled}, nil
+}
+
+// add checks the next entry. done is true if the result is final: the entry violates
+// the schema.
+func (v *verifier) add(entry []byte) (result Result, done bool) {
+	l, ok := check(v.compiled, entry)
+	if !ok {
+		return broken(v.count, l.seq), true
 	}
-	if len(links) == 0 {
-		return valid(), nil
+	switch {
+	case v.count == 0:
+		v.first = l
+	case l.event == eventTruncated && l.upToSeq == v.first.seq-1 && l.lastDigest == v.first.prev:
+		v.startCovered = true
 	}
-	if !validStart(links) {
-		return broken(0, links[0].seq), nil
+	if v.count > 0 && v.chainBreak == nil && (l.seq != v.previous.seq+1 || l.prev != v.previous.digest) {
+		r := broken(v.count, l.seq)
+		v.chainBreak = &r
 	}
-	for i := 1; i < len(links); i++ {
-		if links[i].seq != links[i-1].seq+1 || links[i].prev != links[i-1].digest {
-			return broken(i, links[i].seq), nil
-		}
+	v.previous = l
+	v.count++
+	return Result{}, false
+}
+
+func (v *verifier) finish() Result {
+	switch {
+	case v.count == 0:
+		return valid(0)
+	case v.first.seq != 1 && !v.startCovered:
+		return broken(0, v.first.seq)
+	case v.chainBreak != nil:
+		return *v.chainBreak
 	}
-	return valid(), nil
+	return valid(v.count)
 }
 
 // check validates one entry against the schema. On failure it still returns the seq if
@@ -167,21 +212,6 @@ func displayable(obj map[string]any) bool {
 	return true
 }
 
-// validStart: the first entry has seq 1, or a later log.truncated entry covers
-// everything before it.
-func validStart(links []link) bool {
-	first := links[0]
-	if first.seq == 1 {
-		return true
-	}
-	for _, l := range links[1:] {
-		if l.event == eventTruncated && l.upToSeq == first.seq-1 && l.lastDigest == first.prev {
-			return true
-		}
-	}
-	return false
-}
-
 // maxExactInteger is the largest integer that I-JSON (RFC 7493) guarantees to be exact.
 const maxExactInteger = 1 << 53
 
@@ -200,24 +230,30 @@ func intField(obj map[string]any, key string) int64 {
 	return int64(f)
 }
 
-func valid() Result { return Result{Valid: true, Index: -1} }
+func valid(entries int) Result { return Result{Valid: true, Index: -1, Entries: entries} }
 
 func broken(index int, seq int64) Result { return Result{Index: index, BrokenAt: seq} }
 
 // VerifyJSONLines verifies an audit log in the exchange format: one entry per line,
-// UTF-8, in ascending seq order (SPEC-v0 section 9.4).
+// separated by line feeds, UTF-8, in ascending seq order (SPEC-v0 section 9.4). It
+// reads the log as a stream and does not keep it in memory.
 func VerifyJSONLines(r io.Reader) (Result, error) {
+	v, err := newVerifier()
+	if err != nil {
+		return Result{}, err
+	}
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 4096), MaxEntryBytes+1)
-	var entries [][]byte
 	for scanner.Scan() {
-		entries = append(entries, bytes.Clone(scanner.Bytes()))
+		if result, done := v.add(scanner.Bytes()); done {
+			return result, nil
+		}
 	}
 	if err := scanner.Err(); err != nil {
 		if errors.Is(err, bufio.ErrTooLong) {
-			return broken(len(entries), 0), nil
+			return broken(v.count, 0), nil
 		}
 		return Result{}, fmt.Errorf("audit: read: %w", err)
 	}
-	return Verify(entries)
+	return v.finish(), nil
 }

@@ -30,6 +30,7 @@ product that implements the specification is Home-Mandate.
 | `evaluator/` | Reference evaluator as a Go library (`github.com/mandate-spec/mandate-spec/evaluator`), standard library only plus a JSON Schema validator | Apache 2.0 |
 | `audit/` | Entry digests and hash-chain verification of audit logs (SPEC-v0 section 9), checked against `conformance/audit-v0.json` | Apache 2.0 |
 | `displaytext/` | Check of text displayed to humans against the code point list | Apache 2.0 |
+| `ratelimit/` | Reference for the rate limit bound of SPEC-v0 section 11.2 | Apache 2.0 |
 | `jcs/` | JSON Canonicalization Scheme (RFC 8785) for the digests of mandates and audit entries | Apache 2.0 |
 | `schema/*.go`, `spec.go` | Go packages that embed the schemas (`schema`) and the schemas, examples and conformance cases (root package), respectively | Apache 2.0 |
 | `tools/vectors/` | Helper for maintaining the conformance files: manifest, mandate digests, chaining audit entries | Apache 2.0 |

@@ -271,7 +271,7 @@ The rule is deliberately simple: whoever allows something broadly and denies ind
 gets the denial. Whoever sets something broadly to `ask` and allows individual items gets `ask`.
 When in doubt, the safer side always wins.
 
-`limits` are not part of the evaluation. The PEP enforces the rate limit.
+`limits` are not part of the evaluation. The PEP enforces the rate limit (Section 11.2).
 
 ### 4.1 Result
 
@@ -465,12 +465,14 @@ context:
 ```json
 { "decision": false,
   "context": { "outcome": "ask", "reason": "rule", "rule_id": "r-locks",
-               "approval_timeout": "PT2M",
+               "approval_timeout": "PT2M", "approvers": ["user-1"],
                "mandate_digest": "sha256:9f2c…" } }
 ```
 
-`reason` is REQUIRED, as is `mandate_digest` unless Section 4.1 says it is absent; `rule_id` and
-`approval_timeout` are included in the context when Section 4.1 provides for them.
+`reason` is REQUIRED, as is `mandate_digest` unless Section 4.1 says it is absent; `rule_id` is
+included when Section 4.1 provides for it. For `outcome: ask`, `approval_timeout` and
+`approvers` (the approval settings per Section 4.1) are REQUIRED, so that a PEP can obtain
+the confirmation without knowing the mandate.
 
 Field mapping:
 
@@ -491,12 +493,23 @@ per Section 4.3; if there is none for the agent and principal, the result is `de
 `reason: no_mandate`.
 
 - `outcome: allow` → `decision: true`
-- `outcome: ask` → `decision: false`; the PEP MUST obtain a confirmation and MUST NOT execute
-  the action unless the response is positive
+- `outcome: ask` → `decision: false`; the PEP MUST obtain a confirmation per Section 11.1 and
+  MUST NOT execute the action unless the response is positive
 - `outcome: deny` → `decision: false`
 
 A PEP that does not know `ask` automatically treats the response as a denial. The
 extension is thus backward-compatible and safe.
+
+`subject.type` MUST be `agent`; any other value is `deny` with `invalid_request`.
+
+**Trust between PEP and PDP.** The PDP decides on the basis of the resource directory, the
+clock, the household time zone and the mandate status. Whoever holds these is part of the
+trusted side. If PEP and PDP are separate components, exactly one of them holds the
+directory, and both MUST know which. The connection between them MUST be authenticated in
+both directions and protected against modification; a PDP MUST NOT answer callers it has
+not authenticated, and it MUST NOT be reachable by agents. A PDP that does not hold the
+directory itself takes `resource.type`, `resource.properties` and `context.time` from the
+authenticated PEP, and only from it.
 
 ## 7. Transport in the OAuth flow (planned)
 
@@ -601,14 +614,22 @@ Depending on the event, the following are added:
 | `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest` |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (who responded; required except for `timeout`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`) |
-| `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); optionally `duration_ms` |
+| `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`, `error` only with `failed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
 
 For `decision`, the following additionally applies:
 
 - `executed` only with `evaluation` and `mandate`, and only if `evaluation.decision` is `allow`
   or `ask` with `approval.outcome: approved`;
-- if `evaluation.decision` is `deny`, then `result` is `denied` with `denied_by: mandate`.
+- if `evaluation.decision` is `deny`, then `result` is `denied` with `denied_by: mandate`;
+- `evaluation.reason` belongs to `evaluation.decision` as in the table of Section 4.1
+  (`allow` only with `rule`, `ask` only with `rule` or `critical_demotion`);
+- a denial with `denied_by: approval` carries the `approval` object if a request was
+  answered or timed out. It has none if no request was made: no approver could be
+  reached, or the agent already had too many requests waiting (Section 11.1).
+
+A `log.truncated` entry has an `actor` of kind `user` or `system`; an agent never deletes
+entries.
 
 `actor.id`, `agent.display_name` and `approval.by` are displayed text; Section 3.1 item 8
 applies to them, and an entry that violates it is invalid.
@@ -630,10 +651,9 @@ For `decision`, `evaluation` matches the result that the evaluation (Section 4)
 returns for `request` and the version `mandate.digest`. This makes every decision
 reproducible.
 
-The rate limit (`limits`, enforced by the PEP) and the emergency stop are functions of the implementation
-that this specification does not define further. If an implementation has them, it logs
-denials with `denied_by: rate_limit` or `emergency_stop` respectively, and the emergency stop with the
-`emergency_stop.*` events.
+The rate limit and the emergency stop are defined in Sections 11.2 and 11.3. Denials are
+logged with `denied_by: rate_limit` or `emergency_stop` respectively, and the emergency stop
+with the `emergency_stop.*` events.
 
 ### 9.3 Retention
 
@@ -669,14 +689,115 @@ If an audit log is invalid, verification reports `broken_at`: the `seq` of the f
 file order that violates one of the conditions. The conditions are checked in the order
 given: first the schema of all entries, then the start, then the chain.
 
-Limitation: The hash chain reveals changes, gaps and reorderings **within** the
-audit log. It does not detect removal of the most recent entries or modification of the last one.
-For that, the end of the chain must be secured externally (signature or copy); this
-will be addressed in a later version.
+An audit log without entries is valid. Verification reports the number of entries, because
+an empty log proves nothing: a log that was emptied looks the same.
+
+**What the chain proves, and what not.** The chain is neither keyed nor signed. It shows
+that the entries of a log are consistent with one another: a change, a gap or a reordering
+in the middle breaks it. It does **not** show that the log is the one the implementation
+wrote. Whoever can write the log can
+
+- remove the most recent entries or change the last one;
+- recompute every digest from any entry onwards;
+- replace the whole log with a new one that starts at `seq` 1;
+- delete a prefix and append a matching `log.truncated` entry.
+
+A valid chain is therefore evidence only together with an anchor outside the log:
+a checkpoint (Section 9.5), or a copy of the log or of its latest digest kept where the
+writer of the log cannot change it.
 
 ## 10. Test interface
 
 To follow with v0.2.
+
+## 11. Obligations of the PEP
+
+The evaluation (Section 4) is a pure function. This section defines what an implementation
+does around it. It states properties, not mechanisms: how a confirmation reaches a human,
+which algorithm limits the rate and how the parts of an implementation talk to each other
+is left open.
+
+### 11.1 Approval
+
+If the result of the evaluation is `ask`, the PEP obtains a confirmation from a human
+before it executes the action.
+
+1. **Who.** A confirmation counts only if it comes from one of the `approvers` of the
+   approval settings (Section 4.1), authenticated by the implementation. One approver
+   suffices. An approver that the user management no longer knows does not count. If no
+   approver can be reached, the result is `deny`.
+2. **What is confirmed.** A confirmation is bound to exactly one request: the agent, the
+   resource, the action, its parameters and the `mandate_digest` of the evaluation. It
+   MUST NOT be used for any other request, and the human MUST be shown what they confirm:
+   the agent (`display_name` and `client_id`), the resource, the action and the parameters.
+   Text supplied by the agent (a reason, for example) MUST be recognizable as such.
+3. **Once.** A confirmation permits exactly one execution. A second use, a replay or a
+   forged confirmation MUST be rejected; implementations use a value that cannot be
+   guessed and accept it once.
+4. **Independent of the agent.** The confirmation MUST reach the PEP on a path that the
+   requesting agent does not control. An agent MUST NOT be able to deliver, relay or answer
+   a confirmation, its own or another agent's. A voice assistant that asks "shall I
+   unlock?" and reports the answer itself is not a confirmation.
+5. **In time.** No answer within the `timeout` of the approval settings → `deny`. A
+   rejection or an answer that is invalid (wrong person, wrong value, malformed) → `deny`.
+   The execution follows the confirmation without delay; a confirmation that is older
+   than `timeout` when the action would be executed has expired.
+6. **Evaluated again.** After the confirmation and immediately before the execution, the
+   PEP evaluates the request again. The action is executed only if the result is not
+   `deny` and the `mandate_digest` is the one that was confirmed. A mandate that was
+   revoked, changed or has expired in the meantime, a time window that has closed and an
+   emergency stop all prevail over the confirmation.
+7. **Limited.** The number of approval requests of one agent that wait for an answer at
+   the same time MUST be limited (RECOMMENDED: 2). A request beyond the limit is `deny`
+   without asking anyone. Requests that lead to `ask` count towards the rate limit
+   (Section 11.2). Both protect the approvers from being worn down by repeated requests.
+
+Every outcome is recorded in the audit log (Section 9.1) with `approval.outcome`, who
+answered and, optionally, through which channel.
+
+### 11.2 Rate limit
+
+`limits.max_actions_per_hour` (N) bounds how often an agent can make the implementation
+act or decide.
+
+- In every period of 3600 seconds, at most N requests of the agent under the mandate
+  reach the evaluation. Further requests are denied without evaluation
+  (`denied_by: rate_limit`).
+- Every request of the authenticated agent counts, whatever the action and whatever the
+  result: `read`, requests that are denied and requests that lead to `ask`. Requests
+  denied by the rate limit itself do not count.
+- The bound is normative, the algorithm is not. A sliding window meets it; a token bucket
+  that is full after an idle period does not, because it lets up to 2N requests pass
+  within one hour.
+- The count SHOULD survive a restart of the implementation; otherwise a crash resets the
+  limit.
+- A change of N applies to the next request.
+
+So that an agent cannot fill the audit log with denials, consecutive requests of one agent
+that the rate limit denies MAY be recorded as a single `decision` entry whose
+`result.count` is the number of requests it stands for; `request` then describes the first
+of them.
+
+### 11.3 Revocation and emergency stop
+
+- A revocation of a mandate or of an agent takes effect with the next evaluation: no
+  request that is evaluated after the revocation was recorded is permitted. An
+  implementation MUST NOT cache decisions beyond a request.
+- Approval requests of the agent that are waiting end with `deny` when the mandate or the
+  agent is revoked; Section 11.1 item 6 covers a confirmation that arrives at the same
+  moment.
+- An emergency stop is optional. If an implementation has one, then while it is active
+  every request of every agent is denied without evaluation
+  (`denied_by: emergency_stop`), waiting approval requests end with `deny`, and activating
+  and releasing it are recorded (`emergency_stop.*`). Only a human can release it.
+
+### 11.4 Clock and directory
+
+The validity period, time windows and the audit log depend on the clock of the PEP, the
+evaluation on its resource directory. An implementation SHOULD synchronize its clock and
+SHOULD deny requests while it has reason to believe the clock is wrong (for example a time
+before the newest entry of its audit log). Changes to the directory are covered by
+Section 3.4.
 
 ## Changelog
 
@@ -704,6 +825,9 @@ denies every request. Implementations SHOULD check their stored mandates before 
 - "No mandate for the agent and principal" is `deny` with the new reason code `no_mandate`
   instead of `invalid_mandate`; several mandates at the same time are `ambiguous_mandate`
   (Sections 4.1, 4.3 and 6).
+- Audit log: `denied_by` only with `denied` and `error` only with `failed`;
+  `evaluation.reason` must belong to `evaluation.decision`; `log.truncated` only by a user
+  or the system (Section 9.1).
 - Displayed text (Section 3.1 item 8): fixed code point list
   `data/forbidden-codepoints-v0.json` instead of the Unicode categories of the runtime;
   additionally forbidden are private-use and invisible (default ignorable) characters and
@@ -724,6 +848,13 @@ Clarified, each with new conformance cases:
   empty lines (Section 9.4). `conformance/audit-v0.json` has the new field `jsonl` for it.
 
 New:
+- Section 11, obligations of the PEP: approval (binding, single use, independence from the
+  agent, re-evaluation, limits), rate limit (at most N requests in every period of 3600
+  seconds, every request counts), revocation and emergency stop, clock.
+- AuthZEN: `approvers` in the response context for `ask`; trust between PEP and PDP
+  (Section 6).
+- Audit log: `result.count` for combined rate limit denials; verification reports the
+  number of entries; Section 9.4 states what the hash chain proves and what not.
 - Critical resources: the resource directory can mark a resource as critical; then every
   action except `read` is critical (Section 4, step 5). New optional input `critical` of
   the evaluation, in the conformance cases and in `request.resource` of the audit log.
@@ -742,7 +873,8 @@ New:
   (`conformance/mandates/identifiers.json`).
 - Reference code: `displaytext.Check`, `evaluator.Approval.Duration`,
   `evaluator.SelectAndEvaluate`, `evaluator.Resource.Critical`,
-  `evaluator.Request.Parameters`.
+  `evaluator.Request.Parameters`, package `ratelimit` (a limiter that meets the bound
+  of Section 11.2), `audit.VerifyJSONLines` reads the log as a stream.
 - `conformance/schema/`: JSON Schemas of the conformance files; `conformance/manifest.json`:
   all machine-readable files with SHA-256 and number of cases (Section 8).
 - `LICENSE` (Apache 2.0), `LICENSE-docs` (CC BY 4.0), `SECURITY.md`, `CONTRIBUTING.md`.

@@ -105,8 +105,8 @@ func TestConformanceCases(t *testing.T) {
 				Action:     c.Action,
 				Parameters: parameters,
 				Time:       at,
-				TimeZone: c.Timezone,
-				Status:   statusOf(c.Revoked),
+				TimeZone:   c.Timezone,
+				Status:     statusOf(c.Revoked),
 			})
 			assertResult(t, c, m, got)
 		})

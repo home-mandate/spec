@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"io/fs"
 	"strings"
 	"testing"
@@ -213,10 +215,144 @@ func TestEntrySizeLimitBoundary(t *testing.T) {
 func TestValidResultHasNoIndex(t *testing.T) {
 	c := loadCases(t)[0]
 	got, err := audit.Verify(raw(c.Entries))
-	if err != nil || got != (audit.Result{Valid: true, Index: -1}) {
+	if err != nil || got != (audit.Result{Valid: true, Index: -1, Entries: len(c.Entries)}) {
 		t.Errorf("Verify = %+v, %v; want {Valid:true Index:-1 BrokenAt:0}", got, err)
 	}
-	if got, _ := audit.Verify(nil); got.Index != -1 {
+	if got, _ := audit.Verify(nil); got.Index != -1 || got.Entries != 0 {
 		t.Errorf("Verify(nil).Index = %d, want -1", got.Index)
 	}
+}
+
+func jsonLines(t *testing.T, entries []json.RawMessage) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	for _, e := range entries {
+		if err := json.Compact(&buf, e); err != nil {
+			t.Fatal(err)
+		}
+		buf.WriteByte('\n')
+	}
+	return buf.Bytes()
+}
+
+func TestResultCountsEntries(t *testing.T) {
+	c := loadCases(t)[0]
+	got, err := audit.Verify(raw(c.Entries))
+	if err != nil || got.Entries != len(c.Entries) {
+		t.Errorf("Verify: Entries = %d, %v; want %d", got.Entries, err, len(c.Entries))
+	}
+	got, err = audit.VerifyJSONLines(bytes.NewReader(jsonLines(t, c.Entries)))
+	if err != nil || !got.Valid || got.Entries != len(c.Entries) {
+		t.Errorf("VerifyJSONLines = %+v, %v; want valid with %d entries", got, err, len(c.Entries))
+	}
+	// An empty log is valid but proves nothing; the count lets a caller tell.
+	got, err = audit.VerifyJSONLines(strings.NewReader(""))
+	if err != nil || !got.Valid || got.Entries != 0 {
+		t.Errorf("empty log = %+v, %v; want valid with 0 entries", got, err)
+	}
+}
+
+// TestVerifyJSONLinesAgreesWithVerify runs every conformance log through both entry
+// points; the streaming reader must report exactly what the slice-based one reports.
+func TestVerifyJSONLinesAgreesWithVerify(t *testing.T) {
+	for _, c := range loadCases(t) {
+		if c.JSONL != nil {
+			continue
+		}
+		want, err := audit.Verify(raw(c.Entries))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := audit.VerifyJSONLines(bytes.NewReader(jsonLines(t, c.Entries)))
+		if err != nil || got != want {
+			t.Errorf("%s: VerifyJSONLines = %+v, %v; Verify = %+v", c.ID, got, err, want)
+		}
+	}
+}
+
+// TestSchemaViolationWinsOverEarlierChainBreak: conditions are checked in the order
+// schema of all entries, start, chain (SPEC-v0 section 9.4), also when streaming.
+func TestSchemaViolationWinsOverEarlierChainBreak(t *testing.T) {
+	c := loadCases(t)[0]
+	entries := raw(c.Entries)
+	swapped := append([][]byte{}, entries...)
+	swapped[2], swapped[3] = swapped[3], swapped[2] // chain breaks at index 2 (seq 4)
+	got, _ := audit.Verify(swapped)
+	if got.Valid || got.Index != 2 || got.BrokenAt != 4 {
+		t.Fatalf("swapped = %+v, want broken at index 2, seq 4", got)
+	}
+	withBadEntry := append(append([][]byte{}, swapped...), []byte(`{"seq":10}`))
+	for name, verify := range map[string]func() (audit.Result, error){
+		"Verify": func() (audit.Result, error) { return audit.Verify(withBadEntry) },
+		"VerifyJSONLines": func() (audit.Result, error) {
+			return audit.VerifyJSONLines(bytes.NewReader(bytes.Join(compactAll(t, withBadEntry), []byte("\n"))))
+		},
+	} {
+		got, err := verify()
+		if err != nil || got.Valid || got.Index != 9 || got.BrokenAt != 10 {
+			t.Errorf("%s = %+v, %v; want the schema violation at index 9, seq 10", name, got, err)
+		}
+	}
+}
+
+func compactAll(t *testing.T, entries [][]byte) [][]byte {
+	t.Helper()
+	out := make([][]byte, len(entries))
+	for i, e := range entries {
+		var buf bytes.Buffer
+		if err := json.Compact(&buf, e); err != nil {
+			t.Fatal(err)
+		}
+		out[i] = buf.Bytes()
+	}
+	return out
+}
+
+// TestVerifyJSONLinesDoesNotKeepTheLog checks that verification reads a long log in
+// constant memory: the reader is never asked for more than a few lines at once.
+func TestVerifyJSONLinesDoesNotKeepTheLog(t *testing.T) {
+	const entries = 20000
+	r := &generatedLog{t: t, remaining: entries}
+	got, err := audit.VerifyJSONLines(r)
+	if err != nil || !got.Valid || got.Entries != entries {
+		t.Fatalf("VerifyJSONLines = %+v, %v; want valid with %d entries", got, err, entries)
+	}
+}
+
+// generatedLog produces a valid chain of emergency stop entries on the fly.
+type generatedLog struct {
+	t         *testing.T
+	remaining int
+	seq       int
+	prev      string
+	pending   []byte
+}
+
+func (g *generatedLog) Read(p []byte) (int, error) {
+	if len(g.pending) == 0 {
+		if g.remaining == 0 {
+			return 0, io.EOF
+		}
+		g.remaining--
+		g.seq++
+		prev := "null"
+		if g.prev != "" {
+			prev = `"` + g.prev + `"`
+		}
+		event := "emergency_stop.activated"
+		if g.seq%2 == 0 {
+			event = "emergency_stop.released"
+		}
+		entry := fmt.Sprintf(`{"type":"https://mandate-spec.org/audit/v0","id":"01a0f64c-7140-7001-9007-%012x","seq":%d,`+
+			`"recorded_at":"2026-10-01T09:00:00+02:00","event":%q,"principal":"household:h1",`+
+			`"actor":{"kind":"user","id":"u"},"prev":%s}`, g.seq, g.seq, event, prev)
+		digest, err := audit.Digest([]byte(entry))
+		if err != nil {
+			g.t.Fatal(err)
+		}
+		g.prev, g.pending = digest, []byte(entry+"\n")
+	}
+	n := copy(p, g.pending)
+	g.pending = g.pending[n:]
+	return n, nil
 }
