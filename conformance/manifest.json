@@ -1,0 +1,77 @@
+{
+  "spec": "v0",
+  "files": [
+    {
+      "path": "conformance/audit-v0.json",
+      "sha256": "ebd6c88eb96aaa72e62e768b0a0d93234dc6c3fcb78b63a7b538dc4a7fc5f9ee",
+      "cases": 13
+    },
+    {
+      "path": "conformance/cases-v0.json",
+      "sha256": "8bf27e9e0eae54c276e5b69b1b34a0f6cfaacd384866060f0e554dfbfd80f1a9",
+      "cases": 74
+    },
+    {
+      "path": "conformance/digest-v0.json",
+      "sha256": "a3d2bdda75ca8a74a184c1d2bc53e5ef049b7e0bb342acdfa9349d406cc1002e",
+      "cases": 8
+    },
+    {
+      "path": "conformance/invalid-v0.json",
+      "sha256": "9b71e3e2d493d1f98f64b1f66aaf71d4d2e02c01e01f1e333be31298229888a7",
+      "cases": 36
+    },
+    {
+      "path": "conformance/mandates/critical-order.json",
+      "sha256": "7b0802040e626e1a0c07b20ace64a139fa158ef00badee466f0b4e2dd141fece"
+    },
+    {
+      "path": "conformance/mandates/precedence.json",
+      "sha256": "ea1cd8a4d66286efb6030c0c8cb1c2c8bed6549e210cf3b6a1f728b5687eb6fe"
+    },
+    {
+      "path": "conformance/mandates/time.json",
+      "sha256": "ba0067f5516f8f6c500b24c1b2f3263aac61a4ddea46304fc3d73e88edb7c625"
+    },
+    {
+      "path": "conformance/schema/audit-v0.schema.json",
+      "sha256": "543a2310068ac1eb8dc29317563888ca7ef91dcf7fd966cdbf08aee2304ede5a"
+    },
+    {
+      "path": "conformance/schema/cases-v0.schema.json",
+      "sha256": "56309459ee4cf4d3074f614667983bc9e3886c5a09cb1e4f89bf622c73aa363c"
+    },
+    {
+      "path": "conformance/schema/digest-v0.schema.json",
+      "sha256": "5a2a303db07f52d3e08eb40c1c8c91a90ee5ad7d5dbcc050f794cabaa9ed3ecb"
+    },
+    {
+      "path": "conformance/schema/invalid-v0.schema.json",
+      "sha256": "28088ef997616692d8d1dc4dbaef1baa3ec8f72af4700525d97be05c0c8ca624"
+    },
+    {
+      "path": "conformance/schema/manifest.schema.json",
+      "sha256": "aa83d7376830b2dd92399ea2ce12a5b2650d04182fd531d40cb656e71356ce2d"
+    },
+    {
+      "path": "examples/energy-agent.json",
+      "sha256": "0579b0ad11ea07a2818e081bda60bd1be5208c8a414f93c055f372827e60031f"
+    },
+    {
+      "path": "examples/shopping-agent.json",
+      "sha256": "c589eb3c7bec3f52d4d49a273c93dd9dd7d76eb23dc61f11583b1baa8720084f"
+    },
+    {
+      "path": "examples/voice-assistant.json",
+      "sha256": "ae646fe6de9abb27f3594c02771ae2fefc30baa5b45232d6048bc1b6062b8a8a"
+    },
+    {
+      "path": "schema/audit-v0.schema.json",
+      "sha256": "1b9285f6c3ece2a736d85326abc9c1b9a4027c50631272f95bc2989d34de5dba"
+    },
+    {
+      "path": "schema/mandate-v0.schema.json",
+      "sha256": "09f746941f613ad9014302059f7c602dd0eb138d751eb16208d038a129f3b733"
+    }
+  ]
+}

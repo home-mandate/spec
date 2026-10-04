@@ -19,12 +19,22 @@ Status: Draft v0. Reference implementation: Home-Mandate.
 | `conformance/mandates/` | Test mandates for edge cases | Apache 2.0 |
 | `conformance/digest-v0.json` | Digests of mandates (RFC 8785 + SHA-256) | Apache 2.0 |
 | `conformance/audit-v0.json` | Audit logs with the expected result of the hash chain verification | Apache 2.0 |
+| `conformance/schema/` | JSON Schemas of the conformance files, so that they can be used without the Go code | Apache 2.0 |
+| `conformance/manifest.json` | All machine-readable files with SHA-256 and number of cases; `make manifest` rewrites it | Apache 2.0 |
 | `evaluator/` | Reference evaluator as a Go library (`github.com/mandate-spec/mandate-spec/evaluator`), standard library only plus a JSON Schema validator | Apache 2.0 |
 | `audit/` | Entry digests and hash-chain verification of audit logs (SPEC-v0 section 9), checked against `conformance/audit-v0.json` | Apache 2.0 |
 | `jcs/` | JSON Canonicalization Scheme (RFC 8785) for the digests of mandates and audit entries | Apache 2.0 |
 | `schema/*.go`, `spec.go` | Go packages that embed the schemas (`schema`) and the schemas, examples and conformance cases (root package), respectively | Apache 2.0 |
+| `tools/vectors/` | Helper for maintaining the conformance files: manifest, mandate digests, chaining audit entries | Apache 2.0 |
 | `Makefile` | Checks: `make check` (vet, staticcheck, coverage ≥ 95 %, govulncheck), `make fuzz`, `make mutation` (≥ 90 %) | Apache 2.0 |
 | `cmd/mandate-conformance/` *(planned, v0.2)* | Black-box test tool against arbitrary AuthZEN endpoints | Apache 2.0 |
+
+## Licenses
+
+The specification text (`SPEC-*.md`) is licensed under CC BY 4.0, see `LICENSE-docs`.
+Everything else is licensed under Apache 2.0, see `LICENSE`.
+
+Contributing: `CONTRIBUTING.md`. Reporting vulnerabilities: `SECURITY.md`.
 
 ## Why a separate repository
 

@@ -3,11 +3,15 @@
 package mandatespec_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/fs"
 	"testing"
 
+	"github.com/santhosh-tekuri/jsonschema/v6"
+
 	mandatespec "github.com/mandate-spec/mandate-spec"
+	"github.com/mandate-spec/mandate-spec/internal/manifest"
 )
 
 func TestFSContainsSpecFiles(t *testing.T) {
@@ -67,4 +71,95 @@ func TestFSExcludesNonSpecFiles(t *testing.T) {
 			t.Errorf("%s must not be embedded", p)
 		}
 	}
+}
+
+func TestManifestMatchesEmbeddedFiles(t *testing.T) {
+	data, err := fs.ReadFile(mandatespec.FS(), mandatespec.ManifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := manifest.Decode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	built, err := manifest.Build(mandatespec.FS())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range manifest.Diff(built, stored) {
+		t.Errorf("%s is out of date (%s); run: go run ./tools/vectors manifest", mandatespec.ManifestPath, line)
+	}
+}
+
+func TestConformanceFilesMatchTheirSchemas(t *testing.T) {
+	for file, schemaPath := range map[string]string{
+		mandatespec.CasesPath:        "conformance/schema/cases-v0.schema.json",
+		mandatespec.InvalidCasesPath: "conformance/schema/invalid-v0.schema.json",
+		mandatespec.DigestCasesPath:  "conformance/schema/digest-v0.schema.json",
+		mandatespec.AuditCasesPath:   "conformance/schema/audit-v0.schema.json",
+		mandatespec.ManifestPath:     "conformance/schema/manifest.schema.json",
+	} {
+		t.Run(file, func(t *testing.T) {
+			compiled := compileSchema(t, schemaPath)
+			if err := compiled.Validate(readJSON(t, file)); err != nil {
+				t.Errorf("%s violates %s: %v", file, schemaPath, err)
+			}
+		})
+	}
+}
+
+func TestConformanceSchemasRejectUnknownFields(t *testing.T) {
+	compiled := compileSchema(t, "conformance/schema/cases-v0.schema.json")
+	doc := map[string]any{"description": "d", "cases": []any{map[string]any{
+		"id": "x", "mandate": "examples/a.json", "resource": map[string]any{"entity_id": "a.b", "category": "light"},
+		"action": "read", "time": "2026-10-12T19:00:00+02:00", "expected": "deny", "reason": "no_match", "typo": true,
+	}}}
+	if err := compiled.Validate(doc); err == nil {
+		t.Error("cases schema accepted an unknown field")
+	}
+}
+
+func TestConformanceCaseIDsAreUnique(t *testing.T) {
+	for file, key := range map[string]string{
+		mandatespec.CasesPath: "cases", mandatespec.InvalidCasesPath: "cases",
+		mandatespec.DigestCasesPath: "cases", mandatespec.AuditCasesPath: "logs",
+	} {
+		doc, _ := readJSON(t, file).(map[string]any)
+		cases, _ := doc[key].([]any)
+		seen := map[string]bool{}
+		for _, c := range cases {
+			id, _ := c.(map[string]any)["id"].(string)
+			if id == "" || seen[id] {
+				t.Errorf("%s: missing or duplicate id %q", file, id)
+			}
+			seen[id] = true
+		}
+	}
+}
+
+func readJSON(t *testing.T, path string) any {
+	t.Helper()
+	data, err := fs.ReadFile(mandatespec.FS(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+	return v
+}
+
+func compileSchema(t *testing.T, path string) *jsonschema.Schema {
+	t.Helper()
+	c := jsonschema.NewCompiler()
+	c.AssertFormat()
+	if err := c.AddResource(path, readJSON(t, path)); err != nil {
+		t.Fatal(err)
+	}
+	compiled, err := c.Compile(path)
+	if err != nil {
+		t.Fatalf("compile %s: %v", path, err)
+	}
+	return compiled
 }

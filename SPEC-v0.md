@@ -1,7 +1,10 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+
 # mandate-spec v0 (Draft)
 
 Status: **Working draft**; it will be frozen only after deployment in real households.
-License of this document: CC BY 4.0. Schema, examples, conformance cases and code: Apache 2.0.
+License of this document: CC BY 4.0 (`LICENSE-docs`). Schema, examples, conformance cases and
+code: Apache 2.0 (`LICENSE`).
 Reference implementation: Home-Mandate. Changes are listed in the Changelog at the end.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
@@ -329,6 +332,13 @@ debugging).
 In addition to `cases` or `logs` respectively, every file has a `description`; every case has a
 unique `id` and optionally `why`.
 
+The format of each conformance file is itself described by a JSON Schema in
+`conformance/schema/`, so that the files can be read and checked without the code in this
+repository. `conformance/manifest.json` lists every machine-readable file of the
+specification (schemas, examples, conformance files) with the SHA-256 of its bytes and, for
+conformance files, the number of cases. A test report SHOULD name the manifest it was
+produced with, so that it states exactly which cases were run.
+
 Two ways of testing:
 
 1. **Library:** Implementations in Go can embed the reference evaluator from this
@@ -446,6 +456,9 @@ To follow with v0.2.
 ### Unreleased
 
 New:
+- `conformance/schema/`: JSON Schemas of the conformance files; `conformance/manifest.json`:
+  all machine-readable files with SHA-256 and number of cases (Section 8).
+- `LICENSE` (Apache 2.0), `LICENSE-docs` (CC BY 4.0), `SECURITY.md`, `CONTRIBUTING.md`.
 - Audit log: optional `approval.via`, the channel an answer came through (Section 9.1),
   so that a log shows whether a person confirmed on a phone or in a user interface.
   Conformance cases `a11`–`a13` in `conformance/audit-v0.json`.

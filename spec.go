@@ -18,6 +18,7 @@ const (
 	InvalidCasesPath  = "conformance/invalid-v0.json"
 	DigestCasesPath   = "conformance/digest-v0.json"
 	AuditCasesPath    = "conformance/audit-v0.json"
+	ManifestPath      = "conformance/manifest.json"
 )
 
 //go:embed schema/*.json examples conformance

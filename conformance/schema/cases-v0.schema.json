@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mandate-spec.org/conformance/v0/cases.schema.json",
+  "title": "Evaluation cases v0 (SPEC-v0 section 8)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "cases"
+  ],
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "resource",
+          "action",
+          "time",
+          "expected",
+          "reason"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "mandate"
+            ]
+          },
+          {
+            "required": [
+              "mandate_inline"
+            ]
+          }
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "mandate": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path to a mandate, relative to the repository root."
+          },
+          "mandate_inline": {
+            "type": "object",
+            "description": "The mandate inline."
+          },
+          "resource": {
+            "description": "Resource as the PEP resolved it. Not constrained further: cases also cover invalid requests.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "entity_id": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "area": {
+                "type": "string"
+              }
+            }
+          },
+          "action": {
+            "type": "string"
+          },
+          "time": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "expected": {
+            "enum": [
+              "allow",
+              "ask",
+              "deny"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "rule_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approval_timeout": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
