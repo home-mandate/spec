@@ -15,8 +15,9 @@ func TestSchemasDeclareTheirIDs(t *testing.T) {
 		data func() []byte
 		id   string
 	}{
-		"mandate": {schema.Mandate, schema.MandateID},
-		"audit":   {schema.Audit, schema.AuditID},
+		"mandate":    {schema.Mandate, schema.MandateID},
+		"audit":      {schema.Audit, schema.AuditID},
+		"vocabulary": {schema.Vocabulary, schema.VocabularyID},
 	} {
 		var doc struct {
 			ID string `json:"$id"`
@@ -49,13 +50,13 @@ func TestSchemasAreCopies(t *testing.T) {
 const portableEscapes = `.*+?()[]{}|^$\/-`
 
 func TestPatternsUseOnlyThePortableSubset(t *testing.T) {
-	for name, data := range map[string][]byte{"mandate": schema.Mandate(), "audit": schema.Audit()} {
+	for name, data := range map[string][]byte{"mandate": schema.Mandate(), "audit": schema.Audit(), "vocabulary": schema.Vocabulary()} {
 		var doc any
 		if err := json.Unmarshal(data, &doc); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		patterns := collectPatterns(doc, nil)
-		if len(patterns) < 5 {
+		if len(patterns) < 3 {
 			t.Fatalf("%s: found only %d patterns", name, len(patterns))
 		}
 		for _, p := range patterns {

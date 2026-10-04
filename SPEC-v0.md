@@ -5,7 +5,7 @@
 Status: **Working draft**; it will be frozen only after deployment in real households.
 License of this document: CC BY 4.0 (`LICENSE-docs`). Schema, examples, conformance cases and
 code: Apache 2.0 (`LICENSE`).
-Reference implementation: Home-Mandate. Changes are listed in the Changelog at the end.
+Reference evaluator: the code in this repository. Changes are listed in the Changelog at the end.
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT" and "MAY" in this document are to be
 interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in
@@ -22,7 +22,7 @@ specification builds on existing standards and defines only what is missing:
 | Decision interface | OpenID AuthZEN Authorization API 1.0 |
 | Transport of the mandate in the OAuth flow | Rich Authorization Requests (RFC 9396), `authorization_details` |
 | Agent identity | OAuth 2.1 client ID (for MCP: Client ID Metadata Document) |
-| Device vocabulary | own categories with an informative mapping to Matter device types |
+| Device vocabulary | own categories (`vocabulary/v0.json`); informative mappings to platforms in `profiles/` |
 
 Newly defined are: the mandate data model, the third decision `ask`, conditions,
 protection classes and the evaluation rule.
@@ -31,7 +31,10 @@ protection classes and the evaluation rule.
 
 - **Principal:** the household or person on whose behalf the agent acts.
 - **Agent:** software that requests actions, identified by its OAuth client ID.
-- **Resource:** a single device or entity.
+- **Resource:** a single device or entity, named by an identifier from the resource
+  directory of the implementation.
+- **Resource directory:** what the implementation knows about the resources of the
+  household: for each identifier its category and, optionally, its area.
 - **Action:** what is to be done with the resource, taken from the vocabulary of its category.
 - **Decision:** `allow` (execute immediately), `ask` (a human must confirm), `deny` (reject).
 
@@ -61,6 +64,7 @@ Mandate
 ├── rules[]       rule
 │   ├── id
 │   ├── resource  selector: entity_id | category | area (at least one) or any: true alone
+│   │             entity_id and area are opaque identifiers, see Section 3.4
 │   ├── actions[] actions from the vocabulary or "*"
 │   ├── decision  allow | ask | deny
 │   ├── conditions? { time_window, weekdays }
@@ -86,10 +90,16 @@ A mandate is valid if it conforms to the schema **and** additionally:
    standalone `\ud800`), no JSON object with a duplicate key, exactly one JSON value;
 2. all rule `id`s within the mandate are distinct;
 3. for every `time_window`, start and end are distinct;
-4. every rule whose `resource` names a category from Section 5 contains only actions from that
-   category's vocabulary or `"*"` (e.g. `unlock` with `category: light` is invalid).
-   If the rule names an extension category whose vocabulary the implementation does not
-   know, this check is skipped; such rules never match during evaluation (Section 4);
+4. every action of a rule is `"*"` or belongs to the vocabulary:
+   - if the rule's `resource` names a category from Section 5, to that category's
+     vocabulary (e.g. `unlock` with `category: light` is invalid);
+   - if it names no category, to the vocabulary of at least one category from Section 5.
+     A misspelled action (`unlokc`) therefore never yields a valid rule that silently
+     matches nothing. Actions of an extension can only be used together with the
+     extension category;
+   - if it names an extension category, the actions are not checked: whether a mandate
+     is valid MUST NOT depend on which extensions an implementation knows. Rules for an
+     extension that the implementation does not know never match (Section 4);
 5. it is at most 262 144 bytes (256 KiB) in size;
 6. `expires`, if present, is later than `valid_from`;
 7. every `approval.timeout` is between 10 seconds and 1 hour (both inclusive). A timeout
@@ -164,6 +174,30 @@ character, without normalization: two identifiers that differ in any character i
 different agents. How an implementation authenticates the agent behind an identifier is
 outside this specification.
 
+### 3.4 Resource and area identifiers
+
+`entity_id` and `area` are **opaque identifiers**: 1 to 255 (`entity_id`) or 1 to 64 (`area`)
+printable ASCII characters without space (U+0021 to U+007E). The specification gives them no
+structure. Whatever names a platform uses can be used directly, for example
+`light.living_room`, `Kitchen_Light`, `1/2/3`, `0x00000000000004D2/1`, a UUID or a URN; a
+platform whose names contain other characters maps them, for example by percent-encoding.
+
+Identifiers are compared exactly per character, without normalization and case-sensitive:
+`Kitchen_Light` and `kitchen_light` are different resources.
+
+Implementations SHOULD use identifiers that do not change when a human renames a device.
+If the identifier of a resource changes, rules that name the old identifier no longer
+match: an `allow` rule stops allowing, but a `deny` or `ask` rule stops restricting, and a
+broader `allow` rule may then apply. The same holds when the area of a resource changes
+or is removed. Implementations MUST therefore tell the household which mandates are
+affected when an identifier or an area that a rule names changes or disappears, and
+SHOULD express restrictions by category or by identifier, not by area alone.
+
+`area` is the single grouping this version knows; what a platform calls room, zone,
+floor or group can be mapped to it. `approvers` and `created_by` are identifiers from
+the user management of the implementation and have no meaning outside it; a mandate
+that moves to another implementation needs them replaced.
+
 ## 4. Evaluation rule
 
 Input: mandate, resource (entity ID, category, area), action, point in time,
@@ -172,14 +206,21 @@ household time zone, status of the mandate (`active` or `revoked`).
 **Origin of inputs:** The PEP determines the category and area from its own resource
 directory, the point in time from its own clock, the time zone from the household
 configuration and the status from its own mandate management. It takes none of these
-from the agent; only the requested entity ID and action originate from the agent.
+from the agent; only the requested resource and action originate from the agent.
+
+The PEP MUST resolve the resource the agent names to the identifier under which its
+directory knows it, and pass that identifier to the evaluation. Because identifiers are
+compared exactly (Section 3.4), passing the agent's spelling unchanged would let a
+different spelling of the same device slip past a rule. A resource the directory does not
+contain has no category; the result is `deny` with `unknown_resource`.
 
 0. Pre-check, each case → `deny`:
    - the mandate is invalid (Section 3.1);
    - the request is invalid: the entity ID is missing or does not match the pattern of
      `entity_id` in the schema, a given area does not match the pattern of `area`,
-     the category is missing, the point in time or the time zone is invalid or unknown, or the
+     the point in time or the time zone is invalid or unknown, or the
      status is neither `active` nor `revoked`;
+   - the category is missing: the resource is not in the directory of the PEP;
    - the category is neither listed in Section 5 nor an extension whose vocabulary
      the implementation knows;
    - the action does not belong to the vocabulary of the resource's category.
@@ -217,6 +258,7 @@ In addition to the decision, the evaluation returns:
   |---|---|---|
   | `invalid_mandate` | deny | mandate invalid (Section 3.1) |
   | `invalid_request` | deny | request invalid (step 0, second item) |
+  | `unknown_resource` | deny | resource not in the directory of the PEP (no category) |
   | `unknown_category` | deny | category neither in Section 5 nor a known extension |
   | `unknown_action` | deny | action not in the category's vocabulary |
   | `revoked` | deny | mandate revoked |
@@ -264,32 +306,41 @@ time**: the point in time is converted to the household's time zone.
 
 ## 5. Vocabulary v0
 
-The columns Category, Actions and Critical are normative. The columns for Home Assistant
-and Matter are informative: they show how a platform can map its devices.
+Machine-readable and normative: `vocabulary/v0.json` (format:
+`schema/vocabulary-v0.schema.json`). The table shows its content.
 
-| Category | Actions | Critical | Home Assistant (informative, reference implementation) | Matter (informative, to be verified) |
-|---|---|---|---|---|
-| `light` | read, turn_on, turn_off, set | – | `light.*` | OnOffLight, DimmableLight |
-| `switch` | read, turn_on, turn_off | – | `switch.*` | OnOffPlugInUnit |
-| `climate` | read, set_temperature, set_mode | – | `climate.*` | Thermostat |
-| `cover` | read, open, close, stop, set_position | – | `cover.*` (excluding gate/garage) | WindowCovering |
-| `gate` | read, open, close | open | `cover.*` with device_class `garage` or `gate` | – |
-| `lock` | read, lock, unlock, open | unlock, open | `lock.*` | DoorLock |
-| `alarm` | read, arm, disarm | disarm | `alarm_control_panel.*` | – |
-| `camera` | read, snapshot | snapshot | `camera.*` | Camera |
-| `media` | read, turn_on, turn_off, play, pause, set_volume | – | `media_player.*` | – |
-| `sensor` | read | – | `sensor.*`, `binary_sensor.*` | – |
-| `scene` | read, activate | – | `scene.*` | – |
-| `script` | read, run | run | `script.*` | – |
-| `other` | read, set | set | all other domains | – |
+| Category | Actions | Critical |
+|---|---|---|
+| `light` | read, turn_on, turn_off, set | – |
+| `switch` | read, turn_on, turn_off | – |
+| `climate` | read, set_temperature, set_mode | – |
+| `cover` | read, open, close, stop, set_position | – |
+| `gate` | read, open, close | open |
+| `lock` | read, lock, unlock, open | unlock, open |
+| `alarm` | read, arm, disarm | disarm |
+| `camera` | read, snapshot | snapshot |
+| `media` | read, turn_on, turn_off, play, pause, set_volume | – |
+| `sensor` | read | – |
+| `scene` | read, activate | – |
+| `script` | read, run | run |
+| `other` | read, set | set |
 
 `script.run` and `other.set` are critical because scripts and unknown entities can have
 arbitrary consequences, including opening doors.
 
-Extensions for other platforms receive their own namespaces, e.g.
+How an implementation assigns its resources to categories is its own matter and part of
+its resource directory. A resource that fits no other category belongs to `other`.
+`profiles/` contains informative mappings for individual platforms; they are not part of
+the specification, and a platform without a profile is not at a disadvantage.
+
+### 5.1 Extensions
+
+Extensions for other kinds of resources receive their own namespaces, e.g.
 `paperless:document` with `read`, `tag`, `delete`. An extension defines its vocabulary and
-its critical actions. If an implementation does not know the vocabulary of an extension,
-every request for a resource of that category is `deny`.
+its critical actions in a file of the same format as `vocabulary/v0.json`, with its own
+`id` and `version`; a vocabulary never changes under the same `id` and `version`. If an
+implementation does not know the vocabulary of an extension, every request for a resource
+of that category is `deny`. A registry of extensions does not exist yet.
 
 ## 6. AuthZEN mapping
 
@@ -362,7 +413,7 @@ Fields of a case:
 |---|---|---|
 | `id` | yes | unique identifier |
 | `mandate` / `mandate_inline` | one of them | path to the mandate, or the mandate inline in the case |
-| `resource` | yes | `entity_id`, `category`, `area` of the resource |
+| `resource` | yes | `entity_id`, `category`, `area` of the resource as the PEP resolved it; without `category` the directory does not contain it |
 | `action` | yes | requested action |
 | `time` | yes | point in time per RFC 3339 |
 | `timezone` | no | household time zone (IANA); if absent, the offset in `time` applies |
@@ -528,6 +579,14 @@ denies every request. Implementations SHOULD check their stored mandates before 
   Identifiers of the form `<namespace>:<id>` remain valid.
 - Timestamps: at most 9 fractional digits; the year `0000` and the offset `-00:00` are
   invalid (Section 3.1 item 0).
+- `entity_id` and `area` are opaque identifiers (new Section 3.4): printable ASCII without
+  space, up to 255 and 64 characters, compared exactly. Every identifier that was valid
+  before remains valid. The evaluation no longer rejects a request because of the form of
+  an identifier; the PEP MUST resolve the requested resource in its directory (Section 4).
+- A resource without category is `deny` with the new reason code `unknown_resource`
+  instead of `invalid_request` (Section 4.1).
+- A rule without category may only use actions that some category of the vocabulary has
+  (Section 3.1 item 4); before, such actions were not checked.
 - Displayed text (Section 3.1 item 8): fixed code point list
   `data/forbidden-codepoints-v0.json` instead of the Unicode categories of the runtime;
   additionally forbidden are private-use and invisible (default ignorable) characters and
@@ -548,6 +607,12 @@ Clarified, each with new conformance cases:
   empty lines (Section 9.4). `conformance/audit-v0.json` has the new field `jsonl` for it.
 
 New:
+- `vocabulary/v0.json`: the vocabulary of Section 5 as a normative file, with
+  `schema/vocabulary-v0.schema.json`; the same format for extensions (Section 5.1).
+- `profiles/`: informative mappings of platforms to the vocabulary. The Home Assistant and
+  Matter columns left the table in Section 5.
+- Conformance cases with identifiers in the style of several platforms
+  (`conformance/mandates/identifiers.json`).
 - Reference code: `displaytext.Check`, `evaluator.Approval.Duration`.
 - `conformance/schema/`: JSON Schemas of the conformance files; `conformance/manifest.json`:
   all machine-readable files with SHA-256 and number of cases (Section 8).

@@ -6,17 +6,30 @@
 package evaluator
 
 import (
-	"regexp"
 	"slices"
 	"time"
 )
 
-// Patterns for entity_id and area from schema/mandate-v0.schema.json; they apply to the
-// request as well (SPEC-v0 section 4, step 0). In Go regexps, $ matches only the end of text.
-var (
-	entityIDPattern = regexp.MustCompile(`^[a-z0-9_]+\.[a-z0-9_]+$`)
-	areaPattern     = regexp.MustCompile(`^[a-z0-9_]{1,64}$`)
+// Length limits for entity_id and area from schema/mandate-v0.schema.json; they apply
+// to the request as well (SPEC-v0 section 4, step 0).
+const (
+	maxEntityIDLength = 255
+	maxAreaLength     = 64
 )
+
+// opaque reports whether s is an opaque identifier: 1 to limit printable ASCII
+// characters without space (0x21 to 0x7E). Identifiers are compared byte by byte.
+func opaque(s string, limit int) bool {
+	if s == "" || len(s) > limit {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x21 || s[i] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
 
 // Decision is the decision of the evaluation.
 type Decision string
@@ -35,6 +48,7 @@ type Reason string
 const (
 	ReasonInvalidMandate   Reason = "invalid_mandate"
 	ReasonInvalidRequest   Reason = "invalid_request"
+	ReasonUnknownResource  Reason = "unknown_resource"
 	ReasonUnknownCategory  Reason = "unknown_category"
 	ReasonUnknownAction    Reason = "unknown_action"
 	ReasonRevoked          Reason = "revoked"
@@ -45,7 +59,8 @@ const (
 	ReasonRule             Reason = "rule"
 )
 
-// Resource is the requested resource with category and area already resolved.
+// Resource is the requested resource with category and area already resolved. An empty
+// Category means the PEP's directory does not contain the resource.
 type Resource struct {
 	EntityID string
 	Category string
@@ -116,6 +131,9 @@ func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason R
 	if !ok || !validRequest(req) {
 		return time.Time{}, false, ReasonInvalidRequest
 	}
+	if req.Resource.Category == "" {
+		return time.Time{}, false, ReasonUnknownResource
+	}
 	categoryKnown, actionKnown, critical := lookupAction(req.Resource.Category, req.Action)
 	switch {
 	case !categoryKnown:
@@ -132,13 +150,13 @@ func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason R
 	return local, critical, ""
 }
 
-// validRequest checks the request fields named in step 0. Without this check,
-// "Lock.keller", for example, would bypass a deny rule for "lock.keller".
+// validRequest checks the request fields named in step 0. Identifiers are opaque: the
+// PEP resolves what the agent asked for to the identifier in its directory, because
+// "Lock.keller" and "lock.keller" are different resources here.
 func validRequest(req Request) bool {
 	res := req.Resource
-	return res.Category != "" &&
-		entityIDPattern.MatchString(res.EntityID) &&
-		(res.Area == "" || areaPattern.MatchString(res.Area)) &&
+	return opaque(res.EntityID, maxEntityIDLength) &&
+		(res.Area == "" || opaque(res.Area, maxAreaLength)) &&
 		(req.Status == StatusActive || req.Status == StatusRevoked)
 }
 

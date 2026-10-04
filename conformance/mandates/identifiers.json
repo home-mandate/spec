@@ -1,0 +1,23 @@
+{
+  "type": "https://mandate-spec.org/mandate/v0",
+  "id": "m-conf-identifiers",
+  "principal": "household:conf",
+  "agent": { "client_id": "urn:example:agent:conf-identifiers", "display_name": "Conformance identifiers" },
+  "rules": [
+    { "id": "r-knx", "resource": { "entity_id": "1/2/3" }, "actions": ["turn_on", "turn_off"], "decision": "allow" },
+    { "id": "r-item", "resource": { "entity_id": "Kitchen_Light" }, "actions": ["turn_on"], "decision": "allow" },
+    { "id": "r-uuid", "resource": { "entity_id": "0198f1c2-7c3a-7000-8000-00000000a001" }, "actions": ["read"], "decision": "allow" },
+    { "id": "r-matter", "resource": { "entity_id": "0x00000000000004D2/1" }, "actions": ["lock"], "decision": "allow" },
+    { "id": "r-urn", "resource": { "entity_id": "urn:dev:mac:0024befffe804ff1" }, "actions": ["read"], "decision": "allow" },
+    { "id": "r-dotted", "resource": { "entity_id": "hm-rpc.0.ABC123.1.STATE" }, "actions": ["read"], "decision": "allow" },
+    { "id": "r-floor", "resource": { "category": "light", "area": "Floor-1/Room.2" }, "actions": ["turn_on"], "decision": "allow" },
+    { "id": "r-cellar-deny", "resource": { "entity_id": "Cellar_Door" }, "actions": ["*"], "decision": "deny" },
+    { "id": "r-locks", "resource": { "category": "lock" }, "actions": ["lock", "read"], "decision": "allow" }
+  ],
+  "default": "deny",
+  "approval": { "timeout": "PT1M", "approvers": ["approver-1"] },
+  "limits": { "max_actions_per_hour": 60 },
+  "valid_from": "2026-01-01T00:00:00+01:00",
+  "created_by": "approver-1",
+  "created_at": "2025-12-31T12:00:00+01:00"
+}

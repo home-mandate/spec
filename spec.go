@@ -21,7 +21,7 @@ const (
 	ManifestPath      = "conformance/manifest.json"
 )
 
-//go:embed schema/*.json examples conformance data/*.json
+//go:embed schema/*.json examples conformance data/*.json vocabulary/*.json
 var files embed.FS
 
 // FS returns the embedded files, read-only. Paths are relative to the repository

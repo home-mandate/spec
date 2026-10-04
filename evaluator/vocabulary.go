@@ -2,33 +2,58 @@
 
 package evaluator
 
-// vocabularyV0 is the vocabulary from SPEC-v0 section 5: category → action → critical.
-// It is read-only.
-var vocabularyV0 = map[string]map[string]bool{
-	"light":   {"read": false, "turn_on": false, "turn_off": false, "set": false},
-	"switch":  {"read": false, "turn_on": false, "turn_off": false},
-	"climate": {"read": false, "set_temperature": false, "set_mode": false},
-	"cover":   {"read": false, "open": false, "close": false, "stop": false, "set_position": false},
-	"gate":    {"read": false, "open": true, "close": false},
-	"lock":    {"read": false, "lock": false, "unlock": true, "open": true},
-	"alarm":   {"read": false, "arm": false, "disarm": true},
-	"camera":  {"read": false, "snapshot": true},
-	"media":   {"read": false, "turn_on": false, "turn_off": false, "play": false, "pause": false, "set_volume": false},
-	"sensor":  {"read": false},
-	"scene":   {"read": false, "activate": false},
-	"script":  {"read": false, "run": true},
-	"other":   {"read": false, "set": true},
-}
+import (
+	"encoding/json"
+	"sync"
+
+	"github.com/mandate-spec/mandate-spec/vocabulary"
+)
+
+// vocabularyV0 reads the vocabulary from SPEC-v0 section 5 out of the normative file:
+// category → action → critical. It is read-only. The file is embedded and covered by
+// the tests; a file that cannot be read yields an empty vocabulary, so that every
+// request is denied.
+var vocabularyV0 = sync.OnceValue(func() map[string]map[string]bool {
+	var doc struct {
+		Categories map[string]struct {
+			Actions map[string]struct {
+				Critical bool `json:"critical"`
+			} `json:"actions"`
+		} `json:"categories"`
+	}
+	if err := json.Unmarshal(vocabulary.V0(), &doc); err != nil {
+		return nil
+	}
+	out := make(map[string]map[string]bool, len(doc.Categories))
+	for category, c := range doc.Categories {
+		actions := make(map[string]bool, len(c.Actions))
+		for action, a := range c.Actions {
+			actions[action] = a.Critical
+		}
+		out[category] = actions
+	}
+	return out
+})
 
 // lookupAction reports whether the category is known, whether the action belongs to it
 // and whether the action is critical.
 func lookupAction(category, action string) (categoryKnown, actionKnown, critical bool) {
-	actions, ok := vocabularyV0[category]
+	actions, ok := vocabularyV0()[category]
 	if !ok {
 		return false, false, false
 	}
 	critical, actionKnown = actions[action]
 	return true, actionKnown, critical
+}
+
+// knownAction reports whether any category of the vocabulary has the action.
+func knownAction(action string) bool {
+	for _, actions := range vocabularyV0() {
+		if _, ok := actions[action]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // IsCritical reports whether action is a critical action of category in vocabulary v0

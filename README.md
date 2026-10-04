@@ -4,13 +4,17 @@ Vendor-neutral specification for **mandates of software agents in the household*
 AI agent may do on behalf of a household, with the decisions allow, ask and
 deny, plus test tools with which any implementation demonstrates its conformance.
 
-Status: Draft v0. Reference implementation: Home-Mandate.
+Status: Draft v0. The reference evaluator is the Go code in this repository; the first
+product that implements the specification is Home-Mandate.
 
 ## Contents
 
 | Path | Contents | License |
 |---|---|---|
 | `SPEC-v0.md` | Specification: data model, evaluation rule, vocabulary, AuthZEN mapping | CC BY 4.0 |
+| `vocabulary/v0.json` | Vocabulary: categories, actions, critical actions (normative) | Apache 2.0 |
+| `schema/vocabulary-v0.schema.json` | JSON Schema of a vocabulary file, also for extensions | Apache 2.0 |
+| `profiles/` | Informative mappings of platforms (Home Assistant, Matter) to the vocabulary | Apache 2.0 |
 | `schema/mandate-v0.schema.json` | JSON Schema of the mandate (Draft 2020-12) | Apache 2.0 |
 | `schema/audit-v0.schema.json` | JSON Schema of an audit log entry (Draft 2020-12) | Apache 2.0 |
 | `data/forbidden-codepoints-v0.json` | Code points not permitted in text displayed to humans (SPEC-v0 section 3.1 item 8), derived from Unicode 17.0.0 | Apache 2.0 |

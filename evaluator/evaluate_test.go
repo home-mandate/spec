@@ -57,12 +57,18 @@ func TestEvaluateInvalidRequest(t *testing.T) {
 	unknownZone := request("light", "flur", "turn_on")
 	unknownZone.TimeZone = "Mars/Olympus_Mons"
 	for name, req := range map[string]evaluator.Request{
-		"missing category": missingCategory, "zero time": zeroTime, "unknown zone": unknownZone,
+		"zero time": zeroTime, "unknown zone": unknownZone,
 	} {
 		t.Run(name, func(t *testing.T) {
 			assertDecision(t, evaluator.Evaluate(m, req), evaluator.Deny, evaluator.ReasonInvalidRequest, "")
 		})
 	}
+	// A resource the PEP did not find in its directory has no category.
+	assertDecision(t, evaluator.Evaluate(m, missingCategory), evaluator.Deny, evaluator.ReasonUnknownResource, "")
+	missingCategory.TimeZone = "Mars/Olympus_Mons"
+	assertDecision(t, evaluator.Evaluate(m, missingCategory), evaluator.Deny, evaluator.ReasonInvalidRequest, "")
+	missingCategory.TimeZone, missingCategory.Status = "", evaluator.StatusRevoked
+	assertDecision(t, evaluator.Evaluate(m, missingCategory), evaluator.Deny, evaluator.ReasonUnknownResource, "")
 }
 
 func TestEvaluateUnknownCategoryAndAction(t *testing.T) {
@@ -280,23 +286,51 @@ func TestEvaluateRejectsMalformedRequestFields(t *testing.T) {
 	assertDecision(t, evaluator.Evaluate(m, req("lock.keller", "flur")), evaluator.Deny, evaluator.ReasonRule, "r-cellar")
 	assertDecision(t, evaluator.Evaluate(m, req("lock.haustuer", "")), evaluator.Allow, evaluator.ReasonRule, "r-locks")
 	for name, r := range map[string]evaluator.Request{
-		"upper case entity":  req("Lock.keller", "flur"),
-		"trailing space":     req("lock.keller ", "flur"),
-		"leading space":      req(" lock.keller", "flur"),
-		"empty entity":       req("", "flur"),
-		"nul byte":           req("lock.keller\x00", "flur"),
-		"newline":            req("lock.keller\n", "flur"),
-		"missing domain":     req("keller", "flur"),
-		"two dots":           req("lock.keller.x", "flur"),
-		"non-ascii":          req("lock.k"+string(rune(0xe4))+"ller", "flur"),
-		"upper case area":    req("lock.haustuer", "Kueche"),
-		"area with space":    req("lock.haustuer", "kueche "),
-		"area with hyphen":   req("lock.haustuer", "kue-che"),
-		"area too long":      req("lock.haustuer", strings.Repeat("a", 65)),
-		"wildcard as entity": req("*", "flur"),
+		"trailing space":   req("lock.keller ", "flur"),
+		"leading space":    req(" lock.keller", "flur"),
+		"inner space":      req("lock keller", "flur"),
+		"empty entity":     req("", "flur"),
+		"nul byte":         req("lock.keller\x00", "flur"),
+		"newline":          req("lock.keller\n", "flur"),
+		"delete character": req("lock.keller\x7f", "flur"),
+		"non-ascii":        req("lock.k"+string(rune(0xe4))+"ller", "flur"),
+		"entity too long":  req(strings.Repeat("a", 256), "flur"),
+		"area with space":  req("lock.haustuer", "kueche "),
+		"area with tab":    req("lock.haustuer", "kue\tche"),
+		"area non-ascii":   req("lock.haustuer", "k"+string(rune(0xfc))+"che"),
+		"area too long":    req("lock.haustuer", strings.Repeat("a", 65)),
 	} {
 		t.Run(name, func(t *testing.T) {
 			assertDecision(t, evaluator.Evaluate(m, r), evaluator.Deny, evaluator.ReasonInvalidRequest, "")
+		})
+	}
+}
+
+func TestEvaluateComparesIdentifiersExactly(t *testing.T) {
+	// Identifiers are opaque. A different spelling is a different resource, so the PEP
+	// must pass the identifier from its directory, not the text the agent sent.
+	m := mandateWithRules(t, `[
+		{"id":"r-cellar","resource":{"entity_id":"lock.keller"},"actions":["*"],"decision":"deny"},
+		{"id":"r-kitchen","resource":{"area":"kueche"},"actions":["*"],"decision":"deny"},
+		{"id":"r-locks","resource":{"category":"lock"},"actions":["*"],"decision":"allow","allow_critical":true}]`)
+	req := func(entity, area string) evaluator.Request {
+		r := request("lock", area, "unlock")
+		r.Resource.EntityID = entity
+		return r
+	}
+	assertDecision(t, evaluator.Evaluate(m, req("lock.keller", "flur")), evaluator.Deny, evaluator.ReasonRule, "r-cellar")
+	assertDecision(t, evaluator.Evaluate(m, req("lock.haustuer", "kueche")), evaluator.Deny, evaluator.ReasonRule, "r-kitchen")
+	for name, r := range map[string]evaluator.Request{
+		"upper case entity":  req("Lock.keller", "flur"),
+		"entity with suffix": req("lock.keller.x", "flur"),
+		"upper case area":    req("lock.haustuer", "Kueche"),
+		"area with hyphen":   req("lock.haustuer", "kue-che"),
+		"longest entity":     req(strings.Repeat("a", 255), "flur"),
+		"longest area":       req("lock.haustuer", strings.Repeat("a", 64)),
+		"single character":   req("*", "!"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			assertDecision(t, evaluator.Evaluate(m, r), evaluator.Allow, evaluator.ReasonRule, "r-locks")
 		})
 	}
 }

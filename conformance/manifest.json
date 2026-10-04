@@ -8,22 +8,26 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "7701bf79362296eff586f820316ac50a8d11601cf7779c9a0a85468207f58630",
-      "cases": 77
+      "sha256": "b038187b68932c635ca79ce314fdc607839fd3067cd8fe6c6dfa3ddc45dcedb6",
+      "cases": 95
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "6eccdfbc3d5785ef8044c135c91fd95b5e02a9cc85f56b2fd09ec87c123de230",
-      "cases": 24
+      "sha256": "c32f18d8ab47943e0dbf5735587d010f925a5d9a54d68825ee358dfed21bf203",
+      "cases": 26
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "5f46e243fad04241515752a5f2ab89eb884240ce96c27c56c4443f6c4e1bf551",
-      "cases": 84
+      "sha256": "12153671849dd306d74cb1f85b45cd860e0154879507ebad7019cbfc719383ac",
+      "cases": 92
     },
     {
       "path": "conformance/mandates/critical-order.json",
       "sha256": "7b0802040e626e1a0c07b20ace64a139fa158ef00badee466f0b4e2dd141fece"
+    },
+    {
+      "path": "conformance/mandates/identifiers.json",
+      "sha256": "632487e544fed85011f1837fd095f2ad25724b4221bebcc2fef3ab9f70b54476"
     },
     {
       "path": "conformance/mandates/precedence.json",
@@ -71,11 +75,19 @@
     },
     {
       "path": "schema/audit-v0.schema.json",
-      "sha256": "aba7cfa6e11984a11ba5b5fcf78ecf7e09d41a61959a027ad0fc84c9fc17b2ed"
+      "sha256": "ee8fd1950140c646f058e32d8263f20c038b8a012700714086003909858d0fc4"
     },
     {
       "path": "schema/mandate-v0.schema.json",
-      "sha256": "01c569d3e24e8c4902146249cb7abafcfb05bde2b2d464b96644ba32af836589"
+      "sha256": "d4d943436b264455934d1257f21fb60796c7edb8a7265819c85b98de3337adb7"
+    },
+    {
+      "path": "schema/vocabulary-v0.schema.json",
+      "sha256": "79da78d4b6009b5d8037a4108c01f4e08f24f5571e8830addf91c6404ff8de5a"
+    },
+    {
+      "path": "vocabulary/v0.json",
+      "sha256": "007196d6b213236a2ba85ecc2174ac7a48be38417421864fd4d50d3c5cbdf2c0"
     }
   ]
 }

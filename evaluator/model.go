@@ -224,18 +224,26 @@ func (r *rule) setConditions(rr rawRule) error {
 	return nil
 }
 
-// checkRuleVocabulary implements SPEC-v0 section 3.1 item 4.
+// checkRuleVocabulary implements SPEC-v0 section 3.1 item 4. A rule that names a
+// category of the vocabulary may use that category's actions; a rule without a category
+// may use any action of the vocabulary. This keeps a misspelled action from silently
+// disabling a rule. Rules for an extension category are not checked.
 func checkRuleVocabulary(rr rawRule) error {
 	category := rr.Resource.Category
-	if _, known := vocabularyV0[category]; !known {
-		return nil // no category or unknown extension: no check
+	_, categoryKnown := vocabularyV0()[category]
+	if category != "" && !categoryKnown {
+		return nil // extension: its vocabulary is not known here
 	}
 	for _, action := range rr.Actions {
 		if action == "*" {
 			continue
 		}
-		if _, actionKnown, _ := lookupAction(category, action); !actionKnown {
-			return fmt.Errorf("%w: rule %q: action %q not in vocabulary of %q", ErrSemantic, rr.ID, action, category)
+		known := knownAction(action)
+		if categoryKnown {
+			_, known, _ = lookupAction(category, action)
+		}
+		if !known {
+			return fmt.Errorf("%w: rule %q: action %q not in the vocabulary", ErrSemantic, rr.ID, action)
 		}
 	}
 	return nil

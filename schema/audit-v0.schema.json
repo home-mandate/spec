@@ -181,7 +181,7 @@
     "reason": {
       "description": "Reason code of the evaluation, SPEC-v0 section 4.1.",
       "enum": ["rule", "critical_demotion", "no_match", "revoked", "not_yet_valid", "expired",
-               "invalid_mandate", "invalid_request", "unknown_category", "unknown_action"]
+               "invalid_mandate", "invalid_request", "unknown_resource", "unknown_category", "unknown_action"]
     }
   }
 }

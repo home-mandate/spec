@@ -71,9 +71,9 @@
       "additionalProperties": false,
       "minProperties": 1,
       "properties": {
-        "entity_id": { "type": "string", "pattern": "^[a-z0-9_]+\\.[a-z0-9_]+$" },
+        "entity_id": { "description": "Identifier of the resource in the directory of the implementation. Opaque: printable ASCII without space, compared exactly per character.", "type": "string", "pattern": "^[!-~]{1,255}$" },
         "category": { "$ref": "#/$defs/category" },
-        "area": { "type": "string", "pattern": "^[a-z0-9_]{1,64}$" },
+        "area": { "description": "Identifier of the area or group the resource belongs to. Opaque, compared exactly per character.", "type": "string", "pattern": "^[!-~]{1,64}$" },
         "any": { "const": true, "description": "Matches every resource. Only allowed on its own." }
       },
       "if": { "required": ["any"] },
@@ -116,7 +116,7 @@
         "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
         "resource": { "$ref": "#/$defs/resource" },
         "actions": {
-          "description": "Actions from the category's vocabulary or \"*\". The implementation checks whether an action fits the category.",
+          "description": "Actions from the vocabulary or \"*\". The implementation checks whether an action fits the category (SPEC-v0 section 3.1 item 4).",
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
