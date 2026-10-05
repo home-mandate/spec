@@ -28,6 +28,10 @@ are judged by that goal first.
 - After changing a schema, an example or a conformance file run `make manifest`.
 - `make check` must pass: vet, staticcheck, tests with the race detector, coverage of at
   least 95 %, govulncheck. Before a release `make fuzz` and `make mutation` must pass too.
+- When what runs in CI: a push to a branch runs `make check`; a pull request against main
+  additionally runs short fuzzing; nothing runs after the merge, and every merge is tagged.
+  Independent of changes, govulncheck runs every night and every fuzz target runs for 45
+  minutes on the 1st and 15th of every month; a failure opens an issue.
 - The reference evaluator uses the Go standard library and a JSON Schema validator, nothing
   else.
 - Incompatible changes are permitted until v1.0 and are listed in the Changelog of the
