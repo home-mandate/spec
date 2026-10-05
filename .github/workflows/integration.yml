@@ -1,11 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 name: Integration
 
-# Short fuzzing of every target for every push into a pull request against main, for
-# pushes to main and manual runs. Never on a plain branch push (see ci.yml).
+# Short fuzzing of every target for every push into a pull request against main and manual
+# runs. Never on a plain branch push and never after the merge (see ci.yml).
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]

@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Scheduled
+
+# Checks that do not depend on a change: vulnerabilities in dependencies become known
+# without a commit (every night), and long fuzzing finds what the short runs in pull
+# requests do not (on the 1st and 15th of every month). A failure opens an issue, or
+# comments on the open one; main itself is never changed by these runs.
+on:
+  schedule:
+    - cron: "11 2 * * *" # security, every night
+    - cron: "23 3 1,15 * *" # fuzzing, twice a month
+  workflow_dispatch:
+    inputs:
+      what:
+        description: "security or fuzz"
+        required: true
+        default: security
+        type: choice
+        options: [security, fuzz]
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: Security (govulncheck)
+    if: github.event.schedule == '11 2 * * *' || inputs.what == 'security'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: make vulncheck
+
+  fuzz:
+    name: Fuzz (long)
+    if: github.event.schedule == '23 3 1,15 * *' || inputs.what == 'fuzz'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: make fuzz FUZZTIME=45m
+      # A failing input is written to testdata/fuzz; keep it to reproduce the failure.
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-failures
+          path: "**/testdata/fuzz/**"
+          if-no-files-found: ignore
+
+  report:
+    name: Report a failure
+    needs: [security, fuzz]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: "Scheduled check failed: ${{ github.event.schedule == '11 2 * * *' && 'security' || 'fuzzing' }}"
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          number="$(gh issue list --state open --limit 100 --json number,title --jq '.[] | select(.title == env.TITLE) | .number' | head -n 1)"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "Failed again: $RUN"
+          else
+            gh issue create --title "$TITLE" --body "The scheduled run failed: $RUN"
+          fi
