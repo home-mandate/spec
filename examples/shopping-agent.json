@@ -2,10 +2,10 @@
   "type": "https://mandate-spec.org/mandate/v0",
   "id": "m-shopping-agent",
   "principal": "person:p-7c1e",
-  "agent": { "client_id": "hm-client:shop-19b0f3d2", "display_name": "Einkaufs-Agent" },
+  "agent": { "client_id": "hm-client:shop-19b0f3d2", "display_name": "Shopping agent" },
   "rules": [
-    { "id": "r-pantry", "resource": { "category": "sensor", "area": "vorratsraum" }, "actions": ["read"], "decision": "allow" },
-    { "id": "r-fridge", "resource": { "entity_id": "sensor.kuehlschrank_inhalt" }, "actions": ["read"], "decision": "allow",
+    { "id": "r-pantry", "resource": { "category": "sensor", "area": "pantry" }, "actions": ["read"], "decision": "allow" },
+    { "id": "r-fridge", "resource": { "entity_id": "sensor.fridge_contents" }, "actions": ["read"], "decision": "allow",
       "conditions": { "weekdays": ["mon", "tue", "wed", "thu", "fri", "sat"] } }
   ],
   "default": "deny",

@@ -292,7 +292,7 @@ contain has no category; the result is `deny` with `unknown_resource`.
    action **and** whose `conditions` are satisfied at the point in time **and** whose
    `constraints` are satisfied by the parameters (Section 4.5).
    - `resource` matches if **all** specified fields match
-     (e.g. `category: light` and `area: wohnzimmer` = lights in the living room).
+     (e.g. `category: light` and `area: living_room` = lights in the living room).
      `any: true` matches every resource. Comparison is exact per character, case-sensitive
      and without normalization.
    - `"*"` in `actions` contains every action, including critical ones.
@@ -499,8 +499,8 @@ POST /access/v1/evaluation
   "subject":  { "type": "agent", "id": "https://example-agent.local/client.json",
                 "properties": { "principal": "household:hm-7f3a" } },
   "action":   { "name": "unlock" },
-  "resource": { "type": "lock", "id": "lock.haustuer",
-                "properties": { "area": "flur" } },
+  "resource": { "type": "lock", "id": "lock.front_door",
+                "properties": { "area": "hallway" } },
   "context":  { "time": "2026-10-12T21:14:03+02:00" }
 }
 ```
@@ -940,7 +940,7 @@ cases of that operation then count as not passed for their class. Any other `err
 failed case. Every request can carry `id`, the identifier of the case, for diagnostics.
 
 ```
-→ {"op":"evaluate","id":"c02","mandate":"{…}","request":{"resource":{"entity_id":"lock.haustuer","category":"lock","area":"flur"},"action":"unlock","time":"2026-10-12T19:00:00+02:00"}}
+→ {"op":"evaluate","id":"c02","mandate":"{…}","request":{"resource":{"entity_id":"lock.front_door","category":"lock","area":"hallway"},"action":"unlock","time":"2026-10-12T19:00:00+02:00"}}
 ← {"decision":"ask","reason":"rule","rule_id":"r-locks","approval_timeout":"PT2M","approvers":["user-1"],"mandate_digest":"sha256:…"}
 ```
 
@@ -1286,6 +1286,10 @@ New:
   Compatible for logs: every entry that was valid remains valid. A verifier that does not
   know the event rejects a log that contains it (Section 14, unknown members). Conformance
   cases `a50`–`a57` in `conformance/audit-v0.json`.
+- Examples in English: `examples/*.json` use English display names, device identifiers and
+  areas, and so do the conformance cases on them. Their digests change: `d01`–`d03`, `d06`
+  and `d08` in `conformance/digest-v0.json`. The audit vectors keep their mandate digest,
+  which is only data there.
 
 ### v0.1.0-alpha.1
 
