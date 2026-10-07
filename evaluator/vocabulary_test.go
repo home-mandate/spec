@@ -5,7 +5,7 @@ package evaluator_test
 import (
 	"testing"
 
-	"github.com/mandate-spec/mandate-spec/evaluator"
+	"github.com/home-mandate/spec/evaluator"
 )
 
 // TestIsCritical checks every critical action of SPEC-v0 section 5, a sample of the

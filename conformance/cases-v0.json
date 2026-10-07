@@ -17,7 +17,7 @@
     { "id": "c14", "mandate": "examples/shopping-agent.json", "resource": { "entity_id": "sensor.fridge_contents", "category": "sensor", "area": "kitchen" }, "action": "read", "time": "2026-10-12T10:00:00+02:00", "expected": "allow", "reason": "rule", "rule_id": "r-fridge", "why": "r-fridge" },
     { "id": "c15", "mandate": "examples/shopping-agent.json", "resource": { "entity_id": "sensor.flour_stock", "category": "sensor", "area": "pantry" }, "action": "read", "time": "2026-10-11T10:00:00+02:00", "expected": "allow", "reason": "rule", "rule_id": "r-pantry", "why": "r-pantry, category and area match" },
     { "id": "c16", "mandate_inline": {
-        "type": "https://mandate-spec.org/mandate/v0",
+        "type": "https://home-mandate.org/mandate/v0",
         "id": "m-critical-demotion",
         "principal": "household:hm-7f3a",
         "agent": { "client_id": "hm-client:test-00000001", "display_name": "Test" },
@@ -75,7 +75,7 @@
     { "id": "c56", "mandate": "conformance/mandates/precedence.json", "resource": { "entity_id": "light.flur", "category": "light", "area": "flur" }, "action": "turn_on", "time": "2025-12-31T23:59:59+01:00", "expected": "deny", "reason": "not_yet_valid", "rule_id": null, "why": "not yet valid, mandate without expires" },
     { "id": "c57", "mandate": "conformance/mandates/precedence.json", "resource": { "entity_id": "light.flur", "category": "light", "area": "flur" }, "action": "turn_on", "time": "2099-01-01T00:00:00+01:00", "expected": "allow", "reason": "rule", "rule_id": "r-all", "why": "without expires valid indefinitely" },
     { "id": "c58", "mandate_inline": {
-        "type": "https://mandate-spec.org/mandate/v0",
+        "type": "https://home-mandate.org/mandate/v0",
         "id": "m-no-rules",
         "principal": "household:conf",
         "agent": { "client_id": "hm-client:conf-empty-01", "display_name": "Leer" },

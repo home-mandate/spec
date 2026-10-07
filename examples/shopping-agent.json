@@ -1,5 +1,5 @@
 {
-  "type": "https://mandate-spec.org/mandate/v0",
+  "type": "https://home-mandate.org/mandate/v0",
   "id": "m-shopping-agent",
   "principal": "person:p-7c1e",
   "agent": { "client_id": "hm-client:shop-19b0f3d2", "display_name": "Shopping agent" },

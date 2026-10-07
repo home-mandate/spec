@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/mandate-spec/mandate-spec/internal/ijson"
+	"github.com/home-mandate/spec/internal/ijson"
 )
 
 // Stored is a mandate as an implementation has stored it, with its status. It is

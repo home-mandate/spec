@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mandate-spec.org/conformance/v0/selection.schema.json",
+  "$id": "https://home-mandate.org/conformance/v0/selection.schema.json",
   "title": "Mandate selection cases v0 (SPEC-v0 sections 4.3 and 8)",
   "type": "object",
   "additionalProperties": false,

@@ -2,7 +2,7 @@
 
 ## Identifiers
 
-| mandate-spec | Home Assistant | Note |
+| Home-Mandate | Home Assistant | Note |
 |---|---|---|
 | `entity_id` | entity ID (`light.living_room`) | Can be renamed by the user. An implementation MUST then tell the household which mandates are affected (SPEC-v0 section 3.4). The ID of the entity registry entry does not change, but not every entity has one. |
 | `area` | area ID of the entity, otherwise of its device | Changes when the entity is moved to another area. |

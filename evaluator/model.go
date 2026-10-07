@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mandate-spec/mandate-spec/displaytext"
+	"github.com/home-mandate/spec/displaytext"
 )
 
 // Limits for approval.timeout (SPEC-v0 section 3.1 item 7).

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package jws signs and verifies the two signatures of mandate-spec v0: checkpoints of
+// Package jws signs and verifies the two signatures of the Home-Mandate Specification v0: checkpoints of
 // an audit log (SPEC-v0 section 9.5) and signed mandates (section 7). It implements the
 // small part of JSON Web Signature (RFC 7515) the specification uses: the compact
 // serialization, also with detached payload, with the algorithms EdDSA (Ed25519,
@@ -24,7 +24,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mandate-spec/mandate-spec/internal/ijson"
+	"github.com/home-mandate/spec/internal/ijson"
 )
 
 // Algorithms of SPEC-v0. Every implementation that verifies signatures supports EdDSA.

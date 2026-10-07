@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package vocabulary provides the normative vocabulary of mandate-spec v0
+// Package vocabulary provides the normative vocabulary of the Home-Mandate Specification v0
 // (SPEC-v0 section 5) as the specification ships it.
 package vocabulary
 

@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
-# mandate-spec v0 (Draft)
+# Home-Mandate Specification v0 (Draft)
 
 Status: **Working draft**; it will be frozen only after deployment in real households.
 License of this document: CC BY 4.0 (`LICENSE-docs`). Schema, examples, conformance cases and
@@ -58,7 +58,7 @@ Summary:
 
 ```
 Mandate
-├── type          "https://mandate-spec.org/mandate/v0"
+├── type          "https://home-mandate.org/mandate/v0"
 ├── id            unique ID
 ├── principal     "household:<id>" or "person:<id>"
 ├── agent         { client_id, display_name }   client_id: see Section 3.3
@@ -611,7 +611,7 @@ add others without changing the format.
 ### 7.2 OAuth flow (informative)
 
 A mandate can be represented as an `authorization_details` object (RFC 9396) with
-`type: "https://mandate-spec.org/mandate/v0"`, e.g. in token introspection or when an agent
+`type: "https://home-mandate.org/mandate/v0"`, e.g. in token introspection or when an agent
 proposes a desired mandate at sign-in. The human always chooses the mandate; a proposal by
 the agent is only a pre-filled default and is never evaluated. Where the object leaves the
 party that issued it, the signed form of Section 7.1 is used.
@@ -723,7 +723,7 @@ Machine-readable: `schema/audit-v0.schema.json`.
 
 ### 9.1 Entries
 
-Each entry is a JSON object with `type: "https://mandate-spec.org/audit/v0"` and:
+Each entry is a JSON object with `type: "https://home-mandate.org/audit/v0"` and:
 
 | Field | Contents |
 |---|---|
@@ -862,7 +862,7 @@ digest is the checkpoint's `prev`. A checkpoint therefore never has `seq` 1.
   Section 7.1. The payload is the canonical form (RFC 8785) of
 
   ```json
-  { "type": "https://mandate-spec.org/audit-checkpoint/v0",
+  { "type": "https://home-mandate.org/audit-checkpoint/v0",
     "log_id": <log_id>, "seq": <seq of the checkpoint entry − 1>, "digest": <prev of the checkpoint entry> }
   ```
 
@@ -1155,12 +1155,12 @@ behavior of the people in a household and MUST be protected like the devices the
 
 ## 14. Versions and compatibility
 
-- **Identifier.** The `type` of a mandate (`https://mandate-spec.org/mandate/v0`) and of an
+- **Identifier.** The `type` of a mandate (`https://home-mandate.org/mandate/v0`) and of an
   audit entry name the major version. They are identifiers, not addresses that must
   resolve.
 - **Draft.** Until v1.0, v0 can change incompatibly; every such change is listed in the
   Changelog together with what happens to mandates that were valid before. Releases of this
-  repository are tagged (`v0.2.0`, …); an implementation states which tag it conforms to,
+  repository are tagged (`v0.1.0`, …); an implementation states which tag it conforms to,
   and `conformance/manifest.json` identifies the exact cases.
 - **Unknown members.** Mandates and audit entries have no extension points: a member
   that the schema does not define makes the document invalid. This is deliberate. An
@@ -1179,6 +1179,26 @@ behavior of the people in a household and MUST be protected like the devices the
 ## Changelog
 
 ### Unreleased
+
+Renamed: the specification formerly published as mandate-spec is now the **Home-Mandate
+Specification**; repository `github.com/home-mandate/spec`, Go module
+`github.com/home-mandate/spec`, root package `spec`. Versions start again at
+`v0.1.0-alpha.1`. The releases of mandate-spec (up to `v0.2.0-alpha.5`) remain available
+from the Go module proxy under the module path `github.com/mandate-spec/mandate-spec`; their
+changes are listed below.
+
+Incompatible:
+- `type` of mandates, audit entries and checkpoints and the schema `$id` moved from
+  `https://mandate-spec.org/…` to `https://home-mandate.org/…`, e.g.
+  `https://home-mandate.org/mandate/v0`. Mandates with the old identifier are invalid
+  (conformance case `i127`). Data model and evaluation are otherwise unchanged.
+- Because the `type` is part of every digest and signed payload, all digests, audit chains,
+  checkpoint signatures and signed mandates in `conformance/` are new. Cases that are
+  invalid on purpose keep their defect.
+
+### History as mandate-spec
+
+#### mandate-spec v0.2.0-alpha.1 to v0.2.0-alpha.5
 
 Incompatible; mandates that were valid before can become invalid, and an invalid mandate
 denies every request. Implementations SHOULD check their stored mandates before they update:
@@ -1291,7 +1311,7 @@ New:
   and `d08` in `conformance/digest-v0.json`. The audit vectors keep their mandate digest,
   which is only data there.
 
-### v0.1.0-alpha.1
+#### mandate-spec v0.1.0-alpha.1
 
 Incompatible:
 - `type` and schema `$id` moved to the neutral domain:

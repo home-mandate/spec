@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mandate-spec/mandate-spec/internal/harness"
+	"github.com/home-mandate/spec/internal/harness"
 )
 
 func main() {

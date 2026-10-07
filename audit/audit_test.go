@@ -13,9 +13,9 @@ import (
 	"testing"
 	"testing/iotest"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
-	"github.com/mandate-spec/mandate-spec/audit"
-	"github.com/mandate-spec/mandate-spec/jws"
+	"github.com/home-mandate/spec"
+	"github.com/home-mandate/spec/audit"
+	"github.com/home-mandate/spec/jws"
 )
 
 type auditCase struct {
@@ -34,7 +34,7 @@ type auditCase struct {
 // verify runs the case through the entry point its form calls for.
 func (c auditCase) verify() (audit.Result, error) {
 	if c.Keys != "" {
-		data, err := fs.ReadFile(mandatespec.FS(), c.Keys)
+		data, err := fs.ReadFile(spec.FS(), c.Keys)
 		if err != nil {
 			return audit.Result{}, err
 		}
@@ -52,7 +52,7 @@ func (c auditCase) verify() (audit.Result, error) {
 
 func loadCases(t *testing.T) []auditCase {
 	t.Helper()
-	data, err := fs.ReadFile(mandatespec.FS(), mandatespec.AuditCasesPath)
+	data, err := fs.ReadFile(spec.FS(), spec.AuditCasesPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -361,7 +361,7 @@ func (g *generatedLog) Read(p []byte) (int, error) {
 		if g.seq%2 == 0 {
 			event = "emergency_stop.released"
 		}
-		entry := fmt.Sprintf(`{"type":"https://mandate-spec.org/audit/v0","id":"01a0f64c-7140-7001-9007-%012x","seq":%d,`+
+		entry := fmt.Sprintf(`{"type":"https://home-mandate.org/audit/v0","id":"01a0f64c-7140-7001-9007-%012x","seq":%d,`+
 			`"recorded_at":"2026-10-01T09:00:00+02:00","event":%q,"principal":"household:h1",`+
 			`"actor":{"kind":"user","id":"u"},"prev":%s}`, g.seq, g.seq, event, prev)
 		digest, err := audit.Digest([]byte(entry))

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mandate-spec.org/conformance/v0/digest.schema.json",
+  "$id": "https://home-mandate.org/conformance/v0/digest.schema.json",
   "title": "Mandate digests v0 (SPEC-v0 sections 3.2 and 8)",
   "type": "object",
   "additionalProperties": false,

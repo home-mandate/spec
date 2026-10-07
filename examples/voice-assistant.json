@@ -1,5 +1,5 @@
 {
-  "type": "https://mandate-spec.org/mandate/v0",
+  "type": "https://home-mandate.org/mandate/v0",
   "id": "m-voice-assistant",
   "principal": "household:hm-7f3a",
   "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" },

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
-	"github.com/mandate-spec/mandate-spec/evaluator"
+	"github.com/home-mandate/spec"
+	"github.com/home-mandate/spec/evaluator"
 )
 
 type selectionCase struct {
@@ -38,7 +38,7 @@ type selectionCase struct {
 }
 
 func TestConformanceSelection(t *testing.T) {
-	for _, c := range loadCases[selectionCase](t, mandatespec.SelectionCasesPath, "cases") {
+	for _, c := range loadCases[selectionCase](t, spec.SelectionCasesPath, "cases") {
 		t.Run(c.ID, func(t *testing.T) {
 			at, err := time.Parse(time.RFC3339, c.Time)
 			if err != nil {

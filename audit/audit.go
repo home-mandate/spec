@@ -19,10 +19,10 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/mandate-spec/mandate-spec/displaytext"
-	"github.com/mandate-spec/mandate-spec/internal/ijson"
-	"github.com/mandate-spec/mandate-spec/jcs"
-	"github.com/mandate-spec/mandate-spec/schema"
+	"github.com/home-mandate/spec/displaytext"
+	"github.com/home-mandate/spec/internal/ijson"
+	"github.com/home-mandate/spec/jcs"
+	"github.com/home-mandate/spec/schema"
 )
 
 // ErrMalformed means an entry is not I-JSON or cannot be canonicalized.

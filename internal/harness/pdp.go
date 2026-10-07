@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mandate-spec/mandate-spec/evaluator"
+	"github.com/home-mandate/spec/evaluator"
 )
 
 // requestTimeout bounds one request to the implementation under test.

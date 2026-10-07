@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command mandate-conformance tests any implementation of mandate-spec v0 against the
+// Command mandate-conformance tests any implementation of the Home-Mandate Specification v0 against the
 // conformance cases of this version (SPEC-v0 sections 8 and 10), independent of language
 // and vendor:
 //
@@ -14,10 +14,10 @@ import (
 	"context"
 	"os"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
-	"github.com/mandate-spec/mandate-spec/internal/harness"
+	"github.com/home-mandate/spec"
+	"github.com/home-mandate/spec/internal/harness"
 )
 
 func main() {
-	os.Exit(harness.Main(context.Background(), mandatespec.FS(), os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(harness.Main(context.Background(), spec.FS(), os.Args[1:], os.Stdout, os.Stderr))
 }

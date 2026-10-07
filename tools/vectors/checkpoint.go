@@ -15,9 +15,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/mandate-spec/mandate-spec/audit"
-	"github.com/mandate-spec/mandate-spec/evaluator"
-	"github.com/mandate-spec/mandate-spec/jws"
+	"github.com/home-mandate/spec/audit"
+	"github.com/home-mandate/spec/evaluator"
+	"github.com/home-mandate/spec/jws"
 )
 
 type privateJWK struct {

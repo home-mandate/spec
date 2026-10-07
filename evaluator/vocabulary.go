@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/mandate-spec/mandate-spec/vocabulary"
+	"github.com/home-mandate/spec/vocabulary"
 )
 
 // actionInfo is what the vocabulary says about one action.

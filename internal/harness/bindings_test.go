@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
-	"github.com/mandate-spec/mandate-spec/evaluator"
-	"github.com/mandate-spec/mandate-spec/internal/harness"
+	"github.com/home-mandate/spec"
+	"github.com/home-mandate/spec/evaluator"
+	"github.com/home-mandate/spec/internal/harness"
 )
 
 const harnessMode = "MANDATE_HARNESS_MODE"
@@ -57,7 +57,7 @@ func self(t *testing.T, mode string) []string {
 func runMain(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
-	code := harness.Main(context.Background(), mandatespec.FS(), args, &stdout, &stderr)
+	code := harness.Main(context.Background(), spec.FS(), args, &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -207,7 +207,7 @@ func TestHTTPBindingAgainstAReferencePDP(t *testing.T) {
 	if code != harness.ExitConforms {
 		t.Fatalf("exit %d\n%s\n%s", code, stdout, stderr)
 	}
-	report, err := harness.RunPDP(context.Background(), mandatespec.FS(), harness.PDP{AuthZEN: server.URL + "/", Control: server.URL + "/test/state",
+	report, err := harness.RunPDP(context.Background(), spec.FS(), harness.PDP{AuthZEN: server.URL + "/", Control: server.URL + "/test/state",
 		Header: http.Header{"Authorization": {"Bearer secret"}}})
 	if err != nil {
 		t.Fatal(err)
@@ -235,7 +235,7 @@ func TestHTTPBindingDetectsDeviations(t *testing.T) {
 	} {
 		pdp := &referencePDP{mutate: mutate}
 		server := httptest.NewServer(pdp.handler())
-		report, err := harness.RunPDP(context.Background(), mandatespec.FS(), harness.PDP{AuthZEN: server.URL, Control: server.URL + "/test/state"})
+		report, err := harness.RunPDP(context.Background(), spec.FS(), harness.PDP{AuthZEN: server.URL, Control: server.URL + "/test/state"})
 		server.Close()
 		if err != nil {
 			t.Fatal(err)
@@ -251,7 +251,7 @@ func TestHTTPBindingReportsAnUnreachablePDP(t *testing.T) {
 	server.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	report, err := harness.RunPDP(ctx, mandatespec.FS(), harness.PDP{AuthZEN: server.URL, Control: server.URL, Client: &http.Client{Timeout: time.Second}})
+	report, err := harness.RunPDP(ctx, spec.FS(), harness.PDP{AuthZEN: server.URL, Control: server.URL, Client: &http.Client{Timeout: time.Second}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func TestHTTPBindingReportsAnUnreachablePDP(t *testing.T) {
 	}
 	garbage := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "nope") }))
 	defer garbage.Close()
-	report, _ = harness.RunPDP(ctx, mandatespec.FS(), harness.PDP{AuthZEN: garbage.URL, Control: garbage.URL})
+	report, _ = harness.RunPDP(ctx, spec.FS(), harness.PDP{AuthZEN: garbage.URL, Control: garbage.URL})
 	if c := report.Classes[harness.ClassPDP]; c.Passed != 0 {
 		t.Errorf("garbage answers: pdp = %+v", c)
 	}

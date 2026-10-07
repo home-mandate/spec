@@ -14,7 +14,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/mandate-spec/mandate-spec/data"
+	"github.com/home-mandate/spec/data"
 )
 
 // ErrMisleading means a text could mislead the human who reads it.

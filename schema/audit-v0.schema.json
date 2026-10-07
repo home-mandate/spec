@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mandate-spec.org/audit/v0/audit.schema.json",
+  "$id": "https://home-mandate.org/audit/v0/audit.schema.json",
   "title": "Audit log entry v0",
   "description": "An entry in an implementation's audit log. Entries are hash-chained via prev. Working draft, see SPEC-v0.md section 9.",
   "type": "object",
   "additionalProperties": false,
   "required": ["type", "id", "seq", "recorded_at", "event", "principal", "prev"],
   "properties": {
-    "type": { "const": "https://mandate-spec.org/audit/v0" },
+    "type": { "const": "https://home-mandate.org/audit/v0" },
     "id": {
       "description": "UUIDv7 (RFC 9562), lower case.",
       "type": "string",

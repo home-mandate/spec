@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mandate-spec.org/vocabulary/v0/vocabulary.schema.json",
+  "$id": "https://home-mandate.org/vocabulary/v0/vocabulary.schema.json",
   "title": "Vocabulary v0",
   "description": "A vocabulary: categories with their actions. Used for the core vocabulary of SPEC-v0 section 5 and for extensions.",
   "type": "object",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mandate-spec.org/mandate/v0/mandate.schema.json",
+  "$id": "https://home-mandate.org/mandate/v0/mandate.schema.json",
   "title": "Mandate v0",
   "description": "Describes what a software agent may do on behalf of a household. Working draft.",
   "type": "object",
@@ -8,7 +8,7 @@
   "required": ["type", "id", "principal", "agent", "rules", "default", "approval", "limits", "valid_from", "created_by", "created_at"],
   "dependentRequired": { "issuer": ["version"], "version": ["issuer"] },
   "properties": {
-    "type": { "const": "https://mandate-spec.org/mandate/v0" },
+    "type": { "const": "https://home-mandate.org/mandate/v0" },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{4,64}$" },
     "principal": { "type": "string", "pattern": "^(household|person):[A-Za-z0-9_-]{1,64}$" },
     "agent": {

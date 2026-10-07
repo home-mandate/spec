@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mandate-spec/mandate-spec/internal/harness"
+	"github.com/home-mandate/spec/internal/harness"
 )
 
 // FuzzServe: whatever arrives on the test interface, the harness answers every line

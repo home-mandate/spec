@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mandate-spec/mandate-spec/schema"
+	"github.com/home-mandate/spec/schema"
 )
 
 func TestSchemasDeclareTheirIDs(t *testing.T) {

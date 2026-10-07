@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mandate-spec/mandate-spec/evaluator"
+	"github.com/home-mandate/spec/evaluator"
 )
 
 const baseRules = `[{"id":"r-1","resource":{"category":"light"},"actions":["turn_on"],"decision":"allow"}]`
