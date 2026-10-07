@@ -3,17 +3,17 @@
   "files": [
     {
       "path": "conformance/audit-v0.json",
-      "sha256": "815638b3400d9d77924a5535b1dc103144a69237ee90316d594dd51488ca0031",
+      "sha256": "eef938773e06267644eee82f101a293bee6118968b1e6581a36d9f61873d4b8b",
       "cases": 57
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "0d0b80631d892a0349c46286eec190cb68cb344c4963f0b25146425198e75771",
+      "sha256": "5d46d4f235762c513a0566e4b9aec00cb777f47b449bf7322e5533674e20f391",
       "cases": 132
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "9a0757afeb14c859bd1bc05a2e1e63c57e9d30da6894f6c6a6d54688b5abb8e4",
+      "sha256": "d1e335933452b1081b00aab1152ecc2054966cf566d575e40a413b324e146acb",
       "cases": 39
     },
     {
@@ -106,15 +106,15 @@
     },
     {
       "path": "examples/energy-agent.json",
-      "sha256": "0579b0ad11ea07a2818e081bda60bd1be5208c8a414f93c055f372827e60031f"
+      "sha256": "7cece9ae7c6a402aeb5722c29925fdb72153d175fc5d5631d5cfb8d3bdb740b0"
     },
     {
       "path": "examples/shopping-agent.json",
-      "sha256": "c589eb3c7bec3f52d4d49a273c93dd9dd7d76eb23dc61f11583b1baa8720084f"
+      "sha256": "90fdd31ad42577b0ede7102f6be0c3f5de6bdbb29d64c6e5431eb209ed355271"
     },
     {
       "path": "examples/voice-assistant.json",
-      "sha256": "ae646fe6de9abb27f3594c02771ae2fefc30baa5b45232d6048bc1b6062b8a8a"
+      "sha256": "d74e1f4fcb30addad07efd58b1804954d75a1ec4c8929d6d2696ef6294208e04"
     },
     {
       "path": "schema/audit-v0.schema.json",

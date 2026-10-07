@@ -1,5 +1,5 @@
 {
-  "description": "Audit logs v0 (draft) with the expected result of the chain verification, SPEC-v0.md section 9.4. Mandate version in all entries: examples/voice-assistant.json.",
+  "description": "Audit logs v0 (draft) with the expected result of the chain verification, SPEC-v0.md section 9.4. All entries refer to one mandate version, sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3 (an earlier form of examples/voice-assistant.json); the digest is only data here.",
   "logs": [
     {
       "id": "a01",

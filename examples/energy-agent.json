@@ -2,13 +2,13 @@
   "type": "https://mandate-spec.org/mandate/v0",
   "id": "m-energy-agent",
   "principal": "household:hm-7f3a",
-  "agent": { "client_id": "https://energy-agent.example/oauth/client.json", "display_name": "Energie-Agent" },
+  "agent": { "client_id": "https://energy-agent.example/oauth/client.json", "display_name": "Energy agent" },
   "rules": [
     { "id": "r-read-sensors", "resource": { "category": "sensor" }, "actions": ["read"], "decision": "allow" },
     { "id": "r-climate", "resource": { "category": "climate" }, "actions": ["read", "set_temperature", "set_mode"], "decision": "allow" },
-    { "id": "r-wallbox", "resource": { "entity_id": "number.wallbox_ladestrom" }, "actions": ["read", "set"], "decision": "allow",
+    { "id": "r-wallbox", "resource": { "entity_id": "number.wallbox_charge_current" }, "actions": ["read", "set"], "decision": "allow",
       "allow_critical": true, "conditions": { "time_window": "06:00-22:00" } },
-    { "id": "r-pool-pump", "resource": { "entity_id": "switch.poolpumpe" }, "actions": ["read", "turn_on", "turn_off"], "decision": "allow" }
+    { "id": "r-pool-pump", "resource": { "entity_id": "switch.pool_pump" }, "actions": ["read", "turn_on", "turn_off"], "decision": "allow" }
   ],
   "default": "deny",
   "approval": { "timeout": "PT2M", "approvers": ["user-1"] },

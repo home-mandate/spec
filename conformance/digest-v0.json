@@ -4,19 +4,19 @@
     {
       "id": "d01",
       "mandate": "examples/voice-assistant.json",
-      "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+      "digest": "sha256:f4e83262b4b4c447a5920c1438a061bab55bb923f8dcdbbfa8e18ee84b3261f8",
       "why": "file as stored"
     },
     {
       "id": "d02",
       "mandate": "examples/energy-agent.json",
-      "digest": "sha256:6d54d9b88c083769fdb95626c1e947a0927496ee54f3d53a468f24c7625f3d34",
+      "digest": "sha256:8c99ffa0956fa8e27509b5c719311ca47edfa17028ef19c5dec4d134c14e1826",
       "why": "file as stored"
     },
     {
       "id": "d03",
       "mandate": "examples/shopping-agent.json",
-      "digest": "sha256:45ca692de865800185de783125972bfc5e90befc3cd12e858ac03032a6053255",
+      "digest": "sha256:91e8acf37697d37e22e5f2fc9e24b476f9a8c02c5177fda79e42aec41fcdc7c1",
       "why": "file as stored"
     },
     {
@@ -33,8 +33,8 @@
     },
     {
       "id": "d06",
-      "mandate_raw": "{\n    \"created_at\": \"2026-10-01T09:12:00+02:00\",\n    \"created_by\": \"user-1\",\n    \"valid_from\": \"2026-10-01T00:00:00+02:00\",\n    \"limits\": {\n        \"max_actions_per_hour\": 60\n    },\n    \"approval\": {\n        \"timeout\": \"PT2M\",\n        \"approvers\": [\n            \"user-1\"\n        ]\n    },\n    \"default\": \"deny\",\n    \"rules\": [\n        {\n            \"id\": \"r-read-all\",\n            \"resource\": {\n                \"any\": true\n            },\n            \"actions\": [\n                \"read\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-lights\",\n            \"resource\": {\n                \"category\": \"light\"\n            },\n            \"actions\": [\n                \"turn_on\",\n                \"turn_off\",\n                \"set\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-climate\",\n            \"resource\": {\n                \"category\": \"climate\"\n            },\n            \"actions\": [\n                \"set_temperature\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-locks\",\n            \"resource\": {\n                \"category\": \"lock\"\n            },\n            \"actions\": [\n                \"unlock\",\n                \"open\"\n            ],\n            \"decision\": \"ask\",\n            \"approval\": {\n                \"timeout\": \"PT2M\",\n                \"approvers\": [\n                    \"user-1\"\n                ]\n            }\n        },\n        {\n            \"id\": \"r-no-cameras\",\n            \"resource\": {\n                \"category\": \"camera\"\n            },\n            \"actions\": [\n                \"*\"\n            ],\n            \"decision\": \"deny\"\n        },\n        {\n            \"id\": \"r-no-alarm\",\n            \"resource\": {\n                \"category\": \"alarm\"\n            },\n            \"actions\": [\n                \"disarm\"\n            ],\n            \"decision\": \"deny\"\n        }\n    ],\n    \"agent\": {\n        \"client_id\": \"hm-client:voice-7c21e9a4\",\n        \"display_name\": \"Sprachassistent\"\n    },\n    \"principal\": \"household:hm-7f3a\",\n    \"id\": \"m-voice-assistant\",\n    \"type\": \"https://mandate-spec.org/mandate/v0\"\n}",
-      "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+      "mandate_raw": "{\n    \"created_at\": \"2026-10-01T09:12:00+02:00\",\n    \"created_by\": \"user-1\",\n    \"valid_from\": \"2026-10-01T00:00:00+02:00\",\n    \"limits\": {\n        \"max_actions_per_hour\": 60\n    },\n    \"approval\": {\n        \"timeout\": \"PT2M\",\n        \"approvers\": [\n            \"user-1\"\n        ]\n    },\n    \"default\": \"deny\",\n    \"rules\": [\n        {\n            \"id\": \"r-read-all\",\n            \"resource\": {\n                \"any\": true\n            },\n            \"actions\": [\n                \"read\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-lights\",\n            \"resource\": {\n                \"category\": \"light\"\n            },\n            \"actions\": [\n                \"turn_on\",\n                \"turn_off\",\n                \"set\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-climate\",\n            \"resource\": {\n                \"category\": \"climate\"\n            },\n            \"actions\": [\n                \"set_temperature\"\n            ],\n            \"decision\": \"allow\"\n        },\n        {\n            \"id\": \"r-locks\",\n            \"resource\": {\n                \"category\": \"lock\"\n            },\n            \"actions\": [\n                \"unlock\",\n                \"open\"\n            ],\n            \"decision\": \"ask\",\n            \"approval\": {\n                \"timeout\": \"PT2M\",\n                \"approvers\": [\n                    \"user-1\"\n                ]\n            }\n        },\n        {\n            \"id\": \"r-no-cameras\",\n            \"resource\": {\n                \"category\": \"camera\"\n            },\n            \"actions\": [\n                \"*\"\n            ],\n            \"decision\": \"deny\"\n        },\n        {\n            \"id\": \"r-no-alarm\",\n            \"resource\": {\n                \"category\": \"alarm\"\n            },\n            \"actions\": [\n                \"disarm\"\n            ],\n            \"decision\": \"deny\"\n        }\n    ],\n    \"agent\": {\n        \"client_id\": \"hm-client:voice-7c21e9a4\",\n        \"display_name\": \"Voice assistant\"\n    },\n    \"principal\": \"household:hm-7f3a\",\n    \"id\": \"m-voice-assistant\",\n    \"type\": \"https://mandate-spec.org/mandate/v0\"\n}",
+      "digest": "sha256:f4e83262b4b4c447a5920c1438a061bab55bb923f8dcdbbfa8e18ee84b3261f8",
       "why": "different order, whitespace and \\u notation: same digest as d01"
     },
     {
@@ -143,7 +143,7 @@
         "principal": "household:hm-7f3a",
         "agent": {
           "client_id": "hm-client:voice-7c21e9a4",
-          "display_name": "Sprachassistent"
+          "display_name": "Voice assistant"
         },
         "rules": [
           {
@@ -230,7 +230,7 @@
         "created_by": "user-1",
         "created_at": "2026-10-01T09:12:00+02:00"
       },
-      "digest": "sha256:a06d0865169c724cab618a96d56c62337aceb95ab0fd261ef1bb757cd473c131",
+      "digest": "sha256:b8e2c9854b51a1ebeb8c510197c829936c9e430ed276c190b5fa4fcb8fbf4af5",
       "why": "only limits changed: different digest than d01"
     },
     {"id": "d09", "mandate_inline": {"type": "https://mandate-spec.org/mandate/v0", "id": "m-conf", "principal": "household:conf", "agent": {"client_id": "hm-client:conf-0001", "display_name": "Conformance"}, "rules": [{"id": "r-1", "resource": {"category": "light"}, "actions": ["turn_on"], "decision": "allow"}], "default": "deny", "approval": {"timeout": "PT2M", "approvers": ["approver-1"]}, "limits": {"max_actions_per_hour": 10}, "valid_from": "2026-01-01T00:00:00+01:00", "created_by": "approver-1", "created_at": "2025-12-31T12:00:00+01:00"}, "digest": "sha256:a2f6b7159a940aa3af425b2b26b96ff83392652667633ac6513fb334265b5825", "why": "base mandate of the following cases"},
