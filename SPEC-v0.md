@@ -751,8 +751,8 @@ Depending on the event, the following are added:
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
 | `checkpoint` | `log_id`, `signature` (Section 9.5) |
 | `directory` | change to the resource directory (Section 11.4): `change` (`critical_marked`, `critical_unmarked`, `renamed`, `rename_applied`, `rename_dismissed`), `entity_id` and, except for `critical_marked` and `critical_unmarked`, `previous_entity_id`, both identifiers per Section 3.4 and different from each other. For `renamed`, `entity_id` is the new and `previous_entity_id` the former identifier; for `rename_applied` (a human took the rename over into the mandates) and `rename_dismissed`, `entity_id` is the current identifier and `previous_entity_id` the former one that was resolved, one entry per former identifier. Only with `directory.changed` |
-| `template` | change to a template (Section 2): `change` (`stored`: created or changed, `removed`, `hidden`: no longer offered or accepted for creating mandates without being removed, `shown`: offered and accepted again), `name` and `digest`; for `stored` the digest of the new content, for `removed` that of the last content, for `hidden` and `shown` optionally that of the current content. `previous_digest` only for `stored` and only if the template had content before, different from `digest`. Digests are computed as in Section 3.2 over the template as the implementation stores it. Only with `template.changed` |
-| `approver` | change to the humans whom the implementation lets answer approval requests (Section 11.1): `change` (`added`, `removed`) and `id`, the identifier of the approver in the user management, as in `approval.by`. Only with `approver.changed` |
+| `template` | change to a template (Section 2): `change` (`stored`: created or changed, `removed`, `hidden`: no longer offered or accepted for creating mandates without being removed, `shown`: offered and accepted again), `name` (1 to 64 characters) and `digest`; for `stored` the digest of the new content, for `removed` that of the last content, for `hidden` and `shown` optionally that of the current content. `previous_digest` only for `stored` and only if the template had content before, different from `digest`. Digests are computed as in Section 3.2 over the template as the implementation stores it. Only with `template.changed` |
+| `approver` | change to the humans whom the implementation lets answer approval requests (Section 11.1): `change` (`added`, `removed`) and `id` (1 to 64 characters), the identifier of the approver in the user management, as in `approval.by`. Only with `approver.changed` |
 
 For `decision`, the following additionally applies:
 
@@ -1158,11 +1158,11 @@ behavior of the people in a household and MUST be protected like the devices the
 - **Retention.** How long entries are kept is up to the implementation and SHOULD be
   configurable by the household. The chain permits deletion from the oldest end
   (`log.truncated`); a checkpoint SHOULD precede it.
-- **Persons.** `actor.id`, `approval.by` and `approver.id` name people. Implementations SHOULD use
-  identifiers from their user management rather than names, so that a person's name does
-  not have to be removed from a chained log. Removing the data of a single person from the
-  middle of a log is not possible without breaking the chain; this version offers no
-  remedy other than retention limits.
+- **Persons.** `actor.id`, `approval.by` and `approver.id` name people. Implementations
+  SHOULD use identifiers from their user management rather than names, so that a person's
+  name does not have to be removed from a chained log. Removing the data of a single person
+  from the middle of a log is not possible without breaking the chain; this version offers
+  no remedy other than retention limits.
 - **Export.** An exported log leaves the protection of the implementation. Exports SHOULD
   be created only by a human and SHOULD be recorded.
 - **Agents.** What an agent learns through `read` leaves the household with the agent.
@@ -1221,7 +1221,7 @@ New:
   `previous_digest` equal to `digest` makes an entry invalid (Sections 9.1, 9.2).
   Compatible for logs: every entry that was valid remains valid. A verifier that does not
   know the events rejects a log that contains them (Section 14, unknown members).
-  Conformance cases `a58`–`a74` in `conformance/audit-v0.json`.
+  Conformance cases `a58`–`a76` in `conformance/audit-v0.json`.
 
 ### History as mandate-spec
 

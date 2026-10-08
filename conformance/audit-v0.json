@@ -3866,6 +3866,26 @@
         { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1740001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
         { "actor": { "kind": "user", "id": "user-1" }, "approver": { "change": "added", "id": "user-\u202e2" }, "event": "approver.changed", "id": "01a0f64c-7140-7001-9007-0000e1740002", "prev": "sha256:0c815f5e4c3cea9022555ac9ed1b3d0917c8430ee1738be576c46f91d9293bb1", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
       ]
+    },
+    {
+      "id": "a75",
+      "why": "hidden with a previous digest: only a stored change names the content it replaced (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1750001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1750002", "prev": "sha256:1ff04a4619d9d772bb6b2901f7988cb82f0fd98796a2558a749bdd3a0cdcb6fc", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "hidden", "name": "voice-cautious", "digest": "sha256:fc556a97a5a1cc8df7f1d8c4e700107619bd78a3cec666cf450eda5050264834", "previous_digest": "sha256:4e56112f4919687e886c67e4efc6d5f28913eef6454b9f48a60cd9a8bfb49a8d" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a76",
+      "why": "removed without the digest of the last content (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1760001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1760002", "prev": "sha256:e52374058b073e38155ccecb9e59f41a75bce1aedb6ef8c1f5031ee7b956f32a", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "removed", "name": "household-night" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
     }
   ]
 }
