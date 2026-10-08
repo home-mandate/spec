@@ -3692,6 +3692,180 @@
         { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Sprachassistent" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000d1570001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
         { "actor": { "kind": "system", "id": "directory" }, "directory": { "change": "renamed", "entity_id": "lock.haustuer", "previous_entity_id": "lock.haustuer" }, "event": "directory.changed", "id": "01a0f64c-7140-7001-9007-0000d1570002", "prev": "sha256:1898165602985efbf27efe14a4edd901d75783ae4dc4b5bc4a5c72a83d7a675f", "principal": "household:hm-7f3a", "recorded_at": "2026-10-02T07:00:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
       ]
+    },
+    {
+      "id": "a58",
+      "why": "template changes: a template stored new and changed, a template hidden and shown again, a template removed",
+      "expected": "valid",
+      "entry_digests": ["sha256:05a15cc70f3b3745386574f2f7a9a0937be04b71911f77a769748ec96142f88c", "sha256:d629d059d8cd94019e49a383a980e696054982e039803e7c0950641ea4c1154d", "sha256:a4fea18f23c0388563165df5fa55bf2cd3fad374bdfd4b99f0cca50be8e6b8a7", "sha256:4913e7c6ebdcedf0e34b124c457e8de2ba888c5c1f1e1aeef20f8422e0a6bc33", "sha256:d22e9a407cde0cbb5dafee23694cba21263a68f0ff8dacdf951b3eb01aee2aa8"],
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1580001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:00:00+02:00", "seq": 1, "template": { "change": "stored", "name": "household-night", "digest": "sha256:4e56112f4919687e886c67e4efc6d5f28913eef6454b9f48a60cd9a8bfb49a8d" }, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1580002", "prev": "sha256:05a15cc70f3b3745386574f2f7a9a0937be04b71911f77a769748ec96142f88c", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:05:00+02:00", "seq": 2, "template": { "change": "stored", "name": "household-night", "digest": "sha256:15f1c3f5496649fe6ee684324810fb1f22a70b2e85f6a8ea580b92ca756783e5", "previous_digest": "sha256:4e56112f4919687e886c67e4efc6d5f28913eef6454b9f48a60cd9a8bfb49a8d" }, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1580003", "prev": "sha256:d629d059d8cd94019e49a383a980e696054982e039803e7c0950641ea4c1154d", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 3, "template": { "change": "hidden", "name": "voice-cautious" }, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "system", "id": "system" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1580004", "prev": "sha256:a4fea18f23c0388563165df5fa55bf2cd3fad374bdfd4b99f0cca50be8e6b8a7", "principal": "household:hm-7f3a", "recorded_at": "2026-10-02T07:00:00+02:00", "seq": 4, "template": { "change": "shown", "name": "voice-cautious", "digest": "sha256:fc556a97a5a1cc8df7f1d8c4e700107619bd78a3cec666cf450eda5050264834" }, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1580005", "prev": "sha256:4913e7c6ebdcedf0e34b124c457e8de2ba888c5c1f1e1aeef20f8422e0a6bc33", "principal": "household:hm-7f3a", "recorded_at": "2026-10-03T08:00:00+02:00", "seq": 5, "template": { "change": "removed", "name": "household-night", "digest": "sha256:15f1c3f5496649fe6ee684324810fb1f22a70b2e85f6a8ea580b92ca756783e5" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a59",
+      "why": "approver changes: approvers added by a user and by the system, an approver removed",
+      "expected": "valid",
+      "entry_digests": ["sha256:c8526dbc9d530f12c299658862bac03a811c99d481696c7e75fdb93af0fd32e5", "sha256:fc823de727916ba4c0081ed9b34c6c7f5e5aca7a6bfa7dc945e13f6b393c8d78", "sha256:01950f060d68f347c09bdb9d2a5a1b1d54405dc62db4efa3b5396f25d149bbea"],
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "approver": { "change": "added", "id": "user-2" }, "event": "approver.changed", "id": "01a0f64c-7140-7001-9007-0000e1590001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:00:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "system", "id": "system" }, "approver": { "change": "added", "id": "user-3" }, "event": "approver.changed", "id": "01a0f64c-7140-7001-9007-0000e1590002", "prev": "sha256:c8526dbc9d530f12c299658862bac03a811c99d481696c7e75fdb93af0fd32e5", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:05:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "approver": { "change": "removed", "id": "user-2" }, "event": "approver.changed", "id": "01a0f64c-7140-7001-9007-0000e1590003", "prev": "sha256:fc823de727916ba4c0081ed9b34c6c7f5e5aca7a6bfa7dc945e13f6b393c8d78", "principal": "household:hm-7f3a", "recorded_at": "2026-10-02T07:00:00+02:00", "seq": 3, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a60",
+      "why": "template.changed by an agent: only a user or the system changes templates (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1600001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "agent", "id": "hm-client:voice-7c21e9a4" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1600002", "prev": "sha256:89edf7eff94b4ea357ac590f5e55ddf760540462592e4302ec4ffb42560c6993", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "stored", "name": "household-night", "digest": "sha256:4e56112f4919687e886c67e4efc6d5f28913eef6454b9f48a60cd9a8bfb49a8d" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a61",
+      "why": "template change that the specification does not define (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1610001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1610002", "prev": "sha256:bbbd98164fe3d424df6246cbf6aeacb134541bf4158d316569efedef08480c0e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "renamed", "name": "household-night", "digest": "sha256:4e56112f4919687e886c67e4efc6d5f28913eef6454b9f48a60cd9a8bfb49a8d" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a62",
+      "why": "template member on agent.registered: only template.changed carries it (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1620001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:lights-3b9d01f2", "display_name": "Lights" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1620002", "prev": "sha256:5e173df87dc031fc05525bc8c3664a4aee5c3d99279206757851b1dfe9ff92e3", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "hidden", "name": "voice-cautious" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a63",
+      "why": "removed with a previous digest: only a stored change names the content it replaced (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1630001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1630002", "prev": "sha256:f9ab9cc493c097f2bbbedb6cda19f9c308cc2a21cce36ca8cfb1742d02a30b3e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "removed", "name": "household-night", "digest": "sha256:15f1c3f5496649fe6ee684324810fb1f22a70b2e85f6a8ea580b92ca756783e5", "previous_digest": "sha256:4e56112f4919687e886c67e4efc6d5f28913eef6454b9f48a60cd9a8bfb49a8d" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a64",
+      "why": "template change without the name of the template (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1640001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1640002", "prev": "sha256:816156c6c252b8ccf87c66f325e5751977f5d68bae292e2ec6d6fdc0008921a7", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "hidden" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a65",
+      "why": "template.changed without the template member (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1650001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1650002", "prev": "sha256:76146ff262e5f4c9a4d5ab889f0b2ff09605303aad159d02b33ed4da4df77843", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a66",
+      "why": "stored without the digest of the new content (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1660001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1660002", "prev": "sha256:d7adedd4fa2a74c72c5b2f78c67c5720ab891adffa4c7669f59eeec7562e6888", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "stored", "name": "household-night" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a67",
+      "why": "stored with the content it already had: the previous digest must differ (9.1)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1670001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1670002", "prev": "sha256:d7d74a60b3ff6c8804c4fa433edb3219f213da4218961d41c5e835ae9eee5303", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "stored", "name": "household-night", "digest": "sha256:4e56112f4919687e886c67e4efc6d5f28913eef6454b9f48a60cd9a8bfb49a8d", "previous_digest": "sha256:4e56112f4919687e886c67e4efc6d5f28913eef6454b9f48a60cd9a8bfb49a8d" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a68",
+      "why": "zero width space in template.name: displayed text (3.1 no. 8)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1680001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1680002", "prev": "sha256:3361613a0e31cbec32323402d4ae7c49a5381529f86e4479d9479b04bc74fae7", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "hidden", "name": "voice\u200bcautious" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a69",
+      "why": "approver.changed by an agent: only a user or the system changes the approvers (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1690001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "agent", "id": "hm-client:voice-7c21e9a4" }, "approver": { "change": "added", "id": "user-2" }, "event": "approver.changed", "id": "01a0f64c-7140-7001-9007-0000e1690002", "prev": "sha256:00ec471bf759a73e78a22d6ec2172d7897175a5e7fd34396272d75f6bdd7cf7d", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a70",
+      "why": "approver change that the specification does not define (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1700001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "approver": { "change": "updated", "id": "user-2" }, "event": "approver.changed", "id": "01a0f64c-7140-7001-9007-0000e1700002", "prev": "sha256:9cd0aed08911120e51ae3021068604d4b2702ddc1e63f8de98dae347f79c3a17", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a71",
+      "why": "approver member on template.changed: only approver.changed carries it (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1710001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "approver": { "change": "added", "id": "user-2" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1710002", "prev": "sha256:1f53756a0c86d86409fa4ade6069eeea9e3b8ac9a54ef83b8bb7d967605533df", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "hidden", "name": "voice-cautious" }, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a72",
+      "why": "approver change without the identifier of the approver (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1720001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "approver": { "change": "removed" }, "event": "approver.changed", "id": "01a0f64c-7140-7001-9007-0000e1720002", "prev": "sha256:ba6457555dc5a8571a1934bcee87808fadf293262453bb16b1d420f2ad9c3f84", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a73",
+      "why": "approver.changed without the approver member (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1730001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "approver.changed", "id": "01a0f64c-7140-7001-9007-0000e1730002", "prev": "sha256:4e5cf6783266963a6103ff705812f0f8556e2e50a98de9117c71016e3af977d6", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a74",
+      "why": "bidi override in approver.id: displayed text (3.1 no. 8)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1740001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "approver": { "change": "added", "id": "user-\u202e2" }, "event": "approver.changed", "id": "01a0f64c-7140-7001-9007-0000e1740002", "prev": "sha256:0c815f5e4c3cea9022555ac9ed1b3d0917c8430ee1738be576c46f91d9293bb1", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
     }
   ]
 }
