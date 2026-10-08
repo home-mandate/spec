@@ -38,6 +38,9 @@ protection classes and the evaluation rule.
   household: for each identifier its category and, optionally, its area.
 - **Action:** what is to be done with the resource, taken from the vocabulary of its category.
 - **Decision:** `allow` (execute immediately), `ask` (a human must confirm), `deny` (reject).
+- **Template:** a mandate draft that an implementation stores and from which it creates
+  mandates. This version defines no format for templates; the audit log records changes to
+  them (Section 9.2).
 
 ## 3. Data model
 
@@ -748,6 +751,8 @@ Depending on the event, the following are added:
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
 | `checkpoint` | `log_id`, `signature` (Section 9.5) |
 | `directory` | change to the resource directory (Section 11.4): `change` (`critical_marked`, `critical_unmarked`, `renamed`, `rename_applied`, `rename_dismissed`), `entity_id` and, except for `critical_marked` and `critical_unmarked`, `previous_entity_id`, both identifiers per Section 3.4 and different from each other. For `renamed`, `entity_id` is the new and `previous_entity_id` the former identifier; for `rename_applied` (a human took the rename over into the mandates) and `rename_dismissed`, `entity_id` is the current identifier and `previous_entity_id` the former one that was resolved, one entry per former identifier. Only with `directory.changed` |
+| `template` | change to a template (Section 2): `change` (`stored`: created or changed, `removed`, `hidden`: no longer offered or accepted for creating mandates without being removed, `shown`: offered and accepted again), `name` (1 to 64 characters) and `digest`; for `stored` the digest of the new content, for `removed` that of the last content, for `hidden` and `shown` optionally that of the current content. `previous_digest` only for `stored` and only if the template had content before, different from `digest`. Digests are computed as in Section 3.2 over the template as the implementation stores it. Only with `template.changed` |
+| `approver` | change to the humans whom the implementation lets answer approval requests (Section 11.1): `change` (`added`, `removed`) and `id` (1 to 64 characters), the identifier of the approver in the user management, as in `approval.by`. Only with `approver.changed` |
 
 For `decision`, the following additionally applies:
 
@@ -761,12 +766,15 @@ For `decision`, the following additionally applies:
   reached, or the agent already had too many requests waiting (Section 11.1).
 
 A `log.truncated` entry has an `actor` of kind `user` or `system`; an agent never deletes
-entries. The same holds for `directory.changed`: an agent never changes the directory.
+entries. The same holds for `directory.changed`, `template.changed` and `approver.changed`:
+an agent never changes the directory, a template or who may answer approval requests.
 
-`actor.id`, `agent.display_name` and `approval.by` are displayed text; Section 3.1 item 8
+`actor.id`, `agent.display_name`, `approval.by`, `template.name` and `approver.id` are
+displayed text; Section 3.1 item 8
 applies to them, and an entry that violates it is invalid.
 
-Entries MUST NOT contain tokens, nonces, credentials or the content of a mandate.
+Entries MUST NOT contain tokens, nonces, credentials or the content of a mandate or of a
+template.
 
 ### 9.2 Events
 
@@ -779,6 +787,8 @@ Entries MUST NOT contain tokens, nonces, credentials or the content of a mandate
 | `log.truncated` | yes | before deleting old entries (Section 9.4) |
 | `log.checkpoint` | no | signed statement about the log so far (Section 9.5) |
 | `directory.changed` | yes, if the implementation lets humans change the critical marking or tracks renamed resources | every such change to the directory, and every rename a human resolves (Section 11.4) |
+| `template.changed` | yes, if the implementation lets humans change templates | every template stored, removed, hidden or shown again |
+| `approver.changed` | yes, if the implementation keeps its own list of humans who may answer approval requests | every approver added to or removed from that list (Section 11.1) |
 | `auth.rejected` | no | rejected sign-in or invalid token |
 
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
@@ -1024,6 +1034,11 @@ before it executes the action.
 Every outcome is recorded in the audit log (Section 9.1) with `approval.outcome`, who
 answered and, optionally, through which channel.
 
+An implementation MAY keep a list of the humans who can answer approval requests, for
+example to offer them as `approvers` of a new mandate. Adding someone to that list or
+removing them from it is recorded with `approver.changed` (Section 9.2). A change to the
+`approvers` of a mandate is a change to the mandate (`mandate.updated`).
+
 ### 11.2 Rate limit
 
 `limits.max_actions_per_hour` (N) bounds how often an agent can make the implementation
@@ -1143,11 +1158,11 @@ behavior of the people in a household and MUST be protected like the devices the
 - **Retention.** How long entries are kept is up to the implementation and SHOULD be
   configurable by the household. The chain permits deletion from the oldest end
   (`log.truncated`); a checkpoint SHOULD precede it.
-- **Persons.** `actor.id` and `approval.by` name people. Implementations SHOULD use
-  identifiers from their user management rather than names, so that a person's name does
-  not have to be removed from a chained log. Removing the data of a single person from the
-  middle of a log is not possible without breaking the chain; this version offers no
-  remedy other than retention limits.
+- **Persons.** `actor.id`, `approval.by` and `approver.id` name people. Implementations
+  SHOULD use identifiers from their user management rather than names, so that a person's
+  name does not have to be removed from a chained log. Removing the data of a single person
+  from the middle of a log is not possible without breaking the chain; this version offers
+  no remedy other than retention limits.
 - **Export.** An exported log leaves the protection of the implementation. Exports SHOULD
   be created only by a human and SHOULD be recorded.
 - **Agents.** What an agent learns through `read` leaves the household with the agent.
@@ -1195,6 +1210,18 @@ Incompatible:
 - Because the `type` is part of every digest and signed payload, all digests, audit chains,
   checkpoint signatures and signed mandates in `conformance/` are new. Cases that are
   invalid on purpose keep their defect.
+
+New:
+- Audit log: event `template.changed` with the member `template` records changes to
+  templates, the stored mandate drafts from which an implementation creates mandates
+  (Section 2): stored, removed, hidden and shown again, with the name and digests but never
+  the content. Event `approver.changed` with the member `approver` records humans added to
+  or removed from the implementation's list of approvers (Section 11.1). Both have an actor
+  of kind `user` or `system`; `template.name` and `approver.id` are displayed text, and a
+  `previous_digest` equal to `digest` makes an entry invalid (Sections 9.1, 9.2).
+  Compatible for logs: every entry that was valid remains valid. A verifier that does not
+  know the events rejects a log that contains them (Section 14, unknown members).
+  Conformance cases `a58`–`a76` in `conformance/audit-v0.json`.
 
 ### History as mandate-spec
 

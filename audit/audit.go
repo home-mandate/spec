@@ -218,7 +218,7 @@ func check(compiled *jsonschema.Schema, entry []byte) (link, bool) {
 	}
 	obj, _ := v.(map[string]any)
 	l := link{seq: intField(obj, "seq")}
-	if compiled.Validate(v) != nil || !displayable(obj) || !distinctIdentifiers(obj) {
+	if compiled.Validate(v) != nil || !displayable(obj) || !distinctFormerValues(obj) {
 		return l, false
 	}
 	digest, err := digestOf(v)
@@ -241,7 +241,9 @@ func check(compiled *jsonschema.Schema, entry []byte) (link, bool) {
 
 // displayedFields are the members that user interfaces show to humans; the rule for
 // displayed text applies to them as in a mandate (SPEC-v0 section 3.1 item 8).
-var displayedFields = [][2]string{{"actor", "id"}, {"agent", "display_name"}, {"approval", "by"}}
+var displayedFields = [][2]string{
+	{"actor", "id"}, {"agent", "display_name"}, {"approval", "by"}, {"template", "name"}, {"approver", "id"},
+}
 
 func displayable(obj map[string]any) bool {
 	for _, path := range displayedFields {
@@ -253,13 +255,23 @@ func displayable(obj map[string]any) bool {
 	return true
 }
 
-// distinctIdentifiers reports whether a directory change that names a former identifier
-// names one other than the current one (SPEC-v0 section 9.1); JSON Schema cannot compare
-// two members.
-func distinctIdentifiers(obj map[string]any) bool {
-	d, _ := obj["directory"].(map[string]any)
-	previous, ok := d["previous_entity_id"].(string)
-	return !ok || previous != d["entity_id"]
+// formerValues are the members of a change that name the former value next to the
+// current one: member, current, former (SPEC-v0 section 9.1).
+var formerValues = [][3]string{
+	{"directory", "entity_id", "previous_entity_id"},
+	{"template", "digest", "previous_digest"},
+}
+
+// distinctFormerValues reports whether every change that names a former value names one
+// other than the current one; JSON Schema cannot compare two members.
+func distinctFormerValues(obj map[string]any) bool {
+	for _, path := range formerValues {
+		change, _ := obj[path[0]].(map[string]any)
+		if former, ok := change[path[2]].(string); ok && former == change[path[1]] {
+			return false
+		}
+	}
+	return true
 }
 
 // maxExactInteger is 2^53; integers below it are exact in every JSON implementation

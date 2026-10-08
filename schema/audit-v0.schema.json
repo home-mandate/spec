@@ -23,7 +23,8 @@
         "emergency_stop.activated", "emergency_stop.released",
         "auth.rejected",
         "log.truncated", "log.checkpoint",
-        "directory.changed"
+        "directory.changed",
+        "template.changed", "approver.changed"
       ]
     },
     "principal": { "type": "string", "pattern": "^(household|person):[A-Za-z0-9_-]{1,64}$" },
@@ -186,6 +187,34 @@
           "then": { "required": ["previous_entity_id"] }, "else": { "not": { "required": ["previous_entity_id"] } } }
       ]
     },
+    "template": {
+      "description": "Change to a mandate template, a stored mandate draft from which the implementation creates mandates (SPEC-v0 section 9.1). Never its content.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["change", "name"],
+      "properties": {
+        "change": { "enum": ["stored", "removed", "hidden", "shown"] },
+        "name": { "description": "Name of the template; displayed text.", "type": "string", "minLength": 1, "maxLength": 64 },
+        "digest": { "description": "stored: the new content; removed: the last content; hidden, shown: optionally the current content.", "$ref": "#/$defs/digest" },
+        "previous_digest": { "description": "Only with stored, if the template had content before; differs from digest.", "$ref": "#/$defs/digest" }
+      },
+      "allOf": [
+        { "if": { "properties": { "change": { "enum": ["stored", "removed"] } } },
+          "then": { "required": ["digest"] } },
+        { "if": { "properties": { "change": { "const": "stored" } } },
+          "else": { "not": { "required": ["previous_digest"] } } }
+      ]
+    },
+    "approver": {
+      "description": "Change to the humans the implementation lets answer approval requests (SPEC-v0 section 11.1).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["change", "id"],
+      "properties": {
+        "change": { "enum": ["added", "removed"] },
+        "id": { "description": "Identifier of the approver in the user management, as in approval.by; displayed text.", "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    },
     "prev": {
       "description": "Digest of the previous entry; null only for the first entry of an audit log (seq 1).",
       "anyOf": [ { "type": "null" }, { "$ref": "#/$defs/digest" } ]
@@ -209,6 +238,12 @@
     { "if": { "properties": { "event": { "const": "directory.changed" } } },
       "then": { "required": ["actor", "directory"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } },
       "else": { "not": { "required": ["directory"] } } },
+    { "if": { "properties": { "event": { "const": "template.changed" } } },
+      "then": { "required": ["actor", "template"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } },
+      "else": { "not": { "required": ["template"] } } },
+    { "if": { "properties": { "event": { "const": "approver.changed" } } },
+      "then": { "required": ["actor", "approver"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } },
+      "else": { "not": { "required": ["approver"] } } },
     { "if": { "properties": { "event": { "const": "log.checkpoint" } } },
       "then": { "required": ["checkpoint"], "properties": { "seq": { "minimum": 2 } } },
       "else": { "not": { "required": ["checkpoint"] } } },
