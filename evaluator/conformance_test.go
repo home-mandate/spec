@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
-	"github.com/mandate-spec/mandate-spec/evaluator"
+	"github.com/home-mandate/spec"
+	"github.com/home-mandate/spec/evaluator"
 )
 
 // mandateSource is the common shape conformance files use to refer to a mandate.
@@ -24,7 +24,7 @@ func (s mandateSource) bytes(t *testing.T) []byte {
 	t.Helper()
 	switch {
 	case s.Mandate != "":
-		data, err := fs.ReadFile(mandatespec.FS(), s.Mandate)
+		data, err := fs.ReadFile(spec.FS(), s.Mandate)
 		if err != nil {
 			t.Fatalf("read mandate %s: %v", s.Mandate, err)
 		}
@@ -61,7 +61,7 @@ type conformanceCase struct {
 
 func loadCases[T any](t *testing.T, path, key string) []T {
 	t.Helper()
-	data, err := fs.ReadFile(mandatespec.FS(), path)
+	data, err := fs.ReadFile(spec.FS(), path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func loadCases[T any](t *testing.T, path, key string) []T {
 }
 
 func TestConformanceCases(t *testing.T) {
-	for _, c := range loadCases[conformanceCase](t, mandatespec.CasesPath, "cases") {
+	for _, c := range loadCases[conformanceCase](t, spec.CasesPath, "cases") {
 		t.Run(c.ID, func(t *testing.T) {
 			m, err := evaluator.Parse(c.bytes(t))
 			if err != nil {
@@ -164,7 +164,7 @@ type invalidCase struct {
 }
 
 func TestConformanceInvalidMandates(t *testing.T) {
-	for _, c := range loadCases[invalidCase](t, mandatespec.InvalidCasesPath, "cases") {
+	for _, c := range loadCases[invalidCase](t, spec.InvalidCasesPath, "cases") {
 		t.Run(c.ID, func(t *testing.T) {
 			m, err := evaluator.Parse(c.bytes(t))
 			if err == nil {
@@ -185,7 +185,7 @@ type digestCase struct {
 }
 
 func TestConformanceDigests(t *testing.T) {
-	for _, c := range loadCases[digestCase](t, mandatespec.DigestCasesPath, "cases") {
+	for _, c := range loadCases[digestCase](t, spec.DigestCasesPath, "cases") {
 		t.Run(c.ID, func(t *testing.T) {
 			m, err := evaluator.Parse(c.bytes(t))
 			if err != nil {

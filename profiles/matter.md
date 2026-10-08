@@ -4,7 +4,7 @@ Not verified against an implementation.
 
 ## Identifiers
 
-| mandate-spec | Matter | Note |
+| Home-Mandate | Matter | Note |
 |---|---|---|
 | `entity_id` | node ID and endpoint, e.g. `0x00000000000004D2/1` | Stable within a fabric. |
 | `area` | identifier assigned by the implementation | Matter has no area that every controller shares. |

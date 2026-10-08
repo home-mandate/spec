@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package schema provides the normative JSON schemas of mandate-spec v0 without pulling
+// Package schema provides the normative JSON schemas of the Home-Mandate Specification v0 without pulling
 // in the examples and conformance cases.
 package schema
 
@@ -11,9 +11,9 @@ import (
 
 // IDs of the schemas, as given in "$id".
 const (
-	MandateID    = "https://mandate-spec.org/mandate/v0/mandate.schema.json"
-	AuditID      = "https://mandate-spec.org/audit/v0/audit.schema.json"
-	VocabularyID = "https://mandate-spec.org/vocabulary/v0/vocabulary.schema.json"
+	MandateID    = "https://home-mandate.org/mandate/v0/mandate.schema.json"
+	AuditID      = "https://home-mandate.org/audit/v0/audit.schema.json"
+	VocabularyID = "https://home-mandate.org/vocabulary/v0/vocabulary.schema.json"
 )
 
 var (

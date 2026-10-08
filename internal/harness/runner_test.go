@@ -8,12 +8,12 @@ import (
 	"testing"
 	"testing/fstest"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
-	"github.com/mandate-spec/mandate-spec/internal/harness"
+	"github.com/home-mandate/spec"
+	"github.com/home-mandate/spec/internal/harness"
 )
 
 func TestReferenceConformsToEveryClass(t *testing.T) {
-	report, err := harness.Run(mandatespec.FS(), harness.Local{})
+	report, err := harness.Run(spec.FS(), harness.Local{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestRunDetectsDeviations(t *testing.T) {
 		}, harness.ClassSelection},
 	} {
 		t.Run(name, func(t *testing.T) {
-			report, err := harness.Run(mandatespec.FS(), faulty{tt.change})
+			report, err := harness.Run(spec.FS(), faulty{tt.change})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -160,7 +160,7 @@ func TestRunDetectsDeviations(t *testing.T) {
 }
 
 func TestUnsupportedOperationsAreSkippedAndDoNotConform(t *testing.T) {
-	report, err := harness.Run(mandatespec.FS(), faulty{func(req harness.Request, r harness.Response) (harness.Response, error) {
+	report, err := harness.Run(spec.FS(), faulty{func(req harness.Request, r harness.Response) (harness.Response, error) {
 		if req.Op == harness.OpVerifySigned || req.Op == harness.OpSuccession {
 			return harness.Response{Error: harness.ErrorUnsupported}, nil
 		}
@@ -190,7 +190,7 @@ func TestRunFailsWithoutCasesOrCapabilities(t *testing.T) {
 	if _, err := harness.Run(broken, harness.Local{}); err == nil {
 		t.Error("Run with a broken conformance file succeeded")
 	}
-	_, err := harness.Run(mandatespec.FS(), faulty{func(req harness.Request, r harness.Response) (harness.Response, error) {
+	_, err := harness.Run(spec.FS(), faulty{func(req harness.Request, r harness.Response) (harness.Response, error) {
 		return r, errors.New("no process")
 	}})
 	if err == nil {

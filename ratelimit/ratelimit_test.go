@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mandate-spec/mandate-spec/ratelimit"
+	"github.com/home-mandate/spec/ratelimit"
 )
 
 type clock struct{ now time.Time }

@@ -1,5 +1,5 @@
 {
-  "type": "https://mandate-spec.org/mandate/v0",
+  "type": "https://home-mandate.org/mandate/v0",
   "id": "m-conf-identifiers",
   "principal": "household:conf",
   "agent": { "client_id": "urn:example:agent:conf-identifiers", "display_name": "Conformance identifiers" },

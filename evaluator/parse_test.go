@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
-	"github.com/mandate-spec/mandate-spec/evaluator"
+	"github.com/home-mandate/spec"
+	"github.com/home-mandate/spec/evaluator"
 )
 
 // baseMandate is a minimal valid mandate; %s is the raw value of display_name.
-const baseMandate = `{"type":"https://mandate-spec.org/mandate/v0","id":"m-test","principal":"household:t",` +
+const baseMandate = `{"type":"https://home-mandate.org/mandate/v0","id":"m-test","principal":"household:t",` +
 	`"agent":{"client_id":"hm-client:test-0001","display_name":"%s"},` +
 	`"rules":[{"id":"r-1","resource":{"category":"light"},"actions":["turn_on"],"decision":"allow"}],` +
 	`"default":"deny","approval":{"timeout":"PT2M","approvers":["a-1"]},"limits":{"max_actions_per_hour":10},` +
@@ -36,7 +36,7 @@ func mandateReplacing(old, replacement string) []byte {
 func TestParseAcceptsAllShippedMandates(t *testing.T) {
 	var paths []string
 	for _, pattern := range []string{"examples/*.json", "conformance/mandates/*.json"} {
-		found, err := fs.Glob(mandatespec.FS(), pattern)
+		found, err := fs.Glob(spec.FS(), pattern)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -47,7 +47,7 @@ func TestParseAcceptsAllShippedMandates(t *testing.T) {
 	}
 	for _, p := range paths {
 		t.Run(p, func(t *testing.T) {
-			data, err := fs.ReadFile(mandatespec.FS(), p)
+			data, err := fs.ReadFile(spec.FS(), p)
 			if err != nil {
 				t.Fatal(err)
 			}

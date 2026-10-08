@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mandate-spec.org/conformance/v0/audit.schema.json",
+  "$id": "https://home-mandate.org/conformance/v0/audit.schema.json",
   "title": "Audit logs v0 (SPEC-v0 sections 8 and 9.4)",
   "type": "object",
   "additionalProperties": false,

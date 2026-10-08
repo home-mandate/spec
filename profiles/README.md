@@ -1,7 +1,7 @@
 # Profiles
 
-Informative mappings from individual platforms to the vocabulary of mandate-spec
-(`vocabulary/v0.json`). A profile is a suggestion for implementers on that platform. It is
+Informative mappings from individual platforms to the vocabulary of the Home-Mandate
+Specification (`vocabulary/v0.json`). A profile is a suggestion for implementers on that platform. It is
 not part of the specification: conformance does not depend on it, and a platform without a
 profile can be implemented just as well.
 

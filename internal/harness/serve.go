@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mandate-spec/mandate-spec/audit"
-	"github.com/mandate-spec/mandate-spec/evaluator"
-	"github.com/mandate-spec/mandate-spec/jws"
+	"github.com/home-mandate/spec/audit"
+	"github.com/home-mandate/spec/evaluator"
+	"github.com/home-mandate/spec/jws"
 )
 
 // maxLineBytes bounds one request: a mandate of 256 KiB inside a JSON string, several
@@ -48,7 +48,7 @@ func Serve(r io.Reader, w io.Writer) error {
 func Answer(req Request) Response {
 	switch req.Op {
 	case OpCapabilities:
-		return Response{Name: "mandate-spec reference (Go)", Version: "v0", Ops: []string{
+		return Response{Name: "Home-Mandate reference (Go)", Version: "v0", Ops: []string{
 			OpValidate, OpEvaluate, OpSelect, OpSuccession, OpVerifySigned, OpVerifyAudit, OpEntryDigest}}
 	case OpValidate:
 		if req.Mandate == nil {

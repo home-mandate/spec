@@ -11,8 +11,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
-	"github.com/mandate-spec/mandate-spec/evaluator"
+	"github.com/home-mandate/spec"
+	"github.com/home-mandate/spec/evaluator"
 )
 
 // shippedMandates returns all shipped valid mandates as seed material.
@@ -20,12 +20,12 @@ func shippedMandates(f *testing.F) [][]byte {
 	f.Helper()
 	var out [][]byte
 	for _, pattern := range []string{"examples/*.json", "conformance/mandates/*.json"} {
-		paths, err := fs.Glob(mandatespec.FS(), pattern)
+		paths, err := fs.Glob(spec.FS(), pattern)
 		if err != nil {
 			f.Fatal(err)
 		}
 		for _, p := range paths {
-			data, err := fs.ReadFile(mandatespec.FS(), p)
+			data, err := fs.ReadFile(spec.FS(), p)
 			if err != nil {
 				f.Fatal(err)
 			}

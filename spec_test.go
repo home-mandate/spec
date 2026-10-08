@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package mandatespec_test
+package spec_test
 
 import (
 	"bytes"
@@ -10,24 +10,24 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
-	"github.com/mandate-spec/mandate-spec/internal/manifest"
+	"github.com/home-mandate/spec"
+	"github.com/home-mandate/spec/internal/manifest"
 )
 
 func TestFSContainsSpecFiles(t *testing.T) {
 	paths := []string{
-		mandatespec.MandateSchemaPath,
-		mandatespec.AuditSchemaPath,
-		mandatespec.CasesPath,
-		mandatespec.InvalidCasesPath,
-		mandatespec.DigestCasesPath,
-		mandatespec.AuditCasesPath,
+		spec.MandateSchemaPath,
+		spec.AuditSchemaPath,
+		spec.CasesPath,
+		spec.InvalidCasesPath,
+		spec.DigestCasesPath,
+		spec.AuditCasesPath,
 		"examples/voice-assistant.json",
 		"conformance/mandates/time.json",
 	}
 	for _, p := range paths {
 		t.Run(p, func(t *testing.T) {
-			data, err := fs.ReadFile(mandatespec.FS(), p)
+			data, err := fs.ReadFile(spec.FS(), p)
 			if err != nil {
 				t.Fatalf("read %s: %v", p, err)
 			}
@@ -39,7 +39,7 @@ func TestFSContainsSpecFiles(t *testing.T) {
 }
 
 func TestFSResolvesAllMandatePathsInCases(t *testing.T) {
-	data, err := fs.ReadFile(mandatespec.FS(), mandatespec.CasesPath)
+	data, err := fs.ReadFile(spec.FS(), spec.CasesPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestFSResolvesAllMandatePathsInCases(t *testing.T) {
 		if c.Mandate == "" {
 			continue
 		}
-		if _, err := fs.Stat(mandatespec.FS(), c.Mandate); err != nil {
+		if _, err := fs.Stat(spec.FS(), c.Mandate); err != nil {
 			t.Errorf("case %s: mandate %s not embedded: %v", c.ID, c.Mandate, err)
 		}
 	}
@@ -67,14 +67,14 @@ func TestFSResolvesAllMandatePathsInCases(t *testing.T) {
 
 func TestFSExcludesNonSpecFiles(t *testing.T) {
 	for _, p := range []string{"go.mod", "spec.go", "SPEC-v0.md", "README.md"} {
-		if _, err := fs.Stat(mandatespec.FS(), p); err == nil {
+		if _, err := fs.Stat(spec.FS(), p); err == nil {
 			t.Errorf("%s must not be embedded", p)
 		}
 	}
 }
 
 func TestManifestMatchesEmbeddedFiles(t *testing.T) {
-	data, err := fs.ReadFile(mandatespec.FS(), mandatespec.ManifestPath)
+	data, err := fs.ReadFile(spec.FS(), spec.ManifestPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,25 +82,25 @@ func TestManifestMatchesEmbeddedFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	built, err := manifest.Build(mandatespec.FS())
+	built, err := manifest.Build(spec.FS())
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, line := range manifest.Diff(built, stored) {
-		t.Errorf("%s is out of date (%s); run: go run ./tools/vectors manifest", mandatespec.ManifestPath, line)
+		t.Errorf("%s is out of date (%s); run: go run ./tools/vectors manifest", spec.ManifestPath, line)
 	}
 }
 
 func TestConformanceFilesMatchTheirSchemas(t *testing.T) {
 	for file, schemaPath := range map[string]string{
-		mandatespec.CasesPath:           "conformance/schema/cases-v0.schema.json",
-		mandatespec.InvalidCasesPath:    "conformance/schema/invalid-v0.schema.json",
-		mandatespec.DigestCasesPath:     "conformance/schema/digest-v0.schema.json",
-		mandatespec.AuditCasesPath:      "conformance/schema/audit-v0.schema.json",
-		mandatespec.SelectionCasesPath:  "conformance/schema/selection-v0.schema.json",
-		mandatespec.SignedCasesPath:     "conformance/schema/signed-v0.schema.json",
-		mandatespec.SuccessionCasesPath: "conformance/schema/succession-v0.schema.json",
-		mandatespec.ManifestPath:        "conformance/schema/manifest.schema.json",
+		spec.CasesPath:           "conformance/schema/cases-v0.schema.json",
+		spec.InvalidCasesPath:    "conformance/schema/invalid-v0.schema.json",
+		spec.DigestCasesPath:     "conformance/schema/digest-v0.schema.json",
+		spec.AuditCasesPath:      "conformance/schema/audit-v0.schema.json",
+		spec.SelectionCasesPath:  "conformance/schema/selection-v0.schema.json",
+		spec.SignedCasesPath:     "conformance/schema/signed-v0.schema.json",
+		spec.SuccessionCasesPath: "conformance/schema/succession-v0.schema.json",
+		spec.ManifestPath:        "conformance/schema/manifest.schema.json",
 	} {
 		t.Run(file, func(t *testing.T) {
 			compiled := compileSchema(t, schemaPath)
@@ -124,9 +124,9 @@ func TestConformanceSchemasRejectUnknownFields(t *testing.T) {
 
 func TestConformanceCaseIDsAreUnique(t *testing.T) {
 	for file, key := range map[string]string{
-		mandatespec.CasesPath: "cases", mandatespec.InvalidCasesPath: "cases",
-		mandatespec.DigestCasesPath: "cases", mandatespec.AuditCasesPath: "logs",
-		mandatespec.SelectionCasesPath: "cases", mandatespec.SignedCasesPath: "cases", mandatespec.SuccessionCasesPath: "cases",
+		spec.CasesPath: "cases", spec.InvalidCasesPath: "cases",
+		spec.DigestCasesPath: "cases", spec.AuditCasesPath: "logs",
+		spec.SelectionCasesPath: "cases", spec.SignedCasesPath: "cases", spec.SuccessionCasesPath: "cases",
 	} {
 		doc, _ := readJSON(t, file).(map[string]any)
 		cases, _ := doc[key].([]any)
@@ -143,7 +143,7 @@ func TestConformanceCaseIDsAreUnique(t *testing.T) {
 
 func readJSON(t *testing.T, path string) any {
 	t.Helper()
-	data, err := fs.ReadFile(mandatespec.FS(), path)
+	data, err := fs.ReadFile(spec.FS(), path)
 	if err != nil {
 		t.Fatal(err)
 	}

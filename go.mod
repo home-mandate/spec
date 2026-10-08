@@ -1,4 +1,4 @@
-module github.com/mandate-spec/mandate-spec
+module github.com/home-mandate/spec
 
 go 1.27.1
 

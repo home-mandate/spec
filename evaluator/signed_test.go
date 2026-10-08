@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
-	"github.com/mandate-spec/mandate-spec/evaluator"
-	"github.com/mandate-spec/mandate-spec/jws"
+	"github.com/home-mandate/spec"
+	"github.com/home-mandate/spec/evaluator"
+	"github.com/home-mandate/spec/jws"
 )
 
 const testIssuer = "https://issuer.example/mandates"
@@ -197,9 +197,9 @@ type signedCase struct {
 }
 
 func TestConformanceSignedMandates(t *testing.T) {
-	for _, c := range loadCases[signedCase](t, mandatespec.SignedCasesPath, "cases") {
+	for _, c := range loadCases[signedCase](t, spec.SignedCasesPath, "cases") {
 		t.Run(c.ID, func(t *testing.T) {
-			data, err := fs.ReadFile(mandatespec.FS(), c.Keys)
+			data, err := fs.ReadFile(spec.FS(), c.Keys)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -233,7 +233,7 @@ type successionCase struct {
 }
 
 func TestConformanceSuccession(t *testing.T) {
-	for _, c := range loadCases[successionCase](t, mandatespec.SuccessionCasesPath, "cases") {
+	for _, c := range loadCases[successionCase](t, spec.SuccessionCasesPath, "cases") {
 		t.Run(c.ID, func(t *testing.T) {
 			stored, err := evaluator.Parse(c.Stored)
 			if err != nil {

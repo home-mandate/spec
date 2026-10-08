@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package data provides the normative data files of mandate-spec v0 that are neither a
+// Package data provides the normative data files of the Home-Mandate Specification v0 that are neither a
 // schema nor a conformance case.
 package data
 

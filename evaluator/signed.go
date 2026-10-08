@@ -12,9 +12,9 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/mandate-spec/mandate-spec/internal/ijson"
-	"github.com/mandate-spec/mandate-spec/jcs"
-	"github.com/mandate-spec/mandate-spec/jws"
+	"github.com/home-mandate/spec/internal/ijson"
+	"github.com/home-mandate/spec/jcs"
+	"github.com/home-mandate/spec/jws"
 )
 
 // ErrSignature means a signed mandate is not a compact JWS over the canonical form of a

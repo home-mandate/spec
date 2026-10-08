@@ -27,10 +27,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mandate-spec/mandate-spec/audit"
-	"github.com/mandate-spec/mandate-spec/evaluator"
-	"github.com/mandate-spec/mandate-spec/internal/ijson"
-	"github.com/mandate-spec/mandate-spec/internal/manifest"
+	"github.com/home-mandate/spec/audit"
+	"github.com/home-mandate/spec/evaluator"
+	"github.com/home-mandate/spec/internal/ijson"
+	"github.com/home-mandate/spec/internal/manifest"
 )
 
 func main() {

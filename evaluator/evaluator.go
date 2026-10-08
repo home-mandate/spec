@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package evaluator is the reference evaluator of mandate-spec v0 (SPEC-v0.md
+// Package evaluator is the reference evaluator of the Home-Mandate Specification v0 (SPEC-v0.md
 // sections 3.1, 3.2 and 4). It uses only the standard library and a
 // JSON Schema validator. When in doubt, the result is always Deny.
 package evaluator

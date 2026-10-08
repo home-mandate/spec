@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	mandatespec "github.com/mandate-spec/mandate-spec"
-	"github.com/mandate-spec/mandate-spec/internal/harness"
+	"github.com/home-mandate/spec"
+	"github.com/home-mandate/spec/internal/harness"
 )
 
 func ask(t *testing.T, requests ...harness.Request) []harness.Response {
@@ -43,7 +43,7 @@ func ask(t *testing.T, requests ...harness.Request) []harness.Response {
 
 func example(t *testing.T) *string {
 	t.Helper()
-	data, err := fs.ReadFile(mandatespec.FS(), "examples/voice-assistant.json")
+	data, err := fs.ReadFile(spec.FS(), "examples/voice-assistant.json")
 	if err != nil {
 		t.Fatal(err)
 	}

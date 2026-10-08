@@ -11,9 +11,9 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/mandate-spec/mandate-spec/internal/ijson"
-	"github.com/mandate-spec/mandate-spec/jcs"
-	"github.com/mandate-spec/mandate-spec/schema"
+	"github.com/home-mandate/spec/internal/ijson"
+	"github.com/home-mandate/spec/jcs"
+	"github.com/home-mandate/spec/schema"
 )
 
 // MaxMandateBytes is the size limit from SPEC-v0 section 3.1 item 5.

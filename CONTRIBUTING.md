@@ -1,7 +1,7 @@
 # Contributing
 
-mandate-spec is meant to be implemented by anyone, in any language, on any platform. Changes
-are judged by that goal first.
+The Home-Mandate Specification is meant to be implemented by anyone, in any language, on any
+platform. Changes are judged by that goal first.
 
 ## Principles
 
@@ -45,8 +45,8 @@ By contributing you agree that your contribution is licensed as the file it chan
 
 ## Governance
 
-Until v1.0 the maintainers of the `mandate-spec` organization decide on changes, in public
+Until v1.0 the maintainers of the `home-mandate` organization decide on changes, in public
 pull requests, guided by the principles above. Implementers of the specification are heard
-before an incompatible change. The specification lives in its own organization so that it
+before an incompatible change. The specification lives in its own repository, separate from any product, so that it
 can be handed to a neutral body once more than one independent implementation exists; the
 process for the vocabulary and for extensions is defined before v1.0.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package jcs implements the JSON Canonicalization Scheme (RFC 8785) for the subset
-// mandate-spec uses, and the digests of SPEC-v0 sections 3.2 and 9.4.
+// the Home-Mandate Specification uses, and the digests of SPEC-v0 sections 3.2 and 9.4.
 package jcs
 
 import (

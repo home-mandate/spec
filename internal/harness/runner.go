@@ -10,7 +10,7 @@ import (
 	"io/fs"
 	"slices"
 
-	"github.com/mandate-spec/mandate-spec/internal/manifest"
+	"github.com/home-mandate/spec/internal/manifest"
 )
 
 // Conformance classes (SPEC-v0 section 8.1).

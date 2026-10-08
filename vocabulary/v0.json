@@ -1,7 +1,7 @@
 {
-  "$schema": "https://mandate-spec.org/vocabulary/v0/vocabulary.schema.json",
-  "description": "Vocabulary v0 of mandate-spec (SPEC-v0.md section 5): categories, their actions, which actions are critical and which parameters an action has. Normative.",
-  "id": "https://mandate-spec.org/vocabulary/v0",
+  "$schema": "https://home-mandate.org/vocabulary/v0/vocabulary.schema.json",
+  "description": "Vocabulary v0 of the Home-Mandate Specification (SPEC-v0.md section 5): categories, their actions, which actions are critical and which parameters an action has. Normative.",
+  "id": "https://home-mandate.org/vocabulary/v0",
   "version": "v0",
   "categories": {
     "light": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}, "set": {"parameters": {"brightness": {"unit": "percent", "minimum": 0, "maximum": 100}}}}},

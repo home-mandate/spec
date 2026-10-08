@@ -7,7 +7,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/mandate-spec/mandate-spec/internal/manifest"
+	"github.com/home-mandate/spec/internal/manifest"
 )
 
 func testFS() fstest.MapFS {

@@ -9,14 +9,14 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/mandate-spec/mandate-spec/jcs"
-	"github.com/mandate-spec/mandate-spec/jws"
+	"github.com/home-mandate/spec/jcs"
+	"github.com/home-mandate/spec/jws"
 )
 
 const (
 	eventCheckpoint = "log.checkpoint"
 	// checkpointType identifies the signed statement of a checkpoint.
-	checkpointType = "https://mandate-spec.org/audit-checkpoint/v0"
+	checkpointType = "https://home-mandate.org/audit-checkpoint/v0"
 )
 
 var (

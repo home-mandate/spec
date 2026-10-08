@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package mandatespec embeds the machine-readable parts of the specification:
+// Package spec embeds the machine-readable parts of the specification:
 // schemas, example mandates and conformance cases. Implementations use it to test against
 // exactly the version of the specification they depend on.
-package mandatespec
+package spec
 
 import (
 	"embed"

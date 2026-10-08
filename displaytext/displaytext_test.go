@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mandate-spec/mandate-spec/displaytext"
+	"github.com/home-mandate/spec/displaytext"
 )
 
 func TestCheckAcceptsOrdinaryNames(t *testing.T) {

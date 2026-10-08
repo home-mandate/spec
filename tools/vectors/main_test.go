@@ -12,12 +12,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mandate-spec/mandate-spec/audit"
-	"github.com/mandate-spec/mandate-spec/internal/manifest"
-	"github.com/mandate-spec/mandate-spec/jws"
+	"github.com/home-mandate/spec/audit"
+	"github.com/home-mandate/spec/internal/manifest"
+	"github.com/home-mandate/spec/jws"
 )
 
-const entryTemplate = `{"type":"https://mandate-spec.org/audit/v0","id":"01928b2e-7c3a-7000-8000-00000000000N","seq":N,` +
+const entryTemplate = `{"type":"https://home-mandate.org/audit/v0","id":"01928b2e-7c3a-7000-8000-00000000000N","seq":N,` +
 	`"recorded_at":"2026-10-12T21:14:03+02:00","event":"emergency_stop.activated","principal":"household:h1",` +
 	`"actor":{"kind":"user","id":"u"},"prev":null}`
 

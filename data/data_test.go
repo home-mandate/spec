@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/mandate-spec/mandate-spec/data"
+	"github.com/home-mandate/spec/data"
 )
 
 func TestForbiddenCodepointsIsSortedAndDisjoint(t *testing.T) {

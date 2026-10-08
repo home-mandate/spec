@@ -1,5 +1,5 @@
 {
-  "type": "https://mandate-spec.org/mandate/v0",
+  "type": "https://home-mandate.org/mandate/v0",
   "id": "m-conf-time",
   "principal": "household:conf",
   "agent": { "client_id": "hm-client:conf-time-0001", "display_name": "Prüfung Zeit" },

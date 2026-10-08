@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mandate-spec/mandate-spec/audit"
-	"github.com/mandate-spec/mandate-spec/jws"
+	"github.com/home-mandate/spec/audit"
+	"github.com/home-mandate/spec/jws"
 )
 
 const testLogID = "0198f1c2-7c3a-7000-8000-0000000000aa"
@@ -31,7 +31,7 @@ func (b *logBuilder) add(body string) {
 	if b.prev != "" {
 		prev = `"` + b.prev + `"`
 	}
-	entry := fmt.Sprintf(`{"type":"https://mandate-spec.org/audit/v0","id":"01a0f64c-7140-7001-9007-%012x","seq":%d,`+
+	entry := fmt.Sprintf(`{"type":"https://home-mandate.org/audit/v0","id":"01a0f64c-7140-7001-9007-%012x","seq":%d,`+
 		`"recorded_at":"2026-10-01T09:00:00+02:00","principal":"household:h1",%s,"prev":%s}`, seq, seq, body, prev)
 	digest, err := audit.Digest([]byte(entry))
 	if err != nil {

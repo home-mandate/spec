@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mandate-spec.org/conformance/v0/signed.schema.json",
+  "$id": "https://home-mandate.org/conformance/v0/signed.schema.json",
   "title": "Signed mandate cases v0 (SPEC-v0 sections 7 and 8)",
   "type": "object",
   "additionalProperties": false,
