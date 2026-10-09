@@ -1,6 +1,6 @@
 module github.com/home-mandate/spec
 
-go 1.27.1
+go 1.27.2
 
 require github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 
