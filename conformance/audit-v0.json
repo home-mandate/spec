@@ -3886,6 +3886,133 @@
         { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1760001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
         { "actor": { "kind": "user", "id": "user-1" }, "event": "template.changed", "id": "01a0f64c-7140-7001-9007-0000e1760002", "prev": "sha256:e52374058b073e38155ccecb9e59f41a75bce1aedb6ef8c1f5031ee7b956f32a", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "template": { "change": "removed", "name": "household-night" }, "type": "https://home-mandate.org/audit/v0" }
       ]
+    },
+    {
+      "id": "a77",
+      "why": "reconnection: an agent whose tokens an emergency stop withdrew gets new ones from a user, keeping its identifier and mandate",
+      "expected": "valid",
+      "entry_digests": ["sha256:ed9aaffba565e980a37d272a5585e8564ccfe65095b28b5404ca8b4db62f6bfc", "sha256:faa94965b85e5178033556e14847050075b473c8fa3b21b4f75e3a34f171c67b", "sha256:76e131a3848084787fa95146b4b207bfc2bf35336ccf4b4d7fee6d2824c582d3", "sha256:d99eacd1d4d1abde824dea81bd6e50fb73d9989d270a28f0256ee6bf58a704c9", "sha256:5438c879f97477a85cde9950a65a1baf7e6eed886376839152bf1651d74d98e8"],
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1770001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.created", "id": "01a0f64c-7140-7001-9007-0000e1770002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:ed9aaffba565e980a37d272a5585e8564ccfe65095b28b5404ca8b4db62f6bfc", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:11:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000e1770003", "prev": "sha256:faa94965b85e5178033556e14847050075b473c8fa3b21b4f75e3a34f171c67b", "principal": "household:hm-7f3a", "recorded_at": "2026-10-02T21:00:00+02:00", "seq": 3, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000e1770004", "prev": "sha256:76e131a3848084787fa95146b4b207bfc2bf35336ccf4b4d7fee6d2824c582d3", "principal": "household:hm-7f3a", "recorded_at": "2026-10-02T21:30:00+02:00", "seq": 4, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.reconnected", "id": "01a0f64c-7140-7001-9007-0000e1770005", "prev": "sha256:d99eacd1d4d1abde824dea81bd6e50fb73d9989d270a28f0256ee6bf58a704c9", "principal": "household:hm-7f3a", "recorded_at": "2026-10-02T21:35:00+02:00", "seq": 5, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a78",
+      "why": "removal: a revoked mandate removed by a user, a revoked agent removed by the system",
+      "expected": "valid",
+      "entry_digests": ["sha256:191478b1800c2f09b95d2a63f6a5a31511893d3ab2429165ddae5ee23e1db125", "sha256:53fdb3d109031694af67cf4e304e476e0058f6e02c7d20ac60dee0b0a3afcd38", "sha256:691a7499e215d9d298e8112b6b039877959f2916c95853e646b8cda1c377af78", "sha256:92bbc5ad7a2e333edd1bd41c3acbf4111b69212ee8c0bab8661bb17253806f89", "sha256:537c9823f7d7f91db1e1ead6a7d81e9cf88cef1f2054a265ea40b0c1f82410bd", "sha256:2713ffcae207d5f6313b1d260a4a202e12d2801e2d4332e5e76f92c06c4b388d"],
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1780001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.created", "id": "01a0f64c-7140-7001-9007-0000e1780002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:191478b1800c2f09b95d2a63f6a5a31511893d3ab2429165ddae5ee23e1db125", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:11:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.revoked", "id": "01a0f64c-7140-7001-9007-0000e1780003", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:53fdb3d109031694af67cf4e304e476e0058f6e02c7d20ac60dee0b0a3afcd38", "principal": "household:hm-7f3a", "recorded_at": "2026-10-02T08:00:00+02:00", "seq": 3, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.revoked", "id": "01a0f64c-7140-7001-9007-0000e1780004", "prev": "sha256:691a7499e215d9d298e8112b6b039877959f2916c95853e646b8cda1c377af78", "principal": "household:hm-7f3a", "recorded_at": "2026-10-02T08:01:00+02:00", "seq": 4, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.removed", "id": "01a0f64c-7140-7001-9007-0000e1780005", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:92bbc5ad7a2e333edd1bd41c3acbf4111b69212ee8c0bab8661bb17253806f89", "principal": "household:hm-7f3a", "recorded_at": "2026-10-03T08:00:00+02:00", "seq": 5, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "system", "id": "system" }, "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "event": "agent.removed", "id": "01a0f64c-7140-7001-9007-0000e1780006", "prev": "sha256:537c9823f7d7f91db1e1ead6a7d81e9cf88cef1f2054a265ea40b0c1f82410bd", "principal": "household:hm-7f3a", "recorded_at": "2026-11-02T03:00:00+01:00", "seq": 6, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a79",
+      "why": "agent.reconnected by the system: only a human reconnects an agent (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1790001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "system", "id": "system" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.reconnected", "id": "01a0f64c-7140-7001-9007-0000e1790002", "prev": "sha256:b38d8349a7e9664ca4db7301629e49cc520d28d9cbadc7f73fcd4db2439f2a04", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a80",
+      "why": "agent.reconnected by an agent: only a human reconnects an agent (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1800001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "agent", "id": "hm-client:voice-7c21e9a4" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.reconnected", "id": "01a0f64c-7140-7001-9007-0000e1800002", "prev": "sha256:6548e95f4af6eee91220209a502552ad7086cb36e962dc86fe5381862693e83b", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a81",
+      "why": "agent.reconnected without the agent member (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1810001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "agent.reconnected", "id": "01a0f64c-7140-7001-9007-0000e1810002", "prev": "sha256:d54c82c6ba6863dfc9190797afebae55fccc6374683ca0fe89f740aabf02f5cf", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a82",
+      "why": "agent.reconnected without an actor (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1820001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.reconnected", "id": "01a0f64c-7140-7001-9007-0000e1820002", "prev": "sha256:b564ce484fcf5e5b21839f2d4e6037b89083712d158f9ffb099ff4e712949133", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a83",
+      "why": "agent.removed by an agent: only a user or the system removes agents (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1830001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "agent", "id": "hm-client:voice-7c21e9a4" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.removed", "id": "01a0f64c-7140-7001-9007-0000e1830002", "prev": "sha256:17f43cfff1a1a79ccc39fceda11c0e76348a6e66869ae7308b7651f1c521aa47", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a84",
+      "why": "agent.removed without the agent member (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1840001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "agent.removed", "id": "01a0f64c-7140-7001-9007-0000e1840002", "prev": "sha256:4d064aacf0d0078bc5a960ae22bb576cb6816c12d9509f7076d53c4d1c2e93b8", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a85",
+      "why": "mandate.removed by an agent: only a user or the system removes mandates (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1850001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "agent", "id": "hm-client:voice-7c21e9a4" }, "event": "mandate.removed", "id": "01a0f64c-7140-7001-9007-0000e1850002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:6cd473bcaeaaab92d3bb2f734931b42fb2cd371212a9e1576eee9c65d30a555f", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a86",
+      "why": "mandate.removed without the mandate member (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1860001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.removed", "id": "01a0f64c-7140-7001-9007-0000e1860002", "prev": "sha256:bd7e656fd85d569ea2dce13aa90ebda8e5b5ef9ebec8dbc5410f211d62a8bce7", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a87",
+      "why": "mandate.removed without the digest of the last version (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1870001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.removed", "id": "01a0f64c-7140-7001-9007-0000e1870002", "mandate": { "id": "m-voice-assistant" }, "prev": "sha256:7430791132f07877a071b0d3894d20ec82ca7dd7ffe08788e01bb40ffafc1d08", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a88",
+      "why": "mandate.removed without an actor (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1880001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "event": "mandate.removed", "id": "01a0f64c-7140-7001-9007-0000e1880002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:67de5a92aa36bd812ca2104539fde5cbdb4eb6965462c4aa7610d9827838de24", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
     }
   ]
 }
