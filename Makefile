@@ -30,8 +30,20 @@ cover:
 vet:
 	go vet ./...
 
+# Temporary (2026-10-09): staticcheck v0.8.1 cannot read Go 1.27.2's export data
+# (dominikh/go-tools#1832). A run whose only output is that error (and module downloads)
+# counts as a warning; any other output still fails. Remove once a compatible staticcheck
+# release is pinned.
+STATICCHECK_EXPORT_DATA := export data version 5 is greater than maximum supported version 4
 staticcheck:
-	go run $(STATICCHECK) ./...
+	@out=$$(go run $(STATICCHECK) ./... 2>&1); status=$$?; \
+	if [ $$status -ne 0 ] && echo "$$out" | grep -qF "$(STATICCHECK_EXPORT_DATA)" && \
+	   ! echo "$$out" | grep -vF -e "$(STATICCHECK_EXPORT_DATA)" -e "exit status" -e "go: downloading " | grep -q .; then \
+		msg="staticcheck skipped: $(STATICCHECK) cannot read this Go version's export data (dominikh/go-tools#1832)"; \
+		if [ -n "$$GITHUB_ACTIONS" ]; then echo "::warning::$$msg"; else echo "WARNING: $$msg"; fi; \
+		exit 0; \
+	fi; \
+	[ -z "$$out" ] || echo "$$out"; exit $$status
 
 vulncheck:
 	go run $(GOVULNCHECK) ./...
