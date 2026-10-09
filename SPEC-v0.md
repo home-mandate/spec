@@ -253,10 +253,11 @@ accepts it only if (**succession**) the offered mandate names the same agent
 A mandate without `version` therefore never replaces one that has a version, and an older
 version is not accepted while the newer one is known (rollback). This protection is local
 state: an implementation MUST keep the highest `version` it has accepted for an `issuer`
-and `id`, also after the mandate was revoked or deleted, for as long as an older version
-could still be valid, and it MUST treat a restore from a backup like the arrival of
-mandates from outside. A revocation is local as well: a signed mandate stays verifiable
-until it expires, so a revoked mandate MUST NOT be accepted again by way of its signature.
+and `id`, also after the mandate was revoked, removed (Section 11.3) or deleted, for as
+long as an older version could still be valid, and it MUST treat a restore from a backup
+like the arrival of mandates from outside. A revocation is local as well: a signed mandate
+stays verifiable until it expires, so a revoked mandate MUST NOT be accepted again by way
+of its signature.
 An issuer can end the sequence of an `id` by issuing the highest possible version; the
 mandate then needs a new `id`. A mandate that leaves the implementation that
 created it, signed per Section 7, MUST carry `issuer` and `version`.
@@ -744,7 +745,7 @@ Depending on the event, the following are added:
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
 | `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `area` and `critical`), `action`, `time`, optionally `parameters`, `timezone` and `revoked` |
-| `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest` |
+| `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest`; for `mandate.removed`, `digest` is that of the last version the implementation held |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (who responded; required except for `timeout`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`) |
 | `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
@@ -766,8 +767,11 @@ For `decision`, the following additionally applies:
   reached, or the agent already had too many requests waiting (Section 11.1).
 
 A `log.truncated` entry has an `actor` of kind `user` or `system`; an agent never deletes
-entries. The same holds for `directory.changed`, `template.changed` and `approver.changed`:
-an agent never changes the directory, a template or who may answer approval requests.
+entries. The same holds for `directory.changed`, `template.changed`, `approver.changed`,
+`mandate.removed` and `agent.removed`: an agent never changes the directory, a template or
+who may answer approval requests, and never removes a mandate or an agent. An
+`agent.reconnected` entry has an `actor` of kind `user`: only a human reconnects an agent
+(Section 11.3).
 
 `actor.id`, `agent.display_name`, `approval.by`, `template.name` and `approver.id` are
 displayed text; Section 3.1 item 8
@@ -789,6 +793,8 @@ template.
 | `directory.changed` | yes, if the implementation lets humans change the critical marking or tracks renamed resources | every such change to the directory, and every rename a human resolves (Section 11.4) |
 | `template.changed` | yes, if the implementation lets humans change templates | every template stored, removed, hidden or shown again |
 | `approver.changed` | yes, if the implementation keeps its own list of humans who may answer approval requests | every approver added to or removed from that list (Section 11.1) |
+| `mandate.removed`, `agent.removed` | yes, if the implementation removes revoked mandates or agents | every revoked mandate or agent removed from the implementation's lists (Section 11.3) |
+| `agent.reconnected` | yes, if the implementation lets humans reconnect agents | every existing agent that receives new credentials instead of being admitted anew (Section 11.3) |
 | `auth.rejected` | no | rejected sign-in or invalid token |
 
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
@@ -1063,7 +1069,7 @@ that the rate limit denies MAY be recorded as a single `decision` entry whose
 `result.count` is the number of requests it stands for; `request` then describes the first
 of them.
 
-### 11.3 Revocation and emergency stop
+### 11.3 Revocation, emergency stop, removal and reconnection
 
 - A revocation of a mandate or of an agent takes effect with the next evaluation: no
   request that is evaluated after the revocation was recorded is permitted. An
@@ -1075,6 +1081,31 @@ of them.
   every request of every agent is denied without evaluation
   (`denied_by: emergency_stop`), waiting approval requests end with `deny`, and activating
   and releasing it are recorded (`emergency_stop.*`). Only a human can release it.
+- An implementation MAY let a human remove a revoked mandate or a revoked agent from its
+  lists, and MAY remove them on its own under a rule the household configured, for example
+  once the audit log no longer holds entries about them. Only what is revoked is removed: an implementation
+  MUST NOT remove a mandate or an agent that is not revoked. An implementation that offers
+  revoking and removing in one step records `mandate.revoked` or `agent.revoked` before
+  `mandate.removed` or `agent.removed`. Removing an agent does not remove its mandates; an
+  implementation that removes them together with the agent records a `mandate.removed` for
+  each, after revoking those that are not yet revoked. Every removal is recorded
+  (`mandate.removed`, `agent.removed`; Section 9.2). A removed mandate or agent stays
+  revoked and never becomes active again.
+- Removal does not delete audit entries and does not weaken the protection against
+  rollback: mandate versions are kept as long as entries refer to their digest
+  (Section 9.3), and the highest `version` accepted for an `issuer` and `id` is kept as
+  Section 3.5 requires, so that an older version of a removed mandate is never accepted
+  again. Beyond that, an implementation MAY delete the data of a removed mandate or agent.
+- An implementation MAY let a human reconnect an agent whose credentials it withdrew
+  without revoking the agent, for example when an emergency stop invalidated every token:
+  it issues new credentials to the existing agent instead of admitting it as a new one. The
+  agent keeps its `agent.client_id`, its mandates and its history; withdrawn credentials
+  stay invalid. Only an agent that is not revoked is reconnected, and only by a human:
+  an implementation MUST NOT reconnect an agent on its own, for example because a new
+  sign-in comes from the same OAuth client, which several agents can share. The
+  reconnection is recorded with `agent.reconnected` and the human who chose it as `actor`
+  (Section 9.2); a change to the agent's mandates made at the same time is a
+  `mandate.updated`.
 
 ### 11.4 Clock and directory
 
@@ -1222,6 +1253,17 @@ New:
   Compatible for logs: every entry that was valid remains valid. A verifier that does not
   know the events rejects a log that contains them (Section 14, unknown members).
   Conformance cases `a58`–`a76` in `conformance/audit-v0.json`.
+- Audit log: events `mandate.removed` and `agent.removed` record that a revoked mandate or
+  a revoked agent was removed from the implementation's lists, with the existing members
+  `mandate` (`id` and the digest of the last version) and `agent`; their `actor` is of kind
+  `user` or `system`. Event `agent.reconnected` with the member `agent` records that a
+  human gave new credentials to an existing agent that is not revoked, for example after an
+  emergency stop; its `actor` is of kind `user` (Sections 9.1, 9.2, 11.3). Only revoked
+  mandates and agents are removed; removal deletes no audit entries and keeps the
+  protection against rollback (Section 3.5).
+  Compatible for logs: every entry that was valid remains valid. A verifier that does not
+  know the events rejects a log that contains them (Section 14, unknown members).
+  Conformance cases `a77`–`a88` in `conformance/audit-v0.json`.
 
 ### History as mandate-spec
 
