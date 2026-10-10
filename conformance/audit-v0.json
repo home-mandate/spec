@@ -4013,6 +4013,213 @@
         { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1880001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
         { "event": "mandate.removed", "id": "01a0f64c-7140-7001-9007-0000e1880002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:67de5a92aa36bd812ca2104539fde5cbdb4eb6965462c4aa7610d9827838de24", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" }
       ]
+    },
+    {
+      "id": "a89",
+      "why": "approval requests ended without an answer: withdrawn by the agent, interrupted by a restart, ended by the emergency stop, by revoking the mandate and by revoking the agent",
+      "expected": "valid",
+      "entry_digests": [
+        "sha256:07f9435c026458b12c85ec594b5c7afea791de4e306a672725b9411fba542840",
+        "sha256:857a9f4204a4e65b6b7e42a84dc83f04a0515d71ac05899bf3383858e06417f0",
+        "sha256:3bdcd360b81e3867d958884921717c40b3b40fd399c3a2ab6507e32510ef4c29",
+        "sha256:1224b9bbb0f592aa05515b7e008ed9e25e9865d9d776794160afba83038e9dc4",
+        "sha256:76616638ec29499c03de12aabbe949c39ebe4cdea8d5fa9f19847eef91c23d5d",
+        "sha256:50389cf34d810874b6fc2efbcb8ff921bfc537ed5d816f96f307355880562fde",
+        "sha256:f38d436f8ef1f4e4f6b3373f873b9f0dfd3c0613c2a45fbeae83250d4d4e6aba",
+        "sha256:57aeccdd67eb724ab5daf49c666597846c20e4c7ac3360595c7531f51091b0fb",
+        "sha256:6c6e4c87aea121414097f243a78f9d92177f929dce488b16c91359a8d296207c",
+        "sha256:a3d197d680eafd47f7c271c44b11eda5f6c2db2dd949eadf2882fbbb4dda45b2",
+        "sha256:f7d5efee0d7a52639257b946d8bfb5bdc2f906c265fa5bc739ba57321ae9e088"
+      ],
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1890001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.created", "id": "01a0f64c-7140-7001-9007-0000e1890002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:07f9435c026458b12c85ec594b5c7afea791de4e306a672725b9411fba542840", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:11:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "withdrawn", "at": "2026-10-01T10:00:30+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1890003", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:857a9f4204a4e65b6b7e42a84dc83f04a0515d71ac05899bf3383858e06417f0", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T10:00:30+02:00", "request": { "time": "2026-10-01T10:00:30+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "approval" }, "seq": 3, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "interrupted", "at": "2026-10-01T11:05:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1890004", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:3bdcd360b81e3867d958884921717c40b3b40fd399c3a2ab6507e32510ef4c29", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T11:05:00+02:00", "request": { "time": "2026-10-01T11:05:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "approval" }, "seq": 4, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000e1890005", "prev": "sha256:1224b9bbb0f592aa05515b7e008ed9e25e9865d9d776794160afba83038e9dc4", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T12:00:10+02:00", "seq": 5, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "emergency_stop", "at": "2026-10-01T12:00:10+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1890006", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:76616638ec29499c03de12aabbe949c39ebe4cdea8d5fa9f19847eef91c23d5d", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T12:00:10+02:00", "request": { "time": "2026-10-01T12:00:10+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "emergency_stop" }, "seq": 6, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "emergency_stop.released", "id": "01a0f64c-7140-7001-9007-0000e1890007", "prev": "sha256:50389cf34d810874b6fc2efbcb8ff921bfc537ed5d816f96f307355880562fde", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T12:30:00+02:00", "seq": 7, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.revoked", "id": "01a0f64c-7140-7001-9007-0000e1890008", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:f38d436f8ef1f4e4f6b3373f873b9f0dfd3c0613c2a45fbeae83250d4d4e6aba", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T13:00:20+02:00", "seq": 8, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "revoked", "at": "2026-10-01T13:00:20+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1890009", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:57aeccdd67eb724ab5daf49c666597846c20e4c7ac3360595c7531f51091b0fb", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T13:00:20+02:00", "request": { "time": "2026-10-01T13:00:20+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "mandate" }, "seq": 9, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.revoked", "id": "01a0f64c-7140-7001-9007-0000e1890010", "prev": "sha256:6c6e4c87aea121414097f243a78f9d92177f929dce488b16c91359a8d296207c", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T14:00:20+02:00", "seq": 10, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "revoked", "at": "2026-10-01T14:00:20+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1890011", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:a3d197d680eafd47f7c271c44b11eda5f6c2db2dd949eadf2882fbbb4dda45b2", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T14:00:20+02:00", "request": { "time": "2026-10-01T14:00:20+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "authentication" }, "seq": 11, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a90",
+      "why": "confirmed requests that were not executed: effect unknown after a restart during the execution, target state already reached, state changed since the request was shown",
+      "expected": "valid",
+      "entry_digests": [
+        "sha256:592878c4ce2dfdc274717ecfffe802d2f3bdde3e60590114eade1b3769b6b636",
+        "sha256:da26241c5b4c44dfe110ba5e56dcea17897e61b1417bd202eba6a2647747245c",
+        "sha256:16b4c615f6ba0d757cd61cf81e603da36aca6992b0b64fede1dc4761f5532ac2",
+        "sha256:99e5fac88d22785249b1b4e5d6c8f2971f0018bacc810be2bbb8130425fe07fd",
+        "sha256:5578b6b10fd10bfd2fc86a3e86b89d3737a5fe2b1d0325d7e27a3cb3ba30482e"
+      ],
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1900001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.created", "id": "01a0f64c-7140-7001-9007-0000e1900002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:592878c4ce2dfdc274717ecfffe802d2f3bdde3e60590114eade1b3769b6b636", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:11:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "approved", "at": "2026-10-01T10:01:00+02:00", "by": "user-1", "via": "push" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1900003", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:da26241c5b4c44dfe110ba5e56dcea17897e61b1417bd202eba6a2647747245c", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T10:01:00+02:00", "request": { "time": "2026-10-01T10:01:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "failed", "error": "outcome_unknown" }, "seq": 3, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "approved", "at": "2026-10-01T10:05:00+02:00", "by": "user-1", "via": "push" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1900004", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:16b4c615f6ba0d757cd61cf81e603da36aca6992b0b64fede1dc4761f5532ac2", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T10:05:00+02:00", "request": { "time": "2026-10-01T10:05:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "cover.garage_door", "category": "gate", "area": "hall" }, "action": "open" }, "result": { "status": "failed", "error": "already_in_state" }, "seq": 4, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "approved", "at": "2026-10-01T10:09:00+02:00", "by": "user-1", "via": "push" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1900005", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:99e5fac88d22785249b1b4e5d6c8f2971f0018bacc810be2bbb8130425fe07fd", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T10:09:00+02:00", "request": { "time": "2026-10-01T10:09:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "cover.garage_door", "category": "gate", "area": "hall" }, "action": "open" }, "result": { "status": "failed", "error": "state_changed" }, "seq": 5, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a91",
+      "why": "cancelled without a cause (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1910001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1910002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:c7b2607ef4fbcff236c73084cd5b3937eb0023dab83d96772bc185b05cf1468d", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "approval" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a92",
+      "why": "cause with an outcome other than cancelled (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1920001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "timeout", "cause": "interrupted", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1920002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:7927bc3128e78520d7fbb349a256e875ad3d241cf0f0ac66d89bdbe0b30bbe51", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "approval" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a93",
+      "why": "cancelled with someone who answered: nobody answers a cancelled request (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1930001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "withdrawn", "at": "2026-10-01T09:20:00+02:00", "by": "user-1" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1930002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:968da44965c18b12ac2a79cd05e7ce42c1289a0882b7c31f83f65864eb590512", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "approval" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a94",
+      "why": "cancelled with a failed execution: a cancelled request is never executed (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1940001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "interrupted", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1940002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:1a90433cf9314a0dc68e7d925a41241d1109aec8095879def28d1d73201a3923", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "failed", "error": "outcome_unknown" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a95",
+      "why": "withdrawn, but denied by the emergency stop: the cause does not match denied_by (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1950001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "withdrawn", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1950002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:7d9c3f0b29f6160b1a64cd8d114ba99e7e41e4fad2862f770e693ade27927dba", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "emergency_stop" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a96",
+      "why": "ended by the emergency stop, but denied by approval: the cause does not match denied_by (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1960001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "emergency_stop", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1960002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:8de1962c1de22bed66a608194493441b4a74fe33732f96028c8dafeb7489008d", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "approval" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a97",
+      "why": "revoked, but denied by approval: the cause does not match denied_by (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1970001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "revoked", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1970002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:ff81d6edf6fdf93e4086c4076638c79512bf7e85fa8914f7f877f110c69f780f", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "approval" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a98",
+      "why": "interrupted, but denied by authentication: the cause does not match denied_by (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1980001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "interrupted", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1980002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:539aff6c0bfb34c8ffaa12dfed0640d0ad66caf13a579b287e812b152097a234", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "authentication" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a99",
+      "why": "cause that the specification does not define (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1990001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "restarted", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1990002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:cef79ea1d4745163548060eef81a4cae81b332e05373423c06997fb3b4ef95d3", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "approval" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a100",
+      "why": "cancelled without a result: a cancelled request is a denial (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e2000001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "withdrawn", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e2000002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:397e1b57687832abaa010a3d440004a2d724fa6fd1d76125513defb0a44b6b3e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a101",
+      "why": "cancelled, but executed: a cancelled request is never executed (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e2010001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "interrupted", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e2010002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:6b39136a29214fa3046fdd144024018f3a57c7c8ab32fae43ae1fd21f26b2873", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "executed" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a102",
+      "why": "withdrawn, but denied by the mandate: the cause does not match denied_by (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e2020001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "withdrawn", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e2020002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:775682a2b7ad1d89c0d07a86426c36a7cb75b6cefdf546f10a38ed2b06994c5e", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "mandate" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a103",
+      "why": "revoked, but denied by the emergency stop: the cause does not match denied_by (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e2030001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "revoked", "at": "2026-10-01T09:20:00+02:00" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e2030002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:fae68942d647a2afc05278ec9a5ddce31fd73c9a57ab4e3e19c955df66d9224a", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "emergency_stop" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a104",
+      "why": "cancelled with a channel: nobody answered, so there is no channel (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e2040001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "cancelled", "cause": "emergency_stop", "at": "2026-10-01T09:20:00+02:00", "via": "push" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e2040002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:dfd0502997b0c12cc83bdf9659b8f46cd64f1f5cb0eb4c4acee4ca60e74a0b70", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00+02:00", "request": { "time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "emergency_stop" }, "seq": 2, "type": "https://home-mandate.org/audit/v0" }
+      ]
+    },
+    {
+      "id": "a105",
+      "why": "answered before the end: a confirmation accepted before the mandate was revoked keeps its outcome, and the action is denied by the mandate at the new evaluation (11.1 items 6 and 8)",
+      "expected": "valid",
+      "entry_digests": [
+        "sha256:182394838709e9a0bd88fb63def97bea74266dac6be95d0d4415f09103710a45",
+        "sha256:96d5c1cc5954c053f06e667a3f211137c892104dab08ec523632e17104f35ba9",
+        "sha256:e13a4cf73734bbc1ce780773568a5f9784fb8a1bbfd038a1fb50182792ed7e72",
+        "sha256:a72f5b39eafaff797727f87f37ae5417bc041ed27b98cb8fce58b496e3a51726"
+      ],
+      "entries": [
+        { "actor": { "kind": "user", "id": "user-1" }, "agent": { "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant" }, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e2050001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.created", "id": "01a0f64c-7140-7001-9007-0000e2050002", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:182394838709e9a0bd88fb63def97bea74266dac6be95d0d4415f09103710a45", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:11:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0" },
+        { "actor": { "kind": "user", "id": "user-1" }, "event": "mandate.revoked", "id": "01a0f64c-7140-7001-9007-0000e2050003", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:96d5c1cc5954c053f06e667a3f211137c892104dab08ec523632e17104f35ba9", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T10:00:20+02:00", "seq": 3, "type": "https://home-mandate.org/audit/v0" },
+        { "agent": { "client_id": "hm-client:voice-7c21e9a4" }, "approval": { "outcome": "approved", "at": "2026-10-01T10:00:19+02:00", "by": "user-1", "via": "push" }, "evaluation": { "decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M" }, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e2050004", "mandate": { "id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3" }, "prev": "sha256:e13a4cf73734bbc1ce780773568a5f9784fb8a1bbfd038a1fb50182792ed7e72", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T10:00:20+02:00", "request": { "time": "2026-10-01T10:00:20+02:00", "timezone": "Europe/Berlin", "resource": { "entity_id": "lock.front_door", "category": "lock", "area": "hall" }, "action": "unlock" }, "result": { "status": "denied", "denied_by": "mandate" }, "seq": 4, "type": "https://home-mandate.org/audit/v0" }
+      ]
     }
   ]
 }
