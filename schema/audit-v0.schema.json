@@ -111,7 +111,11 @@
       "additionalProperties": false,
       "required": ["outcome", "at"],
       "properties": {
-        "outcome": { "enum": ["approved", "rejected", "timeout", "invalid_response"] },
+        "outcome": { "enum": ["approved", "rejected", "timeout", "invalid_response", "cancelled"] },
+        "cause": {
+          "description": "Why a request ended without an answer before its timeout (SPEC-v0 section 11.1). Only with outcome cancelled, and required there.",
+          "enum": ["withdrawn", "revoked", "emergency_stop", "interrupted"]
+        },
         "by": { "type": "string", "minLength": 1, "maxLength": 64 },
         "via": {
           "type": "string",
@@ -257,6 +261,17 @@
       "then": { "properties": { "approval": { "required": ["by"] } } } },
     { "if": { "required": ["approval"], "properties": { "approval": { "required": ["via"] } } },
       "then": { "properties": { "approval": { "required": ["by"] } } } },
+    { "if": { "required": ["approval"], "properties": { "approval": { "required": ["outcome"], "properties": { "outcome": { "const": "cancelled" } } } } },
+      "then": { "required": ["result"],
+                "properties": { "approval": { "required": ["cause"], "not": { "required": ["by"] } },
+                                "result": { "required": ["status", "denied_by"], "properties": { "status": { "const": "denied" } } } } },
+      "else": { "properties": { "approval": { "not": { "required": ["cause"] } } } } },
+    { "if": { "required": ["approval"], "properties": { "approval": { "required": ["cause"], "properties": { "cause": { "enum": ["withdrawn", "interrupted"] } } } } },
+      "then": { "properties": { "result": { "properties": { "denied_by": { "const": "approval" } } } } } },
+    { "if": { "required": ["approval"], "properties": { "approval": { "required": ["cause"], "properties": { "cause": { "const": "revoked" } } } } },
+      "then": { "properties": { "result": { "properties": { "denied_by": { "enum": ["authentication", "mandate"] } } } } } },
+    { "if": { "required": ["approval"], "properties": { "approval": { "required": ["cause"], "properties": { "cause": { "const": "emergency_stop" } } } } },
+      "then": { "properties": { "result": { "properties": { "denied_by": { "const": "emergency_stop" } } } } } },
     { "if": { "required": ["result"], "properties": { "result": { "required": ["status"], "properties": { "status": { "const": "executed" } } } } },
       "then": { "required": ["evaluation", "mandate"], "properties": { "evaluation": { "properties": { "decision": { "enum": ["allow", "ask"] } } } } } },
     { "if": { "required": ["result", "evaluation"],

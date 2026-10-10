@@ -747,7 +747,7 @@ Depending on the event, the following are added:
 | `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `area` and `critical`), `action`, `time`, optionally `parameters`, `timezone` and `revoked` |
 | `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest`; for `mandate.removed`, `digest` is that of the last version the implementation held |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` |
-| `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`), `at`, `by` (who responded; required except for `timeout`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`) |
+| `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
 | `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
 | `checkpoint` | `log_id`, `signature` (Section 9.5) |
@@ -763,8 +763,14 @@ For `decision`, the following additionally applies:
 - `evaluation.reason` belongs to `evaluation.decision` as in the table of Section 4.1
   (`allow` only with `rule`, `ask` only with `rule` or `critical_demotion`);
 - a denial with `denied_by: approval` carries the `approval` object if a request was
-  answered or timed out. It has none if no request was made: no approver could be
-  reached, or the agent already had too many requests waiting (Section 11.1).
+  made: answered, timed out or cancelled. It has none if no request was made: no approver
+  could be reached, or the agent already had too many requests waiting (Section 11.1);
+- `approval.outcome: cancelled` only with `result.status: denied`, and with the `denied_by`
+  that matches its `cause`: `withdrawn` and `interrupted` with `approval`, `revoked` with
+  `authentication` (the agent was revoked) or `mandate` (only its mandate was), and
+  `emergency_stop` with `emergency_stop`. A request that a revocation or an emergency stop
+  ended while it was waiting is recorded with this outcome, not without an `approval`
+  object.
 
 A `log.truncated` entry has an `actor` of kind `user` or `system`; an agent never deletes
 entries. The same holds for `directory.changed`, `template.changed`, `approver.changed`,
@@ -1023,8 +1029,9 @@ before it executes the action.
    requesting agent does not control. An agent MUST NOT be able to deliver, relay or answer
    a confirmation, its own or another agent's. A voice assistant that asks "shall I
    unlock?" and reports the answer itself is not a confirmation.
-5. **In time.** No answer within the `timeout` of the approval settings → `deny`. A
-   rejection or an answer that is invalid (wrong person, wrong value, malformed) → `deny`.
+5. **In time.** No answer within the `timeout` of the approval settings → `deny`
+   (`timeout`). A rejection or an answer that is invalid (wrong person, wrong value,
+   malformed) → `deny`. A request that ends earlier without an answer: item 8.
    The execution follows the confirmation without delay; a confirmation that is older
    than `timeout` when the action would be executed has expired.
 6. **Evaluated again.** After the confirmation and immediately before the execution, the
@@ -1036,9 +1043,34 @@ before it executes the action.
    the same time MUST be limited (RECOMMENDED: 2). A request beyond the limit is `deny`
    without asking anyone. Requests that lead to `ask` count towards the rate limit
    (Section 11.2). Both protect the approvers from being worn down by repeated requests.
+8. **Ended without an answer.** A request also ends before its timeout when the agent
+   withdraws it, when the agent or its mandate is revoked, when the emergency stop is
+   activated, or when the process that made it stops. The action is then not executed, and
+   the outcome is `cancelled` with that `cause` (`withdrawn`, `revoked`, `emergency_stop`,
+   `interrupted`). An agent MAY withdraw its own request; withdrawing is no answer and
+   cannot lead to an execution (item 4). `cancelled` is only for a request nobody had
+   answered: if an answer was accepted before the end, the outcome is that answer
+   (`approved`, `rejected`, `invalid_response`), and a confirmed action that is then not
+   executed is denied as in item 6. A mandate that is changed or expires while a request
+   waits does not end the request; item 6 decides at the execution.
+9. **Not across a restart.** An approval request does not survive the end of the process
+   that made it. After a restart the implementation MUST NOT execute an action for a
+   request that was waiting, and MUST NOT reopen such a request or accept an answer to
+   it; it records every such request with `cancelled` and `cause: interrupted`, as soon as
+   it can, with `approval.at` the time it determined that the request had ended. If the execution of a confirmed action was under way when the process ended and
+   its effect is unknown, the action MUST NOT be repeated; the entry is `failed` with
+   `error: outcome_unknown` (RECOMMENDED code). An implementation therefore keeps enough
+   state outside the process to tell these cases apart.
+10. **The state that was shown.** An implementation that shows the human the state of the
+   resource together with the request SHOULD execute only if the state is still the one
+   shown. Otherwise the action is not executed and the entry is `failed`, with the
+   RECOMMENDED `error` `already_in_state` if the state the action leads to has already
+   been reached, and `state_changed` in any other case. This keeps a confirmation from
+   acting twice, for example when an agent repeated a request because its own client gave
+   up waiting and both requests were confirmed.
 
 Every outcome is recorded in the audit log (Section 9.1) with `approval.outcome`, who
-answered and, optionally, through which channel.
+answered and, optionally, through which channel; a cancelled request with its `cause`.
 
 An implementation MAY keep a list of the humans who can answer approval requests, for
 example to offer them as `approvers` of a new mandate. Adding someone to that list or
@@ -1075,11 +1107,13 @@ of them.
   request that is evaluated after the revocation was recorded is permitted. An
   implementation MUST NOT cache decisions beyond a request.
 - Approval requests of the agent that are waiting end with `deny` when the mandate or the
-  agent is revoked; Section 11.1 item 6 covers a confirmation that arrives at the same
-  moment.
+  agent is revoked, recorded with `approval.outcome: cancelled` and `cause: revoked`
+  (Section 11.1 item 8); Section 11.1 item 6 covers a confirmation that arrives at the
+  same moment.
 - An emergency stop is optional. If an implementation has one, then while it is active
   every request of every agent is denied without evaluation
-  (`denied_by: emergency_stop`), waiting approval requests end with `deny`, and activating
+  (`denied_by: emergency_stop`), waiting approval requests end with `deny` (`cancelled`,
+  `cause: emergency_stop`, Section 11.1 item 8), and activating
   and releasing it are recorded (`emergency_stop.*`). Only a human can release it.
 - An implementation MAY let a human remove a revoked mandate or a revoked agent from its
   lists, and MAY remove them on its own under a rule the household configured, for example
@@ -1264,6 +1298,19 @@ New:
   Compatible for logs: every entry that was valid remains valid. A verifier that does not
   know the events rejects a log that contains them (Section 14, unknown members).
   Conformance cases `a77`–`a88` in `conformance/audit-v0.json`.
+- Approval requests that end without an answer before their timeout: new outcome
+  `cancelled` with the member `approval.cause` (`withdrawn` by the agent, `revoked`,
+  `emergency_stop`, `interrupted` by the end of the process), only with
+  `result.status: denied` and the `denied_by` matching the cause; nobody answered, so no
+  `by` (Sections 9.1, 11.1 items 8 and 9). A request that a revocation or an emergency stop
+  ends is recorded with this outcome instead of without an `approval` object. After a
+  restart no waiting request is executed, reopened or answered; an execution whose effect
+  is unknown is not repeated (`failed`, RECOMMENDED `error: outcome_unknown`). New
+  RECOMMENDED codes `already_in_state` and `state_changed` for a confirmed action that is
+  not executed because the state shown to the human no longer holds (Section 11.1 item 10).
+  Compatible for logs: every entry that was valid remains valid. A verifier that does not
+  know the outcome rejects a log that contains it (Section 14, unknown members).
+  Conformance cases `a89`–`a105` in `conformance/audit-v0.json`.
 
 ### History as mandate-spec
 
