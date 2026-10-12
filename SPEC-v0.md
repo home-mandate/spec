@@ -2,7 +2,8 @@
 
 # Home-Mandate Specification v0 (Draft)
 
-Status: **Working draft**; it will be frozen only after deployment in real households.
+Status: **Working draft**. From `v0.1.0` on, the v0 formats are frozen; incompatible changes
+then require a new major version (Section 14).
 License of this document: CC BY 4.0 (`LICENSE-docs`). Schema, examples, conformance cases and
 code: Apache 2.0 (`LICENSE`).
 Reference evaluator: the code in this repository. Changes are listed in the Changelog at the end.
@@ -1235,26 +1236,59 @@ behavior of the people in a household and MUST be protected like the devices the
 
 ## 14. Versions and compatibility
 
-- **Identifier.** The `type` of a mandate (`https://home-mandate.org/mandate/v0`) and of an
-  audit entry name the major version. They are identifiers, not addresses that must
-  resolve.
-- **Draft.** Until v1.0, v0 can change incompatibly; every such change is listed in the
-  Changelog together with what happens to mandates that were valid before. Releases of this
-  repository are tagged (`v0.1.0`, …); an implementation states which tag it conforms to,
-  and `conformance/manifest.json` identifies the exact cases.
+- **Formats.** This section covers three formats: the mandate
+  (`https://home-mandate.org/mandate/v0`), the audit entry
+  (`https://home-mandate.org/audit/v0`) and the audit checkpoint
+  (`https://home-mandate.org/audit-checkpoint/v0`, the signed payload of Section 9.5). The
+  `type` of each names its major version. The identifiers are identifiers, not addresses
+  that must resolve.
+- **Releases.** Releases of this repository are tagged (`v0.1.0`, …). An implementation
+  states which tag it conforms to, and `conformance/manifest.json` identifies the exact
+  cases.
+- **Freeze.** The v0 formats are frozen from `v0.1.0`, the first release of this
+  specification without a pre-release suffix. From then on, an incompatible change to a
+  format MUST NOT be made under its existing `type`; it requires a new `type` with the next
+  major version (e.g. `https://home-mandate.org/mandate/v1`). A document that is valid
+  under a released format stays valid, and is evaluated the same way, in every later
+  release.
+- **Incompatible.** A change is incompatible if a document that was valid becomes invalid,
+  or if a valid document is evaluated differently: a different result of the evaluation
+  rule (Section 4) or of succession (Section 3.5), a different digest (Sections 3.2, 9.4),
+  or a different outcome of the verification of an audit log (Sections 9.4, 9.5). A change
+  that only makes documents valid that were invalid before, such as a new optional member
+  or a new audit event, is compatible; it is listed in the Changelog and keeps the `type`.
+- **Mixed data.** Once a newer major of a format exists, data of both majors exist side by
+  side:
+  - An implementation that supports a newer major MUST still read the documents of the
+    older majors it supported before, and MUST write new audit entries and checkpoints in
+    the newest major it supports. An audit log is not rewritten; it continues in the newer
+    major.
+  - A verifier MUST accept an audit log whose earlier entries carry an older major than
+    its later entries, provided every entry conforms to the schema of its own `type` and
+    the chain (Section 9.4) holds across the change. An entry of an older major after an
+    entry of a newer major makes the log invalid. A checkpoint is verified with the payload
+    `type` that belongs to the major of the checkpoint entry.
+  - A mandate moves to a newer format only by succession (Section 3.5): its issuer issues
+    the same `id` with a higher `version` in the newer format. A stored or signed mandate
+    MUST NOT be rewritten into another format, because its digest, its signature and the
+    audit entries that refer to it would no longer match.
+- **Until v0.1.0.** The pre-releases (`v0.1.0-alpha.1`, …) are not covered by the freeze:
+  until `v0.1.0`, the v0 formats can still change incompatibly under the same `type`. Every
+  such change is listed in the Changelog together with what happens to documents that were
+  valid before.
 - **Unknown members.** Mandates and audit entries have no extension points: a member
   that the schema does not define makes the document invalid. This is deliberate. An
   implementation that silently ignored a restriction it does not know would allow more
   than the household intended.
 - **Consequence.** A newer mandate that uses a member an older implementation does not
-  know is invalid there and denies everything. Implementations SHOULD therefore state
-  which version they support before a mandate is transferred to them, and issuers SHOULD
-  NOT use members the receiver does not support.
-- **After v1.0.** A change that makes a valid v1 mandate invalid or changes the result of
-  an evaluation requires a new `type`. Additions that an older implementation would have
-  to understand to decide correctly require a new `type` as well.
-- **Vocabulary and extensions** carry their own `id` and `version` (Section 5.1) and never
-  change under the same pair.
+  know, or a newer major, is invalid there and denies everything. Implementations SHOULD
+  therefore state which version they support before a mandate is transferred to them, and
+  issuers SHOULD NOT use members or majors the receiver does not support.
+- **Independent versions.** The vocabulary and extensions carry their own `id` and
+  `version` (Section 5.1), are versioned independently of the formats and never change
+  under the same pair; a new vocabulary version does not require a new `type`. The `$id`s
+  of the conformance schemas (`https://home-mandate.org/conformance/v0/…`) identify test
+  material, not formats, and change independently of this section.
 
 ## Changelog
 
@@ -1266,6 +1300,20 @@ Specification**; repository `github.com/home-mandate/spec`, Go module
 `v0.1.0-alpha.1`. The releases of mandate-spec (up to `v0.2.0-alpha.5`) remain available
 from the Go module proxy under the module path `github.com/mandate-spec/mandate-spec`; their
 changes are listed below.
+
+Versions (Section 14, rewritten):
+- The v0 formats (mandate, audit entry, audit checkpoint) are frozen from `v0.1.0`, the first
+  release without a pre-release suffix. After that, every incompatible change requires a new
+  `type` with the next major version; a document that was valid stays valid and is
+  evaluated the same way. Until `v0.1.0`, incompatible changes remain possible and are
+  listed here.
+- Defined what is incompatible: a valid document becomes invalid, or a valid document is
+  evaluated differently (result, succession, digest, verification of an audit log).
+- Rule for mixed data: implementations read the older major and write the newer one; a
+  verifier accepts an audit log whose earlier entries carry an older major; mandates move
+  to a newer format only by succession and are never rewritten.
+- The vocabulary (Section 5.1) and the `$id`s of the conformance schemas are versioned
+  independently of the formats.
 
 Incompatible:
 - `type` of mandates, audit entries and checkpoints and the schema `$id` moved from
