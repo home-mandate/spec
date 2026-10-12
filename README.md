@@ -69,7 +69,14 @@ Contributing: `CONTRIBUTING.md`. Reporting vulnerabilities: `SECURITY.md`.
 - **License:** Apache 2.0 with a patent clause for everything that others integrate; the product itself
   remains AGPL.
 - **Versioning:** The specification has its own, slower cadence (tags `v0.1.0` …).
-  Implementations refer to a specific version.
+  From `v0.1.0`, the first release without a pre-release suffix, the v0 formats (mandate,
+  audit entry, audit checkpoint) are frozen: a change that would make a valid document
+  invalid or evaluate it differently needs a new major version in `type` (e.g.
+  `…/mandate/v1`), and implementations keep reading the older one (Section 14 of the
+  specification). The vocabulary and the conformance schemas are versioned independently.
+- **Versions of implementations:** Implementations keep their own version numbers; only
+  the major version follows the format (format v0 → 0.x, format v1 → 1.x). Each
+  implementation names the exact specification tag it implements.
 - **Credibility of testing:** Test cases and the test tool are maintained independently of the product;
   Home-Mandate for Home Assistant must pass them as well.
 
@@ -78,4 +85,5 @@ Contributing: `CONTRIBUTING.md`. Reporting vulnerabilities: `SECURITY.md`.
 - Every change to the evaluation rule requires new or modified conformance cases.
 - Bugs in an implementation that stem from an ambiguity in the specification are
   first clarified here.
-- Until v1.0, incompatible changes are permitted but must be recorded in the Changelog.
+- Until `v0.1.0`, incompatible changes are permitted but must be recorded in the Changelog;
+  from `v0.1.0` on they require a new major version of the format (Section 14).
