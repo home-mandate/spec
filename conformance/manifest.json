@@ -8,8 +8,8 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "875a38ca604b8eae4e2545bd414762c26ee256fb30acc2ec68cdfe80a767ce14",
-      "cases": 132
+      "sha256": "e7496550c5210bcb2c7d16d8473ec9d31ce72cda1c68acc1da2432355e9cad41",
+      "cases": 139
     },
     {
       "path": "conformance/digest-v0.json",
@@ -18,8 +18,8 @@
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "fa0b81bcee5caac9ee67ce1ad26918a0e96d12022699530d39a465978d652872",
-      "cases": 127
+      "sha256": "beb7a1748e53a66943af70ed59044e60a529234fb355849c95837bb12b78c55d",
+      "cases": 128
     },
     {
       "path": "conformance/keys/test-keys.json",
@@ -28,6 +28,10 @@
     {
       "path": "conformance/keys/test-keys.private.json",
       "sha256": "3fafab652d26ca9c76b8138f2136a999d3bf216fa68dee7d60fa78a959971c1b"
+    },
+    {
+      "path": "conformance/mandates/constraints-fahrenheit.json",
+      "sha256": "574bb722265906a3c1d3da4109b1237ae7432c4f401aa35baff6abe69baf9077"
     },
     {
       "path": "conformance/mandates/constraints.json",
@@ -130,7 +134,7 @@
     },
     {
       "path": "vocabulary/v0.json",
-      "sha256": "97c9baafca9ffbf6b8dde980e8926621fd55c992486a19125b17a019c295db43"
+      "sha256": "19dd403e213cad74cd32dd95ac44110c34c1813ba7914687274d34d9107c35aa"
     }
   ]
 }

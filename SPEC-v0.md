@@ -422,13 +422,21 @@ and `script.run` are critical.
 Some actions carry a value: a temperature, a position, a volume. The vocabulary names
 these **parameters** per action, with the unit in which they are expressed (Section 5).
 Parameters are integers; the units are chosen fine enough that no fraction is needed
-(a temperature is given in hundredths of a degree Celsius, 21.5 °C is `2150`).
+(`temperature` is in hundredths of a degree Celsius, 21.5 °C is `2150`).
 
-The PEP derives the parameters from the request of the agent and converts them to the
-unit of the vocabulary. It MUST execute exactly the values that were evaluated: whatever
+The PEP derives the parameters from the request of the agent and expresses each in the
+unit of its parameter in the vocabulary. It MUST execute exactly the values that were evaluated: whatever
 it sends to the platform MUST NOT set a constrained quantity to another value, by rounding
 or through a second, platform-specific parameter for the same quantity. A value that
-cannot be expressed as an integer in the unit makes the request invalid.
+cannot be expressed as an integer in the unit makes the request invalid: the PEP refuses
+the request, and never leaves the parameter out or evaluates without it.
+
+A quantity can have a parameter per unit: a temperature is `temperature` in hundredths of
+a degree Celsius or `temperature_f` in hundredths of a degree Fahrenheit (70 °F is `7000`;
+it is no integer in `temperature`, 21.111… °C). The PEP derives exactly one of them for a
+request, the one in the unit in which the platform expresses the value; it never converts
+into the other unit. A rule that constrains the other parameter does not match the
+request, and a rule that constrains both matches no request a PEP derives this way.
 
 A rule with `constraints` matches only if the request carries **every** named parameter
 and each value `v` satisfies `min ≤ v ≤ max`; a limit that is not given does not restrict.
@@ -472,6 +480,7 @@ Parameters (Section 4.5):
 |---|---|---|---|
 | `light.set` | `brightness` | percent | 0 to 100 |
 | `climate.set_temperature` | `temperature` | 0.01 degree Celsius | – |
+| `climate.set_temperature` | `temperature_f` | 0.01 degree Fahrenheit | – |
 | `cover.set_position` | `position` | percent open | 0 to 100 |
 | `media.set_volume` | `volume` | percent | 0 to 100 |
 
@@ -1156,6 +1165,24 @@ former identifier to it, together with the rules that name the new one, and take
 stricter decision (Section 4, most restrictive wins) until a human resolves the rename:
 takes it over into the mandates or dismisses it. A rename then fails closed.
 
+### 11.5 Telling the agent its limits
+
+An implementation MAY tell an agent the limits of its own mandate, so that it can choose
+a value that will be allowed instead of trying: for a resource and an action, the
+constraints (Section 4.5) of the `allow` rules that match apart from their constraints,
+for example after a request denied with `no_match` or in a list of what the agent may do.
+It states them in the unit in which the agent gives the value. When it does:
+
+- It MUST NOT name limits for a resource whose `read` the agent's mandate denies, limits
+  of another agent's mandate, or anything of a `deny` or `ask` rule. Limits never reveal
+  more than the values the agent could try anyway.
+- It MUST NOT name limits that cannot apply: a constraint on a parameter the PEP never
+  derives for the resource (a temperature in the other unit, Section 4.5).
+- It SHOULD NOT name limits where rules on a former identifier of a renamed resource
+  (Section 11.4) still apply: they can decide more strictly than the limits say.
+
+The limits inform; they decide nothing. Every request is evaluated as in Section 4.
+
 ## 12. Security considerations
 
 ### 12.1 What the specification protects
@@ -1300,6 +1327,22 @@ Specification**; repository `github.com/home-mandate/spec`, Go module
 `v0.1.0-alpha.1`. The releases of mandate-spec (up to `v0.2.0-alpha.5`) remain available
 from the Go module proxy under the module path `github.com/mandate-spec/mandate-spec`; their
 changes are listed below.
+
+Temperatures in degrees Fahrenheit (Sections 4.5, 5):
+- New parameter `temperature_f` of `climate.set_temperature` in hundredths of a degree
+  Fahrenheit, next to `temperature` in hundredths of a degree Celsius, so that households
+  whose platform uses °F can constrain temperatures exactly. The PEP derives exactly one of
+  the two, in the platform's unit, and never converts. Compatible for implementations that
+  load the vocabulary: a constraint on `temperature_f` was invalid before. The vocabulary keeps `v0`: the parameter is added
+  before the formats are frozen with `v0.1.0`; from then on Section 5.1 holds without
+  exception. Conformance cases `c133`–`c139`, `i128`.
+- Section 4.5 says plainly that a value that cannot be expressed as an integer in the unit
+  makes the PEP refuse the request; it never leaves the parameter out.
+- Section 11.5 (new): a PEP MAY tell an agent the limits of its own mandate (the
+  constraints of the `allow` rules that match apart from them, in the agent's units), but
+  never for a resource the agent may not read, of another mandate, of `deny` or `ask`
+  rules, in a unit it never derives, or while rules on a former identifier still apply.
+  The reference evaluator (Go) offers `Mandate.Limits` for it; it decides nothing.
 
 Versions (Section 14, rewritten):
 - The v0 formats (mandate, audit entry, audit checkpoint) are frozen from `v0.1.0`, the first

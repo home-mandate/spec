@@ -1,0 +1,17 @@
+{
+  "type": "https://home-mandate.org/mandate/v0",
+  "id": "m-conf-constraints-f",
+  "principal": "household:conf",
+  "agent": {"client_id": "urn:example:agent:conf-constraints-f", "display_name": "Conformance constraints in degrees Fahrenheit"},
+  "rules": [
+    {"id": "r-heating-f", "resource": {"entity_id": "thermostat-1"}, "actions": ["set_temperature"], "decision": "allow", "constraints": {"temperature_f": {"min": 6000, "max": 7500}}},
+    {"id": "r-both", "resource": {"entity_id": "thermostat-both"}, "actions": ["set_temperature"], "decision": "allow", "constraints": {"temperature": {"min": 1600, "max": 2300}, "temperature_f": {"min": 6000, "max": 7500}}},
+    {"id": "r-climate-mode", "resource": {"category": "climate"}, "actions": ["read", "set_mode"], "decision": "allow"}
+  ],
+  "default": "deny",
+  "approval": {"timeout": "PT1M", "approvers": ["approver-1"]},
+  "limits": {"max_actions_per_hour": 60},
+  "valid_from": "2026-01-01T00:00:00+01:00",
+  "created_by": "approver-1",
+  "created_at": "2025-12-31T12:00:00+01:00"
+}

@@ -6,7 +6,7 @@
   "categories": {
     "light": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}, "set": {"parameters": {"brightness": {"unit": "percent", "minimum": 0, "maximum": 100}}}}},
     "switch": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}}},
-    "climate": {"actions": {"read": {}, "set_temperature": {"parameters": {"temperature": {"unit": "0.01 degree Celsius"}}}, "set_mode": {}}},
+    "climate": {"actions": {"read": {}, "set_temperature": {"parameters": {"temperature": {"unit": "0.01 degree Celsius"}, "temperature_f": {"unit": "0.01 degree Fahrenheit"}}}, "set_mode": {}}},
     "cover": {"actions": {"read": {}, "open": {}, "close": {}, "stop": {}, "set_position": {"parameters": {"position": {"unit": "percent open", "minimum": 0, "maximum": 100}}}}},
     "gate": {"actions": {"read": {}, "open": {"critical": true}, "close": {}}},
     "lock": {"actions": {"read": {}, "lock": {}, "unlock": {"critical": true}, "open": {"critical": true}}},
