@@ -8,8 +8,8 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "815ed92a1172fd2024b1227c9f5cd6a753ddb7ada15fdcf266218b60584a7d89",
-      "cases": 136
+      "sha256": "e7496550c5210bcb2c7d16d8473ec9d31ce72cda1c68acc1da2432355e9cad41",
+      "cases": 139
     },
     {
       "path": "conformance/digest-v0.json",
@@ -31,7 +31,7 @@
     },
     {
       "path": "conformance/mandates/constraints-fahrenheit.json",
-      "sha256": "16087d84c4e68f89dd3fb7815cdfb3f303163efc48abbbb487240a6f4582ec08"
+      "sha256": "574bb722265906a3c1d3da4109b1237ae7432c4f401aa35baff6abe69baf9077"
     },
     {
       "path": "conformance/mandates/constraints.json",

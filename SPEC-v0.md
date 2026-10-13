@@ -422,10 +422,10 @@ and `script.run` are critical.
 Some actions carry a value: a temperature, a position, a volume. The vocabulary names
 these **parameters** per action, with the unit in which they are expressed (Section 5).
 Parameters are integers; the units are chosen fine enough that no fraction is needed
-(a temperature is given in hundredths of a degree Celsius, 21.5 °C is `2150`).
+(`temperature` is in hundredths of a degree Celsius, 21.5 °C is `2150`).
 
-The PEP derives the parameters from the request of the agent and converts them to the
-unit of the vocabulary. It MUST execute exactly the values that were evaluated: whatever
+The PEP derives the parameters from the request of the agent and expresses each in the
+unit of its parameter in the vocabulary. It MUST execute exactly the values that were evaluated: whatever
 it sends to the platform MUST NOT set a constrained quantity to another value, by rounding
 or through a second, platform-specific parameter for the same quantity. A value that
 cannot be expressed as an integer in the unit makes the request invalid: the PEP refuses
@@ -1314,10 +1314,10 @@ Temperatures in degrees Fahrenheit (Sections 4.5, 5):
 - New parameter `temperature_f` of `climate.set_temperature` in hundredths of a degree
   Fahrenheit, next to `temperature` in hundredths of a degree Celsius, so that households
   whose platform uses °F can constrain temperatures exactly. The PEP derives exactly one of
-  the two, in the platform's unit, and never converts. Compatible: a constraint on
-  `temperature_f` was invalid before. The vocabulary keeps `v0`: the parameter is added
+  the two, in the platform's unit, and never converts. Compatible for implementations that
+  load the vocabulary: a constraint on `temperature_f` was invalid before. The vocabulary keeps `v0`: the parameter is added
   before the formats are frozen with `v0.1.0`; from then on Section 5.1 holds without
-  exception. Conformance cases `c133`–`c136`, `i128`.
+  exception. Conformance cases `c133`–`c139`, `i128`.
 - Section 4.5 says plainly that a value that cannot be expressed as an integer in the unit
   makes the PEP refuse the request; it never leaves the parameter out.
 
