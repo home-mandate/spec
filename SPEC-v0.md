@@ -1320,6 +1320,9 @@ Temperatures in degrees Fahrenheit (Sections 4.5, 5):
   exception. Conformance cases `c133`–`c139`, `i128`.
 - Section 4.5 says plainly that a value that cannot be expressed as an integer in the unit
   makes the PEP refuse the request; it never leaves the parameter out.
+- Reference evaluator (Go): `Mandate.Limits` returns the constraints of the allow rules
+  that match a request apart from them, so that a PEP can tell an agent its own limits; it
+  decides nothing.
 
 Versions (Section 14, rewritten):
 - The v0 formats (mandate, audit entry, audit checkpoint) are frozen from `v0.1.0`, the first
