@@ -1165,6 +1165,24 @@ former identifier to it, together with the rules that name the new one, and take
 stricter decision (Section 4, most restrictive wins) until a human resolves the rename:
 takes it over into the mandates or dismisses it. A rename then fails closed.
 
+### 11.5 Telling the agent its limits
+
+An implementation MAY tell an agent the limits of its own mandate, so that it can choose
+a value that will be allowed instead of trying: for a resource and an action, the
+constraints (Section 4.5) of the `allow` rules that match apart from their constraints,
+for example after a request denied with `no_match` or in a list of what the agent may do.
+It states them in the unit in which the agent gives the value. When it does:
+
+- It MUST NOT name limits for a resource whose `read` the agent's mandate denies, limits
+  of another agent's mandate, or anything of a `deny` or `ask` rule. Limits never reveal
+  more than the values the agent could try anyway.
+- It MUST NOT name limits that cannot apply: a constraint on a parameter the PEP never
+  derives for the resource (a temperature in the other unit, Section 4.5).
+- It SHOULD NOT name limits where rules on a former identifier of a renamed resource
+  (Section 11.4) still apply: they can decide more strictly than the limits say.
+
+The limits inform; they decide nothing. Every request is evaluated as in Section 4.
+
 ## 12. Security considerations
 
 ### 12.1 What the specification protects
@@ -1320,9 +1338,11 @@ Temperatures in degrees Fahrenheit (Sections 4.5, 5):
   exception. Conformance cases `c133`–`c139`, `i128`.
 - Section 4.5 says plainly that a value that cannot be expressed as an integer in the unit
   makes the PEP refuse the request; it never leaves the parameter out.
-- Reference evaluator (Go): `Mandate.Limits` returns the constraints of the allow rules
-  that match a request apart from them, so that a PEP can tell an agent its own limits; it
-  decides nothing.
+- Section 11.5 (new): a PEP MAY tell an agent the limits of its own mandate (the
+  constraints of the `allow` rules that match apart from them, in the agent's units), but
+  never for a resource the agent may not read, of another mandate, of `deny` or `ask`
+  rules, in a unit it never derives, or while rules on a former identifier still apply.
+  The reference evaluator (Go) offers `Mandate.Limits` for it; it decides nothing.
 
 Versions (Section 14, rewritten):
 - The v0 formats (mandate, audit entry, audit checkpoint) are frozen from `v0.1.0`, the first
