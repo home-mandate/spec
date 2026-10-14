@@ -29,6 +29,59 @@ specification builds on existing standards and defines only what is missing:
 Newly defined are: the mandate data model, the third decision `ask`, conditions,
 protection classes and the evaluation rule.
 
+### 1.1 Overview (informative)
+
+An agent never talks to a device directly. It sends its request to the implementation,
+which decides with the household's mandate and only then passes a command on to the
+smart-home platform. A human sets the mandate and confirms what the mandate leaves to a
+human.
+
+```mermaid
+flowchart LR
+  A["Agent<br/>(an assistant, a script, …)"]
+  H["Human<br/>(the household)"]
+  subgraph IMPL["Implementation"]
+    PEP["PEP<br/>receives requests,<br/>enforces decisions"]
+    PDP["PDP<br/>evaluation rule"]
+    LOG[("Audit log")]
+  end
+  SH["Smart-home platform<br/>(e.g. Home Assistant, Matter)"]
+
+  A -. "request: resource + action<br/>e.g. MCP over HTTPS, OAuth 2.1" .-> PEP
+  PEP -- "AuthZEN request (Section 6)" --> PDP
+  PDP -- "allow / ask / deny" --> PEP
+  PEP -- "entries (Section 9)" --> LOG
+  PEP -. "on ask: approval (Section 11.1)" .-> H
+  H -. "sets the mandate (Section 3)" .-> IMPL
+  PEP -. "command, e.g. platform API" .-> SH
+```
+
+Solid lines are interfaces this specification defines. Dashed lines are left to the
+implementation: the specification states what must hold there, not how it is achieved
+(Section 11).
+
+- **Agent → PEP.** This specification does not prescribe the protocol in which an agent
+  sends its requests. It fixes what the agent may contribute (only the resource and the
+  action, Section 4) and how the agent is named (`agent.client_id`, Section 3.3). The
+  reference implementation for Home Assistant offers the Model Context Protocol (MCP): the
+  agent calls tools over HTTPS and signs in with OAuth 2.1; its OAuth client ID is the
+  agent identifier. Other implementations may offer a different interface.
+- **PEP → PDP.** The PEP asks the PDP for a decision in the form of AuthZEN (Section 6).
+  Both can run in one process; an implementation of the class `pdp` (Section 8.1) offers
+  the interface over HTTP.
+- **PEP → platform.** The PEP talks to the platform through the platform's own API. It
+  takes category, area and critical marking from its own resource directory, never from
+  the agent (Section 4). The profiles in `profiles/` relate platform devices to the
+  vocabulary (informative).
+- **Human.** The household chooses the mandate (Sections 3 and 3.5), confirms `ask`
+  decisions (Section 11.1) and can revoke a mandate or stop all agents at once
+  (Section 11.3). How a confirmation reaches a human (an app, a notification, a dashboard)
+  is left open.
+- **Audit log.** Every decision and every change to a mandate is recorded (Section 9).
+
+A mandate that leaves the implementation, for example between an issuer and a separate
+PDP, travels signed (Section 7).
+
 ## 2. Terminology
 
 - **Principal:** the household or person on whose behalf the agent acts.
@@ -39,6 +92,11 @@ protection classes and the evaluation rule.
   household: for each identifier its category and, optionally, its area.
 - **Action:** what is to be done with the resource, taken from the vocabulary of its category.
 - **Decision:** `allow` (execute immediately), `ask` (a human must confirm), `deny` (reject).
+- **PDP (policy decision point):** the part of an implementation that evaluates a request
+  against the mandates (Section 4) and returns the decision.
+- **PEP (policy enforcement point):** the part of an implementation that receives the
+  agent's requests, asks the PDP and enforces the decision: it passes allowed commands on
+  to the platform, obtains approvals and keeps the audit log (Sections 9 and 11).
 - **Template:** a mandate draft that an implementation stores and from which it creates
   mandates. This version defines no format for templates; the audit log records changes to
   them (Section 9.2).
@@ -1343,6 +1401,13 @@ Temperatures in degrees Fahrenheit (Sections 4.5, 5):
   never for a resource the agent may not read, of another mandate, of `deny` or `ask`
   rules, in a unit it never derives, or while rules on a former identifier still apply.
   The reference evaluator (Go) offers `Mandate.Limits` for it; it decides nothing.
+
+Overview (Sections 1.1 and 2, informative, no change to any rule):
+- Section 1.1 (new) shows in a diagram how agent, implementation (PEP, PDP, audit log),
+  smart-home platform and human work together, which of these interfaces the specification
+  defines and which it leaves open. It names MCP as the agent interface of the reference
+  implementation, as an example.
+- Section 2 defines PDP and PEP.
 
 Versions (Section 14, rewritten):
 - The v0 formats (mandate, audit entry, audit checkpoint) are frozen from `v0.1.0`, the first
