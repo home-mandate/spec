@@ -54,6 +54,12 @@ Your harness reads one JSON request per line and writes one JSON response per li
 report states which conformance classes the implementation passes and for which exact
 set of cases.
 
+Every release of this repository carries the report of the reference code as
+`conformance-report.json`, with build provenance
+(`gh attestation verify conformance-report.json --repo home-mandate/spec`). To have your
+classes shown as passed on [home-mandate.org/implementations](https://home-mandate.org/implementations/),
+attach your report to a release the same way and link it with its SHA-256 in the list.
+
 ## Licenses
 
 The specification text (`SPEC-*.md`) is licensed under CC BY 4.0, see `LICENSE-docs`.
