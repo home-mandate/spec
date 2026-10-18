@@ -79,8 +79,12 @@ to `other`, where setting it is critical.
 
 A command is not a state: an Item never takes the state `INCREASE`, it takes the value the
 binding made of it. A constraint (SPEC-v0 section 4.5) can only be checked against a value that
-is known before the command is sent. A gateway therefore sends **absolute commands only** and
-offers no relative ones (`INCREASE`, `DECREASE`, `TOGGLE`, `MOVE`, `NEXT`, …).
+is known before the command is sent. For an action with a parameter (brightness, temperature,
+position, volume) a gateway therefore sends only the absolute value and never a relative command
+(`INCREASE`, `DECREASE`, `MOVE`, …). Actions without a parameter have no value to check: `UP`,
+`DOWN` and `STOP` on a Rollershutter are fine for `cover.open`, `cover.close` and `cover.stop`,
+even though the state the Item ends up in is not known in advance. `TOGGLE` is never offered:
+whether it switches on or off depends on the current state.
 
 | Action | openHAB command | Note |
 |---|---|---|
@@ -90,10 +94,10 @@ offers no relative ones (`INCREASE`, `DECREASE`, `TOGGLE`, `MOVE`, `NEXT`, …).
 | `switch.turn_on`, `switch.turn_off` | `ON`, `OFF` | |
 | `climate.set_temperature` | quantity on the setpoint Item | `temperature` in 0.01 °C, `temperature_f` in 0.01 °F, depending on the unit of the Item (SPEC-v0 section 4.5). |
 | `climate.set_mode` | one of the options of the Item's command description | |
-| `cover.open`, `cover.close`, `cover.stop` | `UP`, `DOWN`, `STOP` | |
+| `cover.open`, `cover.close`, `cover.stop` | `UP`, `DOWN`, `STOP` | `UP` raises the cover, so it opens. An Item configured the other way round is a wrong entry in the resource directory, which a gateway cannot detect (SPEC-v0 section 12.3). |
 | `cover.set_position` (`position`) | percent | Whether 100 % means open or closed differs between bindings and integrations. A gateway offers this action only for an Item whose direction the household has stated, and converts to percent **open**. |
 | `gate.open`, `gate.close` | `ON`/`OFF` or `UP`/`DOWN` | |
-| `lock.lock`, `lock.unlock` | `ON`, `OFF` | Which of the two means locked is to be confirmed. |
+| `lock.lock`, `lock.unlock` | `ON`, `OFF` | openHAB has no enforced convention which of the two means locked (`OFF` is usually unlocked). A gateway offers `lock.lock` only for an Item whose meaning the household has stated; until then both commands count as `lock.unlock`, which is critical. |
 | `alarm.arm`, `alarm.disarm` | `ON`/`OFF`, or an option of the command description | |
 | `camera.snapshot` | Image Item | |
 | `media.play`, `media.pause` | `PLAY`, `PAUSE` | Player Item |
