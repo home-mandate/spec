@@ -72,13 +72,13 @@ sequenceDiagram
   U->>P: create pairing code
   U->>G: enter pairing string (operator domain + code)
   G->>O: fetch metadata (Section 3)
-  G->>U: show operator, protection levels, max_offline_days; confirm
+  G->>U: show operator, protection levels, max_offline_days, ask to confirm
   G->>O: pair: installation key, CSR, code binding (Section 5)
   O-->>G: home ID, public name, tunnel certificate
   G->>O: set ACME challenge for its name
   Note over G: obtains its server certificate itself
   G->>R: tunnel with the tunnel certificate (Section 4)
-  A->>R: TLS to https://<id>.<name-domain>/mcp
+  A->>R: TLS to https://#lt;id#gt;.#lt;name-domain#gt;/mcp
   R->>G: byte stream through the tunnel, TLS ends in the gateway
 ```
 
