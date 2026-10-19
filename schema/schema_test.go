@@ -4,6 +4,7 @@ package schema_test
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -49,8 +50,16 @@ func TestSchemasAreCopies(t *testing.T) {
 // Python), so the schemas spell every class out (SPEC-v0 section 3).
 const portableEscapes = `.*+?()[]{}|^$\/-`
 
+// relayMetadataSchemaPath is the schema of the relay operator metadata (RELAY-v0). It is
+// not embedded, because it is not part of v0.1.0, but follows the same rule for patterns.
+const relayMetadataSchemaPath = "../relay/schema/metadata-v0.schema.json"
+
 func TestPatternsUseOnlyThePortableSubset(t *testing.T) {
-	for name, data := range map[string][]byte{"mandate": schema.Mandate(), "audit": schema.Audit(), "vocabulary": schema.Vocabulary()} {
+	relayMetadata, err := os.ReadFile(relayMetadataSchemaPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, data := range map[string][]byte{"mandate": schema.Mandate(), "audit": schema.Audit(), "vocabulary": schema.Vocabulary(), "relay metadata": relayMetadata} {
 		var doc any
 		if err := json.Unmarshal(data, &doc); err != nil {
 			t.Fatalf("%s: %v", name, err)
