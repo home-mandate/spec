@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-mandate.org/relay-metadata/v0/metadata.schema.json",
+  "title": "Home-Mandate relay operator metadata v0",
+  "description": "Parameters of a relay operator, published at https://<operator-domain>/.well-known/home-mandate-relay (RELAY-v0 Section 3). Draft, not part of v0.1.0 of the Home-Mandate Specification. Rules that a schema cannot express (operator_domain equals the host the document was fetched from, name_domain differs from operator_domain, enrollment is on the operator domain or below) are in RELAY-v0 Section 3.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "operator_domain",
+    "name_domain",
+    "trust_domain",
+    "enrollment",
+    "relay",
+    "relay_pins",
+    "max_offline_days",
+    "protection_levels",
+    "portal",
+    "privacy_policy"
+  ],
+  "properties": {
+    "type": {
+      "const": "https://home-mandate.org/relay-metadata/v0"
+    },
+    "operator_domain": {
+      "$ref": "#/$defs/domain"
+    },
+    "name_domain": {
+      "$ref": "#/$defs/domain"
+    },
+    "trust_domain": {
+      "$ref": "#/$defs/domain"
+    },
+    "enrollment": {
+      "$ref": "#/$defs/https_url"
+    },
+    "relay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "port"],
+      "properties": {
+        "host": {
+          "$ref": "#/$defs/domain"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    },
+    "relay_pins": {
+      "description": "SHA-256 digests of SubjectPublicKeyInfo, base64url without padding; at least two, so that one key can be replaced (RELAY-v0 Section 6).",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{43}$"
+      }
+    },
+    "max_offline_days": {
+      "description": "Days after the expiry of the last tunnel certificate during which the installation key alone authenticates a re-issuance (RELAY-v0 Section 5.4). RECOMMENDED: 30.",
+      "type": "integer",
+      "minimum": 7,
+      "maximum": 90
+    },
+    "protection_levels": {
+      "description": "Both levels are mandatory for every operator (RELAY-v0 Section 7).",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["standard", "own-domain"]
+      },
+      "allOf": [
+        { "contains": { "const": "standard" } },
+        { "contains": { "const": "own-domain" } }
+      ]
+    },
+    "portal": {
+      "$ref": "#/$defs/https_url"
+    },
+    "privacy_policy": {
+      "$ref": "#/$defs/https_url"
+    }
+  },
+  "$defs": {
+    "domain": {
+      "description": "Lower-case DNS name with at least two labels, without a trailing dot or a port. For trust_domain this is stricter than SPIFFE, which also allows single labels and underscores.",
+      "type": "string",
+      "maxLength": 253,
+      "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$"
+    },
+    "https_url": {
+      "description": "HTTPS URL with a lower-case DNS host, an optional port, a path of unreserved characters and no user info, query, fragment or percent-encoding.",
+      "type": "string",
+      "maxLength": 2048,
+      "pattern": "^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z]([a-z0-9-]{0,61}[a-z0-9])?(:[1-9][0-9]{0,4})?(/[A-Za-z0-9._~/-]*)?$"
+    }
+  }
+}
