@@ -63,7 +63,7 @@
           "properties": {
             "entity_id": { "type": "string", "minLength": 1, "maxLength": 255 },
             "category": { "type": "string", "minLength": 1, "maxLength": 128 },
-            "area": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "areas": { "description": "Set of areas of the resource as the directory gave it (SPEC-v0 section 3.4); absent or empty: the resource has no area.", "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
             "critical": { "description": "true: the directory marked the resource as critical at evaluation time; absent = false.", "type": "boolean" }
           }
         },

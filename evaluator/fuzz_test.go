@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io/fs"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 	"unicode/utf8"
@@ -98,14 +99,15 @@ func FuzzEvaluate(f *testing.F) {
 		parsed = append(parsed, m)
 	}
 	parsed = append(parsed, nil) // invalid mandate
-	f.Add(uint8(0), "lock.haustuer", "lock", "flur", "unlock", int64(1791824400), int16(120), "Europe/Berlin", "active")
+	f.Add(uint8(0), "lock.haustuer", "lock", "flur\nerdgeschoss\nhome", "unlock", int64(1791824400), int16(120), "Europe/Berlin", "active")
 	f.Add(uint8(4), "light.flur", "light", "flur", "turn_on", int64(1791824400), int16(0), "", "revoked")
 	f.Add(uint8(3), "cover.terrasse", "cover", "terrasse", "open", int64(1792895400), int16(0), "Europe/Berlin", "active")
 	f.Add(uint8(4), "x", "paperless:document", "", "*", int64(0), int16(-720), "Local", "")
-	f.Fuzz(func(t *testing.T, idx uint8, entity, category, area, action string, unix int64, offsetMin int16, zone, status string) {
+	// areas holds the set of areas separated by line feeds, a character no area may contain.
+	f.Fuzz(func(t *testing.T, idx uint8, entity, category, areas, action string, unix int64, offsetMin int16, zone, status string) {
 		m := parsed[int(idx)%len(parsed)]
 		req := evaluator.Request{
-			Resource: evaluator.Resource{EntityID: entity, Category: category, Area: area},
+			Resource: evaluator.Resource{EntityID: entity, Category: category, Areas: splitAreas(areas)},
 			Action:   action,
 			Time:     time.Unix(unix, 0).In(time.FixedZone("fuzz", int(offsetMin)*60)),
 			TimeZone: zone,
@@ -117,6 +119,14 @@ func FuzzEvaluate(f *testing.F) {
 			t.Fatalf("Evaluate is not deterministic: %+v vs %+v", got, again)
 		}
 	})
+}
+
+// splitAreas reads the set of areas of a fuzz input: empty means no area.
+func splitAreas(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, "\n")
 }
 
 func checkResultInvariants(t *testing.T, m *evaluator.Mandate, req evaluator.Request, got evaluator.Result) {

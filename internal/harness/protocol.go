@@ -70,10 +70,10 @@ type Evaluation struct {
 
 // Resource is a resource as the directory of the PEP knows it.
 type Resource struct {
-	EntityID string `json:"entity_id"`
-	Category string `json:"category,omitempty"`
-	Area     string `json:"area,omitempty"`
-	Critical bool   `json:"critical,omitempty"`
+	EntityID string   `json:"entity_id"`
+	Category string   `json:"category,omitempty"`
+	Areas    []string `json:"areas,omitempty"`
+	Critical bool     `json:"critical,omitempty"`
 }
 
 // Response is one line the implementation writes.

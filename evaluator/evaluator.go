@@ -17,6 +17,9 @@ const (
 	maxAreaLength     = 64
 )
 
+// maxAreas is the largest number of areas a resource may have (SPEC-v0 section 3.4).
+const maxAreas = 16
+
 // actionRead is never critical, not even on a resource marked as critical.
 const actionRead = "read"
 
@@ -64,12 +67,15 @@ const (
 	ReasonRule             Reason = "rule"
 )
 
-// Resource is the requested resource with category and area already resolved. An empty
+// Resource is the requested resource with category and areas already resolved. An empty
 // Category means the PEP's directory does not contain the resource.
 type Resource struct {
 	EntityID string
 	Category string
-	Area     string
+	// Areas is the set of areas of the resource (SPEC-v0 section 3.4): its room and every
+	// location above it, or several rooms side by side. Order is irrelevant; nil or empty
+	// means the resource has no area.
+	Areas []string
 	// Critical is true if the directory of the PEP marks the resource as critical. Then
 	// every action except read is critical (SPEC-v0 section 4, step 5). It can only add
 	// protection, never remove it.
@@ -85,7 +91,7 @@ const (
 	StatusRevoked MandateStatus = "revoked"
 )
 
-// Request is the input to the evaluation. Category, area, time, time zone and status
+// Request is the input to the evaluation. Category, areas, time, time zone and status
 // come from the PEP, never from the agent (SPEC-v0 section 4, origin of inputs).
 type Request struct {
 	Resource Resource
@@ -169,9 +175,23 @@ func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason R
 func validRequest(req Request) bool {
 	res := req.Resource
 	return opaque(res.EntityID, maxEntityIDLength) &&
-		(res.Area == "" || opaque(res.Area, maxAreaLength)) &&
+		validAreas(res.Areas) &&
 		(req.Status == StatusActive || req.Status == StatusRevoked) &&
 		exact(req.Parameters)
+}
+
+// validAreas reports whether areas is a set of at most maxAreas area identifiers without
+// duplicates.
+func validAreas(areas []string) bool {
+	if len(areas) > maxAreas {
+		return false
+	}
+	for i, area := range areas {
+		if !opaque(area, maxAreaLength) || slices.Contains(areas[:i], area) {
+			return false
+		}
+	}
+	return true
 }
 
 // maxParameter bounds parameter values to the integers that are exact in every JSON
@@ -207,7 +227,7 @@ func (s selector) matches(res Resource) bool {
 	}
 	return (s.entityID == "" || s.entityID == res.EntityID) &&
 		(s.category == "" || s.category == res.Category) &&
-		(s.area == "" || s.area == res.Area)
+		(s.area == "" || slices.Contains(res.Areas, s.area))
 }
 
 func (r *rule) coversAction(action string) bool {

@@ -7,8 +7,9 @@ profile can be implemented just as well.
 
 A profile describes
 
-- which identifier of the platform serves as `entity_id` and which as `area`
-  (SPEC-v0 section 3.4), preferably one that does not change when a device is renamed;
+- which identifier of the platform serves as `entity_id` and which make up the set of
+  areas of a resource, the values a rule's `area` names (SPEC-v0 section 3.4), preferably
+  ones that do not change when a device is renamed;
 - how the platform's device types map to categories;
 - how the platform's commands map to actions.
 

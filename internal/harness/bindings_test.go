@@ -168,7 +168,7 @@ func (p *referencePDP) handler() http.Handler {
 		p.mu.Lock()
 		state := p.state
 		p.mu.Unlock()
-		// The PDP takes category, area and the critical marking from its directory.
+		// The PDP takes category, areas and the critical marking from its directory.
 		resource := harness.Resource{EntityID: req.Resource.ID}
 		for _, known := range state.Directory {
 			if known.EntityID == req.Resource.ID {

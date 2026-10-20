@@ -42,10 +42,10 @@ type conformanceCase struct {
 	ID string `json:"id"`
 	mandateSource
 	Resource struct {
-		EntityID string `json:"entity_id"`
-		Category string `json:"category"`
-		Area     string `json:"area"`
-		Critical bool   `json:"critical"`
+		EntityID string   `json:"entity_id"`
+		Category string   `json:"category"`
+		Areas    []string `json:"areas"`
+		Critical bool     `json:"critical"`
 	} `json:"resource"`
 	Action          string                 `json:"action"`
 	Parameters      map[string]json.Number `json:"parameters"`
@@ -101,7 +101,7 @@ func TestConformanceCases(t *testing.T) {
 				return
 			}
 			got := evaluator.Evaluate(m, evaluator.Request{
-				Resource:   evaluator.Resource{EntityID: c.Resource.EntityID, Category: c.Resource.Category, Area: c.Resource.Area, Critical: c.Resource.Critical},
+				Resource:   evaluator.Resource{EntityID: c.Resource.EntityID, Category: c.Resource.Category, Areas: c.Resource.Areas, Critical: c.Resource.Critical},
 				Action:     c.Action,
 				Parameters: parameters,
 				Time:       at,

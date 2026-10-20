@@ -64,7 +64,7 @@ func TestValidateAndEvaluate(t *testing.T) {
 		harness.Request{Op: harness.OpValidate, Mandate: example(t)},
 		harness.Request{Op: harness.OpValidate, Mandate: &bad},
 		harness.Request{Op: harness.OpEvaluate, Mandate: example(t), Request: &harness.Evaluation{
-			Resource: harness.Resource{EntityID: "lock.haustuer", Category: "lock", Area: "flur"},
+			Resource: harness.Resource{EntityID: "lock.haustuer", Category: "lock", Areas: []string{"flur", "erdgeschoss"}},
 			Action:   "unlock", Time: "2026-10-12T19:00:00+02:00"}},
 		harness.Request{Op: harness.OpEvaluate, Mandate: &bad, Request: &harness.Evaluation{
 			Resource: harness.Resource{EntityID: "a", Category: "light"}, Action: "read", Time: "2026-10-12T19:00:00+02:00"}},

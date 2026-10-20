@@ -108,7 +108,7 @@ func evaluation(e Evaluation) (evaluator.Request, bool) {
 		status = evaluator.StatusRevoked
 	}
 	return evaluator.Request{
-		Resource:   evaluator.Resource{EntityID: e.Resource.EntityID, Category: e.Resource.Category, Area: e.Resource.Area, Critical: e.Resource.Critical},
+		Resource:   evaluator.Resource{EntityID: e.Resource.EntityID, Category: e.Resource.Category, Areas: e.Resource.Areas, Critical: e.Resource.Critical},
 		Action:     e.Action,
 		Parameters: parameters,
 		Time:       at,

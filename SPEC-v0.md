@@ -70,7 +70,7 @@ implementation: the specification states what must hold there, not how it is ach
   Both can run in one process; an implementation of the class `pdp` (Section 8.1) offers
   the interface over HTTP.
 - **PEP → platform.** The PEP talks to the platform through the platform's own API. It
-  takes category, area and critical marking from its own resource directory, never from
+  takes category, areas and critical marking from its own resource directory, never from
   the agent (Section 4). The profiles in `profiles/` relate platform devices to the
   vocabulary (informative).
 - **Human.** The household chooses the mandate (Sections 3 and 3.5), confirms `ask`
@@ -89,7 +89,7 @@ PDP, travels signed (Section 7).
 - **Resource:** a single device or entity, named by an identifier from the resource
   directory of the implementation.
 - **Resource directory:** what the implementation knows about the resources of the
-  household: for each identifier its category and, optionally, its area.
+  household: for each identifier its category and, optionally, its areas (Section 3.4).
 - **Action:** what is to be done with the resource, taken from the vocabulary of its category.
 - **Decision:** `allow` (execute immediately), `ask` (a human must confirm), `deny` (reject).
 - **PDP (policy decision point):** the part of an implementation that evaluates a request
@@ -280,13 +280,21 @@ Identifiers are compared exactly per character, without normalization and case-s
 Implementations SHOULD use identifiers that do not change when a human renames a device.
 If the identifier of a resource changes, rules that name the old identifier no longer
 match: an `allow` rule stops allowing, but a `deny` or `ask` rule stops restricting, and a
-broader `allow` rule may then apply. The same holds when the area of a resource changes
-or is removed. Implementations MUST therefore tell the household which mandates are
-affected when an identifier or an area that a rule names changes or disappears, and
-SHOULD express restrictions by category or by identifier, not by area alone.
+broader `allow` rule may then apply. The same holds when an area of a resource changes
+or is removed, or when a resource moves to another area. Implementations MUST therefore
+tell the household which mandates are affected when an identifier or an area that a rule
+names changes or disappears, or when a resource leaves or enters such an area; this
+covers every area in the resource's set of areas. They SHOULD express restrictions by
+category or by identifier, not by area alone.
 
-`area` is the single grouping this version knows; what a platform calls room, zone,
-floor or group can be mapped to it. `approvers` and `created_by` are identifiers from
+**Areas** are the grouping this version knows. The resource directory gives each resource
+a **set of areas**: 0 to 16 area identifiers, each following the rules for `area` above,
+without duplicates and without order. The set holds the room of the resource and every
+location above it (for example `garage`, `ground_floor`, `home`), or several rooms side
+by side where the platform places a resource in more than one. What a platform calls
+room, zone, floor or group can be mapped to areas. A resource without an area has an
+empty set. A rule still names exactly one `area`; it matches if that area is in the
+resource's set (Section 4, step 2). `approvers` and `created_by` are identifiers from
 the user management of the implementation and have no meaning outside it; a mandate
 that moves to another implementation needs them replaced.
 
@@ -323,11 +331,11 @@ created it, signed per Section 7, MUST carry `issuer` and `version`.
 
 ## 4. Evaluation rule
 
-Input: mandate, resource (entity ID, category, area, and whether the directory marks it as
+Input: mandate, resource (entity ID, category, set of areas, and whether the directory marks it as
 critical), action, optionally parameters of the action (Section 4.5), point in time,
 household time zone, status of the mandate (`active` or `revoked`). Which mandate is evaluated is determined by Section 4.3.
 
-**Origin of inputs:** The PEP MUST determine the category, the area and the critical marking from its own resource
+**Origin of inputs:** The PEP MUST determine the category, the areas and the critical marking from its own resource
 directory, the point in time from its own clock, the time zone from the household
 configuration and the status from its own mandate management. It MUST NOT take any of these
 from the agent; only the requested resource and action originate from the agent.
@@ -341,7 +349,8 @@ contain has no category; the result is `deny` with `unknown_resource`.
 0. Pre-check, each case → `deny`:
    - the mandate is invalid (Section 3.1);
    - the request is invalid: the entity ID is missing or does not match the pattern of
-     `entity_id` in the schema, a given area does not match the pattern of `area`,
+     `entity_id` in the schema, an area of the resource does not match the pattern of
+     `area`, the resource has more than 16 areas or the same area twice,
      a parameter is not an integer of magnitude at most 2^53 − 1, the point in time or the time zone is invalid or unknown, or the
      status is neither `active` nor `revoked`;
    - the category is missing: the resource is not in the directory of the PEP;
@@ -356,6 +365,8 @@ contain has no category; the result is `deny` with `unknown_resource`.
    `constraints` are satisfied by the parameters (Section 4.5).
    - `resource` matches if **all** specified fields match
      (e.g. `category: light` and `area: living_room` = lights in the living room).
+     `area` matches if it is in the resource's set of areas; a resource without areas
+     matches no rule that names an `area`.
      `any: true` matches every resource. Comparison is exact per character, case-sensitive
      and without normalization.
    - `"*"` in `actions` contains every action, including critical ones.
@@ -572,7 +583,7 @@ POST /access/v1/evaluation
                 "properties": { "principal": "household:hm-7f3a" } },
   "action":   { "name": "unlock" },
   "resource": { "type": "lock", "id": "lock.front_door",
-                "properties": { "area": "hallway" } },
+                "properties": { "areas": ["hallway", "ground_floor"] } },
   "context":  { "time": "2026-10-12T21:14:03+02:00" }
 }
 ```
@@ -599,12 +610,12 @@ Field mapping:
 | `subject.id` | `agent.client_id`; together with `subject.properties.principal`, selects the mandate |
 | `resource.id` | entity ID |
 | `resource.type` | category |
-| `resource.properties.area` | area |
+| `resource.properties.areas` | set of areas, as an array (Section 3.4) |
 | `action.name` | action |
 | `action.properties` | parameters (Section 4.5): an object of parameter names and integers |
 | `context.time` | point in time |
 
-The PDP does not use `resource.type`, `resource.properties.area` and `context.time` without
+The PDP does not use `resource.type`, `resource.properties.areas` and `context.time` without
 verification, but in accordance with Section 4 "Origin of inputs"; the critical marking of a
 resource likewise comes from the directory, never from the request. The mandate is selected
 per Section 4.3; if there is none for the agent and principal, the result is `deny` with
@@ -700,7 +711,7 @@ Fields of a case:
 |---|---|---|
 | `id` | yes | unique identifier |
 | `mandate` / `mandate_inline` | one of them | path to the mandate, or the mandate inline in the case |
-| `resource` | yes | `entity_id`, `category`, `area` of the resource as the PEP resolved it, and optionally `critical: true` if the directory marks it as critical; without `category` the directory does not contain it |
+| `resource` | yes | `entity_id`, `category`, `areas` (an array, Section 3.4) of the resource as the PEP resolved it, and optionally `critical: true` if the directory marks it as critical; without `category` the directory does not contain it |
 | `action` | yes | requested action |
 | `parameters` | no | parameters of the action (Section 4.5); a value that is not an integer stands for a request the PEP cannot express, the expected result is then `invalid_request` |
 | `time` | yes | point in time per RFC 3339 |
@@ -812,7 +823,7 @@ Depending on the event, the following are added:
 |---|---|
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
-| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `area` and `critical`), `action`, `time`, optionally `parameters`, `timezone` and `revoked` |
+| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` and `critical`), `action`, `time`, optionally `parameters`, `timezone` and `revoked` |
 | `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest`; for `mandate.removed`, `digest` is that of the last version the implementation held |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
@@ -1021,7 +1032,7 @@ cases).
 | `entry_digest` | `entry` | `digest` |
 
 `request` is the input of the evaluation as the PEP determines it: `resource`
-(`entity_id`, optionally `category`, `area`, `critical`), `action`, optionally `parameters`,
+(`entity_id`, optionally `category`, `areas` (an array), `critical`), `action`, optionally `parameters`,
 `time`, optionally `timezone` and `revoked`. A `time` that is no RFC 3339 timestamp or a
 parameter that is no integer yields `deny` with `invalid_request`.
 
@@ -1030,7 +1041,7 @@ cases of that operation then count as not passed for their class. Any other `err
 failed case. Every request can carry `id`, the identifier of the case, for diagnostics.
 
 ```
-→ {"op":"evaluate","id":"c02","mandate":"{…}","request":{"resource":{"entity_id":"lock.front_door","category":"lock","area":"hallway"},"action":"unlock","time":"2026-10-12T19:00:00+02:00"}}
+→ {"op":"evaluate","id":"c02","mandate":"{…}","request":{"resource":{"entity_id":"lock.front_door","category":"lock","areas":["hallway","ground_floor"]},"action":"unlock","time":"2026-10-12T19:00:00+02:00"}}
 ← {"decision":"ask","reason":"rule","rule_id":"r-locks","approval_timeout":"PT2M","approvers":["user-1"],"mandate_digest":"sha256:…"}
 ```
 
@@ -1043,7 +1054,7 @@ sets the complete state with
 ```
 PUT <control>
 { "mandates":  [ { "mandate": "<JSON text>", "revoked": false } ],
-  "directory": [ { "entity_id": "…", "category": "…", "area": "…", "critical": false } ],
+  "directory": [ { "entity_id": "…", "category": "…", "areas": [ "…" ], "critical": false } ],
   "time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin" }
 ```
 
@@ -1052,7 +1063,7 @@ directory, the point in time the PDP uses as its clock, and the household time z
 (absent: the offset of `time` applies). The answer is a 2xx status. Then the tool sends the
 request of the case to `POST <authzen>/access/v1/evaluation` with `subject` (type `agent`,
 `id`, `properties.principal`), `action` (`name`, `properties` for parameters) and
-`resource.id` only: category, area and the critical marking come from the directory. It
+`resource.id` only: category, areas and the critical marking come from the directory. It
 compares `decision` and, in the response context, `outcome`, `reason`, `rule_id` and
 `approval_timeout`.
 
@@ -1252,7 +1263,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 
 | Attacker | What the specification does | What remains |
 |---|---|---|
-| **Agent that is malicious or was manipulated** (prompt injection through a website, an e-mail, a document) | The decision is made outside the agent. Default `deny`, most restrictive rule wins, critical actions need `allow_critical` or a human (Section 4). The agent supplies only the resource and the action; category, area, time and status come from the PEP. Rate limit and a limit on waiting approval requests (Section 11) | Everything the mandate allows, the agent can do. A mandate with a broad `allow` is a broad permission |
+| **Agent that is malicious or was manipulated** (prompt injection through a website, an e-mail, a document) | The decision is made outside the agent. Default `deny`, most restrictive rule wins, critical actions need `allow_critical` or a human (Section 4). The agent supplies only the resource and the action; category, areas, time and status come from the PEP. Rate limit and a limit on waiting approval requests (Section 11) | Everything the mandate allows, the agent can do. A mandate with a broad `allow` is a broad permission |
 | **Agent that tries to obtain a confirmation** | The confirmation is bound to one request, used once, comes from a named approver on a path the agent does not control, and the request is evaluated again afterwards (Section 11.1) | A human who confirms without reading. The implementation MUST show what is confirmed; it cannot make the human read |
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
@@ -1266,8 +1277,9 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 
 The evaluation is only as trustworthy as its inputs. A conforming implementation relies on:
 
-- **the resource directory**: it assigns category, area and the critical marking. A wrong
-  category makes the wrong vocabulary and the wrong rules apply;
+- **the resource directory**: it assigns category, areas and the critical marking. A wrong
+  category makes the wrong vocabulary and the wrong rules apply, a wrong set of areas the
+  wrong rules by `area`;
 - **the clock**: validity periods and time windows depend on it (Section 11.4);
 - **the user management**: it decides who an approver is and authenticates the person;
 - **the approval channel**: it reaches the approver and nobody else can answer on it;
@@ -1385,6 +1397,24 @@ Specification**; repository `github.com/home-mandate/spec`, Go module
 `v0.1.0-alpha.1`. The releases of mandate-spec (up to `v0.2.0-alpha.5`) remain available
 from the Go module proxy under the module path `github.com/mandate-spec/mandate-spec`; their
 changes are listed below.
+
+Sets of areas (Sections 2, 3.4, 4, 6, 8, 9.1, 10):
+- A resource has a set of 0 to 16 areas instead of at most one: its room and every
+  location above it (for example garage, ground floor, home), or several rooms side by
+  side. A rule still names exactly one `area` and matches if that area is in the set; the
+  mandate format does not change, and every mandate that was valid stays valid. A request
+  with more than 16 areas, the same area twice or an area that is no identifier is
+  invalid (`invalid_request`). The duty to report affected mandates covers every area in
+  the set.
+- Incompatible: in the request of the test interface, in the directory of the HTTP binding,
+  in AuthZEN (`resource.properties.areas`) and in the audit entry
+  (`request.resource.areas`), `area` (a string) became `areas` (an array). An audit entry
+  with `request.resource.area` is invalid. The audit `type` stays
+  `https://home-mandate.org/audit/v0`: the change comes before the formats are frozen
+  with `v0.1.0`. The audit logs in `conformance/audit-v0.json` carry `areas` and are
+  chained anew; every expected result is unchanged.
+- Conformance cases `c140`–`c151` (new mandate `conformance/mandates/areas.json`) and
+  `a106`–`a108`.
 
 Temperatures in degrees Fahrenheit (Sections 4.5, 5):
 - New parameter `temperature_f` of `climate.set_temperature` in hundredths of a degree
