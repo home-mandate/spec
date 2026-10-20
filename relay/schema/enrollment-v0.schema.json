@@ -308,6 +308,14 @@
             }
           }
         }
+      },
+      "dependentRequired": {
+        "acme_account": [
+          "caa_identity"
+        ],
+        "caa_identity": [
+          "acme_account"
+        ]
       }
     },
     "pair_response": {
