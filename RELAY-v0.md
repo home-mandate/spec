@@ -307,8 +307,9 @@ as an absolute URL, in `Location` and a body (`$defs/pair_response`) with the in
 home ID followed by `.` and the `name_domain` of the metadata, and that the certificate matches
 Section 5.4 and its own tunnel key; if a check fails, it MUST NOT use the pairing, ends it
 locally without sending the unpairing request (so that a code for an existing installation does
-not destroy the standard name), and tells the household that the operator does not conform and
-that it can unpair the installation in the portal. The
+not destroy the standard name), and tells the household that the operator does not conform; the
+household then unpairs a new installation in the portal, or creates a new code for an existing
+one. The
 operator MUST notify the household of every new installation and show it in the portal. Right
 after pairing, the gateway creates its ACME account and reports it (Section 5.6), and shows the
 household the account URI, so that the household can compare it with what the portal shows.
@@ -332,7 +333,7 @@ operator MUST
 
 - require a fresh authentication of the person before it creates such a code;
 - refuse to create such a code within 72 hours after a notification channel of the household was
-  added or changed, and notify the previous channels of every such change;
+  added, changed or removed, and notify the previous channels of every such change;
 - notify the household on all its channels when the code is created;
 - make the code usable only after a waiting time of at least 24 hours, during which the
   household can cancel it in the portal and through the notification; after the waiting time
@@ -619,7 +620,8 @@ the first account report, then exactly one record
 
 and no `issuewild` record that permits anything; an `issuewild ";"` and `iodef` records are
 allowed. A reported `caa_identity` MUST be one of the `acme_cas` in force at the time of the
-report; the operator refuses any other one (`malformed`). A gateway that gets `malformed` for its
+report, unless the report repeats the pair already in force; the operator refuses any other one
+(`malformed`). A gateway that gets `malformed` for its
 report fetches the metadata again and, if its CA is no longer listed, chooses a listed CA and
 reports the new account as Section 5.6 describes. When the installation is unpaired, the record at
 the name is removed and the record at the apex applies again. The operator MUST NOT publish at or
@@ -680,8 +682,9 @@ least 30 days after its `from`. At `from`, the operator moves the planned addres
 `relay_addresses` and into the A and AAAA records of the standard names. The gateway announces the
 coming change to the household, but advises it to change its records only once the A and AAAA
 records of its standard name show the new addresses, so that forged metadata alone cannot move an
-own-domain name. It MUST check, through the resolvers of Section 6.5, that the addresses in force equal the A
-and AAAA records of its standard name before it advises any change; if they differ, it advises nothing and tells its
+own-domain name. It MUST check, through the resolvers of Section 6.5, that the addresses in force
+equal the A and AAAA records of its standard name before it advises any change; if they differ on
+two checks an hour apart, after fetching the metadata again, it advises nothing and tells its
 administrator, and
 SHOULD check the A and AAAA records of its own-domain name, telling the household about any
 difference.
@@ -744,12 +747,15 @@ certificate only. When no query has succeeded for 24 hours, the gateway shows th
 not possible.
 
 With the same frequency, the gateway queries, through the resolvers of Section 6.5, the CAA
-records of its standard name and of the apex of the name domain, and raises an alarm when either
-contains an `issue` or `issuewild` property other than Section 6.3 prescribes: at the standard
-name the `issue` record for the account in force that the gateway reported (or, before its first
-account report, `0 issue ";"`) and at most `issuewild ";"`; an empty answer counts as different;
-at the apex `0 issue ";"` and `0 issuewild ";"` and no other `issue` or `issuewild`. Other properties, such as `iodef`, do
-not count.
+records of its standard name and of the apex of the name domain, and raises an alarm when the set
+of `issue` and `issuewild` properties of either differs from what Section 6.3 prescribes:
+
+- at the standard name exactly the `issue` record for the account in force that the gateway
+  reported (or, before its first account report, `0 issue ";"`), and optionally `issuewild ";"`;
+- at the apex exactly `issue ";"` and `issuewild ";"`.
+
+A missing prescribed property, including an empty answer, is a difference; other properties, such
+as `iodef`, are ignored.
 
 ### 6.8 Pinning the relay
 
@@ -828,7 +834,7 @@ this specification; what an operator itself could do is in the rows below and in
 | **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm, and the gateway checks the CAA records of its standard name and of the apex every hour (Sections 6.6, 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm; an operator that deliberately deceives, with a CA that does not log and CAA answers for the CA that differ from those the gateway sees, reads unnoticed as long as agents do not require proof of logging (Section 6.2). Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
 | **Another household claims an own-domain name** | Only a verified name is held and routed, and only the installation whose TXT token is in the name's zone can verify it; an unverified registration lapses after 7 days and blocks nobody (Section 6.4) | – |
 | **Obtains a misissued WebPKI certificate for the operator domain** and serves forged metadata | After pairing, pins change only over a tunnel authenticated with a stored pin (Section 6.8) | After pairing, forged relay addresses alone do not move an own-domain name: the gateway advises a change only when the A and AAAA records of its standard name show the new addresses (Section 6.4). A gateway that pairs while the attacker serves the metadata pairs with the attacker, which then acts as its operator: at level Standard it can read until the gateway's Certificate Transparency alarm (as for an operator that wants to read); an own-domain name stays protected by the household's CAA record |
-| **Forges DNS answers to the gateway** | DNSSEC, or two independent resolvers (Section 6.5); the CA validates independently | A wrong protection level shown in the gateway, or a missed CAA alarm; issuance is not affected |
+| **Forges DNS answers to the gateway** | DNSSEC, or two independent resolvers (Section 6.5); the CA validates independently | A wrong protection level shown in the gateway, a missed CAA alarm, or advice on relay addresses that is suppressed or delayed; issuance is not affected |
 | **Loses or leaks the relay key** (operator) | Backup pins of offline keys; new pins only over a pinned tunnel; over an active key the backup pins cannot change, and only a backup key can replace the whole set (Section 6.8) | With a leaked active key and a position on the path: denial of service and tunnel metadata until the operator connects with a backup key. With every pinned key lost, the local administrator must take new pins after a warning |
 | **Operator that tries to change what the household allows** | No message carries mandates, approver keys or issuer keys; a gateway accepts none (Section 5.7) | – |
 
