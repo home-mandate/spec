@@ -1,0 +1,19 @@
+{
+  "type": "https://home-mandate.org/mandate/v0",
+  "id": "m-conf-areas",
+  "principal": "household:conf",
+  "agent": { "client_id": "urn:example:agent:conf-areas", "display_name": "Conformance areas" },
+  "rules": [
+    { "id": "r-home-read", "resource": { "area": "home" }, "actions": ["read"], "decision": "allow" },
+    { "id": "r-ground-floor-lights", "resource": { "category": "light", "area": "ground_floor" }, "actions": ["turn_on", "turn_off"], "decision": "allow" },
+    { "id": "r-garage-deny", "resource": { "area": "garage" }, "actions": ["*"], "decision": "deny" },
+    { "id": "r-dining-lights", "resource": { "category": "light", "area": "dining_room" }, "actions": ["turn_on", "turn_off"], "decision": "allow" },
+    { "id": "r-kitchen-ask", "resource": { "area": "kitchen" }, "actions": ["turn_off"], "decision": "ask" }
+  ],
+  "default": "deny",
+  "approval": { "timeout": "PT1M", "approvers": ["approver-1"] },
+  "limits": { "max_actions_per_hour": 60 },
+  "valid_from": "2026-01-01T00:00:00+01:00",
+  "created_by": "approver-1",
+  "created_at": "2025-12-31T12:00:00+01:00"
+}

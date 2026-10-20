@@ -1,0 +1,572 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-mandate.org/relay-enrollment/v0/enrollment.schema.json",
+  "title": "Home-Mandate relay enrollment messages v0",
+  "description": "Messages between a gateway and the enrollment endpoint of a relay operator (RELAY-v0 Section 5). Draft, not part of v0.1.0 of the Home-Mandate Specification. Validate a message against the definition under $defs that its URL expects. Requests are closed; responses may carry members that a gateway ignores. Rules that a schema cannot express (signatures, nonces, the public name being the home ID followed by the name domain, certificate contents) are in RELAY-v0 Section 5.",
+  "$defs": {
+    "https_url": {
+      "$ref": "https://home-mandate.org/relay-metadata/v0/metadata.schema.json#/$defs/https_url"
+    },
+    "domain": {
+      "$ref": "https://home-mandate.org/relay-metadata/v0/metadata.schema.json#/$defs/domain"
+    },
+    "own_domain_name": {
+      "description": "An own-domain name as A-labels, at most 233 characters so that _home-mandate-relay.<name> fits (RELAY-v0 Section 6.4).",
+      "allOf": [
+        {
+          "$ref": "#/$defs/domain"
+        },
+        {
+          "type": "string",
+          "maxLength": 233
+        }
+      ]
+    },
+    "base64url_43": {
+      "description": "32 bytes, base64url without padding.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$"
+    },
+    "der": {
+      "description": "DER encoding, base64url without padding.",
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 16384,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "compact_jws": {
+      "description": "JWS in compact serialization: three base64url segments without padding.",
+      "type": "string",
+      "maxLength": 16384,
+      "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+    },
+    "time": {
+      "description": "RFC 3339 in UTC, whole seconds, ending in Z.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "home_id": {
+      "type": "string",
+      "pattern": "^[a-z2-7]{26}$"
+    },
+    "pairing_code": {
+      "description": "As sent in a pairing request: upper case, without hyphens.",
+      "type": "string",
+      "pattern": "^[A-Z2-7]{16}$"
+    },
+    "pairing_string": {
+      "description": "<operator-domain>/<code> as shown by the portal; the gateway accepts the code in either case and with or without the hyphens between the groups of four.",
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z]([a-z0-9-]{0,61}[a-z0-9])?/([A-Za-z2-7]{4}-?){3}[A-Za-z2-7]{4}$"
+    },
+    "jwk": {
+      "description": "Public key: Ed25519 or P-256, with no private part and no other member.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kty",
+            "crv",
+            "x"
+          ],
+          "properties": {
+            "kty": {
+              "const": "OKP"
+            },
+            "crv": {
+              "const": "Ed25519"
+            },
+            "x": {
+              "$ref": "#/$defs/base64url_43"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kty",
+            "crv",
+            "x",
+            "y"
+          ],
+          "properties": {
+            "kty": {
+              "const": "EC"
+            },
+            "crv": {
+              "const": "P-256"
+            },
+            "x": {
+              "$ref": "#/$defs/base64url_43"
+            },
+            "y": {
+              "$ref": "#/$defs/base64url_43"
+            }
+          }
+        }
+      ]
+    },
+    "protected_header": {
+      "description": "Protected header of every request (RELAY-v0 Section 5.1): exactly alg, nonce, url and one of jwk and kid.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alg",
+        "nonce",
+        "url"
+      ],
+      "properties": {
+        "alg": {
+          "enum": [
+            "EdDSA",
+            "ES256"
+          ]
+        },
+        "nonce": {
+          "type": "string",
+          "minLength": 22,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "url": {
+          "$ref": "#/$defs/https_url"
+        },
+        "jwk": {
+          "$ref": "#/$defs/jwk"
+        },
+        "kid": {
+          "$ref": "#/$defs/https_url"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "jwk"
+          ]
+        },
+        {
+          "required": [
+            "kid"
+          ]
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "jwk"
+            ],
+            "properties": {
+              "alg": {
+                "const": "EdDSA"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "jwk": {
+                "properties": {
+                  "kty": {
+                    "const": "OKP"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "jwk"
+            ],
+            "properties": {
+              "alg": {
+                "const": "ES256"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "jwk": {
+                "properties": {
+                  "kty": {
+                    "const": "EC"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "directory": {
+      "type": "object",
+      "required": [
+        "new_nonce",
+        "pair",
+        "key_change"
+      ],
+      "properties": {
+        "new_nonce": {
+          "$ref": "#/$defs/https_url"
+        },
+        "pair": {
+          "$ref": "#/$defs/https_url"
+        },
+        "key_change": {
+          "$ref": "#/$defs/https_url"
+        }
+      }
+    },
+    "pair_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "csr"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/pairing_code"
+        },
+        "csr": {
+          "$ref": "#/$defs/der"
+        }
+      }
+    },
+    "installation": {
+      "type": "object",
+      "required": [
+        "status",
+        "home_id",
+        "public_name",
+        "max_offline_days",
+        "certificate",
+        "acme_challenge"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "active",
+            "paused",
+            "blocked",
+            "unpaired"
+          ]
+        },
+        "home_id": {
+          "$ref": "#/$defs/home_id"
+        },
+        "public_name": {
+          "$ref": "#/$defs/domain"
+        },
+        "max_offline_days": {
+          "type": "integer",
+          "minimum": 7,
+          "maximum": 90
+        },
+        "certificate": {
+          "$ref": "#/$defs/https_url"
+        },
+        "acme_challenge": {
+          "$ref": "#/$defs/https_url"
+        },
+        "acme_account": {
+          "$ref": "#/$defs/https_url"
+        },
+        "caa_identity": {
+          "$ref": "#/$defs/domain"
+        },
+        "replacement_pending_until": {
+          "$ref": "#/$defs/time"
+        },
+        "own_domain": {
+          "type": "object",
+          "required": [
+            "name",
+            "token",
+            "status"
+          ],
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/own_domain_name"
+            },
+            "token": {
+              "type": "string",
+              "minLength": 22,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "status": {
+              "enum": [
+                "pending",
+                "verified",
+                "lapsed"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "pair_response": {
+      "type": "object",
+      "required": [
+        "installation",
+        "tunnel_certificate"
+      ],
+      "properties": {
+        "installation": {
+          "$ref": "#/$defs/installation"
+        },
+        "tunnel_certificate": {
+          "$ref": "#/$defs/certificate_response"
+        }
+      }
+    },
+    "installation_update": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "acme_account",
+            "caa_identity"
+          ],
+          "properties": {
+            "acme_account": {
+              "$ref": "#/$defs/https_url"
+            },
+            "caa_identity": {
+              "$ref": "#/$defs/domain"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "own_domain"
+          ],
+          "properties": {
+            "own_domain": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/own_domain_name"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "unpaired"
+            }
+          }
+        }
+      ]
+    },
+    "certificate_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "csr"
+      ],
+      "properties": {
+        "csr": {
+          "$ref": "#/$defs/der"
+        }
+      }
+    },
+    "certificate_response": {
+      "type": "object",
+      "required": [
+        "chain",
+        "not_after"
+      ],
+      "properties": {
+        "chain": {
+          "description": "The issued certificate first, followed by the certificates of the CA that issued it (RELAY-v0 Section 5.4).",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/der"
+          }
+        },
+        "not_after": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "acme_challenge_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "values"
+      ],
+      "properties": {
+        "values": {
+          "description": "Key authorization digests (RFC 8555 Section 8.4) to publish at _acme-challenge.<public name>; empty removes them.",
+          "type": "array",
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/base64url_43"
+          }
+        }
+      }
+    },
+    "key_change_request": {
+      "description": "Payload of the outer request of a key change (RELAY-v0 Section 5.5).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jws"
+      ],
+      "properties": {
+        "jws": {
+          "$ref": "#/$defs/compact_jws"
+        }
+      }
+    },
+    "key_change_header": {
+      "description": "Protected header of the inner JWS of a key change: exactly alg, jwk (the new key) and url, no nonce.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alg",
+        "jwk",
+        "url"
+      ],
+      "properties": {
+        "alg": {
+          "enum": [
+            "EdDSA",
+            "ES256"
+          ]
+        },
+        "jwk": {
+          "$ref": "#/$defs/jwk"
+        },
+        "url": {
+          "$ref": "#/$defs/https_url"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "jwk"
+            ],
+            "properties": {
+              "alg": {
+                "const": "EdDSA"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "jwk": {
+                "properties": {
+                  "kty": {
+                    "const": "OKP"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "jwk"
+            ],
+            "properties": {
+              "alg": {
+                "const": "ES256"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "jwk": {
+                "properties": {
+                  "kty": {
+                    "const": "EC"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "key_change": {
+      "description": "Payload of the inner JWS of a key change (RELAY-v0 Section 5.5).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "installation",
+        "old_key"
+      ],
+      "properties": {
+        "installation": {
+          "$ref": "#/$defs/https_url"
+        },
+        "old_key": {
+          "$ref": "#/$defs/jwk"
+        }
+      }
+    },
+    "problem": {
+      "description": "Problem Details (RFC 9457) of the enrollment endpoint.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "https://home-mandate.org/relay/errors/malformed",
+            "https://home-mandate.org/relay/errors/bad-nonce",
+            "https://home-mandate.org/relay/errors/bad-signature",
+            "https://home-mandate.org/relay/errors/pairing-refused",
+            "https://home-mandate.org/relay/errors/confirmation-required",
+            "https://home-mandate.org/relay/errors/offline-too-long",
+            "https://home-mandate.org/relay/errors/blocked",
+            "https://home-mandate.org/relay/errors/bad-csr",
+            "https://home-mandate.org/relay/errors/name-unavailable",
+            "https://home-mandate.org/relay/errors/key-conflict",
+            "https://home-mandate.org/relay/errors/unpaired",
+            "https://home-mandate.org/relay/errors/rate-limited",
+            "https://home-mandate.org/relay/errors/server-internal"
+          ]
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    }
+  }
+}

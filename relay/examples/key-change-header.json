@@ -1,0 +1,9 @@
+{
+  "alg": "EdDSA",
+  "jwk": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": "KPXQg-mqG7Ea-2MYXn-Rg8CmCPVeSgC2S_GTBOiiqUI"
+  },
+  "url": "https://relay-operator.example/enroll/key-change"
+}

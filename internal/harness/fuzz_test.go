@@ -17,6 +17,7 @@ func FuzzServe(f *testing.F) {
 		`{"op":"capabilities"}`,
 		`{"op":"validate","mandate":"{}"}`,
 		`{"op":"evaluate","mandate":"{}","request":{"resource":{"entity_id":"a","category":"light"},"action":"read","time":"2026-10-12T19:00:00+02:00","parameters":{"x":1e99}}}`,
+		`{"op":"evaluate","mandate":"{}","request":{"resource":{"entity_id":"a","category":"climate"},"action":"set_mode","time":"2026-10-12T19:00:00+02:00","parameters":{"mode":"heat","x":true}}}`,
 		`{"op":"select","mandates":[{"mandate":"x"}],"subject":{"client_id":"a","principal":"b"},"request":{"time":"x"}}`,
 		`{"op":"verify_audit","jsonl":"{}\n{}","keys":{"keys":[]}}`,
 		`{"op":"verify_signed","jws":"a.b.c","keys":{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"}]}}`,

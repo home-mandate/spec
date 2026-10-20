@@ -1,0 +1,10 @@
+{
+  "alg": "EdDSA",
+  "nonce": "oFvnlFP1wIhRlYS2jTaXbA",
+  "url": "https://relay-operator.example/enroll/pair",
+  "jwk": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": "D2b8F_GX1LDUCLAX71MunV_C2JgmQFt4ySMODw89vnQ"
+  }
+}

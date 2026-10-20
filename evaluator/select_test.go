@@ -22,10 +22,10 @@ type selectionCase struct {
 		Principal string `json:"principal"`
 	} `json:"subject"`
 	Resource struct {
-		EntityID string `json:"entity_id"`
-		Category string `json:"category"`
-		Area     string `json:"area"`
-		Critical bool   `json:"critical"`
+		EntityID string   `json:"entity_id"`
+		Category string   `json:"category"`
+		Areas    []string `json:"areas"`
+		Critical bool     `json:"critical"`
 	} `json:"resource"`
 	Action   string          `json:"action"`
 	Time     string          `json:"time"`
@@ -49,7 +49,7 @@ func TestConformanceSelection(t *testing.T) {
 				stored[i] = evaluator.NewStored(s.MandateInline, statusOf(s.Revoked))
 			}
 			selected, got := evaluator.SelectAndEvaluate(stored, c.Subject.ClientID, c.Subject.Principal, evaluator.Request{
-				Resource: evaluator.Resource{EntityID: c.Resource.EntityID, Category: c.Resource.Category, Area: c.Resource.Area, Critical: c.Resource.Critical},
+				Resource: evaluator.Resource{EntityID: c.Resource.EntityID, Category: c.Resource.Category, Areas: c.Resource.Areas, Critical: c.Resource.Critical},
 				Action:   c.Action, Time: at, TimeZone: c.Timezone,
 			})
 			if string(got.Decision) != c.Expected || string(got.Reason) != c.Reason {

@@ -60,20 +60,22 @@ type Subject struct {
 
 // Evaluation is the input of the evaluation as the PEP determined it (SPEC-v0 section 4).
 type Evaluation struct {
-	Resource   Resource               `json:"resource"`
-	Action     string                 `json:"action"`
-	Parameters map[string]json.Number `json:"parameters,omitempty"`
-	Time       string                 `json:"time"`
-	Timezone   string                 `json:"timezone,omitempty"`
-	Revoked    bool                   `json:"revoked,omitempty"`
+	Resource Resource `json:"resource"`
+	Action   string   `json:"action"`
+	// Parameters are JSON numbers or strings (SPEC-v0 section 10.2), passed on as they
+	// arrived, so that a number keeps its spelling and a string is never read as a number.
+	Parameters map[string]json.RawMessage `json:"parameters,omitempty"`
+	Time       string                     `json:"time"`
+	Timezone   string                     `json:"timezone,omitempty"`
+	Revoked    bool                       `json:"revoked,omitempty"`
 }
 
 // Resource is a resource as the directory of the PEP knows it.
 type Resource struct {
-	EntityID string `json:"entity_id"`
-	Category string `json:"category,omitempty"`
-	Area     string `json:"area,omitempty"`
-	Critical bool   `json:"critical,omitempty"`
+	EntityID string   `json:"entity_id"`
+	Category string   `json:"category,omitempty"`
+	Areas    []string `json:"areas,omitempty"`
+	Critical bool     `json:"critical,omitempty"`
 }
 
 // Response is one line the implementation writes.
@@ -96,7 +98,10 @@ type Response struct {
 	ApprovalTimeout string   `json:"approval_timeout,omitempty"`
 	Approvers       []string `json:"approvers,omitempty"`
 	MandateDigest   string   `json:"mandate_digest,omitempty"`
-	Selected        *string  `json:"selected,omitempty"`
+	// Enforced is present, and false, only for a deny the PEP does not enforce (audit
+	// mode, SPEC-v0 section 4.6).
+	Enforced *bool   `json:"enforced,omitempty"`
+	Selected *string `json:"selected,omitempty"`
 
 	// succession
 	Accept *bool `json:"accept,omitempty"`

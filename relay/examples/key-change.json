@@ -1,0 +1,8 @@
+{
+  "installation": "https://relay-operator.example/enroll/installation/k7q2xwmpd4hj3n6rt5vbyc2ezu",
+  "old_key": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": "D2b8F_GX1LDUCLAX71MunV_C2JgmQFt4ySMODw89vnQ"
+  }
+}

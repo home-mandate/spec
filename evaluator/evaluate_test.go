@@ -3,6 +3,8 @@
 package evaluator_test
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -25,9 +27,14 @@ func mandateWithRules(t *testing.T, rules string) *evaluator.Mandate {
 
 var noon = time.Date(2026, 10, 12, 12, 0, 0, 0, time.FixedZone("CEST", 2*60*60))
 
+// request builds a request for a resource in at most one area; "" means no area.
 func request(category, area, action string) evaluator.Request {
+	var areas []string
+	if area != "" {
+		areas = []string{area}
+	}
 	return evaluator.Request{
-		Resource: evaluator.Resource{EntityID: "device.test", Category: category, Area: area},
+		Resource: evaluator.Resource{EntityID: "device.test", Category: category, Areas: areas},
 		Action:   action,
 		Time:     noon,
 		Status:   evaluator.StatusActive,
@@ -271,6 +278,51 @@ func TestEvaluateReportsMandateDigest(t *testing.T) {
 	}
 }
 
+func TestEvaluateMatchesAreaSets(t *testing.T) {
+	m := mandateWithRules(t, `[
+		{"id":"r-home-read","resource":{"area":"home"},"actions":["read"],"decision":"allow"},
+		{"id":"r-floor-lights","resource":{"category":"light","area":"ground_floor"},"actions":["turn_on","turn_off"],"decision":"allow"},
+		{"id":"r-garage-deny","resource":{"area":"garage"},"actions":["*"],"decision":"deny"},
+		{"id":"r-dining-lights","resource":{"category":"light","area":"dining_room"},"actions":["turn_on","turn_off"],"decision":"allow"},
+		{"id":"r-kitchen-ask","resource":{"area":"kitchen"},"actions":["turn_off"],"decision":"ask"}]`)
+	sixteen := make([]string, 0, 16)
+	for i := range 15 {
+		sixteen = append(sixteen, fmt.Sprintf("a%02d", i))
+	}
+	sixteen = append(sixteen, "home")
+	tests := []struct {
+		name     string
+		areas    []string
+		action   string
+		decision evaluator.Decision
+		reason   evaluator.Reason
+		ruleID   string
+	}{
+		{"rule names the floor above the room", []string{"hallway", "ground_floor", "home"}, "turn_on", evaluator.Allow, evaluator.ReasonRule, "r-floor-lights"},
+		{"rule names the whole home", []string{"hallway", "ground_floor", "home"}, "read", evaluator.Allow, evaluator.ReasonRule, "r-home-read"},
+		{"order of the set is irrelevant", []string{"home", "ground_floor", "hallway"}, "turn_on", evaluator.Allow, evaluator.ReasonRule, "r-floor-lights"},
+		{"deny on the room beats allow on the floor", []string{"garage", "ground_floor", "home"}, "turn_on", evaluator.Deny, evaluator.ReasonRule, "r-garage-deny"},
+		{"another floor does not match", []string{"bedroom", "first_floor", "home"}, "turn_on", evaluator.Deny, evaluator.ReasonNoMatch, ""},
+		{"second room side by side matches", []string{"kitchen", "dining_room"}, "turn_on", evaluator.Allow, evaluator.ReasonRule, "r-dining-lights"},
+		{"rules on both rooms match", []string{"kitchen", "dining_room"}, "turn_off", evaluator.Ask, evaluator.ReasonRule, "r-kitchen-ask"},
+		{"no areas", nil, "read", evaluator.Deny, evaluator.ReasonNoMatch, ""},
+		{"empty set of areas", []string{}, "read", evaluator.Deny, evaluator.ReasonNoMatch, ""},
+		{"16 areas", sixteen, "read", evaluator.Allow, evaluator.ReasonRule, "r-home-read"},
+		{"17 areas", append(slices.Clone(sixteen), "a99"), "read", evaluator.Deny, evaluator.ReasonInvalidRequest, ""},
+		{"duplicate area", []string{"hallway", "home", "hallway"}, "read", evaluator.Deny, evaluator.ReasonInvalidRequest, ""},
+		{"invalid second area", []string{"home", "hall way"}, "read", evaluator.Deny, evaluator.ReasonInvalidRequest, ""},
+		{"empty area in the set", []string{"home", ""}, "read", evaluator.Deny, evaluator.ReasonInvalidRequest, ""},
+		{"area too long in the set", []string{"home", strings.Repeat("a", 65)}, "read", evaluator.Deny, evaluator.ReasonInvalidRequest, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := request("light", "", tt.action)
+			req.Resource.Areas = tt.areas
+			assertDecision(t, evaluator.Evaluate(m, req), tt.decision, tt.reason, tt.ruleID)
+		})
+	}
+}
+
 func TestEvaluateRejectsMalformedRequestFields(t *testing.T) {
 	// Without checking the request, a different spelling would bypass the deny rule
 	// and end up at allow via r-locks (found in a security review).
@@ -434,7 +486,7 @@ func TestEvaluateConstraints(t *testing.T) {
 		 "constraints":{"position":{"min":2e1}}}]`)
 	req := func(category, action string, parameters map[string]int64) evaluator.Request {
 		r := request(category, "", action)
-		r.Parameters = parameters
+		r.Parameters = integers(parameters)
 		return r
 	}
 	for name, tt := range map[string]struct {
@@ -450,7 +502,10 @@ func TestEvaluateConstraints(t *testing.T) {
 		"only max, at max":  {req("climate", "set_temperature", map[string]int64{"temperature": 2250}), evaluator.ReasonRule},
 		"only max, above":   {req("climate", "set_temperature", map[string]int64{"temperature": 2251}), evaluator.ReasonNoMatch},
 		"only min, at min":  {req("cover", "set_position", map[string]int64{"position": 20}), evaluator.ReasonRule},
-		"only min, far up":  {req("cover", "set_position", map[string]int64{"position": 1<<53 - 1}), evaluator.ReasonRule},
+		"only min, far up":  {req("cover", "set_position", map[string]int64{"position": 100}), evaluator.ReasonRule},
+		"above the range":   {req("cover", "set_position", map[string]int64{"position": 101}), evaluator.ReasonInvalidRequest},
+		"below the range":   {req("light", "set", map[string]int64{"brightness": -1}), evaluator.ReasonInvalidRequest},
+		"no range":          {req("climate", "set_temperature", map[string]int64{"temperature": -(1<<53 - 1)}), evaluator.ReasonRule},
 		"only min, below":   {req("cover", "set_position", map[string]int64{"position": 19}), evaluator.ReasonNoMatch},
 		"too large":         {req("cover", "set_position", map[string]int64{"position": 1 << 53}), evaluator.ReasonInvalidRequest},
 		"too small":         {req("light", "set", map[string]int64{"brightness": 20, "x": -1 << 53}), evaluator.ReasonInvalidRequest},
@@ -462,4 +517,16 @@ func TestEvaluateConstraints(t *testing.T) {
 			}
 		})
 	}
+}
+
+// integers converts integer parameters; nil stays nil.
+func integers(parameters map[string]int64) map[string]evaluator.Value {
+	if parameters == nil {
+		return nil
+	}
+	out := make(map[string]evaluator.Value, len(parameters))
+	for name, n := range parameters {
+		out[name] = evaluator.IntegerValue(n)
+	}
+	return out
 }

@@ -154,8 +154,8 @@ func (p *referencePDP) handler() http.Handler {
 				Properties map[string]string `json:"properties"`
 			} `json:"subject"`
 			Action struct {
-				Name       string                 `json:"name"`
-				Properties map[string]json.Number `json:"properties"`
+				Name       string                     `json:"name"`
+				Properties map[string]json.RawMessage `json:"properties"`
 			} `json:"action"`
 			Resource struct {
 				ID string `json:"id"`
@@ -168,7 +168,7 @@ func (p *referencePDP) handler() http.Handler {
 		p.mu.Lock()
 		state := p.state
 		p.mu.Unlock()
-		// The PDP takes category, area and the critical marking from its directory.
+		// The PDP takes category, areas and the critical marking from its directory.
 		resource := harness.Resource{EntityID: req.Resource.ID}
 		for _, known := range state.Directory {
 			if known.EntityID == req.Resource.ID {
@@ -183,12 +183,16 @@ func (p *referencePDP) handler() http.Handler {
 		if answer.RuleID != nil {
 			result.RuleID = *answer.RuleID
 		}
+		result.NotEnforced = answer.Enforced != nil && !*answer.Enforced
 		if p.mutate != nil {
 			p.mutate(&result)
 		}
 		context := map[string]any{"outcome": result.Decision, "reason": result.Reason}
 		if result.RuleID != "" {
 			context["rule_id"] = result.RuleID
+		}
+		if result.NotEnforced {
+			context["enforced"] = false
 		}
 		if answer.ApprovalTimeout != "" {
 			context["approval_timeout"], context["approvers"] = answer.ApprovalTimeout, answer.Approvers
@@ -231,7 +235,9 @@ func TestHTTPBindingDetectsDeviations(t *testing.T) {
 				r.Reason = evaluator.ReasonInvalidMandate
 			}
 		},
-		"no rule": func(r *evaluator.Result) { r.RuleID = "" },
+		"no rule":             func(r *evaluator.Result) { r.RuleID = "" },
+		"enforces every deny": func(r *evaluator.Result) { r.NotEnforced = false },
+		"enforces no deny":    func(r *evaluator.Result) { r.NotEnforced = r.Decision == evaluator.Deny },
 	} {
 		pdp := &referencePDP{mutate: mutate}
 		server := httptest.NewServer(pdp.handler())

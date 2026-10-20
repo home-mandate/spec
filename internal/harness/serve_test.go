@@ -64,7 +64,7 @@ func TestValidateAndEvaluate(t *testing.T) {
 		harness.Request{Op: harness.OpValidate, Mandate: example(t)},
 		harness.Request{Op: harness.OpValidate, Mandate: &bad},
 		harness.Request{Op: harness.OpEvaluate, Mandate: example(t), Request: &harness.Evaluation{
-			Resource: harness.Resource{EntityID: "lock.haustuer", Category: "lock", Area: "flur"},
+			Resource: harness.Resource{EntityID: "lock.haustuer", Category: "lock", Areas: []string{"flur", "erdgeschoss"}},
 			Action:   "unlock", Time: "2026-10-12T19:00:00+02:00"}},
 		harness.Request{Op: harness.OpEvaluate, Mandate: &bad, Request: &harness.Evaluation{
 			Resource: harness.Resource{EntityID: "a", Category: "light"}, Action: "read", Time: "2026-10-12T19:00:00+02:00"}},
@@ -72,7 +72,7 @@ func TestValidateAndEvaluate(t *testing.T) {
 			Resource: harness.Resource{EntityID: "a", Category: "light"}, Action: "read", Time: "yesterday"}},
 		harness.Request{Op: harness.OpEvaluate, Mandate: example(t), Request: &harness.Evaluation{
 			Resource: harness.Resource{EntityID: "a", Category: "light"}, Action: "set", Time: "2026-10-12T19:00:00+02:00",
-			Parameters: map[string]json.Number{"brightness": "1.5"}}},
+			Parameters: map[string]json.RawMessage{"brightness": json.RawMessage("1.5")}}},
 	)
 	if rs[0].Valid == nil || !*rs[0].Valid || !strings.HasPrefix(rs[0].Digest, "sha256:") {
 		t.Errorf("validate = %+v", rs[0])
@@ -94,6 +94,31 @@ func TestValidateAndEvaluate(t *testing.T) {
 	}
 }
 
+func TestEvaluateInAuditMode(t *testing.T) {
+	data, err := fs.ReadFile(spec.FS(), "conformance/mandates/audit-mode.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mandate := string(data)
+	evaluate := func(category, action string) harness.Request {
+		return harness.Request{Op: harness.OpEvaluate, Mandate: &mandate, Request: &harness.Evaluation{
+			Resource: harness.Resource{EntityID: "device-1", Category: category}, Action: action, Time: "2026-10-12T19:00:00+02:00"}}
+	}
+	rs := ask(t, evaluate("switch", "turn_on"), evaluate("gate", "open"), evaluate("light", "turn_on"))
+	if rs[0].Decision != "deny" || rs[0].Reason != "no_match" || rs[0].Enforced == nil || *rs[0].Enforced {
+		t.Errorf("deny in audit mode = %+v, want enforced false", rs[0])
+	}
+	for _, r := range rs[1:] {
+		if r.Enforced != nil {
+			t.Errorf("enforced result = %+v, want no enforced member", r)
+		}
+	}
+	line, err := json.Marshal(rs[0])
+	if err != nil || !strings.Contains(string(line), `"enforced":false`) {
+		t.Errorf("response line %s, %v", line, err)
+	}
+}
+
 func TestMalformedAndUnsupportedRequests(t *testing.T) {
 	var out bytes.Buffer
 	if err := harness.Serve(strings.NewReader("nope\n\n"+`{"op":"dance"}`+"\n"+`{"op":"evaluate"}`+"\n"), &out); err != nil {
@@ -103,6 +128,19 @@ func TestMalformedAndUnsupportedRequests(t *testing.T) {
 	if len(lines) != 3 || !strings.Contains(lines[0], `"error"`) || !strings.Contains(lines[1], harness.ErrorUnsupported) ||
 		!strings.Contains(lines[2], `"error"`) {
 		t.Errorf("responses = %q", lines)
+	}
+}
+
+func TestRequestsWithUnknownMembersAreMalformed(t *testing.T) {
+	// A client that still sends the former "area" must not be evaluated as if the
+	// resource had no area: unknown members make the request malformed.
+	line := `{"op":"evaluate","id":"x","mandate":"{}","request":{"resource":{"entity_id":"lock.a","area":"hallway"},"action":"unlock","time":"2026-10-12T19:00:00+02:00"}}`
+	var out bytes.Buffer
+	if err := harness.Serve(strings.NewReader(line+"\n"), &out); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(out.String()); got != `{"error":"malformed request"}` {
+		t.Errorf("response = %s", got)
 	}
 }
 
@@ -152,5 +190,41 @@ func TestRequestsWithMissingOrBrokenMembers(t *testing.T) {
 	entry := "{"
 	if r := harness.Answer(harness.Request{Op: harness.OpEntryDigest, Entry: &entry}); r.Valid == nil || *r.Valid {
 		t.Errorf("digest of a broken entry = %+v", r)
+	}
+}
+
+// Parameter values are JSON numbers or strings (SPEC-v0 section 10.2). A string never
+// stands for a number, and any other JSON value makes the request invalid.
+func TestEvaluateParameterValues(t *testing.T) {
+	data, err := fs.ReadFile(spec.FS(), "conformance/mandates/one-of.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mandate := string(data)
+	evaluate := func(category, action, name, value string) harness.Request {
+		return harness.Request{Op: harness.OpEvaluate, Mandate: &mandate, Request: &harness.Evaluation{
+			Resource: harness.Resource{EntityID: "dev-1", Category: category}, Action: action, Time: "2026-10-12T12:00:00+02:00",
+			Parameters: map[string]json.RawMessage{name: json.RawMessage(value)}}}
+	}
+	for name, tt := range map[string]struct {
+		req           harness.Request
+		decision, why string
+	}{
+		"string listed":         {evaluate("climate", "set_mode", "mode", `"heat"`), "allow", "rule"},
+		"string not listed":     {evaluate("climate", "set_mode", "mode", `"off"`), "deny", "no_match"},
+		"integer listed":        {evaluate("light", "set", "brightness", `50`), "allow", "rule"},
+		"integer by its value":  {evaluate("light", "set", "brightness", `5e1`), "allow", "rule"},
+		"string for an integer": {evaluate("light", "set", "brightness", `"50"`), "deny", "invalid_request"},
+		"integer for a string":  {evaluate("climate", "set_mode", "mode", `4`), "deny", "invalid_request"},
+		"boolean":               {evaluate("light", "set", "brightness", `true`), "deny", "invalid_request"},
+		"null":                  {evaluate("light", "set", "brightness", `null`), "deny", "invalid_request"},
+		"object":                {evaluate("light", "set", "brightness", `{"value":50}`), "deny", "invalid_request"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := ask(t, tt.req)[0]
+			if r.Decision != tt.decision || r.Reason != tt.why {
+				t.Errorf("evaluate = %+v, want (%s, %s)", r, tt.decision, tt.why)
+			}
+		})
 	}
 }

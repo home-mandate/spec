@@ -23,6 +23,10 @@
         "display_name": { "type": "string", "minLength": 1, "maxLength": 80 }
       }
     },
+    "enforce": {
+      "description": "Only false: audit mode (SPEC-v0 section 4.6). A deny that results from the rules of the valid, active mandate is evaluated and logged, but not enforced, unless the action is critical. Absent: every decision is enforced. true is not permitted, so that a mandate that enforces has one form.",
+      "const": false
+    },
     "rules": {
       "type": "array",
       "maxItems": 200,
@@ -124,25 +128,53 @@
       }
     },
     "limit": {
-      "description": "An integer in the unit the vocabulary gives the parameter. Mandates contain no fractions, so that the canonical form needs no floating-point serialization.",
+      "description": "An integer in the unit the vocabulary gives the parameter, as a limit or a permitted value. Mandates contain no fractions, so that the canonical form needs no floating-point serialization.",
       "type": "integer",
       "minimum": -9007199254740991,
       "maximum": 9007199254740991
     },
+    "text": {
+      "description": "A string parameter value: 1 to 64 printable ASCII characters without space, compared exactly and case-sensitive, like an area (SPEC-v0 sections 3.4 and 4.5).",
+      "type": "string",
+      "pattern": "^[!-~]{1,64}$"
+    },
     "constraints": {
-      "description": "Only with allow: limits for integer parameters of the action. The rule matches only if the request carries every named parameter with a value within the limits (SPEC-v0 section 4.5).",
+      "description": "Only with allow: constraints on parameters of the action. The rule matches only if the request carries every named parameter with a value the constraint permits (SPEC-v0 section 4.5).",
       "type": "object",
       "minProperties": 1,
       "maxProperties": 16,
       "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,63}$" },
       "additionalProperties": {
-        "type": "object",
-        "additionalProperties": false,
-        "minProperties": 1,
-        "properties": {
-          "min": { "$ref": "#/$defs/limit", "description": "Smallest permitted value, inclusive." },
-          "max": { "$ref": "#/$defs/limit", "description": "Largest permitted value, inclusive." }
-        }
+        "oneOf": [
+          {
+            "description": "Limits for an integer parameter.",
+            "type": "object",
+            "additionalProperties": false,
+            "minProperties": 1,
+            "properties": {
+              "min": { "$ref": "#/$defs/limit", "description": "Smallest permitted value, inclusive." },
+              "max": { "$ref": "#/$defs/limit", "description": "Largest permitted value, inclusive." }
+            }
+          },
+          {
+            "description": "The permitted values of an integer or string parameter, all of the same type; not together with min or max.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["one_of"],
+            "properties": {
+              "one_of": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 32,
+                "uniqueItems": true,
+                "anyOf": [
+                  { "items": { "$ref": "#/$defs/limit" } },
+                  { "items": { "$ref": "#/$defs/text" } }
+                ]
+              }
+            }
+          }
+        ]
       }
     },
     "rule": {

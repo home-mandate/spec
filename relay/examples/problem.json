@@ -1,0 +1,6 @@
+{
+  "type": "https://home-mandate.org/relay/errors/offline-too-long",
+  "status": 403,
+  "title": "Re-issuance is no longer allowed",
+  "detail": "The installation was offline for more than 30 days. Pair the gateway again."
+}

@@ -1,0 +1,31 @@
+{
+  "type": "https://home-mandate.org/relay-metadata/v0",
+  "operator_domain": "relay-operator.example",
+  "name_domain": "homes.example.net",
+  "trust_domain": "relay-operator.example",
+  "enrollment": "https://relay-operator.example/enroll/directory",
+  "relay": {
+    "host": "tunnel.relay-operator.example",
+    "port": 8443
+  },
+  "relay_addresses": [
+    "192.0.2.10",
+    "2001:db8::10"
+  ],
+  "relay_pins": [
+    "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"
+  ],
+  "relay_backup_pins": [
+    "Ljw1T6tIW5zlLN6aE5H2nZXgRQ8u1QYxv6CqUvd_hRo"
+  ],
+  "acme_cas": [
+    "letsencrypt.org"
+  ],
+  "max_offline_days": 30,
+  "protection_levels": [
+    "standard",
+    "own-domain"
+  ],
+  "portal": "https://relay-operator.example/",
+  "privacy_policy": "https://relay-operator.example/privacy"
+}

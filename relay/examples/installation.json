@@ -1,0 +1,16 @@
+{
+  "status": "active",
+  "home_id": "abcdefghijklmnopqrstuvwxyz",
+  "public_name": "abcdefghijklmnopqrstuvwxyz.homes.example.net",
+  "max_offline_days": 30,
+  "certificate": "https://relay-operator.example/enroll/installation/k7q2xwmpd4hj3n6rt5vbyc2ezu/certificate",
+  "acme_challenge": "https://relay-operator.example/enroll/installation/k7q2xwmpd4hj3n6rt5vbyc2ezu/acme-challenge",
+  "acme_account": "https://acme-v02.api.letsencrypt.org/acme/acct/123456789",
+  "caa_identity": "letsencrypt.org",
+  "replacement_pending_until": "2026-10-21T08:00:00Z",
+  "own_domain": {
+    "name": "home.example.com",
+    "token": "q3Zp7bNwXs2LkV9mTa4RyE",
+    "status": "verified"
+  }
+}

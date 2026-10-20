@@ -4,7 +4,9 @@ package harness
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -29,9 +31,8 @@ func Serve(r io.Reader, w io.Writer) error {
 		if len(scanner.Bytes()) == 0 {
 			continue
 		}
-		var req Request
 		resp := Response{Error: "malformed request"}
-		if err := json.Unmarshal(scanner.Bytes(), &req); err == nil {
+		if req, err := decodeRequest(scanner.Bytes()); err == nil {
 			resp = Answer(req)
 		}
 		if err := enc.Encode(resp); err != nil {
@@ -89,26 +90,27 @@ func ptr[T any](v T) *T { return &v }
 func missing(what string) Response { return Response{Error: "missing " + what} }
 
 // evaluation converts the request; ok is false if the PEP could not express it: a point
-// in time that is no RFC 3339 timestamp or a parameter that is no integer.
+// in time that is no RFC 3339 timestamp or a parameter that is neither an integer nor a
+// string.
 func evaluation(e Evaluation) (evaluator.Request, bool) {
 	at, err := time.Parse(time.RFC3339, e.Time)
 	if err != nil {
 		return evaluator.Request{}, false
 	}
-	parameters := make(map[string]int64, len(e.Parameters))
-	for name, n := range e.Parameters {
-		f, err := n.Float64()
-		if err != nil || f != float64(int64(f)) {
+	parameters := make(map[string]evaluator.Value, len(e.Parameters))
+	for name, data := range e.Parameters {
+		var value evaluator.Value
+		if err := value.UnmarshalJSON(data); err != nil {
 			return evaluator.Request{}, false
 		}
-		parameters[name] = int64(f)
+		parameters[name] = value
 	}
 	status := evaluator.StatusActive
 	if e.Revoked {
 		status = evaluator.StatusRevoked
 	}
 	return evaluator.Request{
-		Resource:   evaluator.Resource{EntityID: e.Resource.EntityID, Category: e.Resource.Category, Area: e.Resource.Area, Critical: e.Resource.Critical},
+		Resource:   evaluator.Resource{EntityID: e.Resource.EntityID, Category: e.Resource.Category, Areas: e.Resource.Areas, Critical: e.Resource.Critical},
 		Action:     e.Action,
 		Parameters: parameters,
 		Time:       at,
@@ -133,6 +135,9 @@ func result(r evaluator.Result) Response {
 	}
 	if r.Approval != nil {
 		resp.ApprovalTimeout, resp.Approvers = r.Approval.Timeout, r.Approval.Approvers
+	}
+	if r.NotEnforced {
+		resp.Enforced = ptr(false)
 	}
 	return resp
 }
@@ -221,4 +226,20 @@ func entries(texts []string) [][]byte {
 		out[i] = []byte(text)
 	}
 	return out
+}
+
+// decodeRequest reads one request and refuses members the protocol does not define, so
+// that a client using a former member name (such as "area") gets an error instead of an
+// evaluation without that member.
+func decodeRequest(line []byte) (Request, error) {
+	var req Request
+	dec := json.NewDecoder(bytes.NewReader(line))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		return Request{}, err
+	}
+	if dec.More() {
+		return Request{}, errors.New("harness: more than one JSON value on a line")
+	}
+	return req, nil
 }
