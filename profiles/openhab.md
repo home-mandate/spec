@@ -17,7 +17,7 @@ profile it always means the category of the vocabulary (`vocabulary/v0.json`).
 | Home-Mandate | openHAB | Note |
 |---|---|---|
 | `entity_id` | Item name (`GarageDoor_Opener`) | The name the user gives the Item (letters, digits, underscores). It is unique and serves as the Item's identifier; there is no separate ID. It cannot be renamed; a "renamed" Item is a new Item and the old one is deleted. An implementation MUST then tell the household which mandates are affected (SPEC-v0 section 3.4). Rules and scenes are not Items; see "Rules and scenes" below. |
-| `area` | name of the Location Group the Item is a direct member of, or, for an Item of an Equipment, the Location Group the Equipment is a direct member of | Location Groups are Items, so their names cannot be renamed either. See "Areas" below. |
+| areas | names of the Location Group the Item is a direct member of (or, for an Item of an Equipment, the Location Group the Equipment is a direct member of) and of every Location Group above it | Location Groups are Items, so their names cannot be renamed either. See "Areas" below. |
 
 The semantic model is optional. An agent that is to make sense of a home will usually need it,
 and so does this profile: without it, Items cannot be told apart reliably (see "Categories").
@@ -26,10 +26,12 @@ and so does this profile: without it, Items cannot be told apart reliably (see "
 
 Locations are Group Items and nest: Garage is a member of Ground Floor, Ground Floor a member of
 Home. In the semantic model an Item, an Equipment or a Location is a direct member of at most
-one Location, so a resource is in several Locations only through this chain. SPEC-v0 knows one
-area per resource: the Location directly above the Item or its Equipment. Once
-[spec#28](https://github.com/home-mandate/spec/issues/28) is in, the areas of a resource are the
-whole chain (Garage, Ground Floor, Home).
+one Location, so a resource is in several Locations only through this chain. The set of areas
+of a resource (SPEC-v0 section 3.4) is therefore the whole chain, starting at the Location
+directly above the Item or its Equipment: Garage, Ground Floor, Home. A rule can name any of
+them, so "nothing on the top floor without asking" is one rule. A chain longer than 16
+Locations does not fit the set; a gateway then refuses to describe the resource rather than
+cut the chain.
 
 Groups outside the semantic model (e.g. `AllLights`) are not areas. An Item can be a member of
 any number of them; they say nothing about where a device is.
@@ -41,8 +43,8 @@ the device is; the **Item type** tells how it is commanded. The Point and Proper
 Item (e.g. `Control` and `Opening`) tell which Item of an Equipment is meant. Example:
 
 ```
-Home                      Location
-  Ground Floor            Location
+Home                      Location        → area
+  Ground Floor            Location        → area
     Garage                Location        → area
       Garage Door         Equipment       → category gate
         Opener            Switch, Control, Opening   → open/close (critical: open)
@@ -93,18 +95,18 @@ whether it switches on or off depends on the current state.
 | `light.set` (`brightness`) | percent (0–100) | Dimmer, Color. Color and color temperature have no action yet ([spec#29](https://github.com/home-mandate/spec/issues/29)). |
 | `switch.turn_on`, `switch.turn_off` | `ON`, `OFF` | |
 | `climate.set_temperature` | quantity on the setpoint Item | `temperature` in 0.01 °C, `temperature_f` in 0.01 °F, depending on the unit of the Item (SPEC-v0 section 4.5). |
-| `climate.set_mode` | one of the options of the Item's command description | |
+| `climate.set_mode` (`mode`) | one of the options of the Item's command description | `mode` takes only the values of SPEC-v0 section 5 (`off`, `auto`, `cool`, `heat`, `emergency_heat`, `precooling`, `fan_only`, `dry`, `sleep`). The options of a mode Item are binding-specific strings or numbers, so a gateway maps each option to one of these values, from a known mapping of the binding or as stated by the household, and sends exactly the mapped option. An option that maps to no value is not offered. |
 | `cover.open`, `cover.close`, `cover.stop` | `UP`, `DOWN`, `STOP` | `UP` raises the cover, so it opens. An Item configured the other way round is a wrong entry in the resource directory, which a gateway cannot detect (SPEC-v0 section 12.3). |
 | `cover.set_position` (`position`) | percent | Whether 100 % means open or closed differs between bindings and integrations. A gateway offers this action only for an Item whose direction the household has stated, and converts to percent **open**. |
 | `gate.open`, `gate.close` | `ON`/`OFF` or `UP`/`DOWN` | |
 | `lock.lock`, `lock.unlock` | `ON`, `OFF` | openHAB has no enforced convention which of the two means locked (`OFF` is usually unlocked). A gateway offers `lock.lock` only for an Item whose meaning the household has stated; until then both commands count as `lock.unlock`, which is critical. |
 | `alarm.arm`, `alarm.disarm` | `ON`/`OFF`, or an option of the command description | |
 | `camera.snapshot` | Image Item | |
-| `media.play`, `media.pause` | `PLAY`, `PAUSE` | Player Item |
+| `media.play`, `media.pause` | `PLAY`, `PAUSE` | Player Item. `NEXT` and `PREVIOUS` have no action yet ([spec#49](https://github.com/home-mandate/spec/issues/49)). |
 | `media.turn_on`, `media.turn_off` | `ON`, `OFF` | |
 | `media.set_volume` (`volume`) | percent | |
 | `scene.activate`, `script.run` | running the rule | |
-| `other.set` | any absolute command | critical |
+| `other.set` | any absolute command | critical. It takes no parameter yet, so "this Item, but only these values" (a String Item for a charge mode, a scene number, a preset) cannot be limited by value; a generic value is planned for the next version ([spec#35](https://github.com/home-mandate/spec/issues/35)). |
 
 A gateway sends commands only. It does not post state updates, which would make openHAB and
 its rules believe something that did not happen.
