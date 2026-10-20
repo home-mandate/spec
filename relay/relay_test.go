@@ -125,6 +125,9 @@ func TestInvalidMetadataIsRejected(t *testing.T) {
 		"planned with offset time": func(d map[string]any) {
 			d["relay_addresses_planned"] = map[string]any{"addresses": []any{"192.0.2.11"}, "from": "2026-12-01T00:00:00+01:00"}
 		},
+		"no acme cas":                func(d map[string]any) { d["acme_cas"] = []any{} },
+		"acme ca upper case":         func(d map[string]any) { d["acme_cas"] = []any{"LetsEncrypt.org"} },
+		"acme ca duplicate":          func(d map[string]any) { d["acme_cas"] = []any{"letsencrypt.org", "letsencrypt.org"} },
 		"relay unknown member":       func(d map[string]any) { d["relay"].(map[string]any)["ip"] = "192.0.2.1" },
 		"only own-domain":            func(d map[string]any) { d["protection_levels"] = []any{"own-domain"} },
 		"eight active pins":          func(d map[string]any) { d["relay_pins"] = eightPins() },

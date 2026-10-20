@@ -52,10 +52,9 @@ controls it can obtain a second certificate for the name and open the TLS connec
 relay. This specification therefore defines two protection levels (Section 6), both
 mandatory for every operator:
 
-- **Standard** (`<id>.<name-domain>`): the operator cannot read **unnoticed**, as far as
-  certificates are logged: the gateway MUST watch Certificate Transparency logs and raise an
-  alarm. A certificate that its CA does not log stays unnoticed; Section 6.2 says when that
-  matters.
+- **Standard** (`<id>.<name-domain>`): the operator cannot read **unnoticed**. The gateway
+  MUST watch Certificate Transparency logs and the CAA record of its name and raise an alarm;
+  Section 6.2 states the narrow window that remains.
 - **Own domain** (a name of the household): the operator **cannot** obtain a certificate
   for the name, because a CAA record of the household binds issuance to the gateway's own
   ACME account.
@@ -145,13 +144,14 @@ specification is released, the schema can still change under the same `type`.
 | `relay_addresses_planned` | optional: `addresses` that replace `relay_addresses` `from` a time at least 30 days after it first appears (Section 6.4) |
 | `relay_pins` | SHA-256 digests (base64url) of the SubjectPublicKeyInfo of the keys the relay uses; the gateway pins them at pairing as active pins (Section 6.8) |
 | `relay_backup_pins` | the same for the operator's offline backup keys, pinned as backup pins; no pin may appear in both lists (Section 6.8) |
+| `acme_cas` | issuer domain names (`caa_identity`) of the CAs the operator allows in the CAA records of its standard names; only CAs that log every certificate and enforce RFC 8657 (Section 6.6) |
 | `max_offline_days` | how long an installation can be without a valid tunnel certificate before only a new pairing helps; 7 to 90, RECOMMENDED 30 (Section 5.5) |
 | `protection_levels` | MUST list `standard` and `own-domain` (Section 7) |
 | `portal` | HTTPS URL of the portal, shown to the household |
 | `privacy_policy` | HTTPS URL of the operator's privacy policy, shown to the household |
 
 Before it completes a pairing, the gateway MUST show the household the operator domain, the
-protection levels and `max_offline_days`. A change of the document applies to an existing
+protection levels, `acme_cas` and `max_offline_days`. A change of the document applies to an existing
 pairing from its next issuance on (Section 5.5); the gateway MUST tell the household when
 `max_offline_days`, `protection_levels` or the relay addresses changed. Changes of the pins do
 not change stored pins (Section 6.8); relay addresses change as in Section 6.4.
@@ -549,9 +549,12 @@ Transparency monitoring therefore applies to both levels.
 
 Certificate Transparency shows only certificates that a CA logs. Browsers accept a certificate
 only with proof that it was logged, so CAs log nearly all certificates, but a CA may issue one
-without logging it, and agents usually do not require that proof. At the level Standard an
-operator that controls the CAA record of the standard name and finds such a CA could therefore
-read unnoticed; the level Own domain does not depend on logging.
+without logging it, and agents usually do not require that proof. At the level Standard the CAA
+record of the standard name therefore allows only CAs that log every certificate (Section 6.6),
+and the gateway checks it every hour (Section 6.7). An operator that wants a certificate from a
+CA that does not log must change that record; the gateway sees the change unless the operator
+reverts it before the next check. That window remains at the level Standard; the level Own
+domain does not depend on logging.
 
 ### 6.3 Standard names
 
@@ -566,7 +569,9 @@ the first account report, then exactly one record
 <standard name> CAA 0 issue "<caa_identity>; accounturi=<acme_account>; validationmethods=dns-01"
 ```
 
-and no `issuewild` record that permits anything. When the installation is unpaired, the record at
+and no `issuewild` record that permits anything. The `caa_identity` is one of the `acme_cas` of
+the metadata (Section 3); the operator refuses an account report with any other one
+(`malformed`). When the installation is unpaired, the record at
 the name is removed and the record at the apex applies again. The operator MUST NOT publish at or
 below a standard name any other record that a CA uses for validation (TXT outside
 `_acme-challenge`, CNAME, DNAME, NS).
@@ -656,10 +661,16 @@ Standard until it has.
 
 ### 6.6 Certificate authorities
 
-A gateway MUST obtain server certificates only from a CA that enforces the CAA parameters
-`accounturi` and `validationmethods` of RFC 8657, and reports that CA's issuer domain name as
-`caa_identity`. Which CAs do so is outside this specification; a gateway SHOULD let its
-administrator choose among CAs it knows to enforce them.
+A gateway MUST obtain server certificates only from a CA that
+
+- submits every certificate it issues to Certificate Transparency logs, and
+- enforces the CAA parameters `accounturi` and `validationmethods` of RFC 8657,
+
+and reports that CA's issuer domain name as `caa_identity`. An operator lists in `acme_cas` of
+its metadata (Section 3) the CAs it allows in the CAA records of its standard names; it MUST list
+only CAs that meet both conditions. The gateway shows `acme_cas` at pairing and uses a CA from
+that list; if it supports none of them, it does not pair. `relay/cas.md` lists, informatively,
+CAs that meet both conditions according to public sources.
 
 ### 6.7 Certificate Transparency monitoring
 
@@ -673,6 +684,10 @@ with the issuer, the names and the validity of that certificate. The administrat
 (for example the household's own wildcard certificate for its zone), which ends the alarm for that
 certificate only. When no query has succeeded for 24 hours, the gateway shows that monitoring is
 not possible.
+
+With the same frequency, the gateway queries the CAA record of its standard name and raises an
+alarm when it is anything other than the record of Section 6.3 for its own account (or, before
+its first account report, `0 issue ";"`).
 
 ### 6.8 Pinning the relay
 
@@ -743,7 +758,7 @@ this specification; what an operator itself could do is in the rows below and in
 | **Steals a tunnel key** | Tunnel certificates live at most 24 hours; a new key at every renewal; denylist (Sections 5.4, 5.7) | Taking the tunnel over for at most the rest of that certificate's life |
 | **Takes over the household's account at the operator** | Unpairing and pairing codes stay with the account; codes for an existing installation and changes of the ACME account need a fresh authentication or the household's confirmation and are announced (Sections 5.2, 5.6) | The attacker can end remote access, and can move the standard name as in the row above, announced and with a waiting time |
 | **Compromises the operator's tunnel CA** | Name constraint on the operator's trust domain; short lifetimes (Section 5.4) | Tunnel certificates for every home of that operator: denial of service and metadata, not content |
-| **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm (Section 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm, and unnoticed with a certificate that its CA does not log (Section 6.2). Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
+| **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm, and a switch to a CA that does not log needs a change of the CAA record, which the gateway checks every hour (Sections 6.6, 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm; unnoticed only with a CA that does not log and a CAA change reverted before the gateway's next check (Section 6.2). Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
 | **Another household claims an own-domain name** | Only a verified name is held and routed, and only the installation whose TXT token is in the name's zone can verify it; an unverified registration lapses after 7 days and blocks nobody (Section 6.4) | – |
 | **Obtains a misissued WebPKI certificate for the operator domain** and serves forged metadata | After pairing, pins change only over a tunnel authenticated with a stored pin (Section 6.8) | After pairing, forged relay addresses can lead a household with an own-domain name to point it at the attacker: denial of service and connection metadata, not content (the gateway compares the addresses with the A and AAAA records of its standard name, Section 6.4). A gateway that pairs while the attacker serves the metadata pairs with the attacker, which then acts as its operator: at level Standard it can read until the gateway's Certificate Transparency alarm (as for an operator that wants to read); an own-domain name stays protected by the household's CAA record |
 | **Forges DNS answers to the gateway** | DNSSEC, or two independent resolvers (Section 6.5); the CA validates independently | A wrong protection level shown in the gateway; issuance is not affected |
@@ -763,7 +778,8 @@ counts) and how long it may keep it.
   and issuance.
 - Section 6 specified: standard and own-domain names, protection levels, CAA at the apex and at
   each name, registration and verification of own-domain names, determining the protection level
-  in the gateway, CAs, Certificate Transparency monitoring, pinning of the relay; relay
+  in the gateway, CAs that log every certificate and enforce RFC 8657 (informative list
+  `relay/cas.md`), Certificate Transparency and CAA monitoring, active and backup pins; relay
   addresses in the metadata; error `name-unavailable`.
 - Section 5 specified: directory, nonces and signed requests, errors, pairing (including a
   pairing code for an existing installation), installation, tunnel certificate, renewal and

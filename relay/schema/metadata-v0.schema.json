@@ -15,6 +15,7 @@
     "relay_addresses",
     "relay_pins",
     "relay_backup_pins",
+    "acme_cas",
     "max_offline_days",
     "protection_levels",
     "portal",
@@ -96,6 +97,16 @@
       "items": {
         "type": "string",
         "pattern": "^[A-Za-z0-9_-]{43}$"
+      }
+    },
+    "acme_cas": {
+      "description": "Issuer domain names (caa_identity) of the CAs allowed in the CAA records of standard names; only CAs that log every certificate and enforce RFC 8657 (RELAY-v0 Section 6.6).",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/domain"
       }
     },
     "max_offline_days": {
