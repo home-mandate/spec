@@ -94,12 +94,14 @@ func TestInvalidMetadataIsRejected(t *testing.T) {
 		"max_offline_days missing":    func(d map[string]any) { delete(d, "max_offline_days") },
 		"wrong type":                  func(d map[string]any) { d["type"] = "https://home-mandate.org/relay-metadata/v1" },
 		"unknown member":              func(d map[string]any) { d["extra"] = true },
-		"only one relay pin":          func(d map[string]any) { d["relay_pins"] = []any{"47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"} },
+		"no relay pin":                func(d map[string]any) { d["relay_pins"] = []any{} },
+		"no backup pin":               func(d map[string]any) { d["relay_backup_pins"] = []any{} },
 		"duplicate relay pins": func(d map[string]any) {
 			p := "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"
 			d["relay_pins"] = []any{p, p}
 		},
-		"pin not base64url sha-256":       func(d map[string]any) { d["relay_pins"] = []any{"abc", "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"} },
+		"pin not base64url sha-256":       func(d map[string]any) { d["relay_pins"] = []any{"abc"} },
+		"backup pin not base64url":        func(d map[string]any) { d["relay_backup_pins"] = []any{"abc"} },
 		"protection level missing":        func(d map[string]any) { d["protection_levels"] = []any{"standard"} },
 		"unknown protection level":        func(d map[string]any) { d["protection_levels"] = []any{"standard", "own-domain", "none"} },
 		"enrollment over http":            func(d map[string]any) { d["enrollment"] = "http://example.org/enroll" },
@@ -125,7 +127,7 @@ func TestInvalidMetadataIsRejected(t *testing.T) {
 		},
 		"relay unknown member":       func(d map[string]any) { d["relay"].(map[string]any)["ip"] = "192.0.2.1" },
 		"only own-domain":            func(d map[string]any) { d["protection_levels"] = []any{"own-domain"} },
-		"nine relay pins":            func(d map[string]any) { d["relay_pins"] = ninePins() },
+		"eight active pins":          func(d map[string]any) { d["relay_pins"] = eightPins() },
 		"enrollment with query":      func(d map[string]any) { d["enrollment"] = "https://example.org/enroll?x=1" },
 		"enrollment with user info":  func(d map[string]any) { d["enrollment"] = "https://user@example.org/enroll" },
 		"enrollment with IP address": func(d map[string]any) { d["enrollment"] = "https://192.0.2.1/enroll" },
@@ -140,8 +142,8 @@ func TestInvalidMetadataIsRejected(t *testing.T) {
 	}
 }
 
-func ninePins() []any {
-	pins := make([]any, 9)
+func eightPins() []any {
+	pins := make([]any, 8)
 	for i := range pins {
 		pins[i] = fmt.Sprintf("%042d%c", i, 'A')
 	}

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://home-mandate.org/relay-metadata/v0/metadata.schema.json",
   "title": "Home-Mandate relay operator metadata v0",
-  "description": "Parameters of a relay operator, published at https://<operator-domain>/.well-known/home-mandate-relay (RELAY-v0 Section 3). Draft, not part of v0.1.0 of the Home-Mandate Specification. Rules that a schema cannot express (operator_domain equals the host the document was fetched from, name_domain differs from operator_domain, enrollment is on the operator domain or below) are in RELAY-v0 Section 3.",
+  "description": "Parameters of a relay operator, published at https://<operator-domain>/.well-known/home-mandate-relay (RELAY-v0 Section 3). Draft, not part of v0.1.0 of the Home-Mandate Specification. Rules that a schema cannot express (operator_domain equals the host the document was fetched from, name_domain differs from operator_domain, enrollment is on the operator domain or below, no pin in both pin lists, at most eight pins together) are in RELAY-v0 Section 3.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,6 +14,7 @@
     "relay",
     "relay_addresses",
     "relay_pins",
+    "relay_backup_pins",
     "max_offline_days",
     "protection_levels",
     "portal",
@@ -76,10 +77,21 @@
       }
     },
     "relay_pins": {
-      "description": "SHA-256 digests of SubjectPublicKeyInfo, base64url without padding; at least two, so that one key can be replaced (RELAY-v0 Section 6).",
+      "description": "SHA-256 digests of the SubjectPublicKeyInfo of the keys the relay uses, base64url without padding; pinned as active pins at pairing (RELAY-v0 Section 6.8).",
       "type": "array",
-      "minItems": 2,
-      "maxItems": 8,
+      "minItems": 1,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{43}$"
+      }
+    },
+    "relay_backup_pins": {
+      "description": "The same for the operator's offline backup keys; pinned as backup pins. No pin may appear in both lists, and together there are at most eight (RELAY-v0 Section 6.8).",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 7,
       "uniqueItems": true,
       "items": {
         "type": "string",

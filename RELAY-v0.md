@@ -52,9 +52,10 @@ controls it can obtain a second certificate for the name and open the TLS connec
 relay. This specification therefore defines two protection levels (Section 6), both
 mandatory for every operator:
 
-- **Standard** (`<id>.<name-domain>`): the operator cannot read **unnoticed**. Every
-  certificate for the name appears in Certificate Transparency logs, and the gateway MUST
-  watch them and raise an alarm.
+- **Standard** (`<id>.<name-domain>`): the operator cannot read **unnoticed**, as far as
+  certificates are logged: the gateway MUST watch Certificate Transparency logs and raise an
+  alarm. A certificate that its CA does not log stays unnoticed; Section 6.2 says when that
+  matters.
 - **Own domain** (a name of the household): the operator **cannot** obtain a certificate
   for the name, because a CAA record of the household binds issuance to the gateway's own
   ACME account.
@@ -140,9 +141,10 @@ specification is released, the schema can still change under the same `type`.
 | `trust_domain` | SPIFFE trust domain of the tunnel certificates |
 | `enrollment` | HTTPS URL of the enrollment directory (Section 5.1); its host MUST be the operator domain or a subdomain of it |
 | `relay` | `host` and `port` where gateways open their tunnel connections |
-| `relay_addresses` | the IPv4 and IPv6 addresses where agents reach the relay on port 443; own-domain names point there (Section 6.4) |
+| `relay_addresses` | the IPv4 and/or IPv6 addresses (IPv6 in the form of RFC 5952) where agents reach the relay on port 443; standard and own-domain names point there (Sections 6.3, 6.4) |
 | `relay_addresses_planned` | optional: `addresses` that replace `relay_addresses` `from` a time at least 30 days after it first appears (Section 6.4) |
-| `relay_pins` | SHA-256 digests (base64url) of the SubjectPublicKeyInfo the gateway pins for the relay at pairing; at least two (Section 6.8) |
+| `relay_pins` | SHA-256 digests (base64url) of the SubjectPublicKeyInfo of the keys the relay uses; the gateway pins them at pairing as active pins (Section 6.8) |
+| `relay_backup_pins` | the same for the operator's offline backup keys, pinned as backup pins; no pin may appear in both lists (Section 6.8) |
 | `max_offline_days` | how long an installation can be without a valid tunnel certificate before only a new pairing helps; 7 to 90, RECOMMENDED 30 (Section 5.5) |
 | `protection_levels` | MUST list `standard` and `own-domain` (Section 7) |
 | `portal` | HTTPS URL of the portal, shown to the household |
@@ -151,8 +153,8 @@ specification is released, the schema can still change under the same `type`.
 Before it completes a pairing, the gateway MUST show the household the operator domain, the
 protection levels and `max_offline_days`. A change of the document applies to an existing
 pairing from its next issuance on (Section 5.5); the gateway MUST tell the household when
-`max_offline_days`, `protection_levels` or the relay addresses changed. Changes of `relay_pins`
-do not change stored pins (Section 6.8).
+`max_offline_days`, `protection_levels` or the relay addresses changed. Changes of the pins do
+not change stored pins (Section 6.8); relay addresses change as in Section 6.4.
 
 ## 4. Tunnel protocol
 
@@ -336,7 +338,7 @@ A POST-as-GET on the installation URL returns `200` with the installation
 | Member | Meaning |
 |---|---|
 | `status` | `active`; `paused` (the household paused remote access in the portal; the relay passes no agent connections, all requests work); `blocked` (Section 5.7); `unpaired` (only in the answer to unpairing, Section 5.7) |
-| `home_id`, `public_name` | as assigned at pairing |
+| `home_id`, `public_name` | as assigned at pairing; `public_name` is always the standard name |
 | `max_offline_days` | the value in force for this installation (Section 5.5) |
 | `certificate` | URL for tunnel certificates (Section 5.4) |
 | `acme_challenge` | URL for the ACME challenge records (Section 5.6) |
@@ -534,7 +536,7 @@ The relay passes a connection for an own-domain name only while that name is ver
 
 | Level | Name | Who controls the name | What the operator could do |
 |---|---|---|---|
-| Standard | standard name | the operator | obtain a certificate for the name through its own zone and open agents' TLS at the relay; Certificate Transparency makes this visible (Section 6.7) |
+| Standard | standard name | the operator | obtain a certificate for the name through its own zone and open agents' TLS at the relay; Certificate Transparency makes this visible (Section 6.7) if the CA logs the certificate |
 | Own domain | own-domain name with the records of Section 6.4 | the household | nothing: a CA that follows RFC 8657 issues only to the gateway's ACME account |
 
 The gateway alone determines the protection level of its names (Section 6.5); the relay and the
@@ -545,11 +547,18 @@ Own domain does not protect against a household whose DNS zone is run by the ope
 delegated to it, against a CA that ignores RFC 8657, or against a compromised CA. Certificate
 Transparency monitoring therefore applies to both levels.
 
+Certificate Transparency shows only certificates that a CA logs. Browsers accept a certificate
+only with proof that it was logged, so CAs log nearly all certificates, but a CA may issue one
+without logging it, and agents usually do not require that proof. At the level Standard an
+operator that controls the CAA record of the standard name and finds such a CA could therefore
+read unnoticed; the level Own domain does not depend on logging.
+
 ### 6.3 Standard names
 
 The operator MUST publish at the apex of the name domain the CAA record `0 issue ";"`, so that no
 name in the name domain can obtain a certificate unless a record at the name allows it. For each
-installation it publishes at the standard name A and AAAA records with the `relay_addresses`, and
+installation it publishes at the standard name A and AAAA records with the `relay_addresses`
+(from the `from` of a planned set on, with the planned addresses), and
 the CAA records of Section 5.6: `0 issue ";"` until
 the first account report, then exactly one record
 
@@ -569,7 +578,7 @@ publishes in its own zone:
 
 | Record | Purpose |
 |---|---|
-| `home.example.com A` and `AAAA` with the `relay_addresses` of the metadata (Section 3) | agents reach the relay |
+| `home.example.com A` and, if the set has IPv6 addresses, `AAAA` with the `relay_addresses` of the metadata (Section 3) | agents reach the relay |
 | `home.example.com CAA 0 issue "<caa_identity>; accounturi=<acme_account>; validationmethods=dns-01"` | only the gateway's ACME account can obtain certificates, and only through DNS |
 | `_acme-challenge.home.example.com CNAME _acme-challenge.<standard name>` | the gateway answers ACME challenges through the operator (Section 5.6) |
 | `_home-mandate-relay.home.example.com TXT "<token>"` | proves to the operator that the name belongs to this installation |
@@ -578,7 +587,8 @@ The name MUST NOT be a CNAME or DNAME: a name with a CNAME cannot carry its own 
 CA would use the CAA record at the target, which the operator controls. A DNS provider that
 answers queries for the name with A and AAAA records and serves the CAA record at the name
 ("flattening") meets this rule, as long as it answers CAA queries with the record at the name and
-not with the record of the target. The `_acme-challenge` CNAME gives the operator no power to obtain
+not with the record of the target. The household publishes the CAA record before, or together
+with, the `_acme-challenge` CNAME, and removes the CNAME when it removes the registration. The `_acme-challenge` CNAME gives the operator no power to obtain
 a certificate, because the CAA record at the name binds issuance to the gateway's account.
 
 **Registration.** The gateway registers the name with an installation update
@@ -590,14 +600,16 @@ bits for the TXT record, and a `status`:
   without it, the registration becomes `lapsed`;
 - `verified` from then on, also on days when a check misses the token;
 - `lapsed` after 7 days in which every check missed the token; a later check that finds it makes
-  the name `verified` again, unless another installation verified it meanwhile.
+  the name `verified`, unless another installation holds it. After 30 days as `lapsed`, the
+  operator removes the registration.
 
 Registering the name already registered keeps its token and status. Only a `verified` name of an
 installation that was not unpaired is **held**. An installation has
 at most one own-domain name; registering another replaces it. The operator MUST refuse a name that
 another installation holds (`name-unavailable`); several installations may have the same name
 `pending`, and the first whose token is found holds it, while the others become `lapsed`. It
-MUST refuse the name domain, the operator domain and names below them (`malformed`). Unpairing
+MUST refuse the name domain, the operator domain, the trust domain, the host of the relay and
+names below them (`malformed`); the gateway checks this before it sends the name. Unpairing
 releases the own-domain name; a blocked installation keeps holding it, without routing. The
 operator MUST notify the household when the own-domain name is registered, changed or removed. A
 gateway tells the household when its name is `pending` for more than a day or `lapsed`. Names are
@@ -610,9 +622,10 @@ only at `_acme-challenge.<standard name>`. A change of `relay_addresses` is anno
 metadata at least 30 days ahead (`relay_addresses_planned`, Section 3), and the relay MUST accept
 agent connections at both sets of addresses from the first appearance of the planned set until at
 least 7 days after its `from`. The gateway tells the household which records to change, and
-says how much time remains until `from`. It SHOULD check that `relay_addresses` equal the A and
-AAAA records of its standard name, and the A and AAAA records of its own-domain name, and tell the
-household about any difference.
+says how much time remains until `from`. It MUST check that `relay_addresses` equal the A and
+AAAA records of its standard name before it advises the household to change any record, and
+SHOULD check the A and AAAA records of its own-domain name, telling the household about any
+difference.
 
 **Help for the household.** The portal SHOULD show the records with their values and check them
 live. Where the household's DNS provider supports Domain Connect, the operator MAY offer it for
@@ -653,8 +666,9 @@ administrator choose among CAs it knows to enforce them.
 A gateway MUST monitor Certificate Transparency for each of its public names, at both protection
 levels, at least once an hour, through any service or log it chooses. A certificate counts for a
 public name if one of its names matches it, including a wildcard that covers it (such as
-`*.<name_domain>`); a search by the exact name alone does not meet this rule. Every certificate for
-a public name that the gateway did not obtain itself raises an alarm to its local administrator
+`*.<name_domain>`); a search by the exact name alone does not meet this rule. The gateway recognises the
+certificates it obtained itself, and their precertificates, by the public key of its server key.
+Every certificate for a public name that the gateway did not obtain itself raises an alarm to its local administrator
 with the issuer, the names and the validity of that certificate. The administrator MAY acknowledge a certificate
 (for example the household's own wildcard certificate for its zone), which ends the alarm for that
 certificate only. When no query has succeeded for 24 hours, the gateway shows that monitoring is
@@ -664,25 +678,32 @@ not possible.
 
 The gateway accepts a relay only if the SubjectPublicKeyInfo of the relay's certificate matches
 one of its stored pins (SHA-256, base64url); a certificate that is valid under the WebPKI but
-matches no pin is refused, and a matching pin is enough without validity under the WebPKI.
+matches no pin is refused, and a matching pin is enough without validity under the WebPKI. The
+gateway stores two kinds of pins: **active pins**, for the keys the relay uses, and **backup
+pins**, for keys that the operator keeps offline (Section 7) and uses only to recover from a lost
+or leaked active key. Together there are at most eight.
 
-- At pairing, the gateway stores the `relay_pins` of the metadata (Section 3), which it fetched
-  under the WebPKI.
+- At pairing, the gateway stores `relay_pins` as active and `relay_backup_pins` as backup pins,
+  from the metadata (Section 3) that it fetched under the WebPKI.
 - Afterwards it takes new pins **only from the relay over a tunnel connection that was
-  authenticated with a stored pin** (a control message of the tunnel protocol, Section 4). The
-  new set replaces the stored one only if it holds at least two distinct pins and at least one
-  stored pin other than the pin of the connection over which it arrived; otherwise the gateway
-  keeps the stored set. A leaked current key thus cannot remove the backup pin. One of the pins belongs to a key that the operator keeps offline
-  as a backup (Section 7).
-- `relay_pins` in a later version of the metadata does not change the stored pins; the gateway
-  tells its administrator when they share no pin with the stored set.
+  authenticated with a stored pin** (a control message of the tunnel protocol, Section 4), and
+  only under these rules; a set that breaks them is ignored and the stored set kept:
+  - over a connection authenticated with an **active** pin, the relay may replace the active
+    pins (at least one), and the backup pins MUST stay exactly as stored;
+  - over a connection authenticated with a **backup** pin, the relay may replace both kinds (at
+    least one of each).
+
+  A leaked active key can therefore add pins of an attacker, but never remove or change a backup
+  pin; the operator removes such pins by connecting once with a backup key.
+- The pins in a later version of the metadata do not change the stored pins; the gateway tells
+  its administrator when they share no pin with the stored set.
 - When no stored pin matches, the gateway does not connect and tells its local administrator.
   Only the administrator can then take the pins of the current metadata, after a warning that a
   relay without a known key may be an attacker. There is no silent trust on first use.
 
-An operator rotates a key by announcing the new set over the tunnel before it uses the new key (to
-replace the backup key, it first adds the new backup, then removes the old one),
-and keeps the backup key offline for the case that the current key is lost.
+An operator rotates an active key by announcing the new active pins before it uses the new key.
+To recover from a lost or leaked active key, or to replace a backup key, it connects with a
+backup key and announces the complete new set.
 
 ## 7. Operator obligations
 
@@ -690,7 +711,7 @@ and keeps the backup key offline for the case that the current key is lost.
 gateway cannot set cookies for the portal (until the name domain is on the Public Suffix List,
 gateways use only `__Host-` cookies); CAA for the
 name domain (Section 6.3); Certificate Transparency monitoring of the name domain; both protection levels; minimal metadata and
-their retention; denylists; an offline backup key for the relay (Section 6.8); rate limits of the public CA and the Public Suffix List;
+their retention; denylists; offline backup keys for the relay (Section 6.8); rate limits of the public CA and the Public Suffix List;
 conformance tests.
 
 ## 8. Conformance
@@ -717,16 +738,16 @@ this specification; what an operator itself could do is in the rows below and in
 | **Lures a household to a malicious operator** (a pairing string of the attacker) | Pairing only by the local administrator, after the gateway showed the operator domain and its parameters (Section 5.2) | A household that confirms anyway uses that operator, with the protection Section 6.2 gives against operators |
 | **Replays a request** | Single-use nonces and the signed `url` (Section 5.1) | – |
 | **Another installation's key** (any paired gateway, also one paired to the attacker's own account) | The URL of a request must belong to the installation of its key (Section 5.1); installation URLs carry 128 random bits | – |
-| **Steals the installation key** | Tunnel certificates and ACME challenge records, but no server certificate: the CAA record binds issuance to the gateway's ACME account, and changing the account needs the household's confirmation (Section 5.6). Every issuance is shown in the portal, re-issuances and key changes are notified; a key that nobody uses for `max_offline_days` can only read the installation; unpairing ends it (Sections 5.5, 5.7) | Until the household unpairs, the attacker can take the tunnel over and deny service, learn when agents connect, lock the gateway out with a key change, and unpair the installation, which loses the standard name for good. A CA that ignores RFC 8657 would issue to the attacker; gateways use only CAs that enforce it (Section 6.6). A thief who acts within the hour after a pairing or replacement, before the gateway reports its account, can report an own account first; the gateway then alarms its administrator, and the portal shows the foreign account in force (Section 5.6) |
+| **Steals the installation key** | Tunnel certificates and ACME challenge records, but no server certificate: the CAA record binds issuance to the gateway's ACME account, and changing the account needs the household's confirmation (Section 5.6). Every issuance is shown in the portal, re-issuances and key changes are notified; a key that nobody uses for `max_offline_days` can only read the installation; unpairing ends it (Sections 5.5, 5.7) | Until the household unpairs, the attacker can take the tunnel over and deny service, learn when agents connect, lock the gateway out with a key change, remove or replace the own-domain registration (the household is notified), and unpair the installation, which loses the standard name for good. A CA that ignores RFC 8657 would issue to the attacker; gateways use only CAs that enforce it (Section 6.6). A thief who acts within the hour after a pairing or replacement, before the gateway reports its account, can report an own account first; the gateway then alarms its administrator, and the portal shows the foreign account in force (Section 5.6) |
 | **Steals the installation key and the ACME account key** (a compromised gateway) | – | Everything the gateway can do, until the household unpairs |
 | **Steals a tunnel key** | Tunnel certificates live at most 24 hours; a new key at every renewal; denylist (Sections 5.4, 5.7) | Taking the tunnel over for at most the rest of that certificate's life |
 | **Takes over the household's account at the operator** | Unpairing and pairing codes stay with the account; codes for an existing installation and changes of the ACME account need a fresh authentication or the household's confirmation and are announced (Sections 5.2, 5.6) | The attacker can end remote access, and can move the standard name as in the row above, announced and with a waiting time |
 | **Compromises the operator's tunnel CA** | Name constraint on the operator's trust domain; short lifetimes (Section 5.4) | Tunnel certificates for every home of that operator: denial of service and metadata, not content |
-| **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm (Section 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm. Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
+| **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm (Section 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm, and unnoticed with a certificate that its CA does not log (Section 6.2). Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
 | **Another household claims an own-domain name** | Only a verified name is held and routed, and only the installation whose TXT token is in the name's zone can verify it; an unverified registration lapses after 7 days and blocks nobody (Section 6.4) | – |
 | **Obtains a misissued WebPKI certificate for the operator domain** and serves forged metadata | After pairing, pins change only over a tunnel authenticated with a stored pin (Section 6.8) | After pairing, forged relay addresses can lead a household with an own-domain name to point it at the attacker: denial of service and connection metadata, not content (the gateway compares the addresses with the A and AAAA records of its standard name, Section 6.4). A gateway that pairs while the attacker serves the metadata pairs with the attacker, which then acts as its operator: at level Standard it can read until the gateway's Certificate Transparency alarm (as for an operator that wants to read); an own-domain name stays protected by the household's CAA record |
 | **Forges DNS answers to the gateway** | DNSSEC, or two independent resolvers (Section 6.5); the CA validates independently | A wrong protection level shown in the gateway; issuance is not affected |
-| **Loses or leaks the relay key** (operator) | Backup pin of an offline key; new pins only over a pinned tunnel, and never without another stored pin, so a leaked key cannot remove the backup (Section 6.8) | With a leaked key and a position on the path: denial of service and tunnel metadata until the operator switches to the backup key. With every pinned key lost, the local administrator must take new pins after a warning |
+| **Loses or leaks the relay key** (operator) | Backup pins of offline keys; new pins only over a pinned tunnel; over an active key the backup pins cannot change, and only a backup key can replace the whole set (Section 6.8) | With a leaked active key and a position on the path: denial of service and tunnel metadata until the operator connects with a backup key. With every pinned key lost, the local administrator must take new pins after a warning |
 | **Operator that tries to change what the household allows** | No message carries mandates, approver keys or issuer keys; a gateway accepts none (Section 5.7) | – |
 
 ## 10. Privacy considerations
