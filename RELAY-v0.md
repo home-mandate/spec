@@ -560,6 +560,18 @@ CA's validation another CAA answer than the gateway's queries, and then obtain a
 a CA that does not log it. Against such an operator the level Standard gives no protection; the
 level Own domain does not depend on logging or on the operator's DNS.
 
+Only the agent sees such a certificate: the operator ends the agent's TLS connection at the relay
+and opens a second one to the gateway, which cannot see what the agent was shown. Whether the
+certificate is accepted is decided by the agent with its own trust store. The gap therefore
+closes when agents require proof that a certificate was logged, as browsers do. Agents SHOULD
+require such proof (signed certificate timestamps, RFC 6962) for the server certificates of
+public names.
+
+*Outlook (informative):* an agent that binds its requests to its own TLS session, for example
+with a value from the TLS exporter (RFC 9266) in its DPoP proofs, would let the gateway detect a
+relay that ends the agent's TLS connection, independently of Certificate Transparency. Neither
+MCP nor OAuth defines such a binding today.
+
 ### 6.3 Standard names
 
 The operator MUST publish at the apex of the name domain exactly the CAA records `0 issue ";"` and
@@ -769,7 +781,7 @@ this specification; what an operator itself could do is in the rows below and in
 | **Steals a tunnel key** | Tunnel certificates live at most 24 hours; a new key at every renewal; denylist (Sections 5.4, 5.7) | Taking the tunnel over for at most the rest of that certificate's life |
 | **Takes over the household's account at the operator** | Unpairing and pairing codes stay with the account; codes for an existing installation and changes of the ACME account need a fresh authentication or the household's confirmation and are announced (Sections 5.2, 5.6) | The attacker can end remote access, and can move the standard name as in the row above, announced and with a waiting time |
 | **Compromises the operator's tunnel CA** | Name constraint on the operator's trust domain; short lifetimes (Section 5.4) | Tunnel certificates for every home of that operator: denial of service and metadata, not content |
-| **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm, and the gateway checks the CAA records of its standard name and of the apex every hour (Sections 6.6, 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm; an operator that deliberately deceives, with a CA that does not log and CAA answers for the CA that differ from those the gateway sees, reads unnoticed (Section 6.2). Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
+| **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm, and the gateway checks the CAA records of its standard name and of the apex every hour (Sections 6.6, 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm; an operator that deliberately deceives, with a CA that does not log and CAA answers for the CA that differ from those the gateway sees, reads unnoticed as long as agents do not require proof of logging (Section 6.2). Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
 | **Another household claims an own-domain name** | Only a verified name is held and routed, and only the installation whose TXT token is in the name's zone can verify it; an unverified registration lapses after 7 days and blocks nobody (Section 6.4) | – |
 | **Obtains a misissued WebPKI certificate for the operator domain** and serves forged metadata | After pairing, pins change only over a tunnel authenticated with a stored pin (Section 6.8) | After pairing, forged relay addresses can lead a household with an own-domain name to point it at the attacker: denial of service and connection metadata, not content (the gateway compares the addresses with the A and AAAA records of its standard name, Section 6.4). A gateway that pairs while the attacker serves the metadata pairs with the attacker, which then acts as its operator: at level Standard it can read until the gateway's Certificate Transparency alarm (as for an operator that wants to read); an own-domain name stays protected by the household's CAA record |
 | **Forges DNS answers to the gateway** | DNSSEC, or two independent resolvers (Section 6.5); the CA validates independently | A wrong protection level shown in the gateway, or a missed CAA alarm; issuance is not affected |
