@@ -983,9 +983,10 @@ For `decision`, the following additionally applies:
 - with `evaluation.enforced: false`, `request.resource` names the `category` and
   `critical` (`true` or `false`, so that the marking cannot be left out), and the action
   is not critical: the resource is not marked `critical` unless the action is `read`,
-  and the action is in the vocabulary of the category and not critical there (Section 5). The schema cannot see the vocabulary; a verifier MUST check it for the
-  categories of Section 5 and for every extension whose vocabulary it knows, and an entry
-  that violates it is invalid. A verifier without the vocabulary of an extension cannot
+  and the action is in the vocabulary of the category and not critical there (Section 5).
+  The schema cannot see the vocabulary; a verifier MUST check it for the categories of
+  Section 5 and for every extension whose vocabulary it knows, and an entry that violates
+  it is invalid. A verifier without the vocabulary of an extension cannot
   tell which actions of that extension are critical, and cannot reject such an entry; a
   relying party that needs the check gives the verifier the vocabularies of the
   extensions the implementation uses;
