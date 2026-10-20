@@ -11,7 +11,8 @@ A profile describes
   areas of a resource, the values a rule's `area` names (SPEC-v0 section 3.4), preferably
   ones that do not change when a device is renamed;
 - how the platform's device types map to categories;
-- how the platform's commands map to actions.
+- how the platform's commands map to actions, and their values to parameters (for example
+  the modes of a thermostat to the permitted values of `mode`).
 
 | Profile | Platform | Status |
 |---|---|---|

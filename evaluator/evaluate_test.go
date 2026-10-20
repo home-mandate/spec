@@ -486,7 +486,7 @@ func TestEvaluateConstraints(t *testing.T) {
 		 "constraints":{"position":{"min":2e1}}}]`)
 	req := func(category, action string, parameters map[string]int64) evaluator.Request {
 		r := request(category, "", action)
-		r.Parameters = parameters
+		r.Parameters = integers(parameters)
 		return r
 	}
 	for name, tt := range map[string]struct {
@@ -502,7 +502,10 @@ func TestEvaluateConstraints(t *testing.T) {
 		"only max, at max":  {req("climate", "set_temperature", map[string]int64{"temperature": 2250}), evaluator.ReasonRule},
 		"only max, above":   {req("climate", "set_temperature", map[string]int64{"temperature": 2251}), evaluator.ReasonNoMatch},
 		"only min, at min":  {req("cover", "set_position", map[string]int64{"position": 20}), evaluator.ReasonRule},
-		"only min, far up":  {req("cover", "set_position", map[string]int64{"position": 1<<53 - 1}), evaluator.ReasonRule},
+		"only min, far up":  {req("cover", "set_position", map[string]int64{"position": 100}), evaluator.ReasonRule},
+		"above the range":   {req("cover", "set_position", map[string]int64{"position": 101}), evaluator.ReasonInvalidRequest},
+		"below the range":   {req("light", "set", map[string]int64{"brightness": -1}), evaluator.ReasonInvalidRequest},
+		"no range":          {req("climate", "set_temperature", map[string]int64{"temperature": -(1<<53 - 1)}), evaluator.ReasonRule},
 		"only min, below":   {req("cover", "set_position", map[string]int64{"position": 19}), evaluator.ReasonNoMatch},
 		"too large":         {req("cover", "set_position", map[string]int64{"position": 1 << 53}), evaluator.ReasonInvalidRequest},
 		"too small":         {req("light", "set", map[string]int64{"brightness": 20, "x": -1 << 53}), evaluator.ReasonInvalidRequest},
@@ -514,4 +517,16 @@ func TestEvaluateConstraints(t *testing.T) {
 			}
 		})
 	}
+}
+
+// integers converts integer parameters; nil stays nil.
+func integers(parameters map[string]int64) map[string]evaluator.Value {
+	if parameters == nil {
+		return nil
+	}
+	out := make(map[string]evaluator.Value, len(parameters))
+	for name, n := range parameters {
+		out[name] = evaluator.IntegerValue(n)
+	}
+	return out
 }

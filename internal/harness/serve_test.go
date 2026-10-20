@@ -72,7 +72,7 @@ func TestValidateAndEvaluate(t *testing.T) {
 			Resource: harness.Resource{EntityID: "a", Category: "light"}, Action: "read", Time: "yesterday"}},
 		harness.Request{Op: harness.OpEvaluate, Mandate: example(t), Request: &harness.Evaluation{
 			Resource: harness.Resource{EntityID: "a", Category: "light"}, Action: "set", Time: "2026-10-12T19:00:00+02:00",
-			Parameters: map[string]json.Number{"brightness": "1.5"}}},
+			Parameters: map[string]json.RawMessage{"brightness": json.RawMessage("1.5")}}},
 	)
 	if rs[0].Valid == nil || !*rs[0].Valid || !strings.HasPrefix(rs[0].Digest, "sha256:") {
 		t.Errorf("validate = %+v", rs[0])
@@ -165,5 +165,41 @@ func TestRequestsWithMissingOrBrokenMembers(t *testing.T) {
 	entry := "{"
 	if r := harness.Answer(harness.Request{Op: harness.OpEntryDigest, Entry: &entry}); r.Valid == nil || *r.Valid {
 		t.Errorf("digest of a broken entry = %+v", r)
+	}
+}
+
+// Parameter values are JSON numbers or strings (SPEC-v0 section 10.2). A string never
+// stands for a number, and any other JSON value makes the request invalid.
+func TestEvaluateParameterValues(t *testing.T) {
+	data, err := fs.ReadFile(spec.FS(), "conformance/mandates/one-of.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mandate := string(data)
+	evaluate := func(category, action, name, value string) harness.Request {
+		return harness.Request{Op: harness.OpEvaluate, Mandate: &mandate, Request: &harness.Evaluation{
+			Resource: harness.Resource{EntityID: "dev-1", Category: category}, Action: action, Time: "2026-10-12T12:00:00+02:00",
+			Parameters: map[string]json.RawMessage{name: json.RawMessage(value)}}}
+	}
+	for name, tt := range map[string]struct {
+		req           harness.Request
+		decision, why string
+	}{
+		"string listed":         {evaluate("climate", "set_mode", "mode", `"heat"`), "allow", "rule"},
+		"string not listed":     {evaluate("climate", "set_mode", "mode", `"off"`), "deny", "no_match"},
+		"integer listed":        {evaluate("light", "set", "brightness", `50`), "allow", "rule"},
+		"integer by its value":  {evaluate("light", "set", "brightness", `5e1`), "allow", "rule"},
+		"string for an integer": {evaluate("light", "set", "brightness", `"50"`), "deny", "invalid_request"},
+		"integer for a string":  {evaluate("climate", "set_mode", "mode", `4`), "deny", "invalid_request"},
+		"boolean":               {evaluate("light", "set", "brightness", `true`), "deny", "invalid_request"},
+		"null":                  {evaluate("light", "set", "brightness", `null`), "deny", "invalid_request"},
+		"object":                {evaluate("light", "set", "brightness", `{"value":50}`), "deny", "invalid_request"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := ask(t, tt.req)[0]
+			if r.Decision != tt.decision || r.Reason != tt.why {
+				t.Errorf("evaluate = %+v, want (%s, %s)", r, tt.decision, tt.why)
+			}
+		})
 	}
 }

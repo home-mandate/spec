@@ -90,19 +90,20 @@ func ptr[T any](v T) *T { return &v }
 func missing(what string) Response { return Response{Error: "missing " + what} }
 
 // evaluation converts the request; ok is false if the PEP could not express it: a point
-// in time that is no RFC 3339 timestamp or a parameter that is no integer.
+// in time that is no RFC 3339 timestamp or a parameter that is neither an integer nor a
+// string.
 func evaluation(e Evaluation) (evaluator.Request, bool) {
 	at, err := time.Parse(time.RFC3339, e.Time)
 	if err != nil {
 		return evaluator.Request{}, false
 	}
-	parameters := make(map[string]int64, len(e.Parameters))
-	for name, n := range e.Parameters {
-		f, err := n.Float64()
-		if err != nil || f != float64(int64(f)) {
+	parameters := make(map[string]evaluator.Value, len(e.Parameters))
+	for name, data := range e.Parameters {
+		var value evaluator.Value
+		if err := value.UnmarshalJSON(data); err != nil {
 			return evaluator.Request{}, false
 		}
-		parameters[name] = int64(f)
+		parameters[name] = value
 	}
 	status := evaluator.StatusActive
 	if e.Revoked {

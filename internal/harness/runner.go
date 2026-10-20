@@ -196,18 +196,18 @@ type evaluationCase struct {
 		MandateInline json.RawMessage `json:"mandate_inline"`
 		Revoked       bool            `json:"revoked"`
 	} `json:"mandates"`
-	Subject         *Subject               `json:"subject"`
-	Resource        Resource               `json:"resource"`
-	Action          string                 `json:"action"`
-	Parameters      map[string]json.Number `json:"parameters"`
-	Time            string                 `json:"time"`
-	Timezone        string                 `json:"timezone"`
-	Revoked         bool                   `json:"revoked"`
-	Expected        string                 `json:"expected"`
-	Reason          string                 `json:"reason"`
-	RuleID          json.RawMessage        `json:"rule_id"`
-	ApprovalTimeout string                 `json:"approval_timeout"`
-	Selected        json.RawMessage        `json:"selected"`
+	Subject         *Subject                   `json:"subject"`
+	Resource        Resource                   `json:"resource"`
+	Action          string                     `json:"action"`
+	Parameters      map[string]json.RawMessage `json:"parameters"`
+	Time            string                     `json:"time"`
+	Timezone        string                     `json:"timezone"`
+	Revoked         bool                       `json:"revoked"`
+	Expected        string                     `json:"expected"`
+	Reason          string                     `json:"reason"`
+	RuleID          json.RawMessage            `json:"rule_id"`
+	ApprovalTimeout string                     `json:"approval_timeout"`
+	Selected        json.RawMessage            `json:"selected"`
 }
 
 func (c evaluationCase) request() *Evaluation {

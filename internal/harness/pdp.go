@@ -55,8 +55,8 @@ type (
 		Properties map[string]string `json:"properties"`
 	}
 	authzenAction struct {
-		Name       string                 `json:"name"`
-		Properties map[string]json.Number `json:"properties,omitempty"`
+		Name       string                     `json:"name"`
+		Properties map[string]json.RawMessage `json:"properties,omitempty"`
 	}
 	authzenResource struct {
 		ID string `json:"id"`
