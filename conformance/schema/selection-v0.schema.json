@@ -81,8 +81,12 @@
               "category": {
                 "type": "string"
               },
-              "area": {
-                "type": "string"
+              "areas": {
+                "type": "array",
+                "description": "Set of areas of the resource as the PEP resolved it (SPEC-v0 section 3.4). Deliberately unconstrained beyond strings: invalid requests have too many or duplicate areas.",
+                "items": {
+                  "type": "string"
+                }
               },
               "critical": {
                 "type": "boolean",
