@@ -193,7 +193,8 @@ content type `application/jose` whose body is a JWS (RFC 7515) in compact serial
   every other request carries `kid`, the installation URL (Section 5.3). Any other header
   member, and a `jwk` with a private part, make the request invalid.
 - The spelling rules of SPEC-v0 Section 7.1 apply: base64url without padding, case-sensitive
-  member names, and for ES256 only the lower `s`.
+  member names, and for ES256 only the lower `s`. Headers and payloads are I-JSON (RFC 7493): a
+  member name that occurs twice makes the request invalid.
 - The payload is a JSON object of the type the URL expects, or empty for a read ("POST-as-GET",
   RFC 8555 Section 6.3). Request objects are closed: an operator MUST reject a request with a
   member the schema does not list.
@@ -215,7 +216,7 @@ An installation URL MUST contain at least 128 random bits, so that whether an in
 exists cannot be learnt by guessing (step 3 answers before the signature is checked).
 
 **Responses and errors.** Successful responses are JSON (`application/json`) with the status
-the operation names. Errors are Problem Details (RFC 9457, `application/problem+json`) whose
+the operation names; a gateway MAY reject a response larger than 64 KiB. Errors are Problem Details (RFC 9457, `application/problem+json`) whose
 `type` is `https://home-mandate.org/relay/errors/` followed by one of the names in the table. A
 gateway treats any other error response as `server-internal`, and ignores members it does not
 know in every response.
@@ -224,7 +225,7 @@ know in every response.
 |---|---|---|---|
 | `malformed` | 400 | the request does not match this section or the schema | reports a defect, does not repeat the request |
 | `bad-nonce` | 400 | nonce unknown, used or expired | repeats once with the fresh nonce |
-| `bad-signature` | 401 | a signature does not verify, or `kid` names no installation | except while recovering a key change (Section 5.5): ends the pairing locally as on `offline-too-long` and tells the household (Section 5.7) |
+| `bad-signature` | 401 | a signature does not verify, or `kid` names no installation | except during a key change (Section 5.5): ends the pairing locally as on `offline-too-long` and tells the household (Section 5.7) |
 | `pairing-refused` | 403 | the pairing code is wrong, expired, used, not yet usable or not for this operator; the operator does not say which | asks for a new code |
 | `confirmation-required` | 403 | the change needs the household's confirmation in the portal (Section 5.6) | tells the household and reads its installation until the change is in force |
 | `offline-too-long` | 403 | the installation was without a valid tunnel certificate longer than `max_offline_days` (Section 5.5) | ends the pairing locally (Section 5.7) |
@@ -232,7 +233,7 @@ know in every response.
 | `bad-csr` | 400 | the certificate request breaks Section 5.4 | creates a new tunnel key and request |
 | `key-conflict` | 409 | the installation key of a pairing or the new key of a key change is already in use (Sections 5.2, 5.5) | creates a new key and repeats the request |
 | `unpaired` | 410 | the installation was unpaired or replaced (Sections 5.2, 5.7) | ends the pairing locally (Section 5.7) |
-| `rate-limited` | 429 | too many requests; the response carries `Retry-After` | waits at least that long |
+| `rate-limited` | 429 | too many requests; the response carries `Retry-After` | waits at least that long, or as on `server-internal` without the header |
 | `server-internal` | 500 | anything else | retries with exponential backoff |
 
 ### 5.2 Pairing
@@ -265,7 +266,8 @@ while the gateway is not paired with any operator. The gateway
    with the same installation key and code, a fresh nonce and a certificate request for a new
    tunnel key; the operator MUST answer a pairing request whose code was redeemed by the same
    installation key, within the code's validity, like the first one, with a tunnel certificate
-   for the new request.
+   for the new request, as long as that installation still has that installation key and was
+   neither unpaired nor replaced; otherwise it answers `unpaired`.
 
 **At the operator.** The operator processes the request (Section 5.1), redeems the code, checks
 the certificate request, refuses an installation key that another installation already uses
@@ -301,7 +303,7 @@ new installation URL, the old installation URL answers `unpaired`, the
 operator denies their tunnel certificates and closes their connections, and the reported ACME
 account is cleared, so that the new gateway reports its own (Section 5.6), with the CAA record
 that permits no issuance in force until then. The operator MUST NOT create such a code for a
-`blocked` installation. Because whoever
+`blocked` installation, and cancels a pending one when it blocks the installation. Because whoever
 controls the household's account can thereby move the public name to another gateway, the
 operator MUST
 
@@ -334,8 +336,10 @@ A POST-as-GET on the installation URL returns `200` with the installation
 | `acme_account`, `caa_identity` | the ACME account in force (Section 5.6), if any; a pending report does not appear here |
 | `replacement_pending_until` | while a code for this existing installation is pending: the end of its waiting time (Section 5.2) |
 
-A gateway SHOULD read its installation with every renewal, and at most once an hour otherwise,
-and show the status to the household.
+A gateway SHOULD read its installation with every renewal, and otherwise at most once an hour,
+except while an ACME account change is pending (every five minutes, Section 5.6) and while it
+recovers a key change (Section 5.5); it shows the status to the household. With every renewal,
+and at most once a day, it also fetches the metadata again (Section 3).
 
 A `POST` to the installation URL with a payload (`$defs/installation_update`) changes it and is
 answered with `200` and the installation: `{"acme_account": …, "caa_identity": …}` reports the
@@ -372,7 +376,7 @@ tunnel certificates.
 
 The response (`$defs/certificate_response`) holds `chain`, the issued certificate followed by the
 certificates of the CA that issued it, each in DER and base64url without padding, and
-`not_after`, the expiry of the issued certificate (RFC 3339, UTC, `Z`); at most four certificates.
+`not_after`, the expiry of the issued certificate (RFC 3339, UTC, whole seconds, `Z`); at most four certificates.
 The gateway needs none of the CA certificates to trust the relay (Section 6). A gateway MUST NOT
 use a certificate that breaks this section; it tells the household that the operator does not
 conform and retries later.
@@ -410,7 +414,9 @@ one of this installation's tunnel certificates (`key-conflict`). It then replace
 answers `200` with the installation, and MUST notify the household. The gateway keeps the old key
 until a request signed with the new key succeeded; if it does not know whether a key change took
 effect (the response was lost), it reads its installation with the new key, and on
-`bad-signature` with the old one.
+`bad-signature` with the old one. While a key change is in flight or being recovered, the gateway
+sends no other request, and a `bad-signature` on the key change request itself does not end the
+pairing.
 
 ### 5.6 ACME support
 
@@ -440,9 +446,10 @@ and every later change, MUST be confirmed by the household:
   gateway sees the change when it reads its installation, which it does every five minutes
   while a change is pending.
 
-A gateway MUST alarm its local administrator when the `acme_account` or `caa_identity` in force
-differs from its own account, or when its first report is answered with `confirmation-required`:
-then another party has reported an account for its public name.
+A gateway MUST alarm its local administrator when an `acme_account` or `caa_identity` is in force
+that the gateway never reported: then another party has reported an account for its public name.
+When its first report arrives after the hour and is answered with `confirmation-required`, the
+gateway asks the household to confirm in the portal instead.
 
 **Challenge.** A `POST` to `acme_challenge` with `{"values": […]}`
 (`$defs/acme_challenge_request`) makes the operator publish exactly these values as TXT records
