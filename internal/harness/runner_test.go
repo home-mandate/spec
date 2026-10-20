@@ -63,6 +63,17 @@ func TestRunDetectsDeviations(t *testing.T) {
 			r.RuleID = nil
 			return r, nil
 		}, harness.ClassEvaluator},
+		"enforces no deny": {func(req harness.Request, r harness.Response) (harness.Response, error) {
+			if r.Decision == "deny" {
+				no := false
+				r.Enforced = &no
+			}
+			return r, nil
+		}, harness.ClassEvaluator},
+		"enforces every deny": {func(req harness.Request, r harness.Response) (harness.Response, error) {
+			r.Enforced = nil
+			return r, nil
+		}, harness.ClassEvaluator},
 		"accepts invalid mandates": {func(req harness.Request, r harness.Response) (harness.Response, error) {
 			if req.Op == harness.OpValidate {
 				r.Valid = &yes

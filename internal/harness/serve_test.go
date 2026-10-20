@@ -94,6 +94,31 @@ func TestValidateAndEvaluate(t *testing.T) {
 	}
 }
 
+func TestEvaluateInAuditMode(t *testing.T) {
+	data, err := fs.ReadFile(spec.FS(), "conformance/mandates/audit-mode.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mandate := string(data)
+	evaluate := func(category, action string) harness.Request {
+		return harness.Request{Op: harness.OpEvaluate, Mandate: &mandate, Request: &harness.Evaluation{
+			Resource: harness.Resource{EntityID: "device-1", Category: category}, Action: action, Time: "2026-10-12T19:00:00+02:00"}}
+	}
+	rs := ask(t, evaluate("switch", "turn_on"), evaluate("gate", "open"), evaluate("light", "turn_on"))
+	if rs[0].Decision != "deny" || rs[0].Reason != "no_match" || rs[0].Enforced == nil || *rs[0].Enforced {
+		t.Errorf("deny in audit mode = %+v, want enforced false", rs[0])
+	}
+	for _, r := range rs[1:] {
+		if r.Enforced != nil {
+			t.Errorf("enforced result = %+v, want no enforced member", r)
+		}
+	}
+	line, err := json.Marshal(rs[0])
+	if err != nil || !strings.Contains(string(line), `"enforced":false`) {
+		t.Errorf("response line %s, %v", line, err)
+	}
+}
+
 func TestMalformedAndUnsupportedRequests(t *testing.T) {
 	var out bytes.Buffer
 	if err := harness.Serve(strings.NewReader("nope\n\n"+`{"op":"dance"}`+"\n"+`{"op":"evaluate"}`+"\n"), &out); err != nil {

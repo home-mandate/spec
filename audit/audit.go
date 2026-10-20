@@ -118,11 +118,11 @@ type link struct {
 // of the log, then the chain (SPEC-v0 section 9.4). The error is reserved for failures
 // of the verifier itself; an invalid log is reported in the Result.
 func Verify(entries [][]byte) (Result, error) {
-	return verifyEntries(entries, nil)
+	return verifyEntries(entries, Options{})
 }
 
-func verifyEntries(entries [][]byte, anchor *Anchor) (Result, error) {
-	v, err := newVerifier(anchor)
+func verifyEntries(entries [][]byte, opts Options) (Result, error) {
+	v, err := newVerifier(opts)
 	if err != nil {
 		return Result{}, err
 	}
@@ -154,20 +154,26 @@ type verifier struct {
 	anchoredSeq int64
 	// checkpointBreak is the first checkpoint that violates section 9.5; it comes last.
 	checkpointBreak *Result
+	// known holds the vocabularies an unenforced deny is checked against.
+	known actionsByCategory
 }
 
-func newVerifier(anchor *Anchor) (*verifier, error) {
+func newVerifier(opts Options) (*verifier, error) {
 	compiled, err := auditSchema()
 	if err != nil {
 		return nil, fmt.Errorf("audit: load schema: %w", err)
 	}
-	return &verifier{compiled: compiled, anchor: anchor}, nil
+	known, err := knownActions(opts.Vocabularies)
+	if err != nil {
+		return nil, err
+	}
+	return &verifier{compiled: compiled, anchor: opts.Anchor, known: known}, nil
 }
 
 // add checks the next entry. done is true if the result is final: the entry violates
 // the schema.
 func (v *verifier) add(entry []byte) (result Result, done bool) {
-	l, ok := check(v.compiled, entry)
+	l, ok := check(v.compiled, v.known, entry)
 	if !ok {
 		return broken(v.count, l.seq), true
 	}
@@ -211,14 +217,14 @@ func (v *verifier) finish() Result {
 
 // check validates one entry against the schema. On failure it still returns the seq if
 // it can be read, for the report.
-func check(compiled *jsonschema.Schema, entry []byte) (link, bool) {
+func check(compiled *jsonschema.Schema, known actionsByCategory, entry []byte) (link, bool) {
 	v, err := decode(entry)
 	if err != nil {
 		return link{}, false
 	}
 	obj, _ := v.(map[string]any)
 	l := link{seq: intField(obj, "seq")}
-	if compiled.Validate(v) != nil || !displayable(obj) || !distinctFormerValues(obj) {
+	if compiled.Validate(v) != nil || !displayable(obj) || !distinctFormerValues(obj) || !enforcedConsistent(obj, known) {
 		return l, false
 	}
 	digest, err := digestOf(v)
@@ -301,11 +307,11 @@ func broken(index int, seq int64) Result { return Result{Index: index, BrokenAt:
 // separated by line feeds, UTF-8, in ascending seq order (SPEC-v0 section 9.4). It
 // reads the log as a stream and does not keep it in memory.
 func VerifyJSONLines(r io.Reader) (Result, error) {
-	return verifyLines(r, nil)
+	return verifyLines(r, Options{})
 }
 
-func verifyLines(r io.Reader, anchor *Anchor) (Result, error) {
-	v, err := newVerifier(anchor)
+func verifyLines(r io.Reader, opts Options) (Result, error) {
+	v, err := newVerifier(opts)
 	if err != nil {
 		return Result{}, err
 	}

@@ -68,6 +68,8 @@ type (
 			Reason          string  `json:"reason"`
 			RuleID          *string `json:"rule_id"`
 			ApprovalTimeout string  `json:"approval_timeout"`
+			// Enforced is false only for a deny the PEP does not enforce (SPEC-v0 section 6).
+			Enforced *bool `json:"enforced"`
 		} `json:"context"`
 	}
 )
@@ -143,7 +145,8 @@ func (r *runner) pdpCase(ctx context.Context, pdp PDP, file string, c evaluation
 	}
 	// selected is not visible through AuthZEN; the decision is.
 	c.Selected = nil
-	got, want := c.outcome(resp.Context.Outcome, resp.Context.Reason, resp.Context.RuleID, resp.Context.ApprovalTimeout, nil)
+	got, want := c.outcome(resp.Context.Outcome, resp.Context.Reason, resp.Context.RuleID, resp.Context.ApprovalTimeout,
+		resp.Context.Enforced, nil)
 	got, want = fmt.Sprintf("decision=%t %s", resp.Decision, got), fmt.Sprintf("decision=%t %s", c.Expected == "allow", want)
 	r.record(ClassPDP, file, c.ID, Response{}, err, got, want)
 }

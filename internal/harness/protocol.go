@@ -98,7 +98,10 @@ type Response struct {
 	ApprovalTimeout string   `json:"approval_timeout,omitempty"`
 	Approvers       []string `json:"approvers,omitempty"`
 	MandateDigest   string   `json:"mandate_digest,omitempty"`
-	Selected        *string  `json:"selected,omitempty"`
+	// Enforced is present, and false, only for a deny the PEP does not enforce (audit
+	// mode, SPEC-v0 section 4.6).
+	Enforced *bool   `json:"enforced,omitempty"`
+	Selected *string `json:"selected,omitempty"`
 
 	// succession
 	Accept *bool `json:"accept,omitempty"`

@@ -136,6 +136,9 @@ func result(r evaluator.Result) Response {
 	if r.Approval != nil {
 		resp.ApprovalTimeout, resp.Approvers = r.Approval.Timeout, r.Approval.Approvers
 	}
+	if r.NotEnforced {
+		resp.Enforced = ptr(false)
+	}
 	return resp
 }
 

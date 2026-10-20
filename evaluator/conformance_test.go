@@ -56,6 +56,7 @@ type conformanceCase struct {
 	Reason          string                     `json:"reason"`
 	RuleID          json.RawMessage            `json:"rule_id"`
 	ApprovalTimeout string                     `json:"approval_timeout"`
+	Enforced        *bool                      `json:"enforced"`
 	Why             string                     `json:"why"`
 }
 
@@ -154,6 +155,10 @@ func assertResult(t *testing.T, c conformanceCase, m *evaluator.Mandate, got eva
 	}
 	if got.MandateDigest != m.Digest() {
 		t.Errorf("mandate digest = %q, want %q", got.MandateDigest, m.Digest())
+	}
+	// A case without enforced expects an enforced result (SPEC-v0 sections 4.6 and 8).
+	if wantNotEnforced := c.Enforced != nil && !*c.Enforced; got.NotEnforced != wantNotEnforced {
+		t.Errorf("not enforced = %t, want %t (%s)", got.NotEnforced, wantNotEnforced, c.Why)
 	}
 }
 

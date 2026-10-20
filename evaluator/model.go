@@ -33,8 +33,10 @@ type Mandate struct {
 	validFrom  time.Time
 	expires    time.Time
 	hasExpires bool
-	rules      []rule
-	approval   Approval
+	// auditMode is true for "enforce": false (SPEC-v0 section 4.6).
+	auditMode bool
+	rules     []rule
+	approval  Approval
 }
 
 // ID returns the mandate ID; empty for nil.
@@ -75,6 +77,13 @@ func (m *Mandate) Version() int64 {
 		return 0
 	}
 	return m.version
+}
+
+// Enforce reports whether the PEP enforces every deny of the mandate. It is false only for
+// a mandate in audit mode ("enforce": false, SPEC-v0 section 4.6); nil enforces.
+// Implementations show the household which mandates are in audit mode.
+func (m *Mandate) Enforce() bool {
+	return m == nil || !m.auditMode
 }
 
 // Digest returns the digest according to SPEC-v0 section 3.2; empty for nil.
@@ -180,6 +189,7 @@ type rawMandate struct {
 		ClientID    string `json:"client_id"`
 		DisplayName string `json:"display_name"`
 	} `json:"agent"`
+	Enforce  *bool       `json:"enforce"`
 	Rules    []rawRule   `json:"rules"`
 	Default  string      `json:"default"`
 	Approval rawApproval `json:"approval"`
@@ -201,7 +211,7 @@ var weekdayNames = map[string]time.Weekday{
 
 func buildMandate(raw rawMandate, digest string) (*Mandate, error) {
 	m := &Mandate{id: raw.ID, clientID: raw.Agent.ClientID, principal: raw.Principal, digest: digest,
-		rules: make([]rule, 0, len(raw.Rules))}
+		auditMode: raw.Enforce != nil && !*raw.Enforce, rules: make([]rule, 0, len(raw.Rules))}
 	if err := m.setValidity(raw); err != nil {
 		return nil, err
 	}

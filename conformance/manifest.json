@@ -3,23 +3,23 @@
   "files": [
     {
       "path": "conformance/audit-v0.json",
-      "sha256": "2273bf48c83eee378e5543da916aef6148cf7250d8ce7c62b7e28123be7b2999",
-      "cases": 110
+      "sha256": "08259c1230028cb446e5bc1b1a9c4ed91063a8c8cb4580cf13777722c1382449",
+      "cases": 125
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "c4b1935d23c58f5b9288c7c862c17ae47becb0ba43e53a4517d38cc7f15e5463",
-      "cases": 173
+      "sha256": "25a31b388e4db8676621943c9bb0f59581771ebb1a15849047e1602ed2e4951a",
+      "cases": 192
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "672d6f86780d905c47c77417ea4b305b1ec133974cabfddba4741452b0f1c561",
-      "cases": 41
+      "sha256": "b11b2d2da49256369c319cfbd5edc3ed276653f217cc74988361469120cba9fe",
+      "cases": 43
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "cda194a0887563b7953a4595d21fb0456383437fef6884d7e85964e71463e50e",
-      "cases": 143
+      "sha256": "57df44471fc8c634700b576d6d94a96b2659419e5767bee6bb1e8e58d6bcd84c",
+      "cases": 148
     },
     {
       "path": "conformance/keys/test-keys.json",
@@ -32,6 +32,10 @@
     {
       "path": "conformance/mandates/areas.json",
       "sha256": "032a0f39f95b24fdd29f28b737ee793eef07063a18d23f5f758c92f1469dc0ea"
+    },
+    {
+      "path": "conformance/mandates/audit-mode.json",
+      "sha256": "ed5c720a4c3c2b9f39809f09c07e8caf1bbb9f70e7020a317af3e9856a3db5b7"
     },
     {
       "path": "conformance/mandates/constraints-fahrenheit.json",
@@ -71,7 +75,7 @@
     },
     {
       "path": "conformance/schema/cases-v0.schema.json",
-      "sha256": "fee6689f76198fd2240908bd2af49fa883a4c071f6bd093125f96c753facd518"
+      "sha256": "e2ab5a9a5a314afa0ed5ff6f56c2e3c9fad4f2f891921aa735e40819cacfd1a3"
     },
     {
       "path": "conformance/schema/digest-v0.schema.json",
@@ -130,11 +134,11 @@
     },
     {
       "path": "schema/audit-v0.schema.json",
-      "sha256": "94770e710ca14a618fe8966ddd688e1635db40b913f6c49d630267d7536acca5"
+      "sha256": "29cd77874f546f7a9e120323c253fff7c219919f05612f42ccb4dd110b6af662"
     },
     {
       "path": "schema/mandate-v0.schema.json",
-      "sha256": "ac9fe556d14642f18b2763255c399509f9c27d1465b49a8c1c592b15f65c28dd"
+      "sha256": "a98b6fab5cb55168abede1b7625df3c2404f393ff371cefdb98e573f7337c60b"
     },
     {
       "path": "schema/vocabulary-v0.schema.json",
