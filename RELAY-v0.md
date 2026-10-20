@@ -333,7 +333,8 @@ operator MUST
 
 - require a fresh authentication of the person before it creates such a code;
 - refuse to create such a code within 72 hours after a notification channel of the household was
-  added, changed or removed, and notify the previous channels of every such change;
+  added, changed or removed, notify the previous channels of every such change, and cancel a
+  pending such code when a channel changes during its waiting time;
 - notify the household on all its channels when the code is created;
 - make the code usable only after a waiting time of at least 24 hours, during which the
   household can cancel it in the portal and through the notification; after the waiting time
@@ -373,7 +374,8 @@ A POST-as-GET on the installation URL returns `200` with the installation
 A gateway SHOULD read its installation with every renewal, and otherwise at most once an hour,
 except while an ACME account change is pending (as in Section 5.6) and while it
 recovers a key change (Section 5.5); it shows the status to the household. With every renewal,
-and at most once a day, it also fetches the metadata again (Section 3).
+and otherwise at most once a day, it also fetches the metadata again (Section 3), besides the
+fetches that Sections 6.3 and 6.4 require.
 
 A `POST` to the installation URL with a payload (`$defs/installation_update`) changes it and is
 answered with `200` and the installation: `{"acme_account": …, "caa_identity": …}` reports the
@@ -754,8 +756,9 @@ of `issue` and `issuewild` properties of either differs from what Section 6.3 pr
   reported (or, before its first account report, `0 issue ";"`), and optionally `issuewild ";"`;
 - at the apex exactly `issue ";"` and `issuewild ";"`.
 
-A missing prescribed property, including an empty answer, is a difference; other properties, such
-as `iodef`, are ignored.
+Tags are compared without regard to case, as in RFC 8659 Section 4.1. A missing prescribed
+property, including an empty answer, is a difference; other properties, such as `iodef`, are
+ignored.
 
 ### 6.8 Pinning the relay
 
