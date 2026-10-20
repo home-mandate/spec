@@ -6,5 +6,6 @@
   "certificate": "https://relay-operator.example/enroll/installation/k7q2xwmpd4hj3n6rt5vbyc2ezu/certificate",
   "acme_challenge": "https://relay-operator.example/enroll/installation/k7q2xwmpd4hj3n6rt5vbyc2ezu/acme-challenge",
   "acme_account": "https://acme.example/acme/acct/123456789",
-  "caa_identity": "acme.example"
+  "caa_identity": "acme.example",
+  "replacement_pending_until": "2026-10-21T08:00:00Z"
 }

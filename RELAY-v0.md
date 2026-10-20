@@ -238,8 +238,8 @@ know in every response.
 
 **Pairing code and pairing string.** The portal creates a pairing code for the account of the
 household: 16 characters from `A–Z 2–7` (80 random bits), shown in four groups of four separated
-by `-`. It is single-use, valid for at most 10 minutes from the moment it can be used, and bound
-to that account. The operator MUST limit failed attempts per source address and in total, and
+by `-`. It is single-use, valid for at most 10 minutes from the moment it can be used (a code for
+an existing installation: 24 hours, see below), and bound to that account. The operator MUST limit failed attempts per source address and in total, and
 answer every code that cannot be redeemed alike (`pairing-refused`), in the same time. The
 portal shows the **pairing string** `<operator-domain>/<code>`, with the operator domain in lower
 case, as text and as a QR code, for example `relay-operator.example/ABCD-EFGH-IJKL-MNOP`
@@ -306,7 +306,16 @@ operator MUST
 - require a fresh authentication of the person before it creates such a code;
 - notify the household on all its channels when the code is created;
 - make the code usable only after a waiting time of at least 24 hours, during which the
-  household can cancel it in the portal and through the notification.
+  household can cancel it in the portal and through the notification; after the waiting time
+  the code stays valid for at most 24 hours, so that the household can plan when to be at the
+  gateway;
+- show the end of the waiting time in the installation (`replacement_pending_until`,
+  Section 5.3) until the code is used, cancelled or expired.
+
+A gateway that still holds its keys and reads `replacement_pending_until` SHOULD warn its local
+administrator that the installation is about to be replaced, and point to the portal, where the
+household can cancel the code. A running gateway that is to be replaced is suspicious: the
+replacement exists for gateways that lost their keys.
 
 ### 5.3 Installation
 
@@ -321,6 +330,7 @@ A POST-as-GET on the installation URL returns `200` with the installation
 | `certificate` | URL for tunnel certificates (Section 5.4) |
 | `acme_challenge` | URL for the ACME challenge records (Section 5.6) |
 | `acme_account`, `caa_identity` | the ACME account the gateway reported (Section 5.6), if any |
+| `replacement_pending_until` | while a code for this existing installation is pending: the end of its waiting time (Section 5.2) |
 
 A gateway SHOULD read its installation with every renewal, and at most once an hour otherwise,
 and show the status to the household.
@@ -513,7 +523,7 @@ this specification; what an operator itself could do is the subject of Section 6
 |---|---|---|
 | **Guesses a pairing code** | 80 random bits, at most 10 minutes, single use, limited attempts per address and in total, one answer for all failures (Section 5.2) | – |
 | **Intercepts or is shown a pairing code** for a new installation before the household uses it | The code is bound to the household's account, not to a gateway; the operator notifies the household of every new installation (Section 5.2) | The attacker's gateway is paired to the household's account until the household notices and unpairs it. It gets a new public name and does not receive the household's agents |
-| **Intercepts or is shown a pairing code for an existing installation** | Created only after a fresh authentication, announced on all channels, usable only after at least 24 hours in which the household can cancel it (Section 5.2) | A household that ignores the announcement loses its public name to the attacker's gateway, which then receives the household's agents and can complete their TLS. The replaced gateway learns it (`unpaired`) and tells the household; the new server certificate appears in Certificate Transparency (Section 6) |
+| **Intercepts or is shown a pairing code for an existing installation** | Created only after a fresh authentication, announced on all channels, usable only after at least 24 hours in which the household can cancel it; a gateway that still runs warns its administrator during that time (Section 5.2) | A household that ignores the announcement loses its public name to the attacker's gateway, which then receives the household's agents and can complete their TLS. The replaced gateway learns it (`unpaired`) and tells the household; the new server certificate appears in Certificate Transparency (Section 6) |
 | **Lures a household to a malicious operator** (a pairing string of the attacker) | Pairing only by the local administrator, after the gateway showed the operator domain and its parameters (Section 5.2) | A household that confirms anyway uses that operator, with the protection Section 6 gives against operators |
 | **Replays a request** | Single-use nonces and the signed `url` (Section 5.1) | – |
 | **Another installation's key** (any paired gateway, also one paired to the attacker's own account) | The URL of a request must belong to the installation of its key (Section 5.1); installation URLs carry 128 random bits | – |

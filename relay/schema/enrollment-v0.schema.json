@@ -266,6 +266,9 @@
         },
         "caa_identity": {
           "$ref": "#/$defs/domain"
+        },
+        "replacement_pending_until": {
+          "$ref": "#/$defs/time"
         }
       }
     },
