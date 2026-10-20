@@ -106,6 +106,19 @@ func TestMalformedAndUnsupportedRequests(t *testing.T) {
 	}
 }
 
+func TestRequestsWithUnknownMembersAreMalformed(t *testing.T) {
+	// A client that still sends the former "area" must not be evaluated as if the
+	// resource had no area: unknown members make the request malformed.
+	line := `{"op":"evaluate","id":"x","mandate":"{}","request":{"resource":{"entity_id":"lock.a","area":"hallway"},"action":"unlock","time":"2026-10-12T19:00:00+02:00"}}`
+	var out bytes.Buffer
+	if err := harness.Serve(strings.NewReader(line+"\n"), &out); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(out.String()); got != `{"error":"malformed request"}` {
+		t.Errorf("response = %s", got)
+	}
+}
+
 func TestRequestsWithMissingOrBrokenMembers(t *testing.T) {
 	text := func(s string) *string { return &s }
 	eval := &harness.Evaluation{Resource: harness.Resource{EntityID: "a", Category: "light"}, Action: "read", Time: "2026-10-12T19:00:00+02:00"}

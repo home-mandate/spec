@@ -103,6 +103,8 @@ func FuzzEvaluate(f *testing.F) {
 	f.Add(uint8(4), "light.flur", "light", "flur", "turn_on", int64(1791824400), int16(0), "", "revoked")
 	f.Add(uint8(3), "cover.terrasse", "cover", "terrasse", "open", int64(1792895400), int16(0), "Europe/Berlin", "active")
 	f.Add(uint8(4), "x", "paperless:document", "", "*", int64(0), int16(-720), "Local", "")
+	f.Add(uint8(0), "lock.haustuer", "lock", "flur\nflur", "unlock", int64(1791824400), int16(60), "", "active")
+	f.Add(uint8(0), "lock.haustuer", "lock", "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl\nm\nn\no\np\nq", "unlock", int64(1791824400), int16(60), "", "active")
 	// areas holds the set of areas separated by line feeds, a character no area may contain.
 	f.Fuzz(func(t *testing.T, idx uint8, entity, category, areas, action string, unix int64, offsetMin int16, zone, status string) {
 		m := parsed[int(idx)%len(parsed)]

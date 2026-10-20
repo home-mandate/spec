@@ -823,7 +823,7 @@ Depending on the event, the following are added:
 |---|---|
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
-| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` and `critical`), `action`, `time`, optionally `parameters`, `timezone` and `revoked` |
+| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters`, `timezone` and `revoked` |
 | `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest`; for `mandate.removed`, `digest` is that of the last version the implementation held |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
@@ -1036,7 +1036,9 @@ cases).
 `time`, optionally `timezone` and `revoked`. A `time` that is no RFC 3339 timestamp or a
 parameter that is no integer yields `deny` with `invalid_request`.
 
-For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
+A request with a member that this section does not define is malformed and is answered with
+an `error`, so that a former member name (such as `area`) is never evaluated as if it were
+absent. For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
 cases of that operation then count as not passed for their class. Any other `error` is a
 failed case. Every request can carry `id`, the identifier of the case, for diagnostics.
 
@@ -1398,7 +1400,7 @@ Specification**; repository `github.com/home-mandate/spec`, Go module
 from the Go module proxy under the module path `github.com/mandate-spec/mandate-spec`; their
 changes are listed below.
 
-Sets of areas (Sections 2, 3.4, 4, 6, 8, 9.1, 10):
+Sets of areas (Sections 1.1, 2, 3.4, 4, 6, 8, 9.1, 10, 12):
 - A resource has a set of 0 to 16 areas instead of at most one: its room and every
   location above it (for example garage, ground floor, home), or several rooms side by
   side. A rule still names exactly one `area` and matches if that area is in the set; the
@@ -1415,6 +1417,8 @@ Sets of areas (Sections 2, 3.4, 4, 6, 8, 9.1, 10):
   chained anew; every expected result is unchanged.
 - Conformance cases `c140`–`c151` (new mandate `conformance/mandates/areas.json`) and
   `a106`–`a108`.
+- Test interface (Section 10): a request with a member the section does not define is
+  malformed, so that a former `area` is not evaluated as if it were absent.
 
 Temperatures in degrees Fahrenheit (Sections 4.5, 5):
 - New parameter `temperature_f` of `climate.set_temperature` in hundredths of a degree

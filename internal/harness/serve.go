@@ -4,7 +4,9 @@ package harness
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -29,9 +31,8 @@ func Serve(r io.Reader, w io.Writer) error {
 		if len(scanner.Bytes()) == 0 {
 			continue
 		}
-		var req Request
 		resp := Response{Error: "malformed request"}
-		if err := json.Unmarshal(scanner.Bytes(), &req); err == nil {
+		if req, err := decodeRequest(scanner.Bytes()); err == nil {
 			resp = Answer(req)
 		}
 		if err := enc.Encode(resp); err != nil {
@@ -221,4 +222,20 @@ func entries(texts []string) [][]byte {
 		out[i] = []byte(text)
 	}
 	return out
+}
+
+// decodeRequest reads one request and refuses members the protocol does not define, so
+// that a client using a former member name (such as "area") gets an error instead of an
+// evaluation without that member.
+func decodeRequest(line []byte) (Request, error) {
+	var req Request
+	dec := json.NewDecoder(bytes.NewReader(line))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		return Request{}, err
+	}
+	if dec.More() {
+		return Request{}, errors.New("harness: more than one JSON value on a line")
+	}
+	return req, nil
 }
