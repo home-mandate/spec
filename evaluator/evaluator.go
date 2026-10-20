@@ -123,6 +123,11 @@ type Result struct {
 	// MandateDigest is empty if no valid mandate was evaluated (ReasonNoMandate,
 	// ReasonAmbiguousMandate, ReasonInvalidMandate).
 	MandateDigest string
+	// NotEnforced is true only for a Deny that the PEP does not enforce: the mandate is in
+	// audit mode, the deny results from its rules (ReasonNoMatch or a deny rule) and the
+	// action is not critical (SPEC-v0 section 4.6). The PEP then executes the request as
+	// if it were allowed and records it; the decision stays Deny. The zero value enforces.
+	NotEnforced bool
 }
 
 // Evaluate evaluates req against m according to SPEC-v0 section 4. The result contains
@@ -135,11 +140,13 @@ func Evaluate(m *Mandate, req Request) Result {
 	if reason != "" {
 		return Result{Decision: Deny, Reason: reason, MandateDigest: m.digest}
 	}
-	matched := matchingRules(m, req, local)
-	if len(matched) == 0 {
-		return Result{Decision: Deny, Reason: ReasonNoMatch, MandateDigest: m.digest}
+	result := Result{Decision: Deny, Reason: ReasonNoMatch, MandateDigest: m.digest}
+	if matched := matchingRules(m, req, local); len(matched) > 0 {
+		result = decide(m, matched, critical)
 	}
-	return decide(m, matched, critical)
+	// Audit mode (section 4.6): only a deny by the rules, never one of a critical action.
+	result.NotEnforced = m.auditMode && result.Decision == Deny && !critical
+	return result
 }
 
 // precheck implements steps 0 and 1 of SPEC-v0 section 4 in the precedence order of

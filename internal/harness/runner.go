@@ -207,6 +207,7 @@ type evaluationCase struct {
 	Reason          string                     `json:"reason"`
 	RuleID          json.RawMessage            `json:"rule_id"`
 	ApprovalTimeout string                     `json:"approval_timeout"`
+	Enforced        *bool                      `json:"enforced"`
 	Selected        json.RawMessage            `json:"selected"`
 }
 
@@ -215,9 +216,15 @@ func (c evaluationCase) request() *Evaluation {
 }
 
 // outcome renders what a case fixes about a result. A member the case does not give is
-// not compared.
-func (c evaluationCase) outcome(decision, reason string, ruleID *string, timeout string, selected *string) (got, want string) {
+// not compared, except enforced: a case without it expects an enforced result.
+func (c evaluationCase) outcome(decision, reason string, ruleID *string, timeout string, enforced *bool, selected *string) (got, want string) {
 	got, want = decision+" "+reason, c.Expected+" "+c.Reason
+	if notEnforced(enforced) {
+		got += " enforced=false"
+	}
+	if notEnforced(c.Enforced) {
+		want += " enforced=false"
+	}
 	if c.RuleID != nil {
 		got, want = got+" rule_id="+optional(ruleID), want+" rule_id="+rawOptional(c.RuleID)
 	}
@@ -228,6 +235,12 @@ func (c evaluationCase) outcome(decision, reason string, ruleID *string, timeout
 		got, want = got+" selected="+optional(selected), want+" selected="+rawOptional(c.Selected)
 	}
 	return got, want
+}
+
+// notEnforced reports whether enforced is false. Only false is meaningful; absent
+// enforces.
+func notEnforced(enforced *bool) bool {
+	return enforced != nil && !*enforced
 }
 
 func optional(s *string) string {
@@ -264,7 +277,7 @@ func (r *runner) evaluation() error {
 			return fmt.Errorf("conformance: case %s: %w", c.ID, readErr)
 		}
 		resp, doErr := r.impl.Do(Request{Op: OpEvaluate, ID: c.ID, Mandate: &text, Request: c.request()})
-		got, want := c.outcome(resp.Decision, resp.Reason, resp.RuleID, resp.ApprovalTimeout, nil)
+		got, want := c.outcome(resp.Decision, resp.Reason, resp.RuleID, resp.ApprovalTimeout, resp.Enforced, nil)
 		r.record(ClassEvaluator, fileCases, c.ID, resp, doErr, got, want)
 	}
 	return err
@@ -278,7 +291,7 @@ func (r *runner) selection() error {
 			req.Mandates = append(req.Mandates, StoredMandate{Mandate: string(m.MandateInline), Revoked: m.Revoked})
 		}
 		resp, doErr := r.impl.Do(req)
-		got, want := c.outcome(resp.Decision, resp.Reason, resp.RuleID, resp.ApprovalTimeout, resp.Selected)
+		got, want := c.outcome(resp.Decision, resp.Reason, resp.RuleID, resp.ApprovalTimeout, resp.Enforced, resp.Selected)
 		r.record(ClassSelection, fileSelection, c.ID, resp, doErr, got, want)
 	}
 	return err

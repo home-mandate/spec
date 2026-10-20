@@ -167,6 +167,10 @@ func checkResultInvariants(t *testing.T, m *evaluator.Mandate, req evaluator.Req
 			t.Fatalf("string parameter %q that is no identifier gave reason %q", text, got.Reason)
 		}
 	}
+	byTheRules := got.Reason == evaluator.ReasonNoMatch || got.Reason == evaluator.ReasonRule
+	if got.NotEnforced && (got.Decision != evaluator.Deny || !byTheRules || m.Enforce() || req.Resource.Critical && req.Action != "read") {
+		t.Fatalf("not enforced: %+v for %+v", got, req)
+	}
 	if m == nil && got.Reason != evaluator.ReasonInvalidMandate {
 		t.Fatalf("nil mandate gave reason %q", got.Reason)
 	}
