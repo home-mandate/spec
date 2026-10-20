@@ -10,6 +10,18 @@
     "domain": {
       "$ref": "https://home-mandate.org/relay-metadata/v0/metadata.schema.json#/$defs/domain"
     },
+    "own_domain_name": {
+      "description": "An own-domain name as A-labels, at most 233 characters so that _home-mandate-relay.<name> fits (RELAY-v0 Section 6.4).",
+      "allOf": [
+        {
+          "$ref": "#/$defs/domain"
+        },
+        {
+          "type": "string",
+          "maxLength": 233
+        }
+      ]
+    },
     "base64url_43": {
       "description": "32 bytes, base64url without padding.",
       "type": "string",
@@ -279,7 +291,7 @@
           ],
           "properties": {
             "name": {
-              "$ref": "#/$defs/domain"
+              "$ref": "#/$defs/own_domain_name"
             },
             "token": {
               "type": "string",
@@ -341,7 +353,7 @@
             "own_domain": {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/domain"
+                  "$ref": "#/$defs/own_domain_name"
                 },
                 {
                   "type": "null"
