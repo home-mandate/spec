@@ -479,8 +479,8 @@ answered with `200` and the installation with the status `unpaired`. The operato
 - adds the serial numbers of all unexpired tunnel certificates of the installation to the
   relay's denylist and closes their connections (tunnel protocol, Section 4);
 - removes every DNS record of the standard name, including challenge and CAA records, so that
-  the CAA record at the apex of the name domain applies again (Section 6.3), and stops routing
-  its own-domain name;
+  the CAA record at the apex of the name domain applies again (Section 6.3), and releases its
+  own-domain name (Section 6.4);
 - keeps the home ID reserved (Section 5.2).
 
 **Ending the pairing locally.** A gateway that unpairs or receives `unpaired` MUST close the
@@ -547,7 +547,8 @@ Transparency monitoring therefore applies to both levels.
 
 The operator MUST publish at the apex of the name domain the CAA record `0 issue ";"`, so that no
 name in the name domain can obtain a certificate unless a record at the name allows it. For each
-installation it publishes at the standard name the records of Section 5.6: `0 issue ";"` until
+installation it publishes at the standard name A and AAAA records with the `relay_addresses`, and
+the CAA records of Section 5.6: `0 issue ";"` until
 the first account report, then exactly one record
 
 ```
@@ -580,18 +581,30 @@ a certificate, because the CAA record at the name binds issuance to the gateway'
 **Registration.** The gateway registers the name with an installation update
 `{"own_domain": "<name>"}` (Section 5.3); `{"own_domain": null}` removes it. The operator answers
 with the installation, whose member `own_domain` holds the name, a `token` of at least 128 random
-bits for the TXT record, and a `status`: `pending` until the operator found the token, `verified`
-while it finds it, `lapsed` when it found it no longer for 7 days. An installation has at most
-one own-domain name; registering another replaces it. The operator MUST refuse a name that
-another installation holds with the status `pending` or `verified` (`name-unavailable`), and a
-name below its own name domain or operator domain (`malformed`).
+bits for the TXT record, and a `status`:
+
+- `pending` from the registration until the operator first finds the token; after 7 days
+  without it, the registration becomes `lapsed`;
+- `verified` from then on, also on days when a check misses the token;
+- `lapsed` after 7 days in which every check missed the token; a later check that finds it makes
+  the name `verified` again, unless another installation verified it meanwhile.
+
+Only a `verified` name of an installation that was not unpaired is **held**. An installation has
+at most one own-domain name; registering another replaces it. The operator MUST refuse a name that
+another installation holds (`name-unavailable`); several installations may have the same name
+`pending`, and the first whose token is found holds it, while the others become `lapsed`. It
+MUST refuse the name domain, the operator domain and names below them (`malformed`). Unpairing
+releases the own-domain name; a blocked installation keeps holding it, without routing. A gateway
+tells the household when its name is `pending` for more than a day or `lapsed`.
 
 **Verification.** The operator looks up the TXT record when the name is registered, and then at
 least once a day. It routes connections for the name to the installation only while the status
 is `verified`; it MUST NOT publish any record for the name, and publishes challenge values for it
 only at `_acme-challenge.<standard name>`. A change of `relay_addresses` is announced in the
-metadata at least 30 days ahead (`relay_addresses_planned`, Section 3); the gateway tells the
-household which records to change.
+metadata at least 30 days ahead (`relay_addresses_planned`, Section 3), and the relay MUST accept
+agent connections at both sets of addresses from the first appearance of the planned set until at
+least 7 days after its `from`. The gateway tells the household which records to change, and warns
+if it sees a planned set whose `from` is less than 30 days away.
 
 **Help for the household.** The portal SHOULD show the records with their values and check them
 live. Where the household's DNS provider supports Domain Connect, the operator MAY offer it for
@@ -604,7 +617,8 @@ The gateway determines the protection level of an own-domain name when it is reg
 each issuance of a server certificate for it, and at least once a day. The name has the level
 Own domain only if all of these hold:
 
-1. the name has no CNAME or DNAME record;
+1. the queries for the name are answered without any CNAME or DNAME in the chain, also none at
+   an ancestor;
 2. the CAA RRset at the name contains exactly one `issue` property, with the gateway's own
    `caa_identity`, `accounturi` equal to its own ACME account and `validationmethods=dns-01` and
    no other method, and no `issuewild` property that permits anything;
@@ -629,8 +643,10 @@ administrator choose among CAs it knows to enforce them.
 ### 6.7 Certificate Transparency monitoring
 
 A gateway MUST monitor Certificate Transparency for each of its public names, at both protection
-levels, at least once an hour, through any service or log it chooses. Every certificate for a
-public name that the gateway did not obtain itself raises an alarm to its local administrator
+levels, at least once an hour, through any service or log it chooses. A certificate counts for a
+public name if one of its names matches it, including a wildcard that covers it (such as
+`*.<name_domain>`); a search by the exact name alone does not meet this rule. Every certificate for
+a public name that the gateway did not obtain itself raises an alarm to its local administrator
 with the issuer, the names and the validity of that certificate. When no query has succeeded for
 24 hours, the gateway shows that monitoring is not possible.
 
@@ -638,14 +654,15 @@ with the issuer, the names and the validity of that certificate. When no query h
 
 The gateway accepts a relay only if the SubjectPublicKeyInfo of the relay's certificate matches
 one of its stored pins (SHA-256, base64url); a certificate that is valid under the WebPKI but
-matches no pin is refused.
+matches no pin is refused, and a matching pin is enough without validity under the WebPKI.
 
 - At pairing, the gateway stores the `relay_pins` of the metadata (Section 3), which it fetched
   under the WebPKI.
 - Afterwards it takes new pins **only from the relay over a tunnel connection that was
   authenticated with a stored pin** (a control message of the tunnel protocol, Section 4). The
-  new set replaces the stored one; it MUST hold at least two pins, of which at least one belongs
-  to a key that the operator keeps offline as a backup.
+  new set replaces the stored one only if it holds at least two distinct pins; otherwise the
+  gateway keeps the stored set. One of the pins belongs to a key that the operator keeps offline
+  as a backup (Section 7).
 - `relay_pins` in a later version of the metadata does not change the stored pins.
 - When no stored pin matches, the gateway does not connect and tells its local administrator.
   Only the administrator can then take the pins of the current metadata, after a warning that a
@@ -660,7 +677,7 @@ and keeps the backup key offline for the case that the current key is lost.
 gateway cannot set cookies for the portal (until the name domain is on the Public Suffix List,
 gateways use only `__Host-` cookies); CAA for the
 name domain (Section 6.3); Certificate Transparency monitoring of the name domain; both protection levels; minimal metadata and
-their retention; denylists; rate limits of the public CA and the Public Suffix List;
+their retention; denylists; an offline backup key for the relay (Section 6.8); rate limits of the public CA and the Public Suffix List;
 conformance tests.
 
 ## 8. Conformance
@@ -693,8 +710,8 @@ this specification; what an operator itself could do is in the rows below and in
 | **Takes over the household's account at the operator** | Unpairing and pairing codes stay with the account; codes for an existing installation and changes of the ACME account need a fresh authentication or the household's confirmation and are announced (Sections 5.2, 5.6) | The attacker can end remote access, and can move the public name as in the row above, announced and with a waiting time |
 | **Compromises the operator's tunnel CA** | Name constraint on the operator's trust domain; short lifetimes (Section 5.4) | Tunnel certificates for every home of that operator: denial of service and metadata, not content |
 | **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm (Section 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm. Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
-| **Another household claims an own-domain name** | Routing only after the TXT token of the installation was found in the name's zone; a name held by another installation is refused (Section 6.4) | – |
-| **Obtains a misissued WebPKI certificate for the operator domain** and serves forged metadata | After pairing, pins change only over a tunnel authenticated with a stored pin (Section 6.8) | A gateway that pairs while the attacker serves the metadata pins the attacker's relay. It still gets no server certificate from the attacker, and agents' TLS ends in the gateway |
+| **Another household claims an own-domain name** | Only a verified name is held and routed, and only the installation whose TXT token is in the name's zone can verify it; an unverified registration lapses after 7 days and blocks nobody (Section 6.4) | – |
+| **Obtains a misissued WebPKI certificate for the operator domain** and serves forged metadata | After pairing, pins change only over a tunnel authenticated with a stored pin (Section 6.8) | A gateway that pairs while the attacker serves the metadata pairs with the attacker, which then acts as its operator: at level Standard it can read until the gateway's Certificate Transparency alarm (as for an operator that wants to read); an own-domain name stays protected by the household's CAA record |
 | **Forges DNS answers to the gateway** | DNSSEC, or two independent resolvers (Section 6.5); the CA validates independently | A wrong protection level shown in the gateway; issuance is not affected |
 | **Loses or leaks the relay key** (operator) | Backup pin of an offline key; new pins only over a pinned tunnel (Section 6.8) | With every pinned key lost, the local administrator must take new pins after a warning |
 | **Operator that tries to change what the household allows** | No message carries mandates, approver keys or issuer keys; a gateway accepts none (Section 5.7) | – |

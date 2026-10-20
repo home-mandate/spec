@@ -136,7 +136,7 @@
       "pattern": "^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z]([a-z0-9-]{0,61}[a-z0-9])?(:[1-9][0-9]{0,4})?(/[A-Za-z0-9._~/-]*)?$"
     },
     "ip_address": {
-      "description": "An IPv4 address in dotted decimal, or an IPv6 address in lower case (RFC 5952).",
+      "description": "An IPv4 address in dotted decimal, or an IPv6 address in lower case. The pattern only checks the characters; gateways parse addresses with an IP parser.",
       "anyOf": [
         {
           "type": "string",
