@@ -18,21 +18,22 @@ const (
 
 // enrollmentExamples maps every example of RELAY-v0 Section 5 to the definition it must match.
 var enrollmentExamples = map[string]string{
-	"examples/directory.json":                  "directory",
-	"examples/protected-header-pair.json":      "protected_header",
-	"examples/protected-header-kid.json":       "protected_header",
-	"examples/pair-request.json":               "pair_request",
-	"examples/pair-response.json":              "pair_response",
-	"examples/installation.json":               "installation",
-	"examples/installation-update-acme.json":   "installation_update",
-	"examples/installation-update-unpair.json": "installation_update",
-	"examples/certificate-request.json":        "certificate_request",
-	"examples/certificate-response.json":       "certificate_response",
-	"examples/acme-challenge-request.json":     "acme_challenge_request",
-	"examples/key-change.json":                 "key_change",
-	"examples/key-change-request.json":         "key_change_request",
-	"examples/key-change-header.json":          "key_change_header",
-	"examples/problem.json":                    "problem",
+	"examples/directory.json":                      "directory",
+	"examples/protected-header-pair.json":          "protected_header",
+	"examples/protected-header-kid.json":           "protected_header",
+	"examples/pair-request.json":                   "pair_request",
+	"examples/pair-response.json":                  "pair_response",
+	"examples/installation.json":                   "installation",
+	"examples/installation-update-acme.json":       "installation_update",
+	"examples/installation-update-unpair.json":     "installation_update",
+	"examples/installation-update-own-domain.json": "installation_update",
+	"examples/certificate-request.json":            "certificate_request",
+	"examples/certificate-response.json":           "certificate_response",
+	"examples/acme-challenge-request.json":         "acme_challenge_request",
+	"examples/key-change.json":                     "key_change",
+	"examples/key-change-request.json":             "key_change_request",
+	"examples/key-change-header.json":              "key_change_header",
+	"examples/problem.json":                        "problem",
 }
 
 func loadJSON(t *testing.T, path string) any {
@@ -206,6 +207,12 @@ func TestInvalidEnrollmentMessagesAreRejected(t *testing.T) {
 		"certificate unknown member":                {"examples/certificate-request.json", "certificate_request", func(d obj) { d["san"] = "x" }},
 		"pair response without installation":        {"examples/pair-response.json", "pair_response", func(d obj) { delete(d, "installation") }},
 		"installation replacement time with offset": {"examples/installation.json", "installation", func(d obj) { d["replacement_pending_until"] = "2026-10-21T08:00:00+02:00" }},
+		"own domain status unknown":                 {"examples/installation.json", "installation", func(d obj) { d["own_domain"].(obj)["status"] = "claimed" }},
+		"own domain short token":                    {"examples/installation.json", "installation", func(d obj) { d["own_domain"].(obj)["token"] = "abc" }},
+		"own domain without token":                  {"examples/installation.json", "installation", func(d obj) { delete(d["own_domain"].(obj), "token") }},
+		"update own domain upper case":              {"examples/installation-update-own-domain.json", "installation_update", func(d obj) { d["own_domain"] = "Home.example.com" }},
+		"update own domain with dot at end":         {"examples/installation-update-own-domain.json", "installation_update", func(d obj) { d["own_domain"] = "home.example.com." }},
+		"update own domain and status":              {"examples/installation-update-own-domain.json", "installation_update", func(d obj) { d["status"] = "unpaired" }},
 		"installation status removed":               {"examples/installation.json", "installation", func(d obj) { d["status"] = "removed" }},
 		"installation caa identity with port":       {"examples/installation.json", "installation", func(d obj) { d["caa_identity"] = "acme.example:443" }},
 		"installation upper-case home id":           {"examples/installation.json", "installation", func(d obj) { d["home_id"] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" }},
@@ -278,7 +285,13 @@ func TestEnrollmentSchemaDefinesEveryErrorOfTheTable(t *testing.T) {
 			t.Errorf("error %q of the table is not in the schema: %v", name, err)
 		}
 	}
-	if named != 12 {
-		t.Errorf("found %d errors in the table of Section 5.1, want 12", named)
+	if named != 13 {
+		t.Errorf("found %d errors in the table of Section 5.1, want 13", named)
+	}
+}
+
+func TestOwnDomainCanBeRemoved(t *testing.T) {
+	if err := compileEnrollmentDef(t, "installation_update").Validate(map[string]any{"own_domain": nil}); err != nil {
+		t.Fatal(err)
 	}
 }

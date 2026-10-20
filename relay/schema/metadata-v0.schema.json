@@ -12,6 +12,7 @@
     "trust_domain",
     "enrollment",
     "relay",
+    "relay_addresses",
     "relay_pins",
     "max_offline_days",
     "protection_levels",
@@ -37,7 +38,10 @@
     "relay": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["host", "port"],
+      "required": [
+        "host",
+        "port"
+      ],
       "properties": {
         "host": {
           "$ref": "#/$defs/domain"
@@ -46,6 +50,28 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 65535
+        }
+      }
+    },
+    "relay_addresses": {
+      "description": "Addresses where agents reach the relay on port 443 (RELAY-v0 Sections 3, 6.4).",
+      "$ref": "#/$defs/relay_addresses"
+    },
+    "relay_addresses_planned": {
+      "description": "Addresses that replace relay_addresses from a time at least 30 days after they first appear (RELAY-v0 Section 6.4).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "addresses",
+        "from"
+      ],
+      "properties": {
+        "addresses": {
+          "$ref": "#/$defs/relay_addresses"
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
         }
       }
     },
@@ -71,11 +97,22 @@
       "type": "array",
       "uniqueItems": true,
       "items": {
-        "enum": ["standard", "own-domain"]
+        "enum": [
+          "standard",
+          "own-domain"
+        ]
       },
       "allOf": [
-        { "contains": { "const": "standard" } },
-        { "contains": { "const": "own-domain" } }
+        {
+          "contains": {
+            "const": "standard"
+          }
+        },
+        {
+          "contains": {
+            "const": "own-domain"
+          }
+        }
       ]
     },
     "portal": {
@@ -97,6 +134,29 @@
       "type": "string",
       "maxLength": 2048,
       "pattern": "^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z]([a-z0-9-]{0,61}[a-z0-9])?(:[1-9][0-9]{0,4})?(/[A-Za-z0-9._~/-]*)?$"
+    },
+    "ip_address": {
+      "description": "An IPv4 address in dotted decimal, or an IPv6 address in lower case (RFC 5952).",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])[.]){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$"
+        },
+        {
+          "type": "string",
+          "maxLength": 39,
+          "pattern": "^[0-9a-f]{0,4}(:[0-9a-f]{0,4}){2,7}$"
+        }
+      ]
+    },
+    "relay_addresses": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ip_address"
+      }
     }
   }
 }
