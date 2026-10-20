@@ -141,3 +141,12 @@ func CheckSuccessor(stored, offered *Mandate) error {
 	}
 	return nil
 }
+
+// EntersAuditMode reports whether adopting next in place of previous switches audit mode
+// on: next is in audit mode ("enforce": false) and previous is nil or enforces. Such a
+// mandate takes effect only after a human of the household confirmed it explicitly, and
+// every approver is notified, also for a signed successor that passed CheckSuccessor
+// (SPEC-v0 sections 3.5 and 11.6). Switching audit mode off needs no confirmation.
+func EntersAuditMode(previous, next *Mandate) bool {
+	return next != nil && !next.Enforce() && previous.Enforce()
+}

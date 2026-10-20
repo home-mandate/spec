@@ -127,7 +127,7 @@ Mandate
 ├── id            unique ID
 ├── principal     "household:<id>" or "person:<id>"
 ├── agent         { client_id, display_name }   client_id: see Section 3.3
-├── enforce?      false only: audit mode, see Section 4.6; absent: every decision is enforced
+├── enforce?      only false: audit mode (Section 4.6); absent: enforced
 ├── rules[]       rule
 │   ├── id
 │   ├── resource  selector: entity_id | category | area (at least one) or any: true alone
@@ -341,6 +341,16 @@ long as an older version could still be valid, and it MUST treat a restore from 
 like the arrival of mandates from outside. A revocation is local as well: a signed mandate
 stays verifiable until it expires, so a revoked mandate MUST NOT be accepted again by way
 of its signature.
+
+**Audit mode.** A replacement that switches audit mode on (the offered mandate has
+`enforce: false`, the stored one has not, Section 4.6) MUST NOT take effect until a human
+of the household has confirmed it explicitly, and every approver of the mandate MUST be
+notified when it takes effect. This holds for a signed successor as well: succession and
+the signature make it acceptable, not adopted; until the confirmation, the stored mandate
+stays in force. A mandate in audit mode that arrives from outside without a stored
+predecessor needs the same confirmation. A replacement that switches audit mode off needs
+none.
+
 An issuer can end the sequence of an `id` by issuing the highest possible version; the
 mandate then needs a new `id`. A mandate that leaves the implementation that
 created it, signed per Section 7, MUST carry `issuer` and `version`.
@@ -402,9 +412,9 @@ contain has no category; the result is `deny` with `unknown_resource`.
    The marking of a resource lets a household protect what the vocabulary cannot know: a
    switch that drives a door opener, a ground-floor window, a heater. It can only add
    protection. An implementation SHOULD let the household mark resources as critical.
-6. Audit mode: if the mandate carries `enforce: false`, the result of step 3 or 4 is `deny`
-   and the action is not critical (step 5), the result is **not enforced** (Section 4.6).
-   It stays `deny`.
+6. Audit mode: if the mandate carries `enforce: false`, the result of step 3 or 4 is
+   `deny` and the action is not critical (step 5), the result is **not enforced**
+   (Section 4.6). It stays `deny`.
 
 The rule is deliberately simple: whoever allows something broadly and denies individual items
 gets the denial. Whoever sets something broadly to `ask` and allows individual items gets `ask`.
@@ -505,9 +515,10 @@ overlaps with another mandate of the same agent and principal that is not revoke
 The evaluation always concerns exactly one resource and one action. If an agent addresses
 several resources at once (an area, a group, a list), the PEP resolves them with its
 directory and evaluates each resource separately. Unless the PEP documents otherwise, the
-request is executed only if every single evaluation permits it: one `deny` denies the whole
-request, and one `ask` requires a confirmation that names all resources concerned. A `deny`
-that is not enforced (Section 4.6) counts as permitting here; it is recorded as such.
+request is executed only if every single evaluation permits it: one `deny` denies the
+whole request, and one `ask` requires a confirmation that names all resources concerned. A
+`deny` that is not enforced (Section 4.6) counts as permitting here; it is recorded as
+such. The agent is never told which of the resources were not enforced (Section 11.6).
 
 A resource whose activation acts on other resources (a scene, a script, a group that the
 platform executes itself) is evaluated as the resource it is; this is why `scene.activate`
@@ -592,10 +603,10 @@ has no other value (Section 3.1 item 11).
 
 In audit mode exactly one kind of result is not enforced: a `deny` that results from the
 rules of the mandate, that is `no_match` (step 3) or a matching `deny` rule
-(`reason: rule`, step 4), for an action that is **not critical** (step 5). The evaluation returns it
-as `deny` with `enforced: false` (Section 4.1). The decision stays `deny`, so that the
-audit log records truthfully what the mandate says. Everything else is enforced as in a
-mandate without `enforce`:
+(`reason: rule`, step 4), for an action that is **not critical** (step 5). The evaluation
+returns it as `deny` with `enforced: false` (Section 4.1). The decision stays `deny`, so
+that the audit log records truthfully what the mandate says. Everything else is enforced
+as in a mandate without `enforce`:
 
 - a `deny` of a critical action, whether no rule matches or a `deny` rule does: audit mode
   never unlocks a door, opens a gate or takes a snapshot that the mandate does not permit,
@@ -617,7 +628,10 @@ where a `deny` prevents the execution in audit mode as well (Section 11.1 item 6
 
 Audit mode belongs to the mandate, not to the implementation: one mandate can be tried
 while the others enforce. Switching it on or off is a change to the mandate with a new
-digest (Section 3.2), recorded with `mandate.updated` (Section 9.2).
+digest (Section 3.2), recorded with `mandate.updated` (Section 9.2). Switching it on
+weakens the mandate: it takes effect only after a human of the household has confirmed it
+explicitly, and every approver is notified (Sections 3.5 and 11.6). Switching it off
+strengthens the mandate and needs no confirmation.
 
 ## 5. Vocabulary v0
 
@@ -737,8 +751,8 @@ per Section 4.3; if there is none for the agent and principal, the result is `de
 - `outcome: allow` → `decision: true`
 - `outcome: ask` → `decision: false`; the PEP MUST obtain a confirmation per Section 11.1 and
   MUST NOT execute the action unless the response is positive
-- `outcome: deny` → `decision: false`; with `enforced: false`, the PEP executes the action as
-  in Section 11.6
+- `outcome: deny` → `decision: false`; with `enforced: false`, the PEP executes the action
+  as in Section 11.6
 
 A PEP that does not know `ask` automatically treats the response as a denial, and a PEP
 that does not know `enforced` enforces the denial. The extension is thus
@@ -952,15 +966,26 @@ Depending on the event, the following are added:
 
 For `decision`, the following additionally applies:
 
-- `executed` only with `evaluation` and `mandate`, and only if `evaluation.decision` is `allow`,
-  `ask` with `approval.outcome: approved`, or `deny` with `evaluation.enforced: false`;
+- `executed` only with `evaluation` and `mandate`, and only if `evaluation.decision` is
+  `allow`, `ask` with `approval.outcome: approved`, or `deny` with
+  `evaluation.enforced: false`;
 - if `evaluation.decision` is `deny`, then `result` is `denied` with `denied_by: mandate`,
   unless `evaluation.enforced` is `false`: then `result` is `executed` or `failed`
   (audit mode, Section 11.6);
-- `evaluation.enforced` appears only in `decision` entries with `mandate`, only as `false`,
-  and only with `evaluation.decision: deny` and `reason` `no_match` or `rule`. An `allow`
-  or an `ask` is never marked: an allow is executed anyway, and an `ask` is asked in audit
-  mode as well;
+- `evaluation.enforced` appears only in `decision` entries with `mandate` and `request`,
+  only as `false`, and only with `evaluation.decision: deny` and `reason` `no_match` or
+  `rule`. An `allow` or an `ask` is never marked: an allow is executed anyway, and an
+  `ask` is asked in audit mode as well;
+- with `evaluation.enforced: false`, `request.resource` names the `category`, and the
+  action is not critical: the resource is not marked `critical` unless the action is
+  `read`, and the action is in the vocabulary of the category and not critical there
+  (Section 5). The schema cannot see the vocabulary; a verifier MUST check it for the
+  categories of Section 5 and for every extension whose vocabulary it knows, and an entry
+  that violates it is invalid;
+- a confirmed `ask` that is not executed because the evaluation before the execution gave
+  a `deny`, enforced or not (Section 11.1 item 6), is recorded with the `evaluation` that
+  was confirmed (`ask`, without `enforced`), `approval.outcome: approved` and `result`
+  `denied` with `denied_by: mandate`;
 - `evaluation.reason` belongs to `evaluation.decision` as in the table of Section 4.1
   (`allow` only with `rule`, `ask` only with `rule` or `critical_demotion`);
 - a denial with `denied_by: approval` carries the `approval` object if a request was
@@ -1036,7 +1061,9 @@ with the `emergency_stop.*` events.
 
 An audit log is **valid** if, in file order:
 
-1. every entry conforms to the schema;
+1. every entry conforms to the schema and to the rules of Section 9.1 that the schema
+   cannot express (displayed text, a former value that differs from the current one, and
+   `enforced` against the vocabulary);
 2. the first entry either has `seq` 1, or a later `log.truncated` entry with
    `up_to_seq` = `seq` − 1 and `last_digest` = `prev` of the first entry is present;
 3. every subsequent entry has the `seq` of its predecessor plus 1 and its `prev` is the
@@ -1242,9 +1269,10 @@ before it executes the action.
 6. **Evaluated again.** After the confirmation and immediately before the execution, the
    PEP evaluates the request again. The action is executed only if the result is not
    `deny` and the `mandate_digest` is the one that was confirmed; a `deny` that is not
-   enforced (Section 4.6) prevents the execution as well. A mandate that was revoked, changed or has expired in the
-   meantime, a time window that has closed and an emergency stop all prevail over the
-   confirmation.
+   enforced (Section 4.6) prevents the execution as well, and the request is recorded as
+   denied by the mandate with the `ask` that was confirmed (Section 9.1). A mandate that
+   was revoked, changed or has expired in the meantime, a time window that has closed and
+   an emergency stop all prevail over the confirmation.
 7. **Limited.** The number of approval requests of one agent that wait for an answer at
    the same time MUST be limited (RECOMMENDED: 2). A request beyond the limit is `deny`
    without asking anyone. Requests that lead to `ask` count towards the rate limit
@@ -1380,17 +1408,17 @@ It states them in the unit in which the agent gives the value. When it does:
 The limits inform; they decide nothing. Every request is evaluated as in Section 4.
 
 Audit mode (Section 4.6) is not part of what an agent is told. An implementation MUST NOT
-tell an agent that its mandate is in audit mode or that a request was not enforced, and the
-limits it names are those of the `allow` rules, as without audit mode (Section 11.6).
+tell an agent that its mandate is in audit mode or that a request was not enforced, and
+the limits it names are those of the `allow` rules, as without audit mode (Section 11.6).
 
 ### 11.6 Audit mode
 
-For a result that is not enforced (`enforced: false`, Section 4.6) the PEP:
+An implementation that offers audit mode (Section 4.6):
 
-1. **Executes** the request as it executes an `allow`, with every obligation that applies
-   to an `allow`, and records a `decision` entry whose `evaluation` is the result as
-   returned, including `enforced: false`, with `result.status` `executed` or `failed`
-   (Section 9.1). It never records such a request as denied by the mandate, and it never
+1. **Executes** a request whose result is not enforced (`enforced: false`) as it executes
+   an `allow`, with every obligation that applies to an `allow`, and records a `decision`
+   entry whose `evaluation` is the result as returned, including `enforced: false`, with
+   `result.status` `executed` or `failed` (Section 9.1). It never records such a request as denied by the mandate, and it never
    executes a `deny` that is enforced.
 2. **Tells the agent nothing.** The agent receives the same response as for an `allow` of
    the same request: no hint of the audit mode, of the denial or of the rule. An agent
@@ -1400,10 +1428,20 @@ For a result that is not enforced (`enforced: false`, Section 4.6) the PEP:
    list of mandates, it MUST show clearly that a mandate in audit mode does not enforce
    its denials, and it SHOULD say so before such a mandate is stored or audit mode is
    switched on. It SHOULD let the household see the requests that were not enforced (the
-   entries with `enforced: false`), so that the trial ends with a decision. Switching audit
-   mode on or off is a change to the mandate and is recorded with `mandate.updated` and
-   the actor (Section 9.2); no event of its own is needed, because the digest names the
-   version, and the implementation keeps every version an entry refers to (Section 9.3).
+   entries with `enforced: false`), so that the trial ends with a decision. Switching
+   audit mode on or off is a change to the mandate and is recorded with `mandate.updated`
+   and the actor (Section 9.2); no event of its own is needed, because the digest names
+   the version, and the implementation keeps every version an entry refers to
+   (Section 9.3). It SHOULD warn wherever it shows such a mandate if a resource the
+   directory marks as critical can be read under it: `read` is never critical, so audit
+   mode does not protect what such a resource shows (Section 13).
+4. **Lets audit mode be switched on only by a human.** A mandate that switches audit mode
+   on, or arrives in audit mode, MUST NOT take effect before a human of the household has
+   confirmed it explicitly, in the user interface of the implementation and on a path the
+   agent does not control (Section 11.1 item 4); a signed successor is not adopted
+   automatically (Section 3.5). When audit mode takes effect, the implementation MUST
+   notify every approver of the mandate. Switching audit mode off takes effect without a
+   confirmation.
 
 An implementation is not required to offer audit mode. One that does not MUST refuse to
 store a mandate with `enforce: false` instead of storing it and enforcing it, so that the
@@ -1428,7 +1466,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
 | **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal (Section 3.5) | The specification does not define how this trust is configured |
 | **Attacker between PEP and PDP** | The connection MUST be authenticated in both directions; the PDP MUST NOT be reachable by agents (Section 6) | The specification does not define the mechanism |
-| **Whoever can change a mandate and switches it to audit mode** (a member of the household, a manipulated user interface, an issuer) | Critical actions, `ask` and every denial outside the rules stay enforced (Section 4.6). The switch is a new version with a new digest, recorded with `mandate.updated` and its actor (Sections 3.2, 9.2), and implementations MUST show audit mode wherever they show mandates (Section 11.6). In a signed mandate, `enforce` is covered by the signature (Section 7) | In audit mode the agent can do every action that is not critical, including `read` of cameras and presence sensors. Whoever can change mandates could also write a broad `allow`; audit mode gives no more power, but it looks harmless. The audit log shows the switch, it does not prevent it |
+| **Whoever can change a mandate and switches it to audit mode** (a member of the household, a manipulated user interface, an issuer) | Critical actions, `ask` and every denial outside the rules stay enforced (Section 4.6). Switching audit mode on takes effect only after a human of the household confirmed it explicitly, also for a signed successor, and every approver is notified (Sections 3.5, 11.6). The switch is a new version with a new digest, recorded with `mandate.updated` and its actor (Sections 3.2, 9.2), and implementations MUST show audit mode wherever they show mandates (Section 11.6). In a signed mandate, `enforce` is covered by the signature (Section 7); a verifier rejects an audit entry that claims an unenforced deny of a critical action (Section 9.1) | In audit mode the agent can do every action that is not critical, including `read` of cameras and presence sensors. Whoever can change mandates could also write a broad `allow`; audit mode gives no more power, but it looks harmless. A human who confirms without reading; the confirmation and the notice make the switch visible, they do not prevent it |
 | **Compromised PEP** | Nothing. The PEP executes; a PEP that ignores a `deny` cannot be stopped by a format | – |
 
 ### 12.3 Assumptions
@@ -1568,17 +1606,19 @@ Specification**; repository `github.com/home-mandate/spec`, Go module
 from the Go module proxy under the module path `github.com/mandate-spec/mandate-spec`; their
 changes are listed below.
 
-Audit mode (Sections 2, 3, 3.1, 3.2, 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 9.2, 10, 11, 12, 13):
-- New optional member `enforce` of the mandate, only ever `false` (`true`, a string, a number
-  or `null` are invalid, and a rule has no `enforce`). A mandate with `enforce: false` is in
-  audit mode: a `deny` that results from its rules (`no_match` or a `deny` rule) for an
-  action that is not critical is evaluated and recorded but not enforced; the PEP executes
-  the request as if it were allowed. Critical actions, `ask`, `allow`, every denial before
-  the rules (invalid mandate or request, unknown resource, category or action, revoked, not
-  yet valid, expired) and every denial outside the evaluation (rate limit, emergency stop,
-  authentication, approval) are enforced as before. The mandate `type` stays
-  `https://home-mandate.org/mandate/v0`. Compatible: every mandate that was valid stays
-  valid, is evaluated the same way and keeps its digest.
+Audit mode (Sections 2, 3, 3.1, 3.2, 3.5, 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 9.2, 9.4, 10, 11,
+12, 13):
+- New optional member `enforce` of the mandate, only ever `false` (`true`, a string, a
+  number or `null` are invalid, and a rule has no `enforce`). A mandate with
+  `enforce: false` is in audit mode: a `deny` that results from its rules (`no_match` or a
+  `deny` rule) for an action that is not critical is evaluated and recorded but not
+  enforced; the PEP executes the request as if it were allowed. Critical actions, `ask`,
+  `allow`, every denial before the rules (invalid mandate or request, unknown resource,
+  category or action, revoked, not yet valid, expired) and every denial outside the
+  evaluation (rate limit, emergency stop, authentication, approval) are enforced as
+  before. The mandate `type` stays `https://home-mandate.org/mandate/v0`. Compatible:
+  every mandate that was valid stays valid, is evaluated the same way and keeps its
+  digest.
 - The result of the evaluation carries `enforced: false` for such a `deny`; the decision
   stays `deny`. In AuthZEN it is a member of the response context (Section 6); a PEP that
   does not know it enforces the denial. In the test interface it is a member of the
@@ -1590,14 +1630,29 @@ Audit mode (Sections 2, 3, 3.1, 3.2, 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 9.2, 10, 11, 1
   `https://home-mandate.org/audit/v0`. Compatible for logs: every entry that was valid
   stays valid. A verifier that does not know the member rejects a log that contains it
   (Section 14, unknown members).
-- Obligations of the PEP (Section 11.6): the agent is told nothing about audit mode;
-  implementations MUST show audit mode wherever they show mandates; switching it is a
-  `mandate.updated`. An implementation that does not offer audit mode MUST refuse to store
-  a mandate with `enforce: false`. A confirmed `ask` is not executed if the evaluation
-  before the execution yields any `deny` (Section 11.1 item 6).
+- With `evaluation.enforced: false`, an entry names `request` with the `category` of the
+  resource; it is invalid for a resource marked `critical` (except for `read`), and a
+  verifier MUST reject it for an action that is critical in the vocabulary or not in it
+  (Sections 9.1, 9.4). The reference verifier (`audit`) checks this against vocabulary
+  v0.
+- Obligations of the PEP (Section 11.6): the agent is told nothing about audit mode, nor
+  which resources of a request for several were not enforced (Section 4.4);
+  implementations MUST show audit mode wherever they show mandates and SHOULD warn when a
+  resource marked critical can be read under it; switching it is a `mandate.updated`. An
+  implementation that does not offer audit mode MUST refuse to store a mandate with
+  `enforce: false`.
+- Switching audit mode on (a replacement with `enforce: false` where the stored mandate
+  enforces, or a mandate that arrives in audit mode) MUST be confirmed explicitly by a
+  human of the household before it takes effect, also for a signed successor, and every
+  approver MUST be notified (Sections 3.5, 4.6, 11.6). Switching it off needs no
+  confirmation.
+- A confirmed `ask` is not executed if the evaluation before the execution yields any
+  `deny`, enforced or not; it is recorded with the confirmed `ask`, `approved` and
+  `denied_by: mandate` (Sections 9.1, 11.1 item 6).
 - Conformance cases `c174`–`c192` (new mandate `conformance/mandates/audit-mode.json`),
-  `i144`–`i148`, `d43`–`d44`, `a111`–`a117`.
-- Reference evaluator (Go): `Result.NotEnforced` and `Mandate.Enforce`.
+  `i144`–`i148`, `d43`–`d44`, `a111`–`a124`.
+- Reference evaluator (Go): `Result.NotEnforced`, `Mandate.Enforce` and
+  `EntersAuditMode` (whether adopting a mandate switches audit mode on).
 
 Permitted values and string parameters (Sections 3, 3.1, 3.2, 4, 4.5, 5, 6, 8, 9.1, 10, 12):
 - A parameter is an integer or a string. The vocabulary declares the type of every

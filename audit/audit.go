@@ -218,7 +218,7 @@ func check(compiled *jsonschema.Schema, entry []byte) (link, bool) {
 	}
 	obj, _ := v.(map[string]any)
 	l := link{seq: intField(obj, "seq")}
-	if compiled.Validate(v) != nil || !displayable(obj) || !distinctFormerValues(obj) {
+	if compiled.Validate(v) != nil || !displayable(obj) || !distinctFormerValues(obj) || !enforcedConsistent(obj) {
 		return l, false
 	}
 	digest, err := digestOf(v)

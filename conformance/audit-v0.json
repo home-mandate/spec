@@ -4359,6 +4359,82 @@
         {"actor": {"kind": "user", "id": "user-1"}, "agent": {"client_id": "urn:example:agent:conf-audit-mode", "display_name": "Audit mode trial"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1170001", "prev": null, "principal": "household:conf", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
         {"agent": {"client_id": "urn:example:agent:conf-audit-mode"}, "approval": {"outcome": "approved", "by": "user-1", "at": "2026-10-12T19:00:30+02:00"}, "evaluation": {"decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT1M", "enforced": false}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1170002", "mandate": {"id": "m-conf-audit-mode", "digest": "sha256:83d0a25498b0e10d9e65cff93954e7a54908d5cd1b04a0689995869aacf82303"}, "prev": "sha256:e421ca57d6233ae06405f73e6c05dfaac870bbe0ebad1397ae15f252a294e802", "principal": "household:conf", "recorded_at": "2026-10-12T19:00:00.120+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "switch.hall", "category": "switch"}, "action": "turn_on"}, "result": {"status": "executed", "duration_ms": 120}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
       ]
+    },
+    {
+      "id": "a118",
+      "why": "audit mode: a confirmed ask whose evaluation before the execution gave a deny that is not enforced; the action is not executed, recorded with the evaluation that was confirmed (11.1 item 6)",
+      "expected": "valid",
+      "entry_digests": [
+        "sha256:67839329b32dfaefbe1af82028b3633873c5b937bce2d102d72634bff9a4b022",
+        "sha256:0d836b058a77219228d616fdaf2c069463e5e449711e28d81bc8f3a262bf1598"
+      ],
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "agent": {"client_id": "urn:example:agent:conf-audit-mode", "display_name": "Audit mode trial"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1180001", "prev": null, "principal": "household:conf", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "urn:example:agent:conf-audit-mode"}, "approval": {"outcome": "approved", "by": "user-1", "at": "2026-10-12T19:00:30+02:00"}, "evaluation": {"decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT1M"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1180002", "mandate": {"id": "m-conf-audit-mode", "digest": "sha256:83d0a25498b0e10d9e65cff93954e7a54908d5cd1b04a0689995869aacf82303"}, "prev": "sha256:67839329b32dfaefbe1af82028b3633873c5b937bce2d102d72634bff9a4b022", "principal": "household:conf", "recorded_at": "2026-10-12T19:00:00.120+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "lock.front_door", "category": "lock"}, "action": "lock"}, "result": {"status": "denied", "denied_by": "mandate", "duration_ms": 30000}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "a119",
+      "why": "enforced: false for an action on a resource the directory marks as critical (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "agent": {"client_id": "urn:example:agent:conf-audit-mode", "display_name": "Audit mode trial"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1190001", "prev": null, "principal": "household:conf", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "urn:example:agent:conf-audit-mode"}, "evaluation": {"decision": "deny", "reason": "no_match", "rule_id": null, "enforced": false}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1190002", "mandate": {"id": "m-conf-audit-mode", "digest": "sha256:83d0a25498b0e10d9e65cff93954e7a54908d5cd1b04a0689995869aacf82303"}, "prev": "sha256:d54c19c8baecbdefa1cdfda3794f99f012477fb20f62a626cfb206c6a791b158", "principal": "household:conf", "recorded_at": "2026-10-12T19:00:00.120+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "switch.hall", "category": "switch", "critical": true}, "action": "turn_on"}, "result": {"status": "executed", "duration_ms": 120}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "a120",
+      "why": "enforced: false for read on a resource the directory marks as critical: read is never critical",
+      "expected": "valid",
+      "entry_digests": [
+        "sha256:79dc1726c37aa53602ee9de1c5e65554ae351532223b4ef6064842cf6d5ed2a9",
+        "sha256:1f4107c4341b49e018e37cf5f71c6e673809d663e8efea03a037879cfa63abfc"
+      ],
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "agent": {"client_id": "urn:example:agent:conf-audit-mode", "display_name": "Audit mode trial"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1200001", "prev": null, "principal": "household:conf", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "urn:example:agent:conf-audit-mode"}, "evaluation": {"decision": "deny", "reason": "rule", "rule_id": "r-no-cameras", "enforced": false}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1200002", "mandate": {"id": "m-conf-audit-mode", "digest": "sha256:83d0a25498b0e10d9e65cff93954e7a54908d5cd1b04a0689995869aacf82303"}, "prev": "sha256:79dc1726c37aa53602ee9de1c5e65554ae351532223b4ef6064842cf6d5ed2a9", "principal": "household:conf", "recorded_at": "2026-10-12T19:00:00.120+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "camera.drive", "category": "camera", "critical": true}, "action": "read"}, "result": {"status": "executed", "duration_ms": 120}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "a121",
+      "why": "enforced: false without request: nothing shows that the action was not critical (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "agent": {"client_id": "urn:example:agent:conf-audit-mode", "display_name": "Audit mode trial"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1210001", "prev": null, "principal": "household:conf", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "urn:example:agent:conf-audit-mode"}, "evaluation": {"decision": "deny", "reason": "no_match", "rule_id": null, "enforced": false}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1210002", "mandate": {"id": "m-conf-audit-mode", "digest": "sha256:83d0a25498b0e10d9e65cff93954e7a54908d5cd1b04a0689995869aacf82303"}, "prev": "sha256:69856d24e06d61b57346a4e4724390573877931e6e37d0269b1ae578a3ae115c", "principal": "household:conf", "recorded_at": "2026-10-12T19:00:00.120+02:00", "result": {"status": "executed", "duration_ms": 120}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "a122",
+      "why": "enforced: false without the category of the resource (schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "agent": {"client_id": "urn:example:agent:conf-audit-mode", "display_name": "Audit mode trial"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1220001", "prev": null, "principal": "household:conf", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "urn:example:agent:conf-audit-mode"}, "evaluation": {"decision": "deny", "reason": "no_match", "rule_id": null, "enforced": false}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1220002", "mandate": {"id": "m-conf-audit-mode", "digest": "sha256:83d0a25498b0e10d9e65cff93954e7a54908d5cd1b04a0689995869aacf82303"}, "prev": "sha256:489da0e4ac0e867a9608d296cb4a9a135c9fabe4390f01ca87bae2ab544980ee", "principal": "household:conf", "recorded_at": "2026-10-12T19:00:00.120+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "switch.hall"}, "action": "turn_on"}, "result": {"status": "executed", "duration_ms": 120}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "a123",
+      "why": "enforced: false for unlock, critical by the vocabulary: the schema cannot see it, the verifier rejects it (9.4)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "agent": {"client_id": "urn:example:agent:conf-audit-mode", "display_name": "Audit mode trial"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1230001", "prev": null, "principal": "household:conf", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "urn:example:agent:conf-audit-mode"}, "evaluation": {"decision": "deny", "reason": "no_match", "rule_id": null, "enforced": false}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1230002", "mandate": {"id": "m-conf-audit-mode", "digest": "sha256:83d0a25498b0e10d9e65cff93954e7a54908d5cd1b04a0689995869aacf82303"}, "prev": "sha256:0086bcacbdb099138861c45256035f075cbb9b1b8b822ac1f63f9e09abc0ac90", "principal": "household:conf", "recorded_at": "2026-10-12T19:00:00.120+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "lock.front_door", "category": "lock"}, "action": "unlock"}, "result": {"status": "executed", "duration_ms": 120}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "a124",
+      "why": "enforced: false for an action outside the vocabulary of a category of v0: such a request is never a deny by the rules (9.4)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "agent": {"client_id": "urn:example:agent:conf-audit-mode", "display_name": "Audit mode trial"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1240001", "prev": null, "principal": "household:conf", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "urn:example:agent:conf-audit-mode"}, "evaluation": {"decision": "deny", "reason": "no_match", "rule_id": null, "enforced": false}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1240002", "mandate": {"id": "m-conf-audit-mode", "digest": "sha256:83d0a25498b0e10d9e65cff93954e7a54908d5cd1b04a0689995869aacf82303"}, "prev": "sha256:9ca6db28dbbbb46a06aca62c9bd65ebbc812dfb9b0623a93984d0b8be688c70f", "principal": "household:conf", "recorded_at": "2026-10-12T19:00:00.120+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "light.hall", "category": "light"}, "action": "unlock"}, "result": {"status": "executed", "duration_ms": 120}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
     }
   ]
 }

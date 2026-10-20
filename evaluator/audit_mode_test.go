@@ -3,6 +3,7 @@
 package evaluator_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -93,5 +94,36 @@ func TestEnforcingMandateEnforcesEveryDeny(t *testing.T) {
 	}
 	if got := evaluator.Evaluate(nil, request("media", "", "play")); got.NotEnforced {
 		t.Error("an invalid mandate is not enforced")
+	}
+}
+
+// A duplicate enforce key makes the mandate invalid, also when both values agree: a
+// mandate is I-JSON (SPEC-v0 section 3.1 item 1), so no reader picks one of them.
+func TestParseRejectsDuplicateEnforce(t *testing.T) {
+	for _, members := range []string{`"enforce":false,"enforce":false`, `"enforce":true,"enforce":false`, `"enforce":false,"enforce":true`} {
+		data := strings.Replace(string(mandateNamed("Test")), `"default":"deny"`, members+`,"default":"deny"`, 1)
+		if _, err := evaluator.Parse([]byte(data)); !errors.Is(err, evaluator.ErrMalformed) {
+			t.Errorf("%s: err = %v, want ErrMalformed", members, err)
+		}
+	}
+}
+
+func TestEntersAuditMode(t *testing.T) {
+	enforcing, trying := mandateWithRules(t, baseRules), auditMode(t, baseRules)
+	for _, tt := range []struct {
+		name           string
+		previous, next *evaluator.Mandate
+		want           bool
+	}{
+		{"switched on", enforcing, trying, true},
+		{"new mandate in audit mode", nil, trying, true},
+		{"stays in audit mode", trying, trying, false},
+		{"switched off", trying, enforcing, false},
+		{"enforces", enforcing, enforcing, false},
+		{"nothing offered", enforcing, nil, false},
+	} {
+		if got := evaluator.EntersAuditMode(tt.previous, tt.next); got != tt.want {
+			t.Errorf("%s: EntersAuditMode = %t, want %t", tt.name, got, tt.want)
+		}
 	}
 }
