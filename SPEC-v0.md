@@ -1512,22 +1512,22 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
   automation, a Node-RED flow, an n8n workflow) can react to a harmless-looking resource,
   a switch or a virtual datapoint, and unlock a door. An allowed command to the switch
   then starts what the household would not let the agent run directly; the PEP sees only
-  the switch. A resource that automations react to is marked critical. The critical
-  marking relies on the household knowing which resources these are, so interfaces help:
-  where the platform can tell which automations or rules react to a resource, they show it
+  the switch. A resource that automations react to SHOULD be marked critical. The critical
+  marking relies on the household knowing which resources these are, so where the platform
+  can tell which automations or rules react to a resource, implementations SHOULD show it
   to the household and suggest marking the resource critical. openHAB, for example,
   returns the triggers of every rule through its REST API, among them a command to an Item
   and a change of its state.
 - **Platform configuration.** Writing scripts, automations, rules, scenes or integrations
   is not an action on a resource, and no mandate limits what such code does once it runs
-  (Section 12.3, the only path). Implementations do not offer tools that write platform
-  configuration through the PEP. One that does keeps them outside the mandate model and
-  never lets a mandate `allow` them. A request for configuration is an action outside the
+  (Section 12.3, the only path). Implementations SHOULD NOT offer tools that write platform
+  configuration through the PEP. One that does MUST keep them outside the mandate model and
+  MUST NOT let a mandate `allow` them. A request for configuration is an action outside the
   vocabulary and therefore `deny` (Sections 4 and 5.1).
-- **The PEP's own credential.** The credential with which the PEP acts on the platform is
-  as restricted as the platform allows (a restricted user or profile), so that the platform
-  itself refuses configuration changes and the mandate narrows down what remains. The
-  agent never receives this credential.
+- **The PEP's own credential.** The credential with which the PEP acts on the platform
+  SHOULD be as restricted as the platform allows (a restricted user or profile), so that the
+  platform itself refuses configuration changes and the mandate narrows down what remains.
+  The agent MUST NOT receive this credential.
 - **Reading is not harmless.** `read` is never critical, but presence sensors, door
   contacts and cameras reveal who is at home. Mandates SHOULD allow `read` per category,
   not for `any`.
