@@ -2,12 +2,19 @@
 
 package evaluator
 
-import "math"
+import (
+	"math"
+	"slices"
+)
 
-// Limit is the inclusive range one constraint allows for a parameter (SPEC-v0 section
-// 4.5); a bound the rule does not give is nil.
+// Limit is what one constraint allows for a parameter (SPEC-v0 section 4.5): either the
+// inclusive range of an integer, where a bound the rule does not give is nil, or, if OneOf
+// is not nil, the permitted values in the order of the mandate. A Limit with OneOf has
+// neither Min nor Max, yet permits only the listed values: a caller must check OneOf
+// before it reads nil bounds as unbounded.
 type Limit struct {
 	Min, Max *int64
+	OneOf    []Value
 }
 
 // Limits tells what values a request could be allowed with: for every allow rule that
@@ -36,6 +43,10 @@ func (m *Mandate) Limits(req Request) []map[string]Limit {
 		limits := map[string]Limit{}
 		for _, c := range r.constraints {
 			var l Limit
+			if c.oneOf != nil {
+				limits[c.parameter] = Limit{OneOf: slices.Clone(c.oneOf)}
+				continue
+			}
 			if c.min != math.MinInt64 {
 				l.Min = &c.min
 			}

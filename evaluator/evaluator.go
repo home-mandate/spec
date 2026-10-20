@@ -96,9 +96,9 @@ const (
 type Request struct {
 	Resource Resource
 	Action   string
-	// Parameters are the integer parameters of the action in the units of the vocabulary,
-	// derived by the PEP from what it will execute (SPEC-v0 section 4.5).
-	Parameters map[string]int64
+	// Parameters are the parameters of the action, integers in the units of the vocabulary
+	// or strings, derived by the PEP from what it will execute (SPEC-v0 section 4.5).
+	Parameters map[string]Value
 	Time       time.Time
 	// TimeZone is the household's time zone as an IANA name. If empty, the offset of Time applies.
 	TimeZone string
@@ -177,7 +177,7 @@ func validRequest(req Request) bool {
 	return opaque(res.EntityID, maxEntityIDLength) &&
 		validAreas(res.Areas) &&
 		(req.Status == StatusActive || req.Status == StatusRevoked) &&
-		exact(req.Parameters)
+		validParameters(req)
 }
 
 // validAreas reports whether areas is a set of at most maxAreas area identifiers without
@@ -198,14 +198,16 @@ func validAreas(areas []string) bool {
 // implementation (RFC 7493).
 const maxParameter = 1<<53 - 1
 
-// exact reports whether every parameter can be written to an audit log as it is.
-func exact(parameters map[string]int64) bool {
-	for _, value := range parameters {
-		if value > maxParameter || value < -maxParameter {
+// validParameters reports whether every parameter is a valid value that can be written to
+// an audit log as it is, and whether the parameters the action declares have their type
+// and permitted values (SPEC-v0 section 4, step 0).
+func validParameters(req Request) bool {
+	for _, value := range req.Parameters {
+		if !value.valid() {
 			return false
 		}
 	}
-	return true
+	return parametersAdmitted(req.Resource.Category, req.Action, req.Parameters)
 }
 
 // matchingRules implements step 2 and preserves document order.

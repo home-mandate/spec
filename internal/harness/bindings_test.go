@@ -154,8 +154,8 @@ func (p *referencePDP) handler() http.Handler {
 				Properties map[string]string `json:"properties"`
 			} `json:"subject"`
 			Action struct {
-				Name       string                 `json:"name"`
-				Properties map[string]json.Number `json:"properties"`
+				Name       string                     `json:"name"`
+				Properties map[string]json.RawMessage `json:"properties"`
 			} `json:"action"`
 			Resource struct {
 				ID string `json:"id"`

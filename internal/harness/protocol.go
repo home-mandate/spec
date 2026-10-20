@@ -60,12 +60,14 @@ type Subject struct {
 
 // Evaluation is the input of the evaluation as the PEP determined it (SPEC-v0 section 4).
 type Evaluation struct {
-	Resource   Resource               `json:"resource"`
-	Action     string                 `json:"action"`
-	Parameters map[string]json.Number `json:"parameters,omitempty"`
-	Time       string                 `json:"time"`
-	Timezone   string                 `json:"timezone,omitempty"`
-	Revoked    bool                   `json:"revoked,omitempty"`
+	Resource Resource `json:"resource"`
+	Action   string   `json:"action"`
+	// Parameters are JSON numbers or strings (SPEC-v0 section 10.2), passed on as they
+	// arrived, so that a number keeps its spelling and a string is never read as a number.
+	Parameters map[string]json.RawMessage `json:"parameters,omitempty"`
+	Time       string                     `json:"time"`
+	Timezone   string                     `json:"timezone,omitempty"`
+	Revoked    bool                       `json:"revoked,omitempty"`
 }
 
 // Resource is a resource as the directory of the PEP knows it.

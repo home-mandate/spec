@@ -486,7 +486,7 @@ func TestEvaluateConstraints(t *testing.T) {
 		 "constraints":{"position":{"min":2e1}}}]`)
 	req := func(category, action string, parameters map[string]int64) evaluator.Request {
 		r := request(category, "", action)
-		r.Parameters = parameters
+		r.Parameters = integers(parameters)
 		return r
 	}
 	for name, tt := range map[string]struct {
@@ -514,4 +514,16 @@ func TestEvaluateConstraints(t *testing.T) {
 			}
 		})
 	}
+}
+
+// integers converts integer parameters; nil stays nil.
+func integers(parameters map[string]int64) map[string]evaluator.Value {
+	if parameters == nil {
+		return nil
+	}
+	out := make(map[string]evaluator.Value, len(parameters))
+	for name, n := range parameters {
+		out[name] = evaluator.IntegerValue(n)
+	}
+	return out
 }

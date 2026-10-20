@@ -99,14 +99,16 @@ func FuzzEvaluate(f *testing.F) {
 		parsed = append(parsed, m)
 	}
 	parsed = append(parsed, nil) // invalid mandate
-	f.Add(uint8(0), "lock.haustuer", "lock", "flur\nerdgeschoss\nhome", "unlock", int64(1791824400), int16(120), "Europe/Berlin", "active")
-	f.Add(uint8(4), "light.flur", "light", "flur", "turn_on", int64(1791824400), int16(0), "", "revoked")
-	f.Add(uint8(3), "cover.terrasse", "cover", "terrasse", "open", int64(1792895400), int16(0), "Europe/Berlin", "active")
-	f.Add(uint8(4), "x", "paperless:document", "", "*", int64(0), int16(-720), "Local", "")
-	f.Add(uint8(0), "lock.haustuer", "lock", "flur\nflur", "unlock", int64(1791824400), int16(60), "", "active")
-	f.Add(uint8(0), "lock.haustuer", "lock", "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl\nm\nn\no\np\nq", "unlock", int64(1791824400), int16(60), "", "active")
+	f.Add(uint8(0), "lock.haustuer", "lock", "flur\nerdgeschoss\nhome", "unlock", int64(1791824400), int16(120), "Europe/Berlin", "active", "")
+	f.Add(uint8(4), "light.flur", "light", "flur", "turn_on", int64(1791824400), int16(0), "", "revoked", "50")
+	f.Add(uint8(3), "cover.terrasse", "cover", "terrasse", "open", int64(1792895400), int16(0), "Europe/Berlin", "active", `"heat"`)
+	f.Add(uint8(4), "x", "paperless:document", "", "*", int64(0), int16(-720), "Local", "", `"fan only"`)
+	f.Add(uint8(0), "lock.haustuer", "lock", "flur\nflur", "unlock", int64(1791824400), int16(60), "", "active", "21.5")
+	f.Add(uint8(0), "lock.haustuer", "lock", "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl\nm\nn\no\np\nq", "unlock", int64(1791824400), int16(60), "", "active", "")
+	f.Add(uint8(9), "thermostat-1", "climate", "", "set_mode", int64(1791824400), int16(120), "Europe/Berlin", "active", `"auto"`)
 	// areas holds the set of areas separated by line feeds, a character no area may contain.
-	f.Fuzz(func(t *testing.T, idx uint8, entity, category, areas, action string, unix int64, offsetMin int16, zone, status string) {
+	// parameter is the JSON text of a value given as mode and as brightness; "" means none.
+	f.Fuzz(func(t *testing.T, idx uint8, entity, category, areas, action string, unix int64, offsetMin int16, zone, status, parameter string) {
 		m := parsed[int(idx)%len(parsed)]
 		req := evaluator.Request{
 			Resource: evaluator.Resource{EntityID: entity, Category: category, Areas: splitAreas(areas)},
@@ -114,6 +116,10 @@ func FuzzEvaluate(f *testing.F) {
 			Time:     time.Unix(unix, 0).In(time.FixedZone("fuzz", int(offsetMin)*60)),
 			TimeZone: zone,
 			Status:   evaluator.MandateStatus(status),
+		}
+		var value evaluator.Value
+		if parameter != "" && json.Unmarshal([]byte(parameter), &value) == nil {
+			req.Parameters = map[string]evaluator.Value{"mode": value, "brightness": value}
 		}
 		got := evaluator.Evaluate(m, req)
 		checkResultInvariants(t, m, req, got)
@@ -156,10 +162,28 @@ func checkResultInvariants(t *testing.T, m *evaluator.Mandate, req evaluator.Req
 	if unknown && got.Decision != evaluator.Deny {
 		t.Fatalf("unknown or revoked input was not denied: %+v -> %+v", req, got)
 	}
+	for _, value := range req.Parameters {
+		if text, ok := value.AsString(); ok && !identifier(text) && got.Reason != evaluator.ReasonInvalidMandate && got.Reason != evaluator.ReasonInvalidRequest {
+			t.Fatalf("string parameter %q that is no identifier gave reason %q", text, got.Reason)
+		}
+	}
 	if m == nil && got.Reason != evaluator.ReasonInvalidMandate {
 		t.Fatalf("nil mandate gave reason %q", got.Reason)
 	}
 	if m != nil && got.MandateDigest != m.Digest() {
 		t.Fatalf("digest %q, want %q", got.MandateDigest, m.Digest())
 	}
+}
+
+// identifier reports whether s has 1 to 64 printable ASCII characters without space.
+func identifier(s string) bool {
+	if s == "" || len(s) > 64 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '!' || s[i] > '~' {
+			return false
+		}
+	}
+	return true
 }

@@ -69,11 +69,16 @@
         },
         "action": { "type": "string", "minLength": 1, "maxLength": 64 },
         "parameters": {
-          "description": "Parameters of the action that were input to the evaluation (SPEC-v0 section 4.5).",
+          "description": "Parameters of the action that were input to the evaluation (SPEC-v0 section 4.5): integers or strings.",
           "type": "object",
           "maxProperties": 16,
           "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,63}$" },
-          "additionalProperties": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+          "additionalProperties": {
+            "anyOf": [
+              { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+              { "type": "string", "pattern": "^[!-~]{1,64}$" }
+            ]
+          }
         }
       }
     },

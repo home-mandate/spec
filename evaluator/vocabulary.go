@@ -4,6 +4,7 @@ package evaluator
 
 import (
 	"encoding/json"
+	"slices"
 	"sync"
 
 	"github.com/home-mandate/spec/vocabulary"
@@ -12,7 +13,28 @@ import (
 // actionInfo is what the vocabulary says about one action.
 type actionInfo struct {
 	critical   bool
-	parameters map[string]struct{}
+	parameters map[string]parameterInfo
+}
+
+// parameterInfo is what the vocabulary says about one parameter (SPEC-v0 sections 4.5
+// and 5): its type and, for a string, the permitted values (nil: any string).
+type parameterInfo struct {
+	Type   string   `json:"type"`
+	Values []string `json:"values"`
+}
+
+// admits reports whether v has the type of the parameter and, for a string with
+// permitted values, is one of them. Strings are compared exactly.
+func (p parameterInfo) admits(v Value) bool {
+	switch p.Type {
+	case typeInteger:
+		_, ok := v.AsInteger()
+		return ok
+	case typeString:
+		s, ok := v.AsString()
+		return ok && (p.Values == nil || slices.Contains(p.Values, s))
+	}
+	return false
 }
 
 // vocabularyV0 reads the vocabulary from SPEC-v0 section 5 out of the normative file:
@@ -23,8 +45,8 @@ var vocabularyV0 = sync.OnceValue(func() map[string]map[string]actionInfo {
 	var doc struct {
 		Categories map[string]struct {
 			Actions map[string]struct {
-				Critical   bool                `json:"critical"`
-				Parameters map[string]struct{} `json:"parameters"`
+				Critical   bool                     `json:"critical"`
+				Parameters map[string]parameterInfo `json:"parameters"`
 			} `json:"actions"`
 		} `json:"categories"`
 	}
@@ -63,18 +85,33 @@ func knownAction(action string) bool {
 	return false
 }
 
-// hasParameter reports whether the action has the parameter: in the given category, or
-// with an empty category in any category of the vocabulary.
-func hasParameter(category, action, parameter string) bool {
+// parameterFits reports whether the action has the parameter and the constraint fits its
+// type and permitted values (SPEC-v0 section 3.1 item 10): in the given category, or with
+// an empty category in any category of the vocabulary.
+func parameterFits(category, action string, c constraint) bool {
 	for name, actions := range vocabularyV0() {
 		if category != "" && name != category {
 			continue
 		}
-		if _, ok := actions[action].parameters[parameter]; ok {
+		if p, ok := actions[action].parameters[c.parameter]; ok && c.fits(p) {
 			return true
 		}
 	}
 	return false
+}
+
+// parametersAdmitted reports whether every parameter of the request that the action
+// declares has its type and, for a string, one of its permitted values (SPEC-v0 section 4,
+// step 0). Parameters the action does not declare, and every parameter of a category or
+// action outside the vocabulary, are not checked here.
+func parametersAdmitted(category, action string, parameters map[string]Value) bool {
+	declared := vocabularyV0()[category][action].parameters
+	for name, value := range parameters {
+		if p, ok := declared[name]; ok && !p.admits(value) {
+			return false
+		}
+	}
+	return true
 }
 
 // IsCritical reports whether action is a critical action of category in vocabulary v0
