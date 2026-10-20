@@ -64,13 +64,13 @@ func SignCheckpoint(logID string, seq int64, digest, kid string, signer any) (st
 
 // VerifyAnchored is Verify plus the check of the checkpoints against the anchor.
 func VerifyAnchored(entries [][]byte, anchor Anchor) (Result, error) {
-	return verifyEntries(entries, &anchor)
+	return verifyEntries(entries, Options{Anchor: &anchor})
 }
 
 // VerifyJSONLinesAnchored is VerifyJSONLines plus the check of the checkpoints against
 // the anchor.
 func VerifyJSONLinesAnchored(r io.Reader, anchor Anchor) (Result, error) {
-	return verifyLines(r, &anchor)
+	return verifyLines(r, Options{Anchor: &anchor})
 }
 
 // checkpoint checks a log.checkpoint entry and reports whether it violates section 9.5.

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
@@ -142,11 +143,24 @@ func CheckSuccessor(stored, offered *Mandate) error {
 	return nil
 }
 
-// EntersAuditMode reports whether adopting next in place of previous switches audit mode
-// on: next is in audit mode ("enforce": false) and previous is nil or enforces. Such a
-// mandate takes effect only after a human of the household confirmed it explicitly, and
-// every approver is notified, also for a signed successor that passed CheckSuccessor
-// (SPEC-v0 sections 3.5 and 11.6). Switching audit mode off needs no confirmation.
-func EntersAuditMode(previous, next *Mandate) bool {
-	return next != nil && !next.Enforce() && previous.Enforce()
+// EntersAuditMode reports whether adopting offered switches audit mode on: offered is in
+// audit mode ("enforce": false) and no mandate in audit mode is in force for it. stored
+// is the mandate the implementation holds under the same id, with its status, and at is
+// the point in time; stored counts only if it is valid, active and valid at at (SPEC-v0
+// section 4, step 1). A predecessor that is revoked, expired or not yet valid counts as
+// none, and offered then arrives as if from outside. Such a mandate takes effect only
+// after a human of the household confirmed exactly this version (its digest), and every
+// approver is notified, also for a signed successor that passed CheckSuccessor (SPEC-v0
+// sections 3.5 and 11.6). Switching audit mode off needs no confirmation.
+func EntersAuditMode(stored *Mandate, status MandateStatus, at time.Time, offered *Mandate) bool {
+	if offered == nil || offered.Enforce() {
+		return false
+	}
+	return !stored.inForce(status, at) || stored.Enforce()
+}
+
+// inForce reports whether m is a valid mandate that is active and valid at t.
+func (m *Mandate) inForce(status MandateStatus, t time.Time) bool {
+	return m != nil && m.valid && status == StatusActive && !t.Before(m.validFrom) &&
+		(!m.hasExpires || t.Before(m.expires))
 }

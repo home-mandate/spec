@@ -342,14 +342,18 @@ like the arrival of mandates from outside. A revocation is local as well: a sign
 stays verifiable until it expires, so a revoked mandate MUST NOT be accepted again by way
 of its signature.
 
-**Audit mode.** A replacement that switches audit mode on (the offered mandate has
-`enforce: false`, the stored one has not, Section 4.6) MUST NOT take effect until a human
-of the household has confirmed it explicitly, and every approver of the mandate MUST be
-notified when it takes effect. This holds for a signed successor as well: succession and
-the signature make it acceptable, not adopted; until the confirmation, the stored mandate
-stays in force. A mandate in audit mode that arrives from outside without a stored
-predecessor needs the same confirmation. A replacement that switches audit mode off needs
-none.
+**Audit mode.** A mandate that switches audit mode on MUST NOT take effect until a human
+of the household has confirmed it explicitly (Section 11.6 item 4). It switches audit
+mode on if it has `enforce: false` (Section 4.6) and no mandate with the same `id` in
+audit mode is in force: the stored mandate enforces, or it is not in force because it is
+revoked, expired, not yet valid or invalid, or there is none. A mandate that arrives
+without a predecessor in force, a restore from a backup included, therefore counts as
+arriving from outside. The confirmation is bound to the digest (Section 3.2) of exactly
+the version that is adopted; any other version needs its own. This holds for a signed
+successor as well: succession and the signature make it acceptable, not adopted, and
+until the confirmation the stored mandate stays as it is. Every approver of the mandate
+MUST be notified when such a mandate is proposed and when it takes effect. A replacement
+that switches audit mode off needs no confirmation.
 
 An issuer can end the sequence of an `id` by issuing the highest possible version; the
 mandate then needs a new `id`. A mandate that leaves the implementation that
@@ -976,12 +980,15 @@ For `decision`, the following additionally applies:
   only as `false`, and only with `evaluation.decision: deny` and `reason` `no_match` or
   `rule`. An `allow` or an `ask` is never marked: an allow is executed anyway, and an
   `ask` is asked in audit mode as well;
-- with `evaluation.enforced: false`, `request.resource` names the `category`, and the
-  action is not critical: the resource is not marked `critical` unless the action is
-  `read`, and the action is in the vocabulary of the category and not critical there
-  (Section 5). The schema cannot see the vocabulary; a verifier MUST check it for the
+- with `evaluation.enforced: false`, `request.resource` names the `category` and
+  `critical` (`true` or `false`, so that the marking cannot be left out), and the action
+  is not critical: the resource is not marked `critical` unless the action is `read`,
+  and the action is in the vocabulary of the category and not critical there (Section 5). The schema cannot see the vocabulary; a verifier MUST check it for the
   categories of Section 5 and for every extension whose vocabulary it knows, and an entry
-  that violates it is invalid;
+  that violates it is invalid. A verifier without the vocabulary of an extension cannot
+  tell which actions of that extension are critical, and cannot reject such an entry; a
+  relying party that needs the check gives the verifier the vocabularies of the
+  extensions the implementation uses;
 - a confirmed `ask` that is not executed because the evaluation before the execution gave
   a `deny`, enforced or not (Section 11.1 item 6), is recorded with the `evaluation` that
   was confirmed (`ask`, without `enforced`), `approval.outcome: approved` and `result`
@@ -1418,8 +1425,8 @@ An implementation that offers audit mode (Section 4.6):
 1. **Executes** a request whose result is not enforced (`enforced: false`) as it executes
    an `allow`, with every obligation that applies to an `allow`, and records a `decision`
    entry whose `evaluation` is the result as returned, including `enforced: false`, with
-   `result.status` `executed` or `failed` (Section 9.1). It never records such a request as denied by the mandate, and it never
-   executes a `deny` that is enforced.
+   `result.status` `executed` or `failed` (Section 9.1). It never records such a request
+   as denied by the mandate, and it never executes a `deny` that is enforced.
 2. **Tells the agent nothing.** The agent receives the same response as for an `allow` of
    the same request: no hint of the audit mode, of the denial or of the rule. An agent
    that learned which of its requests the mandate will deny could use the trial to act
@@ -1436,12 +1443,15 @@ An implementation that offers audit mode (Section 4.6):
    directory marks as critical can be read under it: `read` is never critical, so audit
    mode does not protect what such a resource shows (Section 13).
 4. **Lets audit mode be switched on only by a human.** A mandate that switches audit mode
-   on, or arrives in audit mode, MUST NOT take effect before a human of the household has
-   confirmed it explicitly, in the user interface of the implementation and on a path the
-   agent does not control (Section 11.1 item 4); a signed successor is not adopted
-   automatically (Section 3.5). When audit mode takes effect, the implementation MUST
-   notify every approver of the mandate. Switching audit mode off takes effect without a
-   confirmation.
+   on (Section 3.5: no mandate with its `id` in audit mode is in force, which includes a
+   mandate arriving from outside or restored from a backup) MUST NOT take effect before a
+   human of the household has confirmed it explicitly, in the user interface of the
+   implementation and on a path the agent does not control (Section 11.1 item 4). The
+   confirmation names the digest of exactly the version that is adopted and counts for no
+   other; a signed successor is not adopted automatically. The implementation MUST notify
+   every approver of the mandate when such a mandate is proposed, while it waits for the
+   confirmation, and again when audit mode takes effect. Switching audit mode off takes
+   effect without a confirmation.
 
 An implementation is not required to offer audit mode. One that does not MUST refuse to
 store a mandate with `enforce: false` instead of storing it and enforcing it, so that the
@@ -1633,26 +1643,32 @@ Audit mode (Sections 2, 3, 3.1, 3.2, 3.5, 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 9.2, 9.4,
 - With `evaluation.enforced: false`, an entry names `request` with the `category` of the
   resource; it is invalid for a resource marked `critical` (except for `read`), and a
   verifier MUST reject it for an action that is critical in the vocabulary or not in it
-  (Sections 9.1, 9.4). The reference verifier (`audit`) checks this against vocabulary
-  v0.
+  (Sections 9.1, 9.4); `request.resource.critical` is then required, `true` or `false`, so
+  that the marking cannot be left out. The reference verifier (`audit`) checks this
+  against vocabulary v0 and against extension vocabularies it is given
+  (`audit.Options.Vocabularies`, `audit.VerifyWith`, `audit.VerifyJSONLinesWith`); without
+  the vocabulary of an extension, a verifier cannot check its critical actions.
 - Obligations of the PEP (Section 11.6): the agent is told nothing about audit mode, nor
   which resources of a request for several were not enforced (Section 4.4);
   implementations MUST show audit mode wherever they show mandates and SHOULD warn when a
   resource marked critical can be read under it; switching it is a `mandate.updated`. An
   implementation that does not offer audit mode MUST refuse to store a mandate with
   `enforce: false`.
-- Switching audit mode on (a replacement with `enforce: false` where the stored mandate
-  enforces, or a mandate that arrives in audit mode) MUST be confirmed explicitly by a
-  human of the household before it takes effect, also for a signed successor, and every
-  approver MUST be notified (Sections 3.5, 4.6, 11.6). Switching it off needs no
-  confirmation.
+- Switching audit mode on (a mandate with `enforce: false` while no mandate with its `id`
+  in audit mode is valid, active and in force, which includes a predecessor that is
+  revoked, expired or not yet valid, a mandate from outside and a restore from a backup)
+  MUST be confirmed explicitly by a human of the household before it takes effect, also
+  for a signed successor. The confirmation is bound to the digest of the version that is
+  adopted. Every approver MUST be notified when the switch is proposed and when it takes
+  effect (Sections 3.5, 4.6, 11.6). Switching it off needs no confirmation.
 - A confirmed `ask` is not executed if the evaluation before the execution yields any
   `deny`, enforced or not; it is recorded with the confirmed `ask`, `approved` and
   `denied_by: mandate` (Sections 9.1, 11.1 item 6).
 - Conformance cases `c174`–`c192` (new mandate `conformance/mandates/audit-mode.json`),
-  `i144`–`i148`, `d43`–`d44`, `a111`–`a124`.
+  `i144`–`i148`, `d43`–`d44`, `a111`–`a125`.
 - Reference evaluator (Go): `Result.NotEnforced`, `Mandate.Enforce` and
-  `EntersAuditMode` (whether adopting a mandate switches audit mode on).
+  `EntersAuditMode` (whether adopting a mandate switches audit mode on, compared with the
+  stored mandate only if it is valid, active and in force).
 
 Permitted values and string parameters (Sections 3, 3.1, 3.2, 4, 4.5, 5, 6, 8, 9.1, 10, 12):
 - A parameter is an integer or a string. The vocabulary declares the type of every

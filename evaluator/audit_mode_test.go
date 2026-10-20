@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/home-mandate/spec/evaluator"
 )
@@ -110,20 +111,43 @@ func TestParseRejectsDuplicateEnforce(t *testing.T) {
 
 func TestEntersAuditMode(t *testing.T) {
 	enforcing, trying := mandateWithRules(t, baseRules), auditMode(t, baseRules)
+	before := noon.AddDate(-1, 0, 0) // before valid_from of every test mandate
+	active, revoked := evaluator.StatusActive, evaluator.StatusRevoked
 	for _, tt := range []struct {
-		name           string
-		previous, next *evaluator.Mandate
-		want           bool
+		name    string
+		stored  *evaluator.Mandate
+		status  evaluator.MandateStatus
+		at      time.Time
+		offered *evaluator.Mandate
+		want    bool
 	}{
-		{"switched on", enforcing, trying, true},
-		{"new mandate in audit mode", nil, trying, true},
-		{"stays in audit mode", trying, trying, false},
-		{"switched off", trying, enforcing, false},
-		{"enforces", enforcing, enforcing, false},
-		{"nothing offered", enforcing, nil, false},
+		{"switched on", enforcing, active, noon, trying, true},
+		{"arrives without a predecessor", nil, active, noon, trying, true},
+		{"stays in audit mode", trying, active, noon, trying, false},
+		{"switched off", trying, active, noon, enforcing, false},
+		{"enforces", enforcing, active, noon, enforcing, false},
+		{"nothing offered", enforcing, active, noon, nil, false},
+		{"predecessor in audit mode was revoked", trying, revoked, noon, trying, true},
+		{"predecessor in audit mode is not yet valid", trying, active, before, trying, true},
+		{"predecessor with an unknown status", trying, "", noon, trying, true},
 	} {
-		if got := evaluator.EntersAuditMode(tt.previous, tt.next); got != tt.want {
+		if got := evaluator.EntersAuditMode(tt.stored, tt.status, tt.at, tt.offered); got != tt.want {
 			t.Errorf("%s: EntersAuditMode = %t, want %t", tt.name, got, tt.want)
 		}
+	}
+}
+
+func TestEntersAuditModeAfterTheTrialExpired(t *testing.T) {
+	data := strings.Replace(string(mandateReplacing(baseRules, baseRules)), `"default":"deny"`,
+		`"enforce":false,"expires":"2026-06-01T00:00:00+02:00","default":"deny"`, 1)
+	expired, err := evaluator.Parse([]byte(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !evaluator.EntersAuditMode(expired, evaluator.StatusActive, noon, auditMode(t, baseRules)) {
+		t.Error("an expired predecessor in audit mode lets a new mandate in audit mode take effect without a confirmation")
+	}
+	if evaluator.EntersAuditMode(expired, evaluator.StatusActive, noon.AddDate(0, -6, 0), auditMode(t, baseRules)) {
+		t.Error("a predecessor in audit mode that is still in force requires a confirmation")
 	}
 }

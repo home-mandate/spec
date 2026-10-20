@@ -295,7 +295,7 @@
     { "if": { "required": ["evaluation"], "properties": { "evaluation": { "required": ["enforced"] } } },
       "then": { "required": ["event", "result", "mandate", "request"],
                 "properties": { "event": { "const": "decision" }, "result": { "required": ["status"], "properties": { "status": { "enum": ["executed", "failed"] } } },
-                                "request": { "properties": { "resource": { "required": ["category"] } } } },
+                                "request": { "properties": { "resource": { "required": ["category", "critical"] } } } },
                 "not": { "properties": { "request": { "required": ["resource", "action"],
                                                       "properties": { "resource": { "required": ["critical"], "properties": { "critical": { "const": true } } },
                                                                       "action": { "not": { "const": "read" } } } } } } } },
