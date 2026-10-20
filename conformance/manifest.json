@@ -8,8 +8,8 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "84b87b105913a4a5d8fd98388d05dc60cef2e98e0a5e4b36cd1f6d874376675f",
-      "cases": 167
+      "sha256": "c4b1935d23c58f5b9288c7c862c17ae47becb0ba43e53a4517d38cc7f15e5463",
+      "cases": 173
     },
     {
       "path": "conformance/digest-v0.json",
@@ -138,7 +138,7 @@
     },
     {
       "path": "schema/vocabulary-v0.schema.json",
-      "sha256": "6b2ef04c5f733e164072a01709ae1678c1cd69690c7b05d91f95ca490c1a26de"
+      "sha256": "d9474860a0d2559928496fe73e42d27786c9795546a2c86413ffadbc83f17791"
     },
     {
       "path": "vocabulary/v0.json",

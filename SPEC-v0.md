@@ -357,8 +357,9 @@ contain has no category; the result is `deny` with `unknown_resource`.
      `area`, the resource has more than 16 areas or the same area twice,
      a parameter is neither an integer of magnitude at most 2^53 − 1 nor a string of 1 to
      64 printable ASCII characters without space, a parameter that the action declares in
-     the vocabulary of the resource's category has another type or, for a string with
-     permitted values, another value (Section 4.5), the point in time or the time zone is
+     the vocabulary of the resource's category has another type, lies outside the range
+     of an integer parameter or, for a string with permitted values, is another value
+     (Section 4.5), the point in time or the time zone is
      invalid or unknown, or the status is neither `active` nor `revoked`;
    - the category is missing: the resource is not in the directory of the PEP;
    - the category is neither listed in Section 5 nor an extension whose vocabulary
@@ -500,7 +501,9 @@ names these **parameters** per action, each with its type (Section 5). A paramet
 
 - an **integer** in the unit the vocabulary gives it. The units are chosen fine enough
   that no fraction is needed (`temperature` is in hundredths of a degree Celsius, 21.5 °C
-  is `2150`); there are no fractions anywhere, and the magnitude is at most 2^53 − 1;
+  is `2150`); there are no fractions anywhere, and the magnitude is at most 2^53 − 1. The
+  vocabulary can give an integer parameter a **range** (`brightness` 0 to 100, both
+  inclusive); no value outside it is valid then. `temperature` has no range;
 - or a **string** of 1 to 64 printable ASCII characters without space (U+0021 to U+007E),
   the rules of an area (Section 3.4). Strings are compared exactly per character,
   case-sensitive and without normalization: `heat` and `Heat` are different values. The
@@ -512,8 +515,9 @@ type and unit of its parameter in the vocabulary. It MUST execute exactly the va
 it sends to the platform MUST NOT set a constrained quantity to another value, by rounding
 or through a second, platform-specific parameter for the same quantity. A value that
 cannot be expressed as an integer in the unit, or as one of the permitted values of a
-string parameter, makes the request invalid: the PEP refuses the request, and never
-leaves the parameter out or evaluates without it. The type is part of the value: a
+string parameter, or that lies outside the range of an integer parameter, makes the
+request invalid: the PEP refuses the request, and never leaves the parameter out or
+evaluates without it. The type is part of the value: a
 request whose parameter has another type than the vocabulary declares for the action
 (the integer `4` for `mode`, the string `"50"` for `brightness`) is invalid as well
 (Section 4, step 0). A parameter that the action does not declare is checked only for
@@ -549,9 +553,10 @@ influence the evaluation.
 
 The second rule lets the agent switch the heating to `heat` or `auto`, but never `off`.
 
-The range that the vocabulary gives an integer parameter (`brightness` 0 to 100) does
-not restrict constraints: a `one_of` value outside it is valid, as `min` and `max`
-outside it are, and matches only a request that carries exactly that value.
+A constraint may name values outside the range that the vocabulary gives an integer
+parameter: a `one_of` value, a `min` or a `max` beyond it is valid in a mandate. Such a
+value never matches, because a request with it is invalid; `{"min": 0, "max": 500}` on
+`brightness` permits the same requests as no limits at all.
 
 Constraints narrow an `allow`. Whoever wants a confirmation for values outside the limits
 adds an `ask` rule for the same action without constraints; `ask` then wins inside the
@@ -1472,7 +1477,11 @@ Permitted values and string parameters (Sections 3, 3.1, 3.2, 4, 4.5, 5, 6, 8, 9
   `v0.1.0`. `other.set` stays critical and without parameters.
 - A request is invalid (`invalid_request`) if a parameter is neither an integer nor such a
   string, if a parameter the action declares has another type (`"50"` for `brightness`,
-  `4` for `mode`), or if a string is not among the permitted values. Before, `set_mode`
+  `4` for `mode`), if a string is not among the permitted values, or if an integer lies
+  outside the range of the vocabulary (`brightness`, `position` and `volume` 0 to 100;
+  `temperature` and `temperature_f` have none). Before, the range was informative, and
+  `brightness: 101` was evaluated like any other value. Constraints beyond the range stay
+  valid but never match. Before, `set_mode`
   had no parameters, and a PEP could pass any value without effect.
 - In the test interface (Section 10), in AuthZEN (`action.properties`) and in the audit
   entry (`request.parameters`), a parameter value is a JSON integer or, new, a JSON
@@ -1484,7 +1493,7 @@ Permitted values and string parameters (Sections 3, 3.1, 3.2, 4, 4.5, 5, 6, 8, 9
 - Numbers are read by their exact value: a fraction is never rounded to an integer, however
   small it is (`50.00000000000000000001`, `1e-400`). The reference code formerly read
   request parameters through floating point and took such values for integers.
-- Conformance cases `c152`–`c167` (new mandate `conformance/mandates/one-of.json`),
+- Conformance cases `c152`–`c173` (new mandate `conformance/mandates/one-of.json`),
   `i129`–`i143`, `d41`–`d42`, `a109`–`a110`.
 - Profiles: Home Assistant and Matter map their climate modes to the values of `mode`;
   Home Assistant `heat_cool` and `auto` both map to `auto` (Section 12.4).

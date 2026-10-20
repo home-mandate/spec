@@ -84,9 +84,11 @@
                             "maxLength": 64
                           },
                           "minimum": {
+                            "description": "Smallest valid value, inclusive. A request with a smaller value is invalid (SPEC-v0 section 4, step 0).",
                             "type": "integer"
                           },
                           "maximum": {
+                            "description": "Largest valid value, inclusive. A request with a larger value is invalid (SPEC-v0 section 4, step 0).",
                             "type": "integer"
                           },
                           "description": {

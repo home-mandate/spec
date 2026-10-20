@@ -231,3 +231,26 @@ func TestUndeclaredParametersDoNotInfluenceTheEvaluation(t *testing.T) {
 		})
 	}
 }
+
+// A mandate may name a value outside the vocabulary's range, but it never matches: a
+// request with that value is invalid (SPEC-v0 section 4.5).
+func TestConstraintsBeyondTheVocabularyRangeNeverMatch(t *testing.T) {
+	m := mandateWithRules(t, `[
+		{"id":"r-list","resource":{"entity_id":"dimmer-1"},"actions":["set"],"decision":"allow",
+		 "constraints":{"brightness":{"one_of":[100,101]}}},
+		{"id":"r-range","resource":{"entity_id":"dimmer-2"},"actions":["set"],"decision":"allow",
+		 "constraints":{"brightness":{"min":-50,"max":500}}}]`)
+	for entity, cases := range map[string]map[int64]evaluator.Reason{
+		"dimmer-1": {100: evaluator.ReasonRule, 101: evaluator.ReasonInvalidRequest},
+		"dimmer-2": {0: evaluator.ReasonRule, -1: evaluator.ReasonInvalidRequest, 101: evaluator.ReasonInvalidRequest},
+	} {
+		for value, want := range cases {
+			r := request("light", "", "set")
+			r.Resource.EntityID = entity
+			r.Parameters = map[string]evaluator.Value{"brightness": evaluator.IntegerValue(value)}
+			if got := evaluator.Evaluate(m, r); got.Reason != want {
+				t.Errorf("%s brightness %d: got (%s, %s), want %s", entity, value, got.Decision, got.Reason, want)
+			}
+		}
+	}
+}

@@ -17,15 +17,33 @@ type actionInfo struct {
 }
 
 // parameterInfo is what the vocabulary says about one parameter (SPEC-v0 sections 4.5
-// and 5): its type and, for a string, the permitted values (nil: any string).
+// and 5): its type, for an integer the inclusive range (nil: not bounded), and for a
+// string the permitted values (nil: any string).
 type parameterInfo struct {
-	Type   string   `json:"type"`
-	Values []string `json:"values"`
+	Type    string   `json:"type"`
+	Minimum *int64   `json:"minimum"`
+	Maximum *int64   `json:"maximum"`
+	Values  []string `json:"values"`
 }
 
-// admits reports whether v has the type of the parameter and, for a string with
-// permitted values, is one of them. Strings are compared exactly.
+// admits reports whether a request may carry v for the parameter (SPEC-v0 section 4,
+// step 0): v fits the declaration and, for an integer with a range, lies within it.
 func (p parameterInfo) admits(v Value) bool {
+	if !p.declares(v) {
+		return false
+	}
+	n, isInteger := v.AsInteger()
+	if !isInteger {
+		return true
+	}
+	return (p.Minimum == nil || n >= *p.Minimum) && (p.Maximum == nil || n <= *p.Maximum)
+}
+
+// declares reports whether v has the type of the parameter and, for a string with
+// permitted values, is one of them; strings are compared exactly. The range of an
+// integer is not part of it: a mandate may name a value outside the range, which no
+// valid request carries (SPEC-v0 section 4.5).
+func (p parameterInfo) declares(v Value) bool {
 	switch p.Type {
 	case typeInteger:
 		_, ok := v.AsInteger()
@@ -101,7 +119,7 @@ func parameterFits(category, action string, c constraint) bool {
 }
 
 // parametersAdmitted reports whether every parameter of the request that the action
-// declares has its type and, for a string, one of its permitted values (SPEC-v0 section 4,
+// declares has its type and lies within its range or is one of its permitted values (SPEC-v0 section 4,
 // step 0). Parameters the action does not declare, and every parameter of a category or
 // action outside the vocabulary, are not checked here.
 func parametersAdmitted(category, action string, parameters map[string]Value) bool {

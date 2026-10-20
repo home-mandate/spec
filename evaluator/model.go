@@ -134,7 +134,7 @@ func (c constraint) fits(p parameterInfo) bool {
 		return p.Type == typeInteger
 	}
 	for _, v := range c.oneOf {
-		if !p.admits(v) {
+		if !p.declares(v) {
 			return false
 		}
 	}
