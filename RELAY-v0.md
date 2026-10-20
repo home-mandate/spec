@@ -140,14 +140,14 @@ specification is released, the schema can still change under the same `type`.
 | `enrollment` | HTTPS URL of the enrollment directory (Section 5.1); its host MUST be the operator domain or a subdomain of it |
 | `relay` | `host` and `port` of the relay |
 | `relay_pins` | SHA-256 digests (base64url) of the SubjectPublicKeyInfo the gateway pins for the relay; at least two (Section 6) |
-| `max_offline_days` | how long after the expiry of its last tunnel certificate a gateway can still obtain a new one with its installation key; 7 to 90, RECOMMENDED 30 (Section 5.4) |
+| `max_offline_days` | how long an installation can be without a valid tunnel certificate before only a new pairing helps; 7 to 90, RECOMMENDED 30 (Section 5.5) |
 | `protection_levels` | MUST list `standard` and `own-domain` (Section 7) |
 | `portal` | HTTPS URL of the portal, shown to the household |
 | `privacy_policy` | HTTPS URL of the operator's privacy policy, shown to the household |
 
 Before it completes a pairing, the gateway MUST show the household the operator domain, the
 protection levels and `max_offline_days`. A change of the document applies to an existing
-pairing from its next renewal on (Section 5.4); the gateway MUST tell the household when
+pairing from its next renewal on (Section 5.5); the gateway MUST tell the household when
 `max_offline_days` or `protection_levels` changed. Changes of `relay_pins` follow Section 6.
 
 ## 4. Tunnel protocol
@@ -156,7 +156,7 @@ pairing from its next renewal on (Section 5.4); the gateway MUST tell the househ
 (`docs/tunnel-protocol-v1.md` in `github.com/home-mandate/relay`): one control connection and
 one mutually authenticated connection per agent connection. This section will take it over with
 the name domain and the trust domain as parameters of the operator (Section 3) and the tunnel
-certificate of Section 5.3; the CA that issues tunnel certificates belongs to the operator and
+certificate of Section 5.4; the CA that issues tunnel certificates belongs to the operator and
 is not published. Until this section is specified, no interoperability between independent
 gateways and operators is claimed.
 
@@ -169,65 +169,76 @@ Section 1.2 shows the flow.
 
 ### 5.1 Directory, nonces and requests
 
-**Directory.** The URL `enrollment` of the metadata (Section 3) returns, on `GET`, a JSON object
-with the URLs `new_nonce`, `pair` and `key_change` (`$defs/directory`). Every URL in the
-directory and in responses MUST be an HTTPS URL on the host of `enrollment`; a gateway MUST NOT
-send a request to any other host.
+**Directory.** `GET` on the URL `enrollment` of the metadata (Section 3) returns `200` with a
+JSON object holding the URLs `new_nonce`, `pair` and `key_change` (`$defs/directory`). Every URL
+to which the gateway sends requests (those of the directory, the installation URL and the URLs
+in the installation) MUST be an HTTPS URL on the host of `enrollment`; a gateway MUST NOT send a
+request to any other host.
 
 **Nonces.** Every response of the enrollment endpoint, including errors, carries a fresh nonce
-in the header `Replay-Nonce`: base64url without padding, at least 128 random bits. `HEAD` or
-`GET` on `new_nonce` returns one without a body. The operator accepts every nonce once, MAY let
-unused nonces expire, and answers an unknown, used or expired nonce with the error `bad-nonce`
-and a fresh nonce; the gateway then repeats the request once with it.
+in the header `Replay-Nonce`: base64url without padding, at least 128 random bits. `HEAD` on
+`new_nonce` returns `200`, `GET` returns `204`, both without a body. The operator accepts every
+nonce once, MAY let unused nonces expire, and answers an unknown, used or expired nonce with the
+error `bad-nonce` and a fresh nonce; the gateway then repeats the request once with it, and
+after a second `bad-nonce` retries later with backoff.
 
 **Requests.** Every request except to the directory and to `new_nonce` is a `POST` with the
 content type `application/jose` whose body is a JWS (RFC 7515) in compact serialization:
 
 - The protected header (`$defs/protected_header`) has exactly `alg`, `nonce`, `url` and one of
-  `jwk` and `kid`. `alg` is `EdDSA` (Ed25519, RFC 8037) or `ES256`; an operator MUST accept
-  both. `url` MUST equal the URL the request was sent to, byte for byte. `jwk` is the public
-  installation key and appears only in a pairing request (Section 5.2); every other request
-  carries `kid`, the installation URL (Section 5.3). Any other header member, and a `jwk` with
-  a private part, make the request invalid.
+  `jwk` and `kid`. `alg` is `EdDSA` (Ed25519, RFC 8037) or `ES256`, matching the key; an
+  operator MUST accept both. `url` MUST equal the URL the request was sent to, byte for byte.
+  `jwk` is the public installation key and appears only in a pairing request (Section 5.2);
+  every other request carries `kid`, the installation URL (Section 5.3). Any other header
+  member, and a `jwk` with a private part, make the request invalid.
 - The spelling rules of SPEC-v0 Section 7.1 apply: base64url without padding, case-sensitive
   member names, and for ES256 only the lower `s`.
 - The payload is a JSON object of the type the URL expects, or empty for a read ("POST-as-GET",
-  RFC 8555 Section 6.3). Objects are closed: an operator MUST reject a request with a member the
-  schema does not list.
+  RFC 8555 Section 6.3). Request objects are closed: an operator MUST reject a request with a
+  member the schema does not list.
 
-The operator checks, in this order: header and signature, nonce, `url`, then the installation
-named by `kid` and its state (Section 5.7), then the payload. A request that fails a check has
-no effect.
+The operator processes a request in this order; a request that fails a step has no effect:
 
-**Responses and errors.** Successful responses are JSON (`application/json`). Errors are Problem
-Details (RFC 9457, `application/problem+json`) whose `type` is
-`https://home-mandate.org/relay/errors/` followed by one of the names in the table. A response
-that is not one of these is treated by the gateway as `server-internal`. In responses, a
-gateway MUST ignore members it does not know.
+1. the header against `$defs/protected_header` (`malformed`);
+2. with `kid`: the installation it names (none: `bad-signature`; unpaired or replaced:
+   `unpaired`); with `jwk`: the URL MUST be `pair`;
+3. the signature with that key (`bad-signature`), then the nonce (`bad-nonce`) and `url`
+   (`malformed`);
+4. the state of the installation (Sections 5.5 and 5.7);
+5. the payload (`malformed`, or the error of the operation).
 
-| Error | Status | Meaning |
-|---|---|---|
-| `malformed` | 400 | the request does not match this section or the schema |
-| `bad-nonce` | 400 | nonce unknown, used or expired; repeat with the fresh nonce |
-| `bad-signature` | 401 | the JWS does not verify, or `kid` names no installation |
-| `pairing-refused` | 403 | the pairing code is wrong, expired, used or not for this operator; the operator does not say which |
-| `bad-csr` | 400 | the certificate request breaks Section 5.4 |
-| `offline-too-long` | 403 | re-issuance is no longer allowed (Section 5.5); only a new pairing helps |
-| `blocked` | 403 | the operator blocked the installation (Section 5.7) |
-| `unpaired` | 410 | the installation was unpaired (Section 5.7) |
-| `rate-limited` | 429 | too many requests; the response carries `Retry-After` |
-| `server-internal` | 500 | anything else |
+**Responses and errors.** Successful responses are JSON (`application/json`) with the status
+the operation names. Errors are Problem Details (RFC 9457, `application/problem+json`) whose
+`type` is `https://home-mandate.org/relay/errors/` followed by one of the names in the table. A
+gateway treats any other error response as `server-internal`, and ignores members it does not
+know in every response.
+
+| Error | Status | Meaning | Gateway |
+|---|---|---|---|
+| `malformed` | 400 | the request does not match this section or the schema | reports a defect, does not repeat the request |
+| `bad-nonce` | 400 | nonce unknown, used or expired | repeats once with the fresh nonce |
+| `bad-signature` | 401 | a signature does not verify, or `kid` names no installation | stops using the operator and tells the household |
+| `pairing-refused` | 403 | the pairing code is wrong, expired, used, not yet usable or not for this operator; the operator does not say which | asks for a new code |
+| `confirmation-required` | 403 | the change needs the household's confirmation in the portal (Section 5.6) | tells the household and repeats after confirmation |
+| `offline-too-long` | 403 | the installation was without a valid tunnel certificate longer than `max_offline_days` (Section 5.5) | ends the pairing locally (Section 5.7) |
+| `blocked` | 403 | the operator blocked the installation (Section 5.7) | Section 5.7 |
+| `bad-csr` | 400 | the certificate request breaks Section 5.4 | creates a new tunnel key and request |
+| `key-conflict` | 409 | the new key of a key change is already in use (Section 5.5) | creates a new key |
+| `unpaired` | 410 | the installation was unpaired or replaced (Sections 5.2, 5.7) | ends the pairing locally (Section 5.7) |
+| `rate-limited` | 429 | too many requests; the response carries `Retry-After` | waits at least that long |
+| `server-internal` | 500 | anything else | retries with exponential backoff |
 
 ### 5.2 Pairing
 
 **Pairing code and pairing string.** The portal creates a pairing code for the account of the
 household: 16 characters from `A–Z 2–7` (80 random bits), shown in four groups of four separated
-by `-`. It is single-use, valid for at most 10 minutes and bound to that account. The operator
-MUST limit failed attempts per source address and per account, and answer a wrong, expired, used
-and foreign code alike (`pairing-refused`), in the same time. The portal shows the **pairing
-string** `<operator-domain>/<code>`, as text and as a QR code, for example
-`relay-operator.example/ABCD-EFGH-IJKL-MNOP` (`$defs/pairing_string`). A gateway accepts the
-code in either case and with or without the hyphens, and sends it in upper case without them.
+by `-`. It is single-use, valid for at most 10 minutes from the moment it can be used, and bound
+to that account. The operator MUST limit failed attempts per source address and in total, and
+answer every code that cannot be redeemed alike (`pairing-refused`), in the same time. The
+portal shows the **pairing string** `<operator-domain>/<code>`, with the operator domain in lower
+case, as text and as a QR code, for example `relay-operator.example/ABCD-EFGH-IJKL-MNOP`
+(`$defs/pairing_string`). A gateway accepts the code in either case and with or without the
+hyphens, and sends it in upper case without them.
 
 **At the gateway.** Only a local administrator of the gateway can start a pairing, and only
 while the gateway is not paired with any operator. The gateway
@@ -244,8 +255,8 @@ while the gateway is not paired with any operator. The gateway
    signed payload, it is bound to this installation key; a pairing code that has been used
    cannot be used again with any key.
 
-**At the operator.** The operator checks the request (Section 5.1), redeems the code, checks the
-certificate request, and creates the installation:
+**At the operator.** The operator processes the request (Section 5.1), redeems the code, checks
+the certificate request, and creates the installation:
 
 - a new **home ID** (Section 2) that it has never assigned before and MUST NOT assign again,
   also not after unpairing;
@@ -257,7 +268,8 @@ It answers `201 Created` with the installation URL in `Location` and a body
 (`$defs/pair_response`) with the installation (Section 5.3) and the tunnel certificate. The
 gateway MUST check that the public name is the home ID followed by `.` and the `name_domain`
 of the metadata, and that the certificate matches Section 5.4 and its own tunnel key. The
-operator MUST notify the household of every new installation and show it in the portal.
+operator MUST notify the household of every new installation and show it in the portal. Right
+after pairing, the gateway creates its ACME account and reports it (Section 5.6).
 
 **Pairing again.** A gateway is paired with at most one operator at a time; to change the
 operator it is unpaired first (Section 5.7). A new pairing gives a new home ID, a new public
@@ -265,41 +277,46 @@ name and therefore a new OAuth issuer; agents must be connected again.
 
 An operator MAY offer, in its portal, a pairing code **for an existing installation**, for a
 gateway that lost its keys (reinstallation, restored backup, `offline-too-long`). Pairing with
-such a code keeps the home ID and the public name and replaces the installation key; the
-operator then MUST block the old installation key, deny all tunnel certificates issued under it
-and close their connections. Because whoever controls the household's account can thereby move
-the public name to another gateway, the operator MUST require a fresh authentication of the
-person for such a code, MUST notify the household on all its channels, and SHOULD delay the
-replacement by an announced waiting time that the household can cancel. The new gateway's
-first server certificate for the name appears in Certificate Transparency, and the old gateway,
-if it still runs, raises its alarm (Section 6).
+such a code keeps the home ID and the public name and **replaces** the installation: the old
+installation key and every key of its tunnel certificates stop working (`unpaired`), the
+operator denies their tunnel certificates and closes their connections, and the reported ACME
+account is cleared, so that the new gateway reports its own (Section 5.6). Because whoever
+controls the household's account can thereby move the public name to another gateway, the
+operator MUST
+
+- require a fresh authentication of the person before it creates such a code;
+- notify the household on all its channels when the code is created;
+- make the code usable only after a waiting time of at least 24 hours, during which the
+  household can cancel it in the portal and through the notification.
 
 ### 5.3 Installation
 
-The installation URL returns, on POST-as-GET, the installation (`$defs/installation`):
+A POST-as-GET on the installation URL returns `200` with the installation
+(`$defs/installation`):
 
 | Member | Meaning |
 |---|---|
-| `status` | `active`, `paused` (the household paused remote access; the relay passes no agent connections, renewals continue), `blocked` (Section 5.7) |
+| `status` | `active`; `paused` (the household paused remote access in the portal; the relay passes no agent connections, all requests work); `blocked` (Section 5.7); `unpaired` (only in the answer to unpairing, Section 5.7) |
 | `home_id`, `public_name` | as assigned at pairing |
 | `max_offline_days` | the value in force for this installation (Section 5.5) |
 | `certificate` | URL for tunnel certificates (Section 5.4) |
-| `acme_challenge` | URL for the ACME challenge record (Section 5.6) |
-| `acme_account` | the ACME account URI the gateway reported (Section 5.6), if any |
+| `acme_challenge` | URL for the ACME challenge records (Section 5.6) |
+| `acme_account`, `caa_identity` | the ACME account the gateway reported (Section 5.6), if any |
 
-A gateway SHOULD read its installation at least with every renewal and show the status to the
-household.
+A gateway SHOULD read its installation with every renewal, and at most once an hour otherwise,
+and show the status to the household.
 
-A `POST` to the installation URL with a payload (`$defs/installation_update`) changes it:
-`{"acme_account": "<URI>"}` reports the gateway's ACME account (Section 5.6), and
-`{"status": "unpaired"}` unpairs the installation (Section 5.7). The operator answers with the
-installation.
+A `POST` to the installation URL with a payload (`$defs/installation_update`) changes it and is
+answered with `200` and the installation: `{"acme_account": …, "caa_identity": …}` reports the
+gateway's ACME account (Section 5.6), and `{"status": "unpaired"}` unpairs the installation
+(Section 5.7).
 
 ### 5.4 Tunnel certificate
 
 A `POST` to `certificate` with a payload `{"csr": …}` (`$defs/certificate_request`) asks for a
-tunnel certificate; the pairing request carries the same member. `csr` is a PKCS #10 request
-(RFC 2986) in DER, base64url without padding. The operator MUST refuse it with `bad-csr` unless
+tunnel certificate and is answered with `200`; the pairing request carries the same member.
+`csr` is a PKCS #10 request (RFC 2986) in DER, base64url without padding. The operator MUST
+refuse it with `bad-csr` unless
 
 - its signature verifies with the public key it contains;
 - the key is ECDSA P-256 or Ed25519 (an operator MUST accept both);
@@ -317,14 +334,16 @@ CA issues a certificate that
 - has a serial number with at least 64 random bits;
 - contains no other information about the household.
 
-The CA that issues tunnel certificates MUST carry a URI name constraint that permits only
-`spiffe://<trust_domain>/`, and MUST NOT issue anything else.
+The CA that issues tunnel certificates MUST carry a name constraint (RFC 5280 Section
+4.2.1.10) that permits only URIs whose host is `trust_domain`, and MUST NOT issue anything but
+tunnel certificates.
 
-The response (`$defs/certificate_response`) holds `chain`, the certificate and its intermediate
-CA certificates, each in DER and base64url without padding, the issued certificate first, and
-`not_after`, its expiry (RFC 3339, UTC, `Z`).
+The response (`$defs/certificate_response`) holds `chain`, the issued certificate followed by the
+certificates of the CA that issued it, each in DER and base64url without padding, and
+`not_after`, the expiry of the issued certificate (RFC 3339, UTC, `Z`). The gateway needs none of
+the CA certificates to trust the relay (Section 6).
 
-### 5.5 Renewal and re-issuance
+### 5.5 Renewal, re-issuance and key change
 
 A gateway SHOULD ask for a new tunnel certificate when two thirds of the validity of the current
 one have passed, always with a new tunnel key, and SHOULD retry with exponential backoff. It
@@ -332,25 +351,28 @@ uses the new certificate for new connections and MUST reconnect with it before t
 expires (tunnel protocol, Section 4).
 
 A request after the current certificate expired is a **re-issuance**. It is authenticated by
-the installation key alone, and the operator MUST grant it only while the time since the expiry
-of the installation's last tunnel certificate is at most `max_offline_days`. The value that
-counts is the one in force at the last successful issuance; a lower value in the metadata applies
-from the next issuance on. While an installation is `blocked`, this time does not run. After
-that time the operator answers `offline-too-long`. A gateway MAY apply a shorter limit of its
-own; when it passes, it deletes its installation key and needs a new pairing.
+the installation key alone. The **offline time** of an installation is the time since the expiry
+of its last tunnel certificate; while it is `blocked`, the time does not run. Once the offline
+time exceeds `max_offline_days`, the operator MUST answer every request of the installation
+except reading it and unpairing it with `offline-too-long`. The value that counts is the one in
+force at the last successful issuance; a changed value in the metadata applies from the next
+issuance on. A gateway MAY apply a shorter limit of its own; when it passes, it ends the pairing
+locally (Section 5.7).
 
 The operator MUST show the household each issuance (time and source address) in the portal,
 SHOULD notify the household of a re-issuance, and SHOULD limit issuances per installation (for
 example to six per day).
 
-**Key change.** A gateway replaces its installation key as in RFC 8555 Section 7.3.5: it sends to
-`key_change` a request signed with the old key (`kid`), whose payload is a JWS in compact
-serialization signed with the new key, with the protected header members `alg`, `jwk` (the new
-key) and `url` (the same URL), no `nonce`, and the payload `{"installation": <installation
-URL>, "old_key": <old public key as JWK>}` (`$defs/key_change`). The operator checks both
-signatures, that `old_key` is the key of the installation and that the new key belongs to no
-other installation, and replaces the key. The new key MUST differ from all keys of the
-installation's tunnel certificates.
+**Key change.** A gateway replaces its installation key as in RFC 8555 Section 7.3.5. It sends to
+`key_change` a request signed with the old key (`kid`) whose payload is `{"jws": …}`
+(`$defs/key_change_request`): a JWS in compact serialization, signed with the new key, whose
+protected header has exactly `alg`, `jwk` (the new key) and `url` (the URL of `key_change`)
+(`$defs/key_change_header`) and whose payload is `{"installation": …, "old_key": …}`
+(`$defs/key_change`). The operator checks the inner signature (`bad-signature`), that `url`
+matches and `installation` is the `kid` of the outer request and `old_key` its key
+(`malformed`), and that the new key is neither the key of another installation nor the key of
+one of this installation's tunnel certificates (`key-conflict`). It then replaces the key,
+answers `200` with the installation, and MUST notify the household.
 
 ### 5.6 ACME support
 
@@ -358,43 +380,56 @@ The gateway obtains its server certificate itself, with ACME (RFC 8555), its own
 the `dns-01` challenge, and renews it using ACME Renewal Information (RFC 9773). The operator
 never sees the server key or the ACME account key.
 
-For a public name in the name domain, the gateway sets the challenge through the operator: a
-`POST` to `acme_challenge` with `{"values": […]}` (`$defs/acme_challenge_request`) makes the
-operator publish exactly these values as TXT records at `_acme-challenge.<public name>`,
-replacing earlier ones; an empty list removes them. A value is the key authorization digest of
-RFC 8555 Section 8.4 (43 characters, base64url); at most two values are allowed. The operator
-answers `200` with the same object once the records are served by all its authoritative name
-servers. It MUST NOT publish TXT records for any other name on behalf of an installation, and
-SHOULD remove records after one hour.
+**Account.** The gateway reports its ACME account (`$defs/installation_update`): `acme_account`,
+the account URI at the CA, and `caa_identity`, the issuer domain name that CA uses in CAA records
+(RFC 8659 Section 4.2). The operator MUST publish for the public name a CAA record that allows
+only this account to obtain certificates (`issue` with the parameters `accounturi` and
+`validationmethods=dns-01`, RFC 8657); Section 6 gives the details. The first report after
+pairing (or after a replacement, Section 5.2) takes effect at once. Every later change MUST be
+confirmed by the household in the portal: until then, the operator answers
+`confirmation-required` and keeps the reported account; after the confirmation the gateway
+repeats the request. The operator MUST notify the household of every change.
 
-After creating or changing its ACME account, the gateway reports the account URI
-(`{"acme_account": …}`, Section 5.3). What the operator does with it, and how names in the
-household's own domain are handled, is part of Section 6.
+**Challenge.** A `POST` to `acme_challenge` with `{"values": […]}`
+(`$defs/acme_challenge_request`) makes the operator publish exactly these values as TXT records
+at `_acme-challenge.<public name>`, replacing earlier ones; an empty list removes them. A value
+is the key authorization digest of RFC 8555 Section 8.4 (43 characters, base64url); at most two
+values are allowed. The operator refuses the request with `malformed` while no ACME account is
+reported. It answers `200` with the same object once the records are served by all its
+authoritative name servers, within 120 seconds, or else `server-internal`; the gateway SHOULD
+check the records itself before it asks the CA to validate. The operator MUST NOT publish TXT
+records for any other name on behalf of an installation, and SHOULD remove records after one
+hour.
 
 ### 5.7 Unpairing, blocking and the gateway's state
 
 **Unpairing** ends an installation for good. It starts in the portal (the household, or the
-deletion of its account) or in the gateway (`{"status": "unpaired"}`, Section 5.3). The
-operator then
+deletion of its account) or in the gateway: a `{"status": "unpaired"}` update (Section 5.3),
+answered with `200` and the installation with the status `unpaired`. The operator then
 
-- refuses every further request of the installation with `unpaired`;
+- answers every further request of the installation with `unpaired`;
 - adds the serial numbers of all unexpired tunnel certificates of the installation to the
   relay's denylist and closes their connections (tunnel protocol, Section 4);
 - removes every DNS record of the public name, including challenge and CAA records;
 - keeps the home ID reserved (Section 5.2).
 
-The gateway, when it unpairs or learns of it (`unpaired` on any request), MUST close the tunnel,
-delete its installation key and tunnel key, revoke its server certificate and deactivate its
-ACME account (RFC 8555 Sections 7.6 and 7.3.6) when the name is in the name domain, and show the
-household that remote access through this operator has ended.
+**Ending the pairing locally.** A gateway that unpairs, or receives `unpaired` or
+`offline-too-long`, or whose own limit passed (Section 5.5), MUST close the tunnel, send the
+unpairing request if the operator has not ended the installation yet, delete its installation
+key and tunnel key, revoke its server certificate and deactivate its ACME account (RFC 8555
+Sections 7.6 and 7.3.6), and show the household that remote access through this operator has
+ended. It is then no longer paired.
 
-**Blocking** is an operator measure against abuse. A blocked installation gets no certificates
-(`blocked`); its tunnel certificates are denied and their connections closed. Lifting a block
-returns the installation to its previous state.
+**Blocking** is an operator measure against abuse. A blocked installation can read its
+installation and unpair; every other request is answered with `blocked`, its tunnel certificates
+are denied and their connections closed. Lifting the block returns the installation to its
+previous state. A gateway that receives `blocked` keeps its keys, closes the tunnel, shows the
+household the state and the portal, and reads its installation at most once an hour to learn
+when the block is lifted.
 
 **Without the operator.** A gateway MUST let its local administrator turn remote access off at
 any time without contacting the operator: it then closes the tunnel and stops renewing; its keys
-are kept until the household unpairs.
+are kept until the household unpairs. The offline time (Section 5.5) runs meanwhile.
 
 **Limits of the operator.** No message of this section carries mandates, approver keys or issuer
 keys, and a gateway MUST NOT accept any from an operator. An operator cannot change what a
@@ -427,21 +462,26 @@ metadata document is `relay/schema/metadata-v0.schema.json`.
 ## 9. Security considerations
 
 The rows below cover pairing and issuance (Section 5); the tunnel (Section 4) and names and
-certificates (Section 6) add theirs when they are specified. Throughout, one fact limits what
-an attacker on the relay side gains: an agent verifies the **server certificate** of the public
-name, and its key exists only in the gateway. Whoever controls a tunnel without that key
-receives agents' connections but cannot complete their TLS handshakes.
+certificates (Section 6) add theirs when they are specified. Throughout, two facts limit what an
+attacker on the relay side gains. An agent verifies the **server certificate** of the public
+name, whose key exists only in the gateway. And a public CA that follows RFC 8657 issues a
+certificate for the name only to the ACME account in its CAA record, which is the gateway's own
+account (Section 5.6). Whoever controls a tunnel without the server key receives agents'
+connections but cannot complete their TLS handshakes. Both facts assume an operator that follows
+this specification; what an operator itself could do is the subject of Section 6.
 
 | Attacker | What the specification does | What remains |
 |---|---|---|
-| **Guesses a pairing code** | 80 random bits, at most 10 minutes, single use, limited attempts per address and account, one answer for all failures (Section 5.2) | – |
-| **Intercepts or is shown a pairing code** before the household uses it | The code is bound to the household's account, not to a gateway; the operator notifies the household of every new installation (Section 5.2) | The attacker's gateway is paired to the household's account until the household notices and unpairs it. It does not receive the household's agents, which are configured with a different public name |
+| **Guesses a pairing code** | 80 random bits, at most 10 minutes, single use, limited attempts per address and in total, one answer for all failures (Section 5.2) | – |
+| **Intercepts or is shown a pairing code** for a new installation before the household uses it | The code is bound to the household's account, not to a gateway; the operator notifies the household of every new installation (Section 5.2) | The attacker's gateway is paired to the household's account until the household notices and unpairs it. It gets a new public name and does not receive the household's agents |
+| **Intercepts or is shown a pairing code for an existing installation** | Created only after a fresh authentication, announced on all channels, usable only after at least 24 hours in which the household can cancel it (Section 5.2) | A household that ignores the announcement loses its public name to the attacker's gateway, which then receives the household's agents and can complete their TLS. The new server certificate appears in Certificate Transparency, and the replaced gateway, if it still runs, raises its alarm (Section 6) |
 | **Lures a household to a malicious operator** (a pairing string of the attacker) | Pairing only by the local administrator, after the gateway showed the operator domain and its parameters (Section 5.2) | A household that confirms anyway uses that operator, with the protection Section 6 gives against operators |
 | **Replays a request** | Single-use nonces and the signed `url` (Section 5.1) | – |
-| **Steals the installation key** | Re-issuance only within `max_offline_days`; every issuance shown in the portal, re-issuances notified; unpairing blocks the key (Sections 5.5, 5.7) | Until the household unpairs, the attacker can obtain tunnel certificates and take the tunnel over. Agents' TLS still fails without the server key; the attacker can deny service and learn when agents connect |
-| **Steals a tunnel key** | Tunnel certificates live at most 24 hours; a new key at every renewal; denylist (Sections 5.4, 5.7) | As above, for at most the rest of that certificate's life |
-| **Takes over the household's account at the operator** | Unpairing and pairing codes stay with the account; a code for an existing installation needs a fresh authentication, notifications on all channels and a waiting time (Section 5.2) | The attacker can end remote access. Moving the public name to the attacker's gateway is announced, can be cancelled, and the attacker's new server certificate is visible in Certificate Transparency |
-| **Compromises the operator's tunnel CA** | URI name constraint on the operator's trust domain; short lifetimes (Section 5.4) | Tunnel certificates for every home of that operator: denial of service and metadata, not content (see above) |
+| **Steals the installation key** | Tunnel certificates and ACME challenge records, but no server certificate: the CAA record binds issuance to the gateway's ACME account, and changing the account needs the household's confirmation (Section 5.6). Every issuance is shown in the portal, re-issuances and key changes are notified; after `max_offline_days` without a certificate the key is useless; unpairing ends it (Sections 5.5, 5.7) | Until the household unpairs, the attacker can take the tunnel over and deny service, learn when agents connect, and lock the gateway out with a key change. A CA that ignores RFC 8657 would issue to the attacker; Section 6 limits the CAs |
+| **Steals the installation key and the ACME account key** (a compromised gateway) | – | Everything the gateway can do, until the household unpairs |
+| **Steals a tunnel key** | Tunnel certificates live at most 24 hours; a new key at every renewal; denylist (Sections 5.4, 5.7) | Taking the tunnel over for at most the rest of that certificate's life |
+| **Takes over the household's account at the operator** | Unpairing and pairing codes stay with the account; codes for an existing installation and changes of the ACME account need a fresh authentication or the household's confirmation and are announced (Sections 5.2, 5.6) | The attacker can end remote access, and can move the public name as in the row above, announced and with a waiting time |
+| **Compromises the operator's tunnel CA** | Name constraint on the operator's trust domain; short lifetimes (Section 5.4) | Tunnel certificates for every home of that operator: denial of service and metadata, not content |
 | **Operator that tries to change what the household allows** | No message carries mandates, approver keys or issuer keys; a gateway accepts none (Section 5.7) | – |
 
 ## 10. Privacy considerations
@@ -457,6 +497,7 @@ counts) and how long it may keep it.
   and issuance.
 - Section 5 specified: directory, nonces and signed requests, errors, pairing (including a
   pairing code for an existing installation), installation, tunnel certificate, renewal and
-  re-issuance within `max_offline_days`, key change, ACME support, unpairing and blocking;
+  re-issuance within `max_offline_days`, key change, ACME support with a CAA binding to the
+  gateway's ACME account, unpairing and blocking;
   schema `relay/schema/enrollment-v0.schema.json` with examples. Security considerations for
   Section 5.

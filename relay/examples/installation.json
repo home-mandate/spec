@@ -4,5 +4,7 @@
   "public_name": "abcdefghijklmnopqrstuvwxyz.homes.example.net",
   "max_offline_days": 30,
   "certificate": "https://relay-operator.example/enroll/installation/7Kq2xWmP/certificate",
-  "acme_challenge": "https://relay-operator.example/enroll/installation/7Kq2xWmP/acme-challenge"
+  "acme_challenge": "https://relay-operator.example/enroll/installation/7Kq2xWmP/acme-challenge",
+  "acme_account": "https://acme.example/acme/acct/123456789",
+  "caa_identity": "acme.example"
 }

@@ -1,3 +1,4 @@
 {
-  "acme_account": "https://acme.example/acme/acct/123456789"
+  "acme_account": "https://acme.example/acme/acct/123456789",
+  "caa_identity": "acme.example"
 }

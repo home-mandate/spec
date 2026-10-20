@@ -22,6 +22,12 @@
       "maxLength": 16384,
       "pattern": "^[A-Za-z0-9_-]+$"
     },
+    "compact_jws": {
+      "description": "JWS in compact serialization: three base64url segments without padding.",
+      "type": "string",
+      "maxLength": 16384,
+      "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+    },
     "time": {
       "description": "RFC 3339 in UTC, whole seconds, ending in Z.",
       "type": "string",
@@ -48,22 +54,45 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kty", "crv", "x"],
+          "required": [
+            "kty",
+            "crv",
+            "x"
+          ],
           "properties": {
-            "kty": { "const": "OKP" },
-            "crv": { "const": "Ed25519" },
-            "x": { "$ref": "#/$defs/base64url_43" }
+            "kty": {
+              "const": "OKP"
+            },
+            "crv": {
+              "const": "Ed25519"
+            },
+            "x": {
+              "$ref": "#/$defs/base64url_43"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kty", "crv", "x", "y"],
+          "required": [
+            "kty",
+            "crv",
+            "x",
+            "y"
+          ],
           "properties": {
-            "kty": { "const": "EC" },
-            "crv": { "const": "P-256" },
-            "x": { "$ref": "#/$defs/base64url_43" },
-            "y": { "$ref": "#/$defs/base64url_43" }
+            "kty": {
+              "const": "EC"
+            },
+            "crv": {
+              "const": "P-256"
+            },
+            "x": {
+              "$ref": "#/$defs/base64url_43"
+            },
+            "y": {
+              "$ref": "#/$defs/base64url_43"
+            }
           }
         }
       ]
@@ -72,75 +101,187 @@
       "description": "Protected header of every request (RELAY-v0 Section 5.1): exactly alg, nonce, url and one of jwk and kid.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["alg", "nonce", "url"],
+      "required": [
+        "alg",
+        "nonce",
+        "url"
+      ],
       "properties": {
-        "alg": { "enum": ["EdDSA", "ES256"] },
+        "alg": {
+          "enum": [
+            "EdDSA",
+            "ES256"
+          ]
+        },
         "nonce": {
           "type": "string",
           "minLength": 22,
           "maxLength": 128,
           "pattern": "^[A-Za-z0-9_-]+$"
         },
-        "url": { "$ref": "#/$defs/https_url" },
-        "jwk": { "$ref": "#/$defs/jwk" },
-        "kid": { "$ref": "#/$defs/https_url" }
+        "url": {
+          "$ref": "#/$defs/https_url"
+        },
+        "jwk": {
+          "$ref": "#/$defs/jwk"
+        },
+        "kid": {
+          "$ref": "#/$defs/https_url"
+        }
       },
       "oneOf": [
-        { "required": ["jwk"] },
-        { "required": ["kid"] }
+        {
+          "required": [
+            "jwk"
+          ]
+        },
+        {
+          "required": [
+            "kid"
+          ]
+        }
       ],
       "allOf": [
         {
-          "if": { "required": ["jwk"], "properties": { "alg": { "const": "EdDSA" } } },
-          "then": { "properties": { "jwk": { "properties": { "kty": { "const": "OKP" } } } } }
+          "if": {
+            "required": [
+              "jwk"
+            ],
+            "properties": {
+              "alg": {
+                "const": "EdDSA"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "jwk": {
+                "properties": {
+                  "kty": {
+                    "const": "OKP"
+                  }
+                }
+              }
+            }
+          }
         },
         {
-          "if": { "required": ["jwk"], "properties": { "alg": { "const": "ES256" } } },
-          "then": { "properties": { "jwk": { "properties": { "kty": { "const": "EC" } } } } }
+          "if": {
+            "required": [
+              "jwk"
+            ],
+            "properties": {
+              "alg": {
+                "const": "ES256"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "jwk": {
+                "properties": {
+                  "kty": {
+                    "const": "EC"
+                  }
+                }
+              }
+            }
+          }
         }
       ]
     },
     "directory": {
       "type": "object",
-      "required": ["new_nonce", "pair", "key_change"],
+      "required": [
+        "new_nonce",
+        "pair",
+        "key_change"
+      ],
       "properties": {
-        "new_nonce": { "$ref": "#/$defs/https_url" },
-        "pair": { "$ref": "#/$defs/https_url" },
-        "key_change": { "$ref": "#/$defs/https_url" }
+        "new_nonce": {
+          "$ref": "#/$defs/https_url"
+        },
+        "pair": {
+          "$ref": "#/$defs/https_url"
+        },
+        "key_change": {
+          "$ref": "#/$defs/https_url"
+        }
       }
     },
     "pair_request": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["code", "csr"],
+      "required": [
+        "code",
+        "csr"
+      ],
       "properties": {
-        "code": { "$ref": "#/$defs/pairing_code" },
-        "csr": { "$ref": "#/$defs/der" }
+        "code": {
+          "$ref": "#/$defs/pairing_code"
+        },
+        "csr": {
+          "$ref": "#/$defs/der"
+        }
       }
     },
     "installation": {
       "type": "object",
-      "required": ["status", "home_id", "public_name", "max_offline_days", "certificate", "acme_challenge"],
+      "required": [
+        "status",
+        "home_id",
+        "public_name",
+        "max_offline_days",
+        "certificate",
+        "acme_challenge"
+      ],
       "properties": {
-        "status": { "enum": ["active", "paused", "blocked"] },
-        "home_id": { "$ref": "#/$defs/home_id" },
-        "public_name": { "$ref": "#/$defs/domain" },
+        "status": {
+          "enum": [
+            "active",
+            "paused",
+            "blocked",
+            "unpaired"
+          ]
+        },
+        "home_id": {
+          "$ref": "#/$defs/home_id"
+        },
+        "public_name": {
+          "$ref": "#/$defs/domain"
+        },
         "max_offline_days": {
           "type": "integer",
           "minimum": 7,
           "maximum": 90
         },
-        "certificate": { "$ref": "#/$defs/https_url" },
-        "acme_challenge": { "$ref": "#/$defs/https_url" },
-        "acme_account": { "$ref": "#/$defs/https_url" }
+        "certificate": {
+          "$ref": "#/$defs/https_url"
+        },
+        "acme_challenge": {
+          "$ref": "#/$defs/https_url"
+        },
+        "acme_account": {
+          "$ref": "#/$defs/https_url"
+        },
+        "caa_identity": {
+          "$ref": "#/$defs/domain"
+        }
       }
     },
     "pair_response": {
       "type": "object",
-      "required": ["installation", "tunnel_certificate"],
+      "required": [
+        "installation",
+        "tunnel_certificate"
+      ],
       "properties": {
-        "installation": { "$ref": "#/$defs/installation" },
-        "tunnel_certificate": { "$ref": "#/$defs/certificate_response" }
+        "installation": {
+          "$ref": "#/$defs/installation"
+        },
+        "tunnel_certificate": {
+          "$ref": "#/$defs/certificate_response"
+        }
       }
     },
     "installation_update": {
@@ -148,17 +289,29 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["acme_account"],
+          "required": [
+            "acme_account",
+            "caa_identity"
+          ],
           "properties": {
-            "acme_account": { "$ref": "#/$defs/https_url" }
+            "acme_account": {
+              "$ref": "#/$defs/https_url"
+            },
+            "caa_identity": {
+              "$ref": "#/$defs/domain"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status"],
+          "required": [
+            "status"
+          ],
           "properties": {
-            "status": { "const": "unpaired" }
+            "status": {
+              "const": "unpaired"
+            }
           }
         }
       ]
@@ -166,53 +319,162 @@
     "certificate_request": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["csr"],
+      "required": [
+        "csr"
+      ],
       "properties": {
-        "csr": { "$ref": "#/$defs/der" }
+        "csr": {
+          "$ref": "#/$defs/der"
+        }
       }
     },
     "certificate_response": {
       "type": "object",
-      "required": ["chain", "not_after"],
+      "required": [
+        "chain",
+        "not_after"
+      ],
       "properties": {
         "chain": {
           "description": "The issued certificate first, then its intermediate CA certificates.",
           "type": "array",
           "minItems": 1,
           "maxItems": 4,
-          "items": { "$ref": "#/$defs/der" }
+          "items": {
+            "$ref": "#/$defs/der"
+          }
         },
-        "not_after": { "$ref": "#/$defs/time" }
+        "not_after": {
+          "$ref": "#/$defs/time"
+        }
       }
     },
     "acme_challenge_request": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["values"],
+      "required": [
+        "values"
+      ],
       "properties": {
         "values": {
           "description": "Key authorization digests (RFC 8555 Section 8.4) to publish at _acme-challenge.<public name>; empty removes them.",
           "type": "array",
           "maxItems": 2,
           "uniqueItems": true,
-          "items": { "$ref": "#/$defs/base64url_43" }
+          "items": {
+            "$ref": "#/$defs/base64url_43"
+          }
         }
       }
+    },
+    "key_change_request": {
+      "description": "Payload of the outer request of a key change (RELAY-v0 Section 5.5).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jws"
+      ],
+      "properties": {
+        "jws": {
+          "$ref": "#/$defs/compact_jws"
+        }
+      }
+    },
+    "key_change_header": {
+      "description": "Protected header of the inner JWS of a key change: exactly alg, jwk (the new key) and url, no nonce.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alg",
+        "jwk",
+        "url"
+      ],
+      "properties": {
+        "alg": {
+          "enum": [
+            "EdDSA",
+            "ES256"
+          ]
+        },
+        "jwk": {
+          "$ref": "#/$defs/jwk"
+        },
+        "url": {
+          "$ref": "#/$defs/https_url"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "jwk"
+            ],
+            "properties": {
+              "alg": {
+                "const": "EdDSA"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "jwk": {
+                "properties": {
+                  "kty": {
+                    "const": "OKP"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "jwk"
+            ],
+            "properties": {
+              "alg": {
+                "const": "ES256"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "jwk": {
+                "properties": {
+                  "kty": {
+                    "const": "EC"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "key_change": {
       "description": "Payload of the inner JWS of a key change (RELAY-v0 Section 5.5).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["installation", "old_key"],
+      "required": [
+        "installation",
+        "old_key"
+      ],
       "properties": {
-        "installation": { "$ref": "#/$defs/https_url" },
-        "old_key": { "$ref": "#/$defs/jwk" }
+        "installation": {
+          "$ref": "#/$defs/https_url"
+        },
+        "old_key": {
+          "$ref": "#/$defs/jwk"
+        }
       }
     },
     "problem": {
       "description": "Problem Details (RFC 9457) of the enrollment endpoint.",
       "type": "object",
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
         "type": {
           "enum": [
@@ -220,9 +482,11 @@
             "https://home-mandate.org/relay/errors/bad-nonce",
             "https://home-mandate.org/relay/errors/bad-signature",
             "https://home-mandate.org/relay/errors/pairing-refused",
-            "https://home-mandate.org/relay/errors/bad-csr",
+            "https://home-mandate.org/relay/errors/confirmation-required",
             "https://home-mandate.org/relay/errors/offline-too-long",
             "https://home-mandate.org/relay/errors/blocked",
+            "https://home-mandate.org/relay/errors/bad-csr",
+            "https://home-mandate.org/relay/errors/key-conflict",
             "https://home-mandate.org/relay/errors/unpaired",
             "https://home-mandate.org/relay/errors/rate-limited",
             "https://home-mandate.org/relay/errors/server-internal"
@@ -233,8 +497,14 @@
           "minimum": 400,
           "maximum": 599
         },
-        "title": { "type": "string", "maxLength": 200 },
-        "detail": { "type": "string", "maxLength": 1000 }
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 1000
+        }
       }
     }
   }
