@@ -61,7 +61,7 @@
       }
     },
     "max_offline_days": {
-      "description": "Days after the expiry of the last tunnel certificate during which the installation key alone authenticates a re-issuance (RELAY-v0 Section 5.4). RECOMMENDED: 30.",
+      "description": "Days an installation can be without a valid tunnel certificate before only a new pairing helps (RELAY-v0 Section 5.5). RECOMMENDED: 30.",
       "type": "integer",
       "minimum": 7,
       "maximum": 90
