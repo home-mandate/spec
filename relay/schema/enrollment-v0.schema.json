@@ -336,7 +336,7 @@
       ],
       "properties": {
         "chain": {
-          "description": "The issued certificate first, then its intermediate CA certificates.",
+          "description": "The issued certificate first, followed by the certificates of the CA that issued it (RELAY-v0 Section 5.4).",
           "type": "array",
           "minItems": 1,
           "maxItems": 4,

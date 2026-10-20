@@ -4,8 +4,8 @@
     "home_id": "abcdefghijklmnopqrstuvwxyz",
     "public_name": "abcdefghijklmnopqrstuvwxyz.homes.example.net",
     "max_offline_days": 30,
-    "certificate": "https://relay-operator.example/enroll/installation/7Kq2xWmP/certificate",
-    "acme_challenge": "https://relay-operator.example/enroll/installation/7Kq2xWmP/acme-challenge"
+    "certificate": "https://relay-operator.example/enroll/installation/k7q2xwmpd4hj3n6rt5vbyc2ezu/certificate",
+    "acme_challenge": "https://relay-operator.example/enroll/installation/k7q2xwmpd4hj3n6rt5vbyc2ezu/acme-challenge"
   },
   "tunnel_certificate": {
     "chain": [

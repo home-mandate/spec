@@ -33,7 +33,7 @@ The specification builds on existing standards:
 
 | Purpose | Standard |
 |---|---|
-| Transport | TLS 1.3 (RFC 8446) |
+| Transport of the tunnel | TLS 1.3 (RFC 8446) |
 | Identity of the gateway towards the relay | SPIFFE X.509-SVID |
 | Requests of the gateway to the operator | JSON Web Signature (RFC 7515), patterns of ACME (RFC 8555) |
 | Certificate requests | PKCS #10 (RFC 2986) |
@@ -75,6 +75,7 @@ sequenceDiagram
   G->>U: show operator, protection levels, max_offline_days, ask to confirm
   G->>O: pair: installation key, CSR, code binding (Section 5)
   O-->>G: home ID, public name, tunnel certificate
+  G->>O: report its ACME account (CAA)
   G->>O: set ACME challenge for its name
   Note over G: obtains its server certificate itself
   G->>R: tunnel with the tunnel certificate (Section 4)
@@ -200,12 +201,17 @@ content type `application/jose` whose body is a JWS (RFC 7515) in compact serial
 The operator processes a request in this order; a request that fails a step has no effect:
 
 1. the header against `$defs/protected_header` (`malformed`);
-2. with `kid`: the installation it names (none: `bad-signature`; unpaired or replaced:
-   `unpaired`); with `jwk`: the URL MUST be `pair`;
-3. the signature with that key (`bad-signature`), then the nonce (`bad-nonce`) and `url`
-   (`malformed`);
-4. the state of the installation (Sections 5.5 and 5.7);
-5. the payload (`malformed`, or the error of the operation).
+2. with `jwk`, the URL MUST be `pair`; with `kid`, it MUST NOT be `pair` (`malformed`);
+3. with `kid`: the installation it names (none: `bad-signature`; unpaired or replaced:
+   `unpaired`), and the URL MUST be `key_change`, the installation URL of that installation or
+   a URL in it (`malformed`); one installation can never act on another;
+4. the signature with that key (`bad-signature`); from here on the nonce is used up, whatever
+   happens next; then the nonce (`bad-nonce`) and `url` (`malformed`);
+5. the state of the installation (Sections 5.5 and 5.7);
+6. the payload (`malformed`, or the error of the operation).
+
+An installation URL MUST contain at least 128 random bits, so that whether an installation
+exists cannot be learnt by guessing (step 3 answers before the signature is checked).
 
 **Responses and errors.** Successful responses are JSON (`application/json`) with the status
 the operation names. Errors are Problem Details (RFC 9457, `application/problem+json`) whose
@@ -253,10 +259,14 @@ while the gateway is not paired with any operator. The gateway
    installation key and carrying it as `jwk`. The payload (`$defs/pair_request`) holds the code
    and a certificate request for the tunnel key (Section 5.4). Because the code is inside the
    signed payload, it is bound to this installation key; a pairing code that has been used
-   cannot be used again with any key.
+   cannot be used again with any key. If the response is lost, the gateway repeats the request
+   with the same installation key and code (and a fresh nonce); the operator MUST answer a
+   pairing request whose code was redeemed by the same installation key, within the code's
+   validity, like the first one, with a new tunnel certificate for the repeated request.
 
 **At the operator.** The operator processes the request (Section 5.1), redeems the code, checks
-the certificate request, and creates the installation:
+the certificate request, refuses an installation key that another installation already uses
+(`key-conflict`), and creates the installation:
 
 - a new **home ID** (Section 2) that it has never assigned before and MUST NOT assign again,
   also not after unpairing;
@@ -269,7 +279,8 @@ It answers `201 Created` with the installation URL in `Location` and a body
 gateway MUST check that the public name is the home ID followed by `.` and the `name_domain`
 of the metadata, and that the certificate matches Section 5.4 and its own tunnel key. The
 operator MUST notify the household of every new installation and show it in the portal. Right
-after pairing, the gateway creates its ACME account and reports it (Section 5.6).
+after pairing, the gateway creates its ACME account and reports it (Section 5.6), and shows the
+household the account URI, so that the household can compare it with what the portal shows.
 
 **Pairing again.** A gateway is paired with at most one operator at a time; to change the
 operator it is unpaired first (Section 5.7). A new pairing gives a new home ID, a new public
@@ -277,8 +288,8 @@ name and therefore a new OAuth issuer; agents must be connected again.
 
 An operator MAY offer, in its portal, a pairing code **for an existing installation**, for a
 gateway that lost its keys (reinstallation, restored backup, `offline-too-long`). Pairing with
-such a code keeps the home ID and the public name and **replaces** the installation: the old
-installation key and every key of its tunnel certificates stop working (`unpaired`), the
+such a code keeps the home ID and the public name and **replaces** the installation: it gets a
+new installation URL, the old installation URL answers `unpaired`, the
 operator denies their tunnel certificates and closes their connections, and the reported ACME
 account is cleared, so that the new gateway reports its own (Section 5.6). Because whoever
 controls the household's account can thereby move the public name to another gateway, the
@@ -328,7 +339,8 @@ CA issues a certificate that
 
 - contains exactly one subject alternative name, the URI
   `spiffe://<trust_domain>/home/<home ID>/gateway`, and an empty subject;
-- is valid for at most 24 hours, starting no earlier than 5 minutes before issuance;
+- has a `notAfter` at most 24 hours after its `notBefore`, which is no earlier than 5 minutes
+  before issuance;
 - has `cA=false`, key usage `digitalSignature` only (critical), and extended key usage
   `serverAuth` and `clientAuth`, as X.509-SVID recommends;
 - has a serial number with at least 64 random bits;
@@ -356,11 +368,11 @@ of its last tunnel certificate; while it is `blocked`, the time does not run. On
 time exceeds `max_offline_days`, the operator MUST answer every request of the installation
 except reading it and unpairing it with `offline-too-long`. The value that counts is the one in
 force at the last successful issuance; a changed value in the metadata applies from the next
-issuance on. A gateway MAY apply a shorter limit of its own; when it passes, it ends the pairing
-locally (Section 5.7).
+issuance on. A gateway MAY apply a shorter limit of its own; it then behaves as on
+`offline-too-long` (Section 5.7).
 
 The operator MUST show the household each issuance (time and source address) in the portal,
-SHOULD notify the household of a re-issuance, and SHOULD limit issuances per installation (for
+MUST notify the household of a re-issuance, and SHOULD limit issuances per installation (for
 example to six per day).
 
 **Key change.** A gateway replaces its installation key as in RFC 8555 Section 7.3.5. It sends to
@@ -372,7 +384,10 @@ protected header has exactly `alg`, `jwk` (the new key) and `url` (the URL of `k
 matches and `installation` is the `kid` of the outer request and `old_key` its key
 (`malformed`), and that the new key is neither the key of another installation nor the key of
 one of this installation's tunnel certificates (`key-conflict`). It then replaces the key,
-answers `200` with the installation, and MUST notify the household.
+answers `200` with the installation, and MUST notify the household. The gateway keeps the old key
+until a request signed with the new key succeeded; if it does not know whether a key change took
+effect (the response was lost), it reads its installation with the new key, and on
+`bad-signature` with the old one.
 
 ### 5.6 ACME support
 
@@ -385,10 +400,18 @@ the account URI at the CA, and `caa_identity`, the issuer domain name that CA us
 (RFC 8659 Section 4.2). The operator MUST publish for the public name a CAA record that allows
 only this account to obtain certificates (`issue` with the parameters `accounturi` and
 `validationmethods=dns-01`, RFC 8657); Section 6 gives the details. The first report after
-pairing (or after a replacement, Section 5.2) takes effect at once. Every later change MUST be
-confirmed by the household in the portal: until then, the operator answers
-`confirmation-required` and keeps the reported account; after the confirmation the gateway
-repeats the request. The operator MUST notify the household of every change.
+pairing (or after a replacement, Section 5.2) takes effect at once and is answered with `200`
+once the CAA record is served by all authoritative name servers, within 120 seconds. Every later
+change MUST be confirmed by the household:
+
+- the operator answers `confirmation-required`, keeps the reported account in force, stores the
+  reported pair as pending (a later report replaces it), and notifies the household;
+- the portal shows the pending `acme_account` and `caa_identity`, which the household compares
+  with the account URI its gateway shows (Section 5.2), and the confirmation applies to exactly
+  that pair;
+- after the confirmation the operator puts the pair in force and publishes its CAA record; the
+  gateway sees the change when it reads its installation, which it does at most every few
+  minutes while a change is pending.
 
 **Challenge.** A `POST` to `acme_challenge` with `{"values": […]}`
 (`$defs/acme_challenge_request`) makes the operator publish exactly these values as TXT records
@@ -413,12 +436,14 @@ answered with `200` and the installation with the status `unpaired`. The operato
 - removes every DNS record of the public name, including challenge and CAA records;
 - keeps the home ID reserved (Section 5.2).
 
-**Ending the pairing locally.** A gateway that unpairs, or receives `unpaired` or
-`offline-too-long`, or whose own limit passed (Section 5.5), MUST close the tunnel, send the
-unpairing request if the operator has not ended the installation yet, delete its installation
-key and tunnel key, revoke its server certificate and deactivate its ACME account (RFC 8555
-Sections 7.6 and 7.3.6), and show the household that remote access through this operator has
-ended. It is then no longer paired.
+**Ending the pairing locally.** A gateway that unpairs or receives `unpaired` MUST close the
+tunnel, delete its installation key and tunnel key, revoke its server certificate and deactivate
+its ACME account (RFC 8555 Sections 7.6 and 7.3.6), and show the household that remote access
+through this operator has ended. A gateway that receives `offline-too-long`, or whose own limit
+passed (Section 5.5), MUST close the tunnel and delete its installation key and tunnel key, but
+MUST NOT send the unpairing request: the household decides in the portal whether to unpair the
+installation or to pair the gateway again with a code for the existing installation, which keeps
+the public name (Section 5.2). Either way, the gateway is then no longer paired.
 
 **Blocking** is an operator measure against abuse. A blocked installation can read its
 installation and unpair; every other request is answered with `blocked`, its tunnel certificates
@@ -474,10 +499,11 @@ this specification; what an operator itself could do is the subject of Section 6
 |---|---|---|
 | **Guesses a pairing code** | 80 random bits, at most 10 minutes, single use, limited attempts per address and in total, one answer for all failures (Section 5.2) | – |
 | **Intercepts or is shown a pairing code** for a new installation before the household uses it | The code is bound to the household's account, not to a gateway; the operator notifies the household of every new installation (Section 5.2) | The attacker's gateway is paired to the household's account until the household notices and unpairs it. It gets a new public name and does not receive the household's agents |
-| **Intercepts or is shown a pairing code for an existing installation** | Created only after a fresh authentication, announced on all channels, usable only after at least 24 hours in which the household can cancel it (Section 5.2) | A household that ignores the announcement loses its public name to the attacker's gateway, which then receives the household's agents and can complete their TLS. The new server certificate appears in Certificate Transparency, and the replaced gateway, if it still runs, raises its alarm (Section 6) |
+| **Intercepts or is shown a pairing code for an existing installation** | Created only after a fresh authentication, announced on all channels, usable only after at least 24 hours in which the household can cancel it (Section 5.2) | A household that ignores the announcement loses its public name to the attacker's gateway, which then receives the household's agents and can complete their TLS. The replaced gateway learns it (`unpaired`) and tells the household; the new server certificate appears in Certificate Transparency (Section 6) |
 | **Lures a household to a malicious operator** (a pairing string of the attacker) | Pairing only by the local administrator, after the gateway showed the operator domain and its parameters (Section 5.2) | A household that confirms anyway uses that operator, with the protection Section 6 gives against operators |
 | **Replays a request** | Single-use nonces and the signed `url` (Section 5.1) | – |
-| **Steals the installation key** | Tunnel certificates and ACME challenge records, but no server certificate: the CAA record binds issuance to the gateway's ACME account, and changing the account needs the household's confirmation (Section 5.6). Every issuance is shown in the portal, re-issuances and key changes are notified; after `max_offline_days` without a certificate the key is useless; unpairing ends it (Sections 5.5, 5.7) | Until the household unpairs, the attacker can take the tunnel over and deny service, learn when agents connect, and lock the gateway out with a key change. A CA that ignores RFC 8657 would issue to the attacker; Section 6 limits the CAs |
+| **Another installation's key** (any paired gateway, also one paired to the attacker's own account) | The URL of a request must belong to the installation of its key (Section 5.1); installation URLs carry 128 random bits | – |
+| **Steals the installation key** | Tunnel certificates and ACME challenge records, but no server certificate: the CAA record binds issuance to the gateway's ACME account, and changing the account needs the household's confirmation (Section 5.6). Every issuance is shown in the portal, re-issuances and key changes are notified; a key that nobody uses for `max_offline_days` is useless; unpairing ends it (Sections 5.5, 5.7) | Until the household unpairs, the attacker can take the tunnel over and deny service, learn when agents connect, lock the gateway out with a key change, and unpair the installation, which loses the public name for good. A CA that ignores RFC 8657 would issue to the attacker; Section 6 limits the CAs |
 | **Steals the installation key and the ACME account key** (a compromised gateway) | – | Everything the gateway can do, until the household unpairs |
 | **Steals a tunnel key** | Tunnel certificates live at most 24 hours; a new key at every renewal; denylist (Sections 5.4, 5.7) | Taking the tunnel over for at most the rest of that certificate's life |
 | **Takes over the household's account at the operator** | Unpairing and pairing codes stay with the account; codes for an existing installation and changes of the ACME account need a fresh authentication or the household's confirmation and are announced (Sections 5.2, 5.6) | The attacker can end remote access, and can move the public name as in the row above, announced and with a waiting time |

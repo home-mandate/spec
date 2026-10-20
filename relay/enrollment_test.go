@@ -262,12 +262,15 @@ func TestEnrollmentSchemaDefinesEveryErrorOfTheTable(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := compileEnrollmentDef(t, "problem")
+	text := string(spec)
+	start := strings.Index(text, "| Error | Status |")
+	if start < 0 {
+		t.Fatal("error table of Section 5.1 not found")
+	}
+	table, _, _ := strings.Cut(text[start:], "\n\n")
 	var named int
-	for _, line := range strings.Split(string(spec), "\n") {
-		if !strings.HasPrefix(line, "| `") || !strings.Contains(line, "| 4") && !strings.Contains(line, "| 5") {
-			continue
-		}
-		name := strings.TrimSuffix(strings.TrimPrefix(strings.Fields(line)[1], "`"), "`")
+	for _, line := range strings.Split(table, "\n")[2:] {
+		name := strings.Trim(strings.Fields(line)[1], "`")
 		named++
 		problem := map[string]any{"type": "https://home-mandate.org/relay/errors/" + name}
 		if err := s.Validate(problem); err != nil {
