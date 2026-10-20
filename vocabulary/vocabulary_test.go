@@ -54,6 +54,10 @@ func TestVocabularySchemaAcceptsAnExtensionAndRejectsMistakes(t *testing.T) {
 	if err := compiled.Validate(decode(t, []byte(extension))); err != nil {
 		t.Errorf("extension vocabulary rejected: %v", err)
 	}
+	thirtyTwo := `{"id":"x:y","version":"1","categories":{"a":{"actions":{"set":{"parameters":{"p":{"type":"string","values":[` + values(32) + `]}}}}}}}`
+	if err := compiled.Validate(decode(t, []byte(thirtyTwo))); err != nil {
+		t.Errorf("32 permitted values rejected: %v", err)
+	}
 	wallbox := `{"id":"https://wallbox.example/vocabulary","version":"1","categories":{"wallbox:charger":{"actions":{
 		"set_charge_mode":{"parameters":{"charge_mode":{"type":"string","values":["PV","BOOST"]}}},
 		"set_preset":{"parameters":{"preset":{"type":"string","description":"any preset name"}}},
@@ -80,6 +84,7 @@ func TestVocabularySchemaAcceptsAnExtensionAndRejectsMistakes(t *testing.T) {
 		"duplicate value":        `{"id":"x:y","version":"1","categories":{"a":{"actions":{"set":{"parameters":{"p":{"type":"string","values":["on","on"]}}}}}}}`,
 		"value with a space":     `{"id":"x:y","version":"1","categories":{"a":{"actions":{"set":{"parameters":{"p":{"type":"string","values":["fan only"]}}}}}}}`,
 		"value of 65 characters": `{"id":"x:y","version":"1","categories":{"a":{"actions":{"set":{"parameters":{"p":{"type":"string","values":["` + strings.Repeat("a", 65) + `"]}}}}}}}`,
+		"33 values":              `{"id":"x:y","version":"1","categories":{"a":{"actions":{"set":{"parameters":{"p":{"type":"string","values":[` + values(33) + `]}}}}}}}`,
 		"integer value":          `{"id":"x:y","version":"1","categories":{"a":{"actions":{"set":{"parameters":{"p":{"type":"string","values":[1]}}}}}}}`,
 	} {
 		if err := compiled.Validate(decode(t, []byte(doc))); err == nil {
@@ -203,4 +208,13 @@ func TestSpecParameterTableMatchesV0(t *testing.T) {
 	if len(file) == 0 || !maps.Equal(table, file) {
 		t.Errorf("table %v\nfile  %v", table, file)
 	}
+}
+
+// values returns n distinct JSON strings, separated by commas.
+func values(n int) string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = fmt.Sprintf("%q", fmt.Sprintf("v%d", i))
+	}
+	return strings.Join(out, ",")
 }

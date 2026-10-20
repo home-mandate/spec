@@ -321,17 +321,23 @@ func (r *rule) setConstraints(rr rawRule) error {
 	return nil
 }
 
-// buildConstraint reads one constraint: a list of permitted values, or limits. The schema
-// already excludes one_of together with min or max, and lists with values of both types.
+// maxOneOf is the largest number of values in a one_of (SPEC-v0 section 4.5).
+const maxOneOf = 32
+
+// buildConstraint reads one constraint: a list of permitted values, or limits. It checks
+// a list itself, although the schema already does, so that no caller gets a list that
+// contradicts SPEC-v0 section 4.5.
 func buildConstraint(ruleID, name string, raw rawConstraint) (constraint, error) {
 	c := constraint{parameter: name, min: math.MinInt64, max: math.MaxInt64}
 	if raw.OneOf != nil {
-		c.oneOf = make([]Value, len(raw.OneOf))
-		for i, data := range raw.OneOf {
-			if err := c.oneOf[i].UnmarshalJSON(data); err != nil {
-				return constraint{}, fmt.Errorf("%w: rule %q: constraint %q: %w", ErrSchema, ruleID, name, err)
-			}
+		if raw.Min != nil || raw.Max != nil {
+			return constraint{}, fmt.Errorf("%w: rule %q: constraint %q has one_of together with min or max", ErrSemantic, ruleID, name)
 		}
+		values, err := buildOneOf(raw.OneOf)
+		if err != nil {
+			return constraint{}, fmt.Errorf("rule %q: constraint %q: %w", ruleID, name, err)
+		}
+		c.oneOf = values
 		return c, nil
 	}
 	for _, limit := range []struct {
@@ -353,11 +359,35 @@ func buildConstraint(ruleID, name string, raw rawConstraint) (constraint, error)
 	return c, nil
 }
 
+// buildOneOf reads the values of a one_of: 1 to 32 distinct valid values of one type.
+func buildOneOf(raw []json.RawMessage) ([]Value, error) {
+	if len(raw) == 0 || len(raw) > maxOneOf {
+		return nil, fmt.Errorf("%w: one_of has %d values, permitted are 1 to %d", ErrSemantic, len(raw), maxOneOf)
+	}
+	values := make([]Value, len(raw))
+	for i, data := range raw {
+		v := &values[i]
+		if err := v.UnmarshalJSON(data); err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrSchema, err)
+		}
+		switch {
+		case !v.valid():
+			return nil, fmt.Errorf("%w: one_of value %s is no valid parameter value", ErrSemantic, data)
+		case v.kind != values[0].kind:
+			return nil, fmt.Errorf("%w: one_of mixes integers and strings", ErrSemantic)
+		case slices.Contains(values[:i], *v):
+			return nil, fmt.Errorf("%w: one_of has the value %s twice", ErrSemantic, data)
+		}
+	}
+	return values, nil
+}
+
 // integerValue reads an integer by its exact value: 20, 20.0 and 2e1 are the same number,
 // 20.000000000000000001 and 1e-400 are no integers. The magnitude is below 2^53, the
 // integers that are exact in every JSON implementation (RFC 7493).
 func integerValue(n json.Number) (int64, bool) {
-	return exactInteger(n.String())
+	value, err := exactInteger(n.String())
+	return value, err == nil
 }
 
 // constraintsMet reports whether the request carries every constrained parameter with

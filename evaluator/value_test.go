@@ -199,3 +199,35 @@ func TestParseRejectsConstraintsThatDoNotFitTheParameter(t *testing.T) {
 		})
 	}
 }
+
+// Parameters the action does not declare are checked only for being an integer or a
+// string; their type is not checked against the vocabulary, and they do not influence
+// the evaluation (SPEC-v0 section 4.5).
+func TestUndeclaredParametersDoNotInfluenceTheEvaluation(t *testing.T) {
+	m := mandateWithRules(t, `[
+		{"id":"r-modes","resource":{"category":"climate"},"actions":["set_mode"],"decision":"allow",
+		 "constraints":{"mode":{"one_of":["heat"]}}},
+		{"id":"r-read","resource":{"category":"climate"},"actions":["read"],"decision":"allow"}]`)
+	for name, extra := range map[string]map[string]evaluator.Value{
+		"none":                         nil,
+		"integer named like a string":  {"preset": evaluator.IntegerValue(4)},
+		"string named like an integer": {"temperature": evaluator.StringValue("hot")},
+		"any string":                   {"preset": evaluator.StringValue("Eco")},
+		"mode on another action":       {"brightness": evaluator.StringValue("x"), "x": evaluator.IntegerValue(-1)},
+	} {
+		t.Run(name, func(t *testing.T) {
+			for action, want := range map[string]string{"set_mode": "r-modes", "read": "r-read"} {
+				r := request("climate", "", action)
+				r.Parameters = map[string]evaluator.Value{}
+				if action == "set_mode" {
+					r.Parameters["mode"] = evaluator.StringValue("heat")
+				}
+				for k, v := range extra {
+					r.Parameters[k] = v
+				}
+				// temperature is declared for set_temperature, not for set_mode or read.
+				assertDecision(t, evaluator.Evaluate(m, r), evaluator.Allow, evaluator.ReasonRule, want)
+			}
+		})
+	}
+}

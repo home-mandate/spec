@@ -5,7 +5,6 @@ package evaluator
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"strconv"
 )
 
@@ -36,11 +35,14 @@ type Value struct {
 	text    string
 }
 
-// IntegerValue returns an integer value.
+// IntegerValue returns an integer value. A magnitude of 2^53 or more yields a value that a
+// request may not carry: Evaluate denies it with ReasonInvalidRequest.
 func IntegerValue(n int64) Value { return Value{kind: kindInteger, integer: n} }
 
 // StringValue returns a string value. Strings are compared exactly per byte, without
-// normalization and case-sensitive.
+// normalization and case-sensitive. A string that is not 1 to 64 printable ASCII
+// characters without space yields a value that a request may not carry: Evaluate denies
+// it with ReasonInvalidRequest.
 func StringValue(s string) Value { return Value{kind: kindString, text: s} }
 
 // AsInteger returns the integer and true if v is an integer.
@@ -62,14 +64,10 @@ func (v Value) valid() bool {
 	return false
 }
 
-// errNoValue is returned for JSON that is neither an integer nor a string, and for
-// marshalling the zero Value.
-var errNoValue = errors.New("evaluator: a parameter value is an integer or a string")
-
-// UnmarshalJSON reads a JSON string as a string and a JSON number by its value as an
-// integer (20, 20.0 and 2e1 are the same). A number that is no integer or whose
-// magnitude is 2^53 or more, and every other JSON value, is an error. Whether a string
-// is a valid value is decided by the evaluation, not here.
+// UnmarshalJSON reads a JSON string as a string and a JSON number by its exact value as
+// an integer (20, 20.0 and 2e1 are the same). Every other JSON value, a number that is no
+// integer, and a number whose magnitude is 2^53 or more are errors, each with its own
+// message. Whether a string is a valid value is decided by the evaluation, not here.
 func (v *Value) UnmarshalJSON(data []byte) error {
 	data = bytes.TrimSpace(data)
 	if len(data) > 0 && data[0] == '"' {
@@ -82,11 +80,11 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 	}
 	var n json.Number
 	if err := json.Unmarshal(data, &n); err != nil || n == "" {
-		return errNoValue
+		return errNoNumberOrString
 	}
-	integer, ok := integerValue(n)
-	if !ok {
-		return errNoValue
+	integer, err := exactInteger(n.String())
+	if err != nil {
+		return err
 	}
 	*v = IntegerValue(integer)
 	return nil
@@ -100,5 +98,5 @@ func (v Value) MarshalJSON() ([]byte, error) {
 	case kindString:
 		return json.Marshal(v.text)
 	}
-	return nil, errNoValue
+	return nil, errNoNumberOrString
 }

@@ -549,6 +549,10 @@ influence the evaluation.
 
 The second rule lets the agent switch the heating to `heat` or `auto`, but never `off`.
 
+The range that the vocabulary gives an integer parameter (`brightness` 0 to 100) does
+not restrict constraints: a `one_of` value outside it is valid, as `min` and `max`
+outside it are, and matches only a request that carries exactly that value.
+
 Constraints narrow an `allow`. Whoever wants a confirmation for values outside the limits
 adds an `ask` rule for the same action without constraints; `ask` then wins inside the
 limits as well, so the usual form is: `allow` with constraints, and nothing else, which
@@ -607,7 +611,9 @@ the specification, and a platform without a profile is not at a disadvantage.
 Extensions for other kinds of resources receive their own namespaces, e.g.
 `paperless:document` with `read`, `tag`, `delete`. An extension defines its vocabulary and
 its critical actions in a file of the same format as `vocabulary/v0.json`, with its own
-`id` and `version`; a vocabulary never changes under the same `id` and `version`. If an
+`id` and `version`. It declares the `type` of every parameter: `integer` with a `unit`,
+or `string`, optionally with 1 to 32 permitted `values`, as many as a `one_of` can list.
+A vocabulary never changes under the same `id` and `version`. If an
 implementation does not know the vocabulary of an extension, every request for a resource
 of that category is `deny`. A registry of extensions does not exist yet.
 
@@ -1450,6 +1456,8 @@ Permitted values and string parameters (Sections 3, 3.1, 3.2, 4, 4.5, 5, 6, 8, 9
   parameter (`type`: `integer` with a `unit`, or `string`, optionally with permitted
   `values`); strings follow the rules of an area: 1 to 64 printable ASCII characters
   without space, compared exactly and case-sensitive. There are still no fractions.
+  Incompatible for extension vocabularies (before `v0.1.0`): they must declare the `type`
+  of every parameter and list at most 32 permitted values; mandates stay valid.
 - New constraint `one_of`: a list of 1 to 32 distinct permitted values of the parameter's
   type, for integer and string parameters; not together with `min` or `max`, which exist
   only for integer parameters. A rule with `one_of` matches only if the request carries

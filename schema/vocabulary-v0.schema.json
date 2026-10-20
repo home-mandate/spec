@@ -105,9 +105,10 @@
                             "const": "string"
                           },
                           "values": {
-                            "description": "The permitted values. A request with another value is invalid, and so is a mandate whose constraint names another value (SPEC-v0 sections 3.1 and 4). Absent: any string of 1 to 64 printable ASCII characters without space.",
+                            "description": "The permitted values, at most 32 like the values of a one_of. A request with another value is invalid, and so is a mandate whose constraint names another value (SPEC-v0 sections 3.1 and 4). Absent: any string of 1 to 64 printable ASCII characters without space.",
                             "type": "array",
                             "minItems": 1,
+                            "maxItems": 32,
                             "uniqueItems": true,
                             "items": {
                               "type": "string",
