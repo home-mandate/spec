@@ -1,0 +1,17 @@
+{
+  "installation": {
+    "status": "active",
+    "home_id": "abcdefghijklmnopqrstuvwxyz",
+    "public_name": "abcdefghijklmnopqrstuvwxyz.homes.example.net",
+    "max_offline_days": 30,
+    "certificate": "https://relay-operator.example/enroll/installation/7Kq2xWmP/certificate",
+    "acme_challenge": "https://relay-operator.example/enroll/installation/7Kq2xWmP/acme-challenge"
+  },
+  "tunnel_certificate": {
+    "chain": [
+      "MIIBtTCCAWegAwIBAgINAOgpb8hHIPLekwaPSzAFBgMrZXAwIjEgMB4GA1UEAwwXRXhhbXBsZSBSZWxheSBUdW5uZWwgQ0EwHhcNMjYxMDIwMDgwMzMyWhcNMjYxMDIxMDgwMzMyWjAAMCowBQYDK2VwAyEAqPqJKKL9mqzhuN-eMDboU76noLetWe5y8Bu07ysjl8ejgdcwgdQwVQYDVR0RAQH_BEswSYZHc3BpZmZlOi8vcmVsYXktb3BlcmF0b3IuZXhhbXBsZS9ob21lL2FiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6L2dhdGV3YXkwDAYDVR0TAQH_BAIwADAOBgNVHQ8BAf8EBAMCB4AwHQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCMB0GA1UdDgQWBBRlwzo_5JcuGS6ViAiEmoGD5OmZ7TAfBgNVHSMEGDAWgBTxbtac2O9Um08Tfl4Hpm7K4woJ0jAFBgMrZXADQQDnMadX59ILW1d8BkH2iiLZk_A-Sjumkds-tcj6plyiV8XJFrDRTrilzCCdFHz2av152rCc-hHSFUTpLsXe4osP",
+      "MIIBlTCCAUegAwIBAgIUHHqggaGf9ji2SbzyfaKzT1vCPcYwBQYDK2VwMCIxIDAeBgNVBAMMF0V4YW1wbGUgUmVsYXkgVHVubmVsIENBMB4XDTI2MTAyMDA4MDMzMloXDTM2MTAxNzA4MDMzMlowIjEgMB4GA1UEAwwXRXhhbXBsZSBSZWxheSBUdW5uZWwgQ0EwKjAFBgMrZXADIQDcO9CnyLR5343E9OdKHt40GMq9m2aWQEfLcPgABrzk-qOBjjCBizAdBgNVHQ4EFgQU8W7WnNjvVJtPE35eB6ZuyuMKCdIwHwYDVR0jBBgwFoAU8W7WnNjvVJtPE35eB6ZuyuMKCdIwDwYDVR0TAQH_BAUwAwEB_zAOBgNVHQ8BAf8EBAMCAgQwKAYDVR0eAQH_BB4wHKAaMBiGFnJlbGF5LW9wZXJhdG9yLmV4YW1wbGUwBQYDK2VwA0EAxdH5xe-hNhSrt5oWQha431khBdtt3mLCR4zlB7sRj2e4Ki2_AgGYHFA8DFRW5KDrfLIIegJc90B2HQGsICs5Cw"
+    ],
+    "not_after": "2026-10-21T08:03:32Z"
+  }
+}

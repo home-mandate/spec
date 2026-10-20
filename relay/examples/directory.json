@@ -1,0 +1,5 @@
+{
+  "new_nonce": "https://relay-operator.example/enroll/new-nonce",
+  "pair": "https://relay-operator.example/enroll/pair",
+  "key_change": "https://relay-operator.example/enroll/key-change"
+}

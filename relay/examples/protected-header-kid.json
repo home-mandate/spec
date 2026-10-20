@@ -1,0 +1,6 @@
+{
+  "alg": "EdDSA",
+  "nonce": "3sTmbBnxS6oRk1wHqXJ2Yg",
+  "url": "https://relay-operator.example/enroll/installation/7Kq2xWmP/certificate",
+  "kid": "https://relay-operator.example/enroll/installation/7Kq2xWmP"
+}
