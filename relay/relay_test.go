@@ -94,32 +94,48 @@ func TestInvalidMetadataIsRejected(t *testing.T) {
 		"max_offline_days missing":    func(d map[string]any) { delete(d, "max_offline_days") },
 		"wrong type":                  func(d map[string]any) { d["type"] = "https://home-mandate.org/relay-metadata/v1" },
 		"unknown member":              func(d map[string]any) { d["extra"] = true },
-		"only one relay pin":          func(d map[string]any) { d["relay_pins"] = []any{"47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"} },
+		"no relay pin":                func(d map[string]any) { d["relay_pins"] = []any{} },
+		"no backup pin":               func(d map[string]any) { d["relay_backup_pins"] = []any{} },
 		"duplicate relay pins": func(d map[string]any) {
 			p := "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"
 			d["relay_pins"] = []any{p, p}
 		},
-		"pin not base64url sha-256":    func(d map[string]any) { d["relay_pins"] = []any{"abc", "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"} },
-		"protection level missing":     func(d map[string]any) { d["protection_levels"] = []any{"standard"} },
-		"unknown protection level":     func(d map[string]any) { d["protection_levels"] = []any{"standard", "own-domain", "none"} },
-		"enrollment over http":         func(d map[string]any) { d["enrollment"] = "http://example.org/enroll" },
-		"enrollment with fragment":     func(d map[string]any) { d["enrollment"] = "https://example.org/enroll#x" },
-		"portal over http":             func(d map[string]any) { d["portal"] = "http://example.org/" },
-		"privacy policy missing":       func(d map[string]any) { delete(d, "privacy_policy") },
-		"upper-case name domain":       func(d map[string]any) { d["name_domain"] = "Homes.Example.net" },
-		"name domain with dot at end":  func(d map[string]any) { d["name_domain"] = "homes.example.net." },
-		"single-label operator domain": func(d map[string]any) { d["operator_domain"] = "localhost" },
-		"trust domain with port":       func(d map[string]any) { d["trust_domain"] = "example.org:443" },
-		"relay port zero":              func(d map[string]any) { d["relay"].(map[string]any)["port"] = 0.0 },
-		"relay port too high":          func(d map[string]any) { d["relay"].(map[string]any)["port"] = 65536.0 },
-		"relay unknown member":         func(d map[string]any) { d["relay"].(map[string]any)["ip"] = "192.0.2.1" },
-		"only own-domain":              func(d map[string]any) { d["protection_levels"] = []any{"own-domain"} },
-		"nine relay pins":              func(d map[string]any) { d["relay_pins"] = ninePins() },
-		"enrollment with query":        func(d map[string]any) { d["enrollment"] = "https://example.org/enroll?x=1" },
-		"enrollment with user info":    func(d map[string]any) { d["enrollment"] = "https://user@example.org/enroll" },
-		"enrollment with IP address":   func(d map[string]any) { d["enrollment"] = "https://192.0.2.1/enroll" },
-		"enrollment with port zero":    func(d map[string]any) { d["enrollment"] = "https://example.org:0/enroll" },
-		"enrollment with dots only":    func(d map[string]any) { d["enrollment"] = "https://../enroll" },
+		"pin not base64url sha-256":       func(d map[string]any) { d["relay_pins"] = []any{"abc"} },
+		"backup pin not base64url":        func(d map[string]any) { d["relay_backup_pins"] = []any{"abc"} },
+		"protection level missing":        func(d map[string]any) { d["protection_levels"] = []any{"standard"} },
+		"unknown protection level":        func(d map[string]any) { d["protection_levels"] = []any{"standard", "own-domain", "none"} },
+		"enrollment over http":            func(d map[string]any) { d["enrollment"] = "http://example.org/enroll" },
+		"enrollment with fragment":        func(d map[string]any) { d["enrollment"] = "https://example.org/enroll#x" },
+		"portal over http":                func(d map[string]any) { d["portal"] = "http://example.org/" },
+		"privacy policy missing":          func(d map[string]any) { delete(d, "privacy_policy") },
+		"upper-case name domain":          func(d map[string]any) { d["name_domain"] = "Homes.Example.net" },
+		"name domain with dot at end":     func(d map[string]any) { d["name_domain"] = "homes.example.net." },
+		"single-label operator domain":    func(d map[string]any) { d["operator_domain"] = "localhost" },
+		"trust domain with port":          func(d map[string]any) { d["trust_domain"] = "example.org:443" },
+		"relay port zero":                 func(d map[string]any) { d["relay"].(map[string]any)["port"] = 0.0 },
+		"relay port too high":             func(d map[string]any) { d["relay"].(map[string]any)["port"] = 65536.0 },
+		"relay address IPv4 out of range": func(d map[string]any) { d["relay_addresses"] = []any{"192.0.2.256"} },
+		"relay address IPv6 upper case":   func(d map[string]any) { d["relay_addresses"] = []any{"2001:DB8::10"} },
+		"relay address with port":         func(d map[string]any) { d["relay_addresses"] = []any{"192.0.2.10:443"} },
+		"relay addresses empty":           func(d map[string]any) { d["relay_addresses"] = []any{} },
+		"relay addresses duplicate":       func(d map[string]any) { d["relay_addresses"] = []any{"192.0.2.10", "192.0.2.10"} },
+		"planned without from": func(d map[string]any) {
+			d["relay_addresses_planned"] = map[string]any{"addresses": []any{"192.0.2.11"}}
+		},
+		"planned with offset time": func(d map[string]any) {
+			d["relay_addresses_planned"] = map[string]any{"addresses": []any{"192.0.2.11"}, "from": "2026-12-01T00:00:00+01:00"}
+		},
+		"no acme cas":                func(d map[string]any) { d["acme_cas"] = []any{} },
+		"acme ca upper case":         func(d map[string]any) { d["acme_cas"] = []any{"LetsEncrypt.org"} },
+		"acme ca duplicate":          func(d map[string]any) { d["acme_cas"] = []any{"letsencrypt.org", "letsencrypt.org"} },
+		"relay unknown member":       func(d map[string]any) { d["relay"].(map[string]any)["ip"] = "192.0.2.1" },
+		"only own-domain":            func(d map[string]any) { d["protection_levels"] = []any{"own-domain"} },
+		"eight active pins":          func(d map[string]any) { d["relay_pins"] = eightPins() },
+		"enrollment with query":      func(d map[string]any) { d["enrollment"] = "https://example.org/enroll?x=1" },
+		"enrollment with user info":  func(d map[string]any) { d["enrollment"] = "https://user@example.org/enroll" },
+		"enrollment with IP address": func(d map[string]any) { d["enrollment"] = "https://192.0.2.1/enroll" },
+		"enrollment with port zero":  func(d map[string]any) { d["enrollment"] = "https://example.org:0/enroll" },
+		"enrollment with dots only":  func(d map[string]any) { d["enrollment"] = "https://../enroll" },
 	} {
 		doc := loadExample(t)
 		mutate(doc)
@@ -129,8 +145,8 @@ func TestInvalidMetadataIsRejected(t *testing.T) {
 	}
 }
 
-func ninePins() []any {
-	pins := make([]any, 9)
+func eightPins() []any {
+	pins := make([]any, 8)
 	for i := range pins {
 		pins[i] = fmt.Sprintf("%042d%c", i, 'A')
 	}
@@ -145,5 +161,13 @@ func TestEveryRequiredMemberIsRequired(t *testing.T) {
 		if err := s.Validate(doc); err == nil {
 			t.Errorf("document without %q accepted", name)
 		}
+	}
+}
+
+func TestPlannedRelayAddressesAreAccepted(t *testing.T) {
+	doc := loadExample(t)
+	doc["relay_addresses_planned"] = map[string]any{"addresses": []any{"192.0.2.11", "2001:db8::11"}, "from": "2026-12-01T00:00:00Z"}
+	if err := compileMetadataSchema(t).Validate(doc); err != nil {
+		t.Fatal(err)
 	}
 }

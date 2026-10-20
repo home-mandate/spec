@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://home-mandate.org/relay-metadata/v0/metadata.schema.json",
   "title": "Home-Mandate relay operator metadata v0",
-  "description": "Parameters of a relay operator, published at https://<operator-domain>/.well-known/home-mandate-relay (RELAY-v0 Section 3). Draft, not part of v0.1.0 of the Home-Mandate Specification. Rules that a schema cannot express (operator_domain equals the host the document was fetched from, name_domain differs from operator_domain, enrollment is on the operator domain or below) are in RELAY-v0 Section 3.",
+  "description": "Parameters of a relay operator, published at https://<operator-domain>/.well-known/home-mandate-relay (RELAY-v0 Section 3). Draft, not part of v0.1.0 of the Home-Mandate Specification. Rules that a schema cannot express (operator_domain equals the host the document was fetched from, name_domain differs from operator_domain, enrollment is on the operator domain or below, no pin in both pin lists, at most eight pins together) are in RELAY-v0 Sections 3 and 6.8; a gateway refuses to pair with metadata that breaks them.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,10 @@
     "trust_domain",
     "enrollment",
     "relay",
+    "relay_addresses",
     "relay_pins",
+    "relay_backup_pins",
+    "acme_cas",
     "max_offline_days",
     "protection_levels",
     "portal",
@@ -37,7 +40,10 @@
     "relay": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["host", "port"],
+      "required": [
+        "host",
+        "port"
+      ],
       "properties": {
         "host": {
           "$ref": "#/$defs/domain"
@@ -49,15 +55,58 @@
         }
       }
     },
+    "relay_addresses": {
+      "description": "Addresses where agents reach the relay on port 443 (RELAY-v0 Sections 3, 6.4).",
+      "$ref": "#/$defs/relay_addresses"
+    },
+    "relay_addresses_planned": {
+      "description": "Addresses that replace relay_addresses from a time at least 30 days after they first appear (RELAY-v0 Section 6.4).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "addresses",
+        "from"
+      ],
+      "properties": {
+        "addresses": {
+          "$ref": "#/$defs/relay_addresses"
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        }
+      }
+    },
     "relay_pins": {
-      "description": "SHA-256 digests of SubjectPublicKeyInfo, base64url without padding; at least two, so that one key can be replaced (RELAY-v0 Section 6).",
+      "description": "SHA-256 digests of the SubjectPublicKeyInfo of the keys the relay uses, base64url without padding; pinned as active pins at pairing (RELAY-v0 Section 6.8).",
       "type": "array",
-      "minItems": 2,
-      "maxItems": 8,
+      "minItems": 1,
+      "maxItems": 7,
       "uniqueItems": true,
       "items": {
         "type": "string",
         "pattern": "^[A-Za-z0-9_-]{43}$"
+      }
+    },
+    "relay_backup_pins": {
+      "description": "The same for the operator's offline backup keys; pinned as backup pins. No pin may appear in both lists, and together there are at most eight (RELAY-v0 Section 6.8).",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]{43}$"
+      }
+    },
+    "acme_cas": {
+      "description": "Issuer domain names (caa_identity) of the CAs allowed in the CAA records of standard names; only CAs that log every certificate and enforce RFC 8657 (RELAY-v0 Section 6.6).",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/domain"
       }
     },
     "max_offline_days": {
@@ -71,11 +120,22 @@
       "type": "array",
       "uniqueItems": true,
       "items": {
-        "enum": ["standard", "own-domain"]
+        "enum": [
+          "standard",
+          "own-domain"
+        ]
       },
       "allOf": [
-        { "contains": { "const": "standard" } },
-        { "contains": { "const": "own-domain" } }
+        {
+          "contains": {
+            "const": "standard"
+          }
+        },
+        {
+          "contains": {
+            "const": "own-domain"
+          }
+        }
       ]
     },
     "portal": {
@@ -97,6 +157,29 @@
       "type": "string",
       "maxLength": 2048,
       "pattern": "^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z]([a-z0-9-]{0,61}[a-z0-9])?(:[1-9][0-9]{0,4})?(/[A-Za-z0-9._~/-]*)?$"
+    },
+    "ip_address": {
+      "description": "An IPv4 address in dotted decimal, or an IPv6 address in lower case without the mixed notation for embedded IPv4 addresses. The pattern only checks the characters; gateways parse addresses with an IP parser.",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])[.]){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$"
+        },
+        {
+          "type": "string",
+          "maxLength": 39,
+          "pattern": "^[0-9a-f]{0,4}(:[0-9a-f]{0,4}){2,7}$"
+        }
+      ]
+    },
+    "relay_addresses": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ip_address"
+      }
     }
   }
 }

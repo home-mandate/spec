@@ -18,21 +18,22 @@ const (
 
 // enrollmentExamples maps every example of RELAY-v0 Section 5 to the definition it must match.
 var enrollmentExamples = map[string]string{
-	"examples/directory.json":                  "directory",
-	"examples/protected-header-pair.json":      "protected_header",
-	"examples/protected-header-kid.json":       "protected_header",
-	"examples/pair-request.json":               "pair_request",
-	"examples/pair-response.json":              "pair_response",
-	"examples/installation.json":               "installation",
-	"examples/installation-update-acme.json":   "installation_update",
-	"examples/installation-update-unpair.json": "installation_update",
-	"examples/certificate-request.json":        "certificate_request",
-	"examples/certificate-response.json":       "certificate_response",
-	"examples/acme-challenge-request.json":     "acme_challenge_request",
-	"examples/key-change.json":                 "key_change",
-	"examples/key-change-request.json":         "key_change_request",
-	"examples/key-change-header.json":          "key_change_header",
-	"examples/problem.json":                    "problem",
+	"examples/directory.json":                      "directory",
+	"examples/protected-header-pair.json":          "protected_header",
+	"examples/protected-header-kid.json":           "protected_header",
+	"examples/pair-request.json":                   "pair_request",
+	"examples/pair-response.json":                  "pair_response",
+	"examples/installation.json":                   "installation",
+	"examples/installation-update-acme.json":       "installation_update",
+	"examples/installation-update-unpair.json":     "installation_update",
+	"examples/installation-update-own-domain.json": "installation_update",
+	"examples/certificate-request.json":            "certificate_request",
+	"examples/certificate-response.json":           "certificate_response",
+	"examples/acme-challenge-request.json":         "acme_challenge_request",
+	"examples/key-change.json":                     "key_change",
+	"examples/key-change-request.json":             "key_change_request",
+	"examples/key-change-header.json":              "key_change_header",
+	"examples/problem.json":                        "problem",
 }
 
 func loadJSON(t *testing.T, path string) any {
@@ -206,25 +207,34 @@ func TestInvalidEnrollmentMessagesAreRejected(t *testing.T) {
 		"certificate unknown member":                {"examples/certificate-request.json", "certificate_request", func(d obj) { d["san"] = "x" }},
 		"pair response without installation":        {"examples/pair-response.json", "pair_response", func(d obj) { delete(d, "installation") }},
 		"installation replacement time with offset": {"examples/installation.json", "installation", func(d obj) { d["replacement_pending_until"] = "2026-10-21T08:00:00+02:00" }},
-		"installation status removed":               {"examples/installation.json", "installation", func(d obj) { d["status"] = "removed" }},
-		"installation caa identity with port":       {"examples/installation.json", "installation", func(d obj) { d["caa_identity"] = "acme.example:443" }},
-		"installation upper-case home id":           {"examples/installation.json", "installation", func(d obj) { d["home_id"] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" }},
-		"installation short home id":                {"examples/installation.json", "installation", func(d obj) { d["home_id"] = "abcdefghijklmnopqrstuvwxy" }},
-		"installation home id with 1":               {"examples/installation.json", "installation", func(d obj) { d["home_id"] = "abcdefghijklmnopqrstuvwxy1" }},
-		"installation max offline 6":                {"examples/installation.json", "installation", func(d obj) { d["max_offline_days"] = 6.0 }},
-		"installation max offline 91":               {"examples/installation.json", "installation", func(d obj) { d["max_offline_days"] = 91.0 }},
-		"installation http url":                     {"examples/installation.json", "installation", func(d obj) { d["certificate"] = "http://relay-operator.example/c" }},
-		"installation without public name":          {"examples/installation.json", "installation", func(d obj) { delete(d, "public_name") }},
-		"chain empty":                               {"examples/certificate-response.json", "certificate_response", func(d obj) { d["chain"] = []any{} }},
-		"chain of five":                             {"examples/certificate-response.json", "certificate_response", func(d obj) { c := d["chain"].([]any)[0]; d["chain"] = []any{c, c, c, c, c} }},
-		"not_after with offset":                     {"examples/certificate-response.json", "certificate_response", func(d obj) { d["not_after"] = "2026-10-21T08:03:32+00:00" }},
-		"not_after with fraction":                   {"examples/certificate-response.json", "certificate_response", func(d obj) { d["not_after"] = "2026-10-21T08:03:32.5Z" }},
-		"update with both members":                  {"examples/installation-update-acme.json", "installation_update", func(d obj) { d["status"] = "unpaired" }},
-		"update to paused":                          {"examples/installation-update-unpair.json", "installation_update", func(d obj) { d["status"] = "paused" }},
-		"update empty":                              {"examples/installation-update-unpair.json", "installation_update", func(d obj) { delete(d, "status") }},
-		"update acme without caa identity":          {"examples/installation-update-acme.json", "installation_update", func(d obj) { delete(d, "caa_identity") }},
-		"update caa identity upper case":            {"examples/installation-update-acme.json", "installation_update", func(d obj) { d["caa_identity"] = "ACME.example" }},
-		"update acme account over http":             {"examples/installation-update-acme.json", "installation_update", func(d obj) { d["acme_account"] = "http://acme.example/acct/1" }},
+		"own domain status unknown":                 {"examples/installation.json", "installation", func(d obj) { d["own_domain"].(obj)["status"] = "claimed" }},
+		"own domain short token":                    {"examples/installation.json", "installation", func(d obj) { d["own_domain"].(obj)["token"] = "abc" }},
+		"own domain without token":                  {"examples/installation.json", "installation", func(d obj) { delete(d["own_domain"].(obj), "token") }},
+		"update own domain upper case":              {"examples/installation-update-own-domain.json", "installation_update", func(d obj) { d["own_domain"] = "Home.example.com" }},
+		"update own domain with dot at end":         {"examples/installation-update-own-domain.json", "installation_update", func(d obj) { d["own_domain"] = "home.example.com." }},
+		"update own domain too long": {"examples/installation-update-own-domain.json", "installation_update", func(d obj) {
+			d["own_domain"] = strings.Repeat("a", 60) + "." + strings.Repeat("b", 60) + "." + strings.Repeat("c", 60) + "." + strings.Repeat("d", 50) + ".example"
+		}},
+		"update own domain and status":        {"examples/installation-update-own-domain.json", "installation_update", func(d obj) { d["status"] = "unpaired" }},
+		"installation status removed":         {"examples/installation.json", "installation", func(d obj) { d["status"] = "removed" }},
+		"installation caa identity with port": {"examples/installation.json", "installation", func(d obj) { d["caa_identity"] = "acme.example:443" }},
+		"installation upper-case home id":     {"examples/installation.json", "installation", func(d obj) { d["home_id"] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" }},
+		"installation short home id":          {"examples/installation.json", "installation", func(d obj) { d["home_id"] = "abcdefghijklmnopqrstuvwxy" }},
+		"installation home id with 1":         {"examples/installation.json", "installation", func(d obj) { d["home_id"] = "abcdefghijklmnopqrstuvwxy1" }},
+		"installation max offline 6":          {"examples/installation.json", "installation", func(d obj) { d["max_offline_days"] = 6.0 }},
+		"installation max offline 91":         {"examples/installation.json", "installation", func(d obj) { d["max_offline_days"] = 91.0 }},
+		"installation http url":               {"examples/installation.json", "installation", func(d obj) { d["certificate"] = "http://relay-operator.example/c" }},
+		"installation without public name":    {"examples/installation.json", "installation", func(d obj) { delete(d, "public_name") }},
+		"chain empty":                         {"examples/certificate-response.json", "certificate_response", func(d obj) { d["chain"] = []any{} }},
+		"chain of five":                       {"examples/certificate-response.json", "certificate_response", func(d obj) { c := d["chain"].([]any)[0]; d["chain"] = []any{c, c, c, c, c} }},
+		"not_after with offset":               {"examples/certificate-response.json", "certificate_response", func(d obj) { d["not_after"] = "2026-10-21T08:03:32+00:00" }},
+		"not_after with fraction":             {"examples/certificate-response.json", "certificate_response", func(d obj) { d["not_after"] = "2026-10-21T08:03:32.5Z" }},
+		"update with both members":            {"examples/installation-update-acme.json", "installation_update", func(d obj) { d["status"] = "unpaired" }},
+		"update to paused":                    {"examples/installation-update-unpair.json", "installation_update", func(d obj) { d["status"] = "paused" }},
+		"update empty":                        {"examples/installation-update-unpair.json", "installation_update", func(d obj) { delete(d, "status") }},
+		"update acme without caa identity":    {"examples/installation-update-acme.json", "installation_update", func(d obj) { delete(d, "caa_identity") }},
+		"update caa identity upper case":      {"examples/installation-update-acme.json", "installation_update", func(d obj) { d["caa_identity"] = "ACME.example" }},
+		"update acme account over http":       {"examples/installation-update-acme.json", "installation_update", func(d obj) { d["acme_account"] = "http://acme.example/acct/1" }},
 		"challenge three values": {"examples/acme-challenge-request.json", "acme_challenge_request", func(d obj) {
 			d["values"] = []any{key43, "Ljw1T6tIW5zlLN6aE5H2nZXgRQ8u1QYxv6CqUvd_hRo", "LoqXcYV8q5ONbJQxbmR7SCTNo3tiAXDfowyjxAjEuX0"}
 		}},
@@ -278,7 +288,13 @@ func TestEnrollmentSchemaDefinesEveryErrorOfTheTable(t *testing.T) {
 			t.Errorf("error %q of the table is not in the schema: %v", name, err)
 		}
 	}
-	if named != 12 {
-		t.Errorf("found %d errors in the table of Section 5.1, want 12", named)
+	if named != 13 {
+		t.Errorf("found %d errors in the table of Section 5.1, want 13", named)
+	}
+}
+
+func TestOwnDomainCanBeRemoved(t *testing.T) {
+	if err := compileEnrollmentDef(t, "installation_update").Validate(map[string]any{"own_domain": nil}); err != nil {
+		t.Fatal(err)
 	}
 }

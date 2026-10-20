@@ -10,6 +10,18 @@
     "domain": {
       "$ref": "https://home-mandate.org/relay-metadata/v0/metadata.schema.json#/$defs/domain"
     },
+    "own_domain_name": {
+      "description": "An own-domain name as A-labels, at most 233 characters so that _home-mandate-relay.<name> fits (RELAY-v0 Section 6.4).",
+      "allOf": [
+        {
+          "$ref": "#/$defs/domain"
+        },
+        {
+          "type": "string",
+          "maxLength": 233
+        }
+      ]
+    },
     "base64url_43": {
       "description": "32 bytes, base64url without padding.",
       "type": "string",
@@ -269,6 +281,32 @@
         },
         "replacement_pending_until": {
           "$ref": "#/$defs/time"
+        },
+        "own_domain": {
+          "type": "object",
+          "required": [
+            "name",
+            "token",
+            "status"
+          ],
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/own_domain_name"
+            },
+            "token": {
+              "type": "string",
+              "minLength": 22,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "status": {
+              "enum": [
+                "pending",
+                "verified",
+                "lapsed"
+              ]
+            }
+          }
         }
       }
     },
@@ -302,6 +340,25 @@
             },
             "caa_identity": {
               "$ref": "#/$defs/domain"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "own_domain"
+          ],
+          "properties": {
+            "own_domain": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/own_domain_name"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         },
@@ -489,6 +546,7 @@
             "https://home-mandate.org/relay/errors/offline-too-long",
             "https://home-mandate.org/relay/errors/blocked",
             "https://home-mandate.org/relay/errors/bad-csr",
+            "https://home-mandate.org/relay/errors/name-unavailable",
             "https://home-mandate.org/relay/errors/key-conflict",
             "https://home-mandate.org/relay/errors/unpaired",
             "https://home-mandate.org/relay/errors/rate-limited",

@@ -13,7 +13,8 @@ product that implements the specification is Home-Mandate for Home Assistant.
 |---|---|---|
 | `SPEC-v0.md` | Specification: data model, evaluation rule, vocabulary, AuthZEN mapping | CC BY 4.0 |
 | `RELAY-v0.md` | Relay Specification (draft, not part of `v0.1.0`): how gateways are reached through relays of any operator – operator metadata, pairing and issuance, names and certificates | CC BY 4.0 |
-| `relay/` | Schema and example of the relay operator metadata (draft, not part of `v0.1.0`) | Apache 2.0 |
+| `relay/` | Schemas, examples and tests of the Relay Specification (draft, not part of `v0.1.0`) | Apache 2.0 |
+| `relay/cas.md` | Informative list of certificate authorities that log every certificate and enforce RFC 8657 | CC BY 4.0 |
 | `vocabulary/v0.json` | Vocabulary: categories, actions, critical actions (normative) | Apache 2.0 |
 | `schema/vocabulary-v0.schema.json` | JSON Schema of a vocabulary file, also for extensions | Apache 2.0 |
 | `profiles/` | Informative mappings of platforms (Home Assistant, Matter) to the vocabulary | Apache 2.0 |
