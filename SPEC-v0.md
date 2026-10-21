@@ -1311,6 +1311,19 @@ before it executes the action.
    acting twice, for example when an agent repeated a request because its own client gave
    up waiting and both requests were confirmed.
 
+**MCP elicitation (informative).** Item 4 names no mechanism. For an agent that uses MCP:
+
+- **URL mode elicitation** (MCP `2025-11-25` and later) can be such a path. The person
+  confirms on a page the PEP serves, the client opens it so that neither the client nor
+  the model can see the page, and the PEP verifies who confirms. It satisfies item 4 when
+  the PEP checks that the person who confirms is one of the approvers (item 1) and binds
+  the page to exactly one request (items 2 and 3).
+- **Form mode elicitation** is not a confirmation in the sense of item 4. The answer
+  passes through the agent's client, and the PEP cannot tell whether a person gave it.
+- In both cases the person asked is whoever sits at the client, not necessarily an
+  approver. A PEP still needs a path to the approvers, for agents without a person at the
+  client.
+
 Every outcome is recorded in the audit log (Section 9.1) with `approval.outcome`, who
 answered and, optionally, through which channel; a cancelled request with its `cause`.
 
@@ -1797,6 +1810,13 @@ or format):
 - Section 12.4: no tools that write platform configuration through the PEP (a request for
   configuration is `deny`); the PEP's own platform credential is as restricted as the
   platform allows and never given to the agent.
+
+MCP elicitation (Section 11.1, informative, no change to any rule):
+- Note after the list of Section 11.1: URL mode elicitation (MCP `2025-11-25` and later)
+  can be a confirmation path in the sense of item 4 when the PEP checks that the person who
+  confirms is an approver and binds the page to exactly one request; form mode elicitation
+  cannot, because the answer passes through the agent's client. In both cases a PEP still
+  needs a path to the approvers.
 
 Versions (Section 14, rewritten):
 - The v0 formats (mandate, audit entry, audit checkpoint) are frozen from `v0.1.0`, the first
