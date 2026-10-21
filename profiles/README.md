@@ -18,6 +18,7 @@ A profile describes
 |---|---|---|
 | `home-assistant.md` | Home Assistant | used by one implementation |
 | `matter.md` | Matter | draft, not verified against an implementation |
+| `openhab.md` | openHAB | draft, not verified against an implementation |
 
-Profiles for other platforms (openHAB, KNX, Zigbee, HomeKit, …) are welcome; see
+Profiles for other platforms (ioBroker, KNX, Zigbee, HomeKit, …) are welcome; see
 `CONTRIBUTING.md`.
