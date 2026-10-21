@@ -1482,7 +1482,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 
 | Attacker | What the specification does | What remains |
 |---|---|---|
-| **Agent that is malicious or was manipulated** (prompt injection through a website, an e-mail, a document) | The decision is made outside the agent. Default `deny`, most restrictive rule wins, critical actions need `allow_critical` or a human (Section 4). The agent supplies only the resource and the action; category, areas, time and status come from the PEP. Rate limit and a limit on waiting approval requests (Section 11) | Everything the mandate allows, the agent can do. A mandate with a broad `allow` is a broad permission |
+| **Agent that is malicious or was manipulated** (prompt injection through a website, an e-mail, a document) | The decision is made outside the agent. Default `deny`, most restrictive rule wins, critical actions need `allow_critical` or a human (Section 4). The agent supplies only the resource and the action; category, areas, time and status come from the PEP. Rate limit and a limit on waiting approval requests (Section 11) | Everything the mandate allows, the agent can do. A mandate with a broad `allow` is a broad permission. An automation or a rule on the platform that reacts to an allowed action on a harmless-looking resource (a switch, a virtual datapoint) does what the household would not let the agent do directly; the PEP sees only the switch. Such a resource is marked critical (Section 12.4) |
 | **Agent that tries to obtain a confirmation** | The confirmation is bound to one request, used once, comes from a named approver on a path the agent does not control, and the request is evaluated again afterwards (Section 11.1) | A human who confirms without reading. The implementation MUST show what is confirmed; it cannot make the human read |
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
@@ -1491,6 +1491,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal (Section 3.5) | The specification does not define how this trust is configured |
 | **Attacker between PEP and PDP** | The connection MUST be authenticated in both directions; the PDP MUST NOT be reachable by agents (Section 6) | The specification does not define the mechanism |
 | **Whoever can change a mandate and switches it to audit mode** (a member of the household, a manipulated user interface, an issuer) | Critical actions, `ask` and every denial outside the rules stay enforced (Section 4.6). Switching audit mode on takes effect only after a human of the household confirmed it explicitly, also for a signed successor, and every approver is notified (Sections 3.5, 11.6). The switch is a new version with a new digest, recorded with `mandate.updated` and its actor (Sections 3.2, 9.2), and implementations MUST show audit mode wherever they show mandates (Section 11.6). In a signed mandate, `enforce` is covered by the signature (Section 7); a verifier rejects an audit entry that claims an unenforced deny of a critical action (Section 9.1) | In audit mode the agent can do every action that is not critical, including `read` of cameras and presence sensors. Whoever can change mandates could also write a broad `allow`; audit mode gives no more power, but it looks harmless. A human who confirms without reading; the confirmation and the notice make the switch visible, they do not prevent it |
+| **Agent with a path past the PEP** (another credential for the platform, for example an MCP tool that talks to the platform with its own API token, or the right to create or change scripts, automations or rules) | Nothing. The evaluation covers only the requests that reach the PEP (Section 12.3, the only path) | Whatever the agent can do on that path, no mandate limits. A script or an automation it writes can scan the network, load programs or unlock the front door |
 | **Compromised PEP** | Nothing. The PEP executes; a PEP that ignores a `deny` cannot be stopped by a format | – |
 
 ### 12.3 Assumptions
@@ -1505,6 +1506,10 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
 - **the approval channel**: it reaches the approver and nobody else can answer on it;
 - **the authentication of the agent**: the specification assumes that the agent behind
   a `client_id` was authenticated; how is outside its scope;
+- **the only path**: the agent reaches the platform only through the PEP. It holds no other
+  credential for the platform (an API token, a user account) and cannot create or change
+  what executes on the platform: scripts, automations, rules, scenes, adapters,
+  integrations, code. Whatever the agent can do past the PEP, no mandate limits;
 - **the keys**: of issuers (Section 7) and of the audit log (Section 9.5).
 
 ### 12.4 Advice for implementers
@@ -1516,6 +1521,26 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
 - **Indirect effects.** A resource can act on others: a switch on a door opener, a scene
   that unlocks. The vocabulary cannot know this; the critical marking of the resource
   (Section 4, step 5) is the means for it.
+- **Automations that react.** An automation or a rule on the platform (a Home Assistant
+  automation, a Node-RED flow, an n8n workflow) can react to a harmless-looking resource,
+  a switch or a virtual datapoint, and unlock a door. An allowed command to the switch
+  then starts what the household would not let the agent run directly; the PEP sees only
+  the switch. A resource that automations react to SHOULD be marked critical. The critical
+  marking relies on the household knowing which resources these are, so where the platform
+  can tell which automations or rules react to a resource, implementations SHOULD show it
+  to the household and suggest marking the resource critical. openHAB, for example,
+  returns the triggers of every rule through its REST API, among them a command to an Item
+  and a change of its state.
+- **Platform configuration.** Writing scripts, automations, rules, scenes or integrations
+  is not an action on a resource, and no mandate limits what such code does once it runs
+  (Section 12.3, the only path). Implementations SHOULD NOT offer tools that write platform
+  configuration through the PEP. One that does MUST keep them outside the mandate model and
+  MUST NOT let a mandate `allow` them. A request for configuration is an action outside the
+  vocabulary and therefore `deny` (Sections 4 and 5.1).
+- **The PEP's own credential.** The credential with which the PEP acts on the platform
+  SHOULD be as restricted as the platform allows (a restricted user or profile), so that the
+  platform itself refuses configuration changes and the mandate narrows down what remains.
+  The agent MUST NOT receive this credential.
 - **Reading is not harmless.** `read` is never critical, but presence sensors, door
   contacts and cameras reveal who is at home. Mandates SHOULD allow `read` per category,
   not for `any`.
@@ -1772,6 +1797,19 @@ Overview (Sections 1.1 and 2, informative, no change to any rule):
   defines and which it leaves open. It names MCP as the agent interface of the reference
   implementation, as an example.
 - Section 2 defines PDP and PEP.
+
+The only path to the platform (Sections 12.2, 12.3, 12.4, text only, no change to any rule
+or format):
+- Section 12.3: new assumption that the agent reaches the platform only through the PEP,
+  holds no other credential for it and cannot create or change scripts, automations, rules
+  or other code that executes on it. Section 12.2: new row for an agent with a path past
+  the PEP.
+- Sections 12.2 and 12.4: automations and rules that react to a harmless-looking resource;
+  such a resource is marked critical, and interfaces show the household which resources
+  automations react to where the platform can tell (openHAB as the example).
+- Section 12.4: no tools that write platform configuration through the PEP (a request for
+  configuration is `deny`); the PEP's own platform credential is as restricted as the
+  platform allows and never given to the agent.
 
 MCP elicitation (Section 11.1, informative, no change to any rule):
 - Note after the list of Section 11.1: URL mode elicitation (MCP `2025-11-25` and later)
