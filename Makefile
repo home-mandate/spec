@@ -30,7 +30,7 @@ cover:
 vet:
 	go vet ./...
 
-# Temporary (2026-10-09): staticcheck v0.8.1 cannot read Go 1.27.2's export data
+# Temporary (2026-10-09): staticcheck v0.8.1 cannot read Go 1.27's export data
 # (dominikh/go-tools#1832). A run whose only output is that error (and module downloads)
 # counts as a warning; any other output still fails. Remove once a compatible staticcheck
 # release is pinned.
