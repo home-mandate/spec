@@ -11,7 +11,7 @@ COVER_MIN      := 95
 EFFICACY_MIN   := 90
 FUZZTIME       ?= 10m
 # package:target
-FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate audit:FuzzVerify jws:FuzzVerify internal/harness:FuzzServe
+FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate evaluator:FuzzValue audit:FuzzVerify jws:FuzzVerify internal/harness:FuzzServe
 MUTATION_PKGS  := ./evaluator ./audit ./jcs ./jws ./displaytext ./ratelimit
 
 .PHONY: check test cover vet staticcheck vulncheck fuzz mutation manifest
@@ -30,7 +30,7 @@ cover:
 vet:
 	go vet ./...
 
-# Temporary (2026-10-09): staticcheck v0.8.1 cannot read Go 1.27.2's export data
+# Temporary (2026-10-09): staticcheck v0.8.1 cannot read Go 1.27's export data
 # (dominikh/go-tools#1832). A run whose only output is that error (and module downloads)
 # counts as a warning; any other output still fails. Remove once a compatible staticcheck
 # release is pinned.

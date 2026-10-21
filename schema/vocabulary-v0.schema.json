@@ -58,35 +58,71 @@
                   "const": true
                 },
                 "parameters": {
-                  "description": "Integer parameters of the action that a rule can constrain (SPEC-v0 section 4.5).",
+                  "description": "Parameters of the action that a rule can constrain (SPEC-v0 section 4.5): integers in a unit, or strings.",
                   "type": "object",
                   "minProperties": 1,
                   "propertyNames": {
                     "pattern": "^[a-z][a-z0-9_]{0,63}$"
                   },
                   "additionalProperties": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": [
-                      "unit"
-                    ],
-                    "properties": {
-                      "unit": {
-                        "description": "Unit of the integer value, chosen fine enough that no fraction is needed.",
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 64
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "type",
+                          "unit"
+                        ],
+                        "properties": {
+                          "type": {
+                            "const": "integer"
+                          },
+                          "unit": {
+                            "description": "Unit of the integer value, chosen fine enough that no fraction is needed.",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "minimum": {
+                            "description": "Smallest valid value, inclusive. A request with a smaller value is invalid (SPEC-v0 section 4, step 0).",
+                            "type": "integer"
+                          },
+                          "maximum": {
+                            "description": "Largest valid value, inclusive. A request with a larger value is invalid (SPEC-v0 section 4, step 0).",
+                            "type": "integer"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        }
                       },
-                      "minimum": {
-                        "type": "integer"
-                      },
-                      "maximum": {
-                        "type": "integer"
-                      },
-                      "description": {
-                        "type": "string"
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "type": {
+                            "const": "string"
+                          },
+                          "values": {
+                            "description": "The permitted values, at most 32 like the values of a one_of. A request with another value is invalid, and so is a mandate whose constraint names another value (SPEC-v0 sections 3.1 and 4). Absent: any string of 1 to 64 printable ASCII characters without space.",
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 32,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[!-~]{1,64}$"
+                            }
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        }
                       }
-                    }
+                    ]
                   }
                 }
               }

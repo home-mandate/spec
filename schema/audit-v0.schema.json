@@ -63,17 +63,22 @@
           "properties": {
             "entity_id": { "type": "string", "minLength": 1, "maxLength": 255 },
             "category": { "type": "string", "minLength": 1, "maxLength": 128 },
-            "area": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "areas": { "description": "Set of areas of the resource as the directory gave it (SPEC-v0 section 3.4); absent or empty: the resource has no area.", "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
             "critical": { "description": "true: the directory marked the resource as critical at evaluation time; absent = false.", "type": "boolean" }
           }
         },
         "action": { "type": "string", "minLength": 1, "maxLength": 64 },
         "parameters": {
-          "description": "Parameters of the action that were input to the evaluation (SPEC-v0 section 4.5).",
+          "description": "Parameters of the action that were input to the evaluation (SPEC-v0 section 4.5): integers or strings.",
           "type": "object",
           "maxProperties": 16,
           "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,63}$" },
-          "additionalProperties": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+          "additionalProperties": {
+            "anyOf": [
+              { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+              { "type": "string", "pattern": "^[!-~]{1,64}$" }
+            ]
+          }
         }
       }
     },
@@ -95,9 +100,15 @@
         "decision": { "enum": ["allow", "ask", "deny"] },
         "reason": { "$ref": "#/$defs/reason" },
         "rule_id": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9_-]{1,64}$" },
-        "approval_timeout": { "type": "string", "minLength": 4, "pattern": "^PT([0-9]{1,5}H)?([0-9]{1,5}M)?([0-9]{1,5}S)?$" }
+        "approval_timeout": { "type": "string", "minLength": 4, "pattern": "^PT([0-9]{1,5}H)?([0-9]{1,5}M)?([0-9]{1,5}S)?$" },
+        "enforced": {
+          "description": "Only false: a deny by the rules of a mandate in audit mode that the PEP did not enforce (SPEC-v0 section 4.6). Absent: the decision was enforced.",
+          "const": false
+        }
       },
       "allOf": [
+        { "if": { "required": ["enforced"] },
+          "then": { "properties": { "decision": { "const": "deny" }, "reason": { "enum": ["no_match", "rule"] } } } },
         { "if": { "properties": { "decision": { "const": "allow" } } },
           "then": { "properties": { "reason": { "const": "rule" } } } },
         { "if": { "properties": { "decision": { "const": "ask" } } },
@@ -273,13 +284,21 @@
     { "if": { "required": ["approval"], "properties": { "approval": { "required": ["cause"], "properties": { "cause": { "const": "emergency_stop" } } } } },
       "then": { "properties": { "result": { "properties": { "denied_by": { "const": "emergency_stop" } } } } } },
     { "if": { "required": ["result"], "properties": { "result": { "required": ["status"], "properties": { "status": { "const": "executed" } } } } },
-      "then": { "required": ["evaluation", "mandate"], "properties": { "evaluation": { "properties": { "decision": { "enum": ["allow", "ask"] } } } } } },
+      "then": { "required": ["evaluation", "mandate"],
+                "properties": { "evaluation": { "anyOf": [ { "properties": { "decision": { "enum": ["allow", "ask"] } } }, { "required": ["enforced"] } ] } } } },
     { "if": { "required": ["result", "evaluation"],
               "properties": { "result": { "required": ["status"], "properties": { "status": { "const": "executed" } } },
                               "evaluation": { "required": ["decision"], "properties": { "decision": { "const": "ask" } } } } },
       "then": { "required": ["approval"], "properties": { "approval": { "properties": { "outcome": { "const": "approved" } } } } } },
-    { "if": { "required": ["evaluation"], "properties": { "evaluation": { "required": ["decision"], "properties": { "decision": { "const": "deny" } } } } },
+    { "if": { "required": ["evaluation"], "properties": { "evaluation": { "required": ["decision"], "properties": { "decision": { "const": "deny" } }, "not": { "required": ["enforced"] } } } },
       "then": { "required": ["result"], "properties": { "result": { "required": ["status", "denied_by"], "properties": { "status": { "const": "denied" }, "denied_by": { "const": "mandate" } } } } } },
+    { "if": { "required": ["evaluation"], "properties": { "evaluation": { "required": ["enforced"] } } },
+      "then": { "required": ["event", "result", "mandate", "request"],
+                "properties": { "event": { "const": "decision" }, "result": { "required": ["status"], "properties": { "status": { "enum": ["executed", "failed"] } } },
+                                "request": { "properties": { "resource": { "required": ["category", "critical"] } } } },
+                "not": { "properties": { "request": { "required": ["resource", "action"],
+                                                      "properties": { "resource": { "required": ["critical"], "properties": { "critical": { "const": true } } },
+                                                                      "action": { "not": { "const": "read" } } } } } } } },
     { "if": { "properties": { "seq": { "const": 1 } } },
       "then": { "properties": { "prev": { "type": "null" } } },
       "else": { "properties": { "prev": { "$ref": "#/$defs/digest" } } } }

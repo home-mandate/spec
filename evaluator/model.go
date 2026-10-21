@@ -33,8 +33,10 @@ type Mandate struct {
 	validFrom  time.Time
 	expires    time.Time
 	hasExpires bool
-	rules      []rule
-	approval   Approval
+	// auditMode is true for "enforce": false (SPEC-v0 section 4.6).
+	auditMode bool
+	rules     []rule
+	approval  Approval
 }
 
 // ID returns the mandate ID; empty for nil.
@@ -77,6 +79,13 @@ func (m *Mandate) Version() int64 {
 	return m.version
 }
 
+// Enforce reports whether the PEP enforces every deny of the mandate. It is false only for
+// a mandate in audit mode ("enforce": false, SPEC-v0 section 4.6); nil enforces.
+// Implementations show the household which mandates are in audit mode.
+func (m *Mandate) Enforce() bool {
+	return m == nil || !m.auditMode
+}
+
 // Digest returns the digest according to SPEC-v0 section 3.2; empty for nil.
 func (m *Mandate) Digest() string {
 	if m == nil {
@@ -107,11 +116,38 @@ type rule struct {
 	constraints   []constraint
 }
 
-// constraint limits one integer parameter of the action (SPEC-v0 section 4.5); a limit
-// that the rule does not give is the smallest or largest int64.
+// constraint restricts one parameter of the action (SPEC-v0 section 4.5): either an
+// integer range, where a limit that the rule does not give is the smallest or largest
+// int64, or, if oneOf is not nil, the permitted values.
 type constraint struct {
 	parameter string
 	min, max  int64
+	oneOf     []Value
+}
+
+// permits reports whether v satisfies the constraint. A range permits only integers, and
+// a list only the values it contains, compared exactly.
+func (c constraint) permits(v Value) bool {
+	if c.oneOf != nil {
+		return slices.Contains(c.oneOf, v)
+	}
+	n, ok := v.AsInteger()
+	return ok && n >= c.min && n <= c.max
+}
+
+// fits reports whether the constraint fits the parameter's declaration in the vocabulary
+// (SPEC-v0 section 3.1 item 10): a range only an integer parameter, a list only values the
+// parameter admits.
+func (c constraint) fits(p parameterInfo) bool {
+	if c.oneOf == nil {
+		return p.Type == typeInteger
+	}
+	for _, v := range c.oneOf {
+		if !p.declares(v) {
+			return false
+		}
+	}
+	return true
 }
 
 // The raw* types mirror the schema; they are filled only after schema validation succeeds.
@@ -134,12 +170,15 @@ type rawRule struct {
 		TimeWindow string   `json:"time_window"`
 		Weekdays   []string `json:"weekdays"`
 	} `json:"conditions"`
-	Constraints map[string]struct {
-		Min *json.Number `json:"min"`
-		Max *json.Number `json:"max"`
-	} `json:"constraints"`
-	Approval      *rawApproval `json:"approval"`
-	AllowCritical bool         `json:"allow_critical"`
+	Constraints   map[string]rawConstraint `json:"constraints"`
+	Approval      *rawApproval             `json:"approval"`
+	AllowCritical bool                     `json:"allow_critical"`
+}
+
+type rawConstraint struct {
+	Min   *json.Number      `json:"min"`
+	Max   *json.Number      `json:"max"`
+	OneOf []json.RawMessage `json:"one_of"`
 }
 
 type rawMandate struct {
@@ -150,6 +189,7 @@ type rawMandate struct {
 		ClientID    string `json:"client_id"`
 		DisplayName string `json:"display_name"`
 	} `json:"agent"`
+	Enforce  *bool       `json:"enforce"`
 	Rules    []rawRule   `json:"rules"`
 	Default  string      `json:"default"`
 	Approval rawApproval `json:"approval"`
@@ -171,7 +211,7 @@ var weekdayNames = map[string]time.Weekday{
 
 func buildMandate(raw rawMandate, digest string) (*Mandate, error) {
 	m := &Mandate{id: raw.ID, clientID: raw.Agent.ClientID, principal: raw.Principal, digest: digest,
-		rules: make([]rule, 0, len(raw.Rules))}
+		auditMode: raw.Enforce != nil && !*raw.Enforce, rules: make([]rule, 0, len(raw.Rules))}
 	if err := m.setValidity(raw); err != nil {
 		return nil, err
 	}
@@ -277,27 +317,13 @@ func (r *rule) setConstraints(rr rawRule) error {
 	}
 	slices.Sort(names)
 	for _, name := range names {
-		limits := rr.Constraints[name]
-		c := constraint{parameter: name, min: math.MinInt64, max: math.MaxInt64}
-		for _, limit := range []struct {
-			raw    *json.Number
-			target *int64
-		}{{limits.Min, &c.min}, {limits.Max, &c.max}} {
-			if limit.raw == nil {
-				continue
-			}
-			value, ok := integerValue(*limit.raw)
-			if !ok {
-				return fmt.Errorf("%w: rule %q: constraint %q is not an integer", ErrSchema, rr.ID, name)
-			}
-			*limit.target = value
-		}
-		if c.min > c.max {
-			return fmt.Errorf("%w: rule %q: constraint %q has min greater than max", ErrSemantic, rr.ID, name)
+		c, err := buildConstraint(rr.ID, name, rr.Constraints[name])
+		if err != nil {
+			return err
 		}
 		for _, action := range rr.Actions {
-			if checked && !hasParameter(category, action, name) {
-				return fmt.Errorf("%w: rule %q: action %q has no parameter %q", ErrSemantic, rr.ID, action, name)
+			if checked && !parameterFits(category, action, c) {
+				return fmt.Errorf("%w: rule %q: action %q has no parameter %q that the constraint fits", ErrSemantic, rr.ID, action, name)
 			}
 		}
 		r.constraints = append(r.constraints, c)
@@ -305,24 +331,82 @@ func (r *rule) setConstraints(rr rawRule) error {
 	return nil
 }
 
-// maxExactInteger is the largest integer that I-JSON (RFC 7493) guarantees to be exact.
-const maxExactInteger = 1 << 53
+// maxOneOf is the largest number of values in a one_of (SPEC-v0 section 4.5).
+const maxOneOf = 32
 
-// integerValue reads an integer by its value: 20, 20.0 and 2e1 are the same number.
-func integerValue(n json.Number) (int64, bool) {
-	f, err := strconv.ParseFloat(n.String(), 64)
-	if err != nil || f != math.Trunc(f) || math.Abs(f) >= maxExactInteger {
-		return 0, false
+// buildConstraint reads one constraint: a list of permitted values, or limits. It checks
+// a list itself, although the schema already does, so that no caller gets a list that
+// contradicts SPEC-v0 section 4.5.
+func buildConstraint(ruleID, name string, raw rawConstraint) (constraint, error) {
+	c := constraint{parameter: name, min: math.MinInt64, max: math.MaxInt64}
+	if raw.OneOf != nil {
+		if raw.Min != nil || raw.Max != nil {
+			return constraint{}, fmt.Errorf("%w: rule %q: constraint %q has one_of together with min or max", ErrSemantic, ruleID, name)
+		}
+		values, err := buildOneOf(raw.OneOf)
+		if err != nil {
+			return constraint{}, fmt.Errorf("rule %q: constraint %q: %w", ruleID, name, err)
+		}
+		c.oneOf = values
+		return c, nil
 	}
-	return int64(f), true
+	for _, limit := range []struct {
+		raw    *json.Number
+		target *int64
+	}{{raw.Min, &c.min}, {raw.Max, &c.max}} {
+		if limit.raw == nil {
+			continue
+		}
+		value, ok := integerValue(*limit.raw)
+		if !ok {
+			return constraint{}, fmt.Errorf("%w: rule %q: constraint %q is not an integer", ErrSchema, ruleID, name)
+		}
+		*limit.target = value
+	}
+	if c.min > c.max {
+		return constraint{}, fmt.Errorf("%w: rule %q: constraint %q has min greater than max", ErrSemantic, ruleID, name)
+	}
+	return c, nil
+}
+
+// buildOneOf reads the values of a one_of: 1 to 32 distinct valid values of one type.
+func buildOneOf(raw []json.RawMessage) ([]Value, error) {
+	if len(raw) == 0 || len(raw) > maxOneOf {
+		return nil, fmt.Errorf("%w: one_of has %d values, permitted are 1 to %d", ErrSemantic, len(raw), maxOneOf)
+	}
+	values := make([]Value, len(raw))
+	for i, data := range raw {
+		v := &values[i]
+		if err := v.UnmarshalJSON(data); err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrSchema, err)
+		}
+		switch {
+		case !v.valid():
+			return nil, fmt.Errorf("%w: one_of value %s is no valid parameter value", ErrSemantic, data)
+		case v.kind != values[0].kind:
+			return nil, fmt.Errorf("%w: one_of mixes integers and strings", ErrSemantic)
+		case slices.Contains(values[:i], *v):
+			return nil, fmt.Errorf("%w: one_of has the value %s twice", ErrSemantic, data)
+		}
+	}
+	return values, nil
+}
+
+// integerValue reads an integer by its exact value: 20, 20.0 and 2e1 are the same number,
+// 20.000000000000000001 and 1e-400 are no integers. The magnitude is below 2^53, the
+// integers that are exact in every JSON implementation (RFC 7493).
+func integerValue(n json.Number) (int64, bool) {
+	value, err := exactInteger(n.String())
+	return value, err == nil
 }
 
 // constraintsMet reports whether the request carries every constrained parameter with
-// a value within the limits, both inclusive.
-func (r *rule) constraintsMet(parameters map[string]int64) bool {
+// a value the constraint permits: within the limits, both inclusive, or one of the
+// listed values.
+func (r *rule) constraintsMet(parameters map[string]Value) bool {
 	for _, c := range r.constraints {
 		value, ok := parameters[c.parameter]
-		if !ok || value < c.min || value > c.max {
+		if !ok || !c.permits(value) {
 			return false
 		}
 	}

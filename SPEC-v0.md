@@ -70,7 +70,7 @@ implementation: the specification states what must hold there, not how it is ach
   Both can run in one process; an implementation of the class `pdp` (Section 8.1) offers
   the interface over HTTP.
 - **PEP → platform.** The PEP talks to the platform through the platform's own API. It
-  takes category, area and critical marking from its own resource directory, never from
+  takes category, areas and critical marking from its own resource directory, never from
   the agent (Section 4). The profiles in `profiles/` relate platform devices to the
   vocabulary (informative).
 - **Human.** The household chooses the mandate (Sections 3 and 3.5), confirms `ask`
@@ -89,7 +89,7 @@ PDP, travels signed (Section 7).
 - **Resource:** a single device or entity, named by an identifier from the resource
   directory of the implementation.
 - **Resource directory:** what the implementation knows about the resources of the
-  household: for each identifier its category and, optionally, its area.
+  household: for each identifier its category and, optionally, its areas (Section 3.4).
 - **Action:** what is to be done with the resource, taken from the vocabulary of its category.
 - **Decision:** `allow` (execute immediately), `ask` (a human must confirm), `deny` (reject).
 - **PDP (policy decision point):** the part of an implementation that evaluates a request
@@ -97,6 +97,9 @@ PDP, travels signed (Section 7).
 - **PEP (policy enforcement point):** the part of an implementation that receives the
   agent's requests, asks the PDP and enforces the decision: it passes allowed commands on
   to the platform, obtains approvals and keeps the audit log (Sections 9 and 11).
+- **Audit mode:** a mandate with `enforce: false` is tried, not enforced: its rules are
+  evaluated and recorded, but a denial by the rules of an action that is not critical does
+  not stop the agent (Section 4.6).
 - **Template:** a mandate draft that an implementation stores and from which it creates
   mandates. This version defines no format for templates; the audit log records changes to
   them (Section 9.2).
@@ -124,6 +127,7 @@ Mandate
 ├── id            unique ID
 ├── principal     "household:<id>" or "person:<id>"
 ├── agent         { client_id, display_name }   client_id: see Section 3.3
+├── enforce?      only false: audit mode (Section 4.6); absent: enforced
 ├── rules[]       rule
 │   ├── id
 │   ├── resource  selector: entity_id | category | area (at least one) or any: true alone
@@ -131,7 +135,7 @@ Mandate
 │   ├── actions[] actions from the vocabulary or "*"
 │   ├── decision  allow | ask | deny
 │   ├── conditions? { time_window, weekdays }
-│   ├── constraints? { <parameter>: { min, max } }   only with allow, see Section 4.5
+│   ├── constraints? { <parameter>: { min, max } or { one_of } }   only with allow, see Section 4.5
 │   ├── approval?   { timeout, approvers }   only with ask
 │   └── allow_critical?  true, required for allow on critical actions; not together with "*"
 ├── default       always "deny" in v0
@@ -201,12 +205,20 @@ A mandate is valid if it conforms to the schema **and** additionally:
    vocabulary cannot add to them silently.
 
 10. `constraints` appear only in rules with `decision: allow` that list their actions
-    (no `"*"`). For every constraint, `min` is not greater than `max`, and the named
-    parameter is a parameter of **every** action of the rule: in the vocabulary of the
-    rule's category or, if the rule names no category, of that action in at least one
-    category from Section 5. Rules for an extension category are not checked. A
-    constraint on a `deny` or `ask` rule would fail open, because a request without the
-    parameter would not match the rule; therefore it is invalid.
+    (no `"*"`). For every constraint, `min` is not greater than `max`, and for **every**
+    action of the rule, the named parameter is a parameter of the action that the
+    constraint fits: in the vocabulary of the rule's category or, if the rule names no
+    category, in at least one category from Section 5. A constraint fits a parameter if
+    it gives `min` or `max` only for an integer parameter, and if every value of its
+    `one_of` has the type of the parameter and, for a string parameter with permitted
+    values, is one of them, compared exactly and case-sensitive (Section 4.5). Rules for
+    an extension category are not checked. A constraint on a `deny` or `ask` rule would
+    fail open, because a request without the parameter would not match the rule;
+    therefore it is invalid.
+
+11. `enforce`, if present, is `false` (audit mode, Section 4.6). A mandate that enforces
+    has no `enforce` member: `true` would be a second form of the same mandate with a
+    different digest, and is invalid. `enforce` is a member of the mandate, not of a rule.
 
 All numbers in a mandate are integers whose magnitude is at most 2^53 − 1; the schema
 permits nothing else.
@@ -243,10 +255,14 @@ digest = "sha256:" + hex(SHA-256(JCS(mandate)))
 In the audit log (Section 9), the digest refers to the version on which the decision was
 based, without writing the content of the mandate to the audit log.
 
+`enforce` is part of the content: a mandate in audit mode and the same mandate without
+`enforce` have different digests, so that switching audit mode on or off is a new version
+(Section 4.6) and every audit entry names the version it was decided under.
+
 Numbers are canonicalized by their value: `10`, `10.0` and `1e1` are the same number and
-yield the same digest. Because mandates and audit log entries contain only integers, an
-implementation needs no floating-point serialization for the canonical form: an integer
-is written in decimal notation without fraction and exponent.
+yield the same digest. Because the only numbers in mandates and audit log entries are
+integers, an implementation needs no floating-point serialization for the canonical form:
+an integer is written in decimal notation without fraction and exponent.
 
 ### 3.3 Agent identifier
 
@@ -280,13 +296,21 @@ Identifiers are compared exactly per character, without normalization and case-s
 Implementations SHOULD use identifiers that do not change when a human renames a device.
 If the identifier of a resource changes, rules that name the old identifier no longer
 match: an `allow` rule stops allowing, but a `deny` or `ask` rule stops restricting, and a
-broader `allow` rule may then apply. The same holds when the area of a resource changes
-or is removed. Implementations MUST therefore tell the household which mandates are
-affected when an identifier or an area that a rule names changes or disappears, and
-SHOULD express restrictions by category or by identifier, not by area alone.
+broader `allow` rule may then apply. The same holds when an area of a resource changes
+or is removed, or when a resource moves to another area. Implementations MUST therefore
+tell the household which mandates are affected when an identifier or an area that a rule
+names changes or disappears, or when a resource leaves or enters such an area; this
+covers every area in the resource's set of areas. They SHOULD express restrictions by
+category or by identifier, not by area alone.
 
-`area` is the single grouping this version knows; what a platform calls room, zone,
-floor or group can be mapped to it. `approvers` and `created_by` are identifiers from
+**Areas** are the grouping this version knows. The resource directory gives each resource
+a **set of areas**: 0 to 16 area identifiers, each following the rules for `area` above,
+without duplicates and without order. The set holds the room of the resource and every
+location above it (for example `garage`, `ground_floor`, `home`), or several rooms side
+by side where the platform places a resource in more than one. What a platform calls
+room, zone, floor or group can be mapped to areas. A resource without an area has an
+empty set. A rule still names exactly one `area`; it matches if that area is in the
+resource's set (Section 4, step 2). `approvers` and `created_by` are identifiers from
 the user management of the implementation and have no meaning outside it; a mandate
 that moves to another implementation needs them replaced.
 
@@ -317,17 +341,31 @@ long as an older version could still be valid, and it MUST treat a restore from 
 like the arrival of mandates from outside. A revocation is local as well: a signed mandate
 stays verifiable until it expires, so a revoked mandate MUST NOT be accepted again by way
 of its signature.
+
+**Audit mode.** A mandate that switches audit mode on MUST NOT take effect until a human
+of the household has confirmed it explicitly (Section 11.6 item 4). It switches audit
+mode on if it has `enforce: false` (Section 4.6) and no mandate with the same `id` in
+audit mode is in force: the stored mandate enforces, or it is not in force because it is
+revoked, expired, not yet valid or invalid, or there is none. A mandate that arrives
+without a predecessor in force, a restore from a backup included, therefore counts as
+arriving from outside. The confirmation is bound to the digest (Section 3.2) of exactly
+the version that is adopted; any other version needs its own. This holds for a signed
+successor as well: succession and the signature make it acceptable, not adopted, and
+until the confirmation the stored mandate stays as it is. Every approver of the mandate
+MUST be notified when such a mandate is proposed and when it takes effect. A replacement
+that switches audit mode off needs no confirmation.
+
 An issuer can end the sequence of an `id` by issuing the highest possible version; the
 mandate then needs a new `id`. A mandate that leaves the implementation that
 created it, signed per Section 7, MUST carry `issuer` and `version`.
 
 ## 4. Evaluation rule
 
-Input: mandate, resource (entity ID, category, area, and whether the directory marks it as
+Input: mandate, resource (entity ID, category, set of areas, and whether the directory marks it as
 critical), action, optionally parameters of the action (Section 4.5), point in time,
 household time zone, status of the mandate (`active` or `revoked`). Which mandate is evaluated is determined by Section 4.3.
 
-**Origin of inputs:** The PEP MUST determine the category, the area and the critical marking from its own resource
+**Origin of inputs:** The PEP MUST determine the category, the areas and the critical marking from its own resource
 directory, the point in time from its own clock, the time zone from the household
 configuration and the status from its own mandate management. It MUST NOT take any of these
 from the agent; only the requested resource and action originate from the agent.
@@ -341,9 +379,14 @@ contain has no category; the result is `deny` with `unknown_resource`.
 0. Pre-check, each case → `deny`:
    - the mandate is invalid (Section 3.1);
    - the request is invalid: the entity ID is missing or does not match the pattern of
-     `entity_id` in the schema, a given area does not match the pattern of `area`,
-     a parameter is not an integer of magnitude at most 2^53 − 1, the point in time or the time zone is invalid or unknown, or the
-     status is neither `active` nor `revoked`;
+     `entity_id` in the schema, an area of the resource does not match the pattern of
+     `area`, the resource has more than 16 areas or the same area twice,
+     a parameter is neither an integer of magnitude at most 2^53 − 1 nor a string of 1 to
+     64 printable ASCII characters without space, a parameter that the action declares in
+     the vocabulary of the resource's category has another type, lies outside the range
+     of an integer parameter or, for a string with permitted values, is another value
+     (Section 4.5), the point in time or the time zone is
+     invalid or unknown, or the status is neither `active` nor `revoked`;
    - the category is missing: the resource is not in the directory of the PEP;
    - the category is neither listed in Section 5 nor an extension whose vocabulary
      the implementation knows;
@@ -356,6 +399,8 @@ contain has no category; the result is `deny` with `unknown_resource`.
    `constraints` are satisfied by the parameters (Section 4.5).
    - `resource` matches if **all** specified fields match
      (e.g. `category: light` and `area: living_room` = lights in the living room).
+     `area` matches if it is in the resource's set of areas; a resource without areas
+     matches no rule that names an `area`.
      `any: true` matches every resource. Comparison is exact per character, case-sensitive
      and without normalization.
    - `"*"` in `actions` contains every action, including critical ones.
@@ -371,6 +416,9 @@ contain has no category; the result is `deny` with `unknown_resource`.
    The marking of a resource lets a household protect what the vocabulary cannot know: a
    switch that drives a door opener, a ground-floor window, a heater. It can only add
    protection. An implementation SHOULD let the household mark resources as critical.
+6. Audit mode: if the mandate carries `enforce: false`, the result of step 3 or 4 is
+   `deny` and the action is not critical (step 5), the result is **not enforced**
+   (Section 4.6). It stays `deny`.
 
 The rule is deliberately simple: whoever allows something broadly and denies individual items
 gets the denial. Whoever sets something broadly to `ask` and allows individual items gets `ask`.
@@ -408,6 +456,9 @@ In addition to the decision, the evaluation returns:
   For the pre-check, step 1 and step 3, there is no `rule_id`.
 - **Approval settings** (only for `ask`): the `approval` of the first matching `ask` rule in
   document order that has its own `approval`, otherwise the `approval` of the mandate.
+- **`enforced`:** `false` if the result is a `deny` that is not enforced (step 6,
+  Section 4.6); then `reason` is `no_match` or `rule`. Every other result is enforced and
+  has no `enforced`.
 
 ### 4.2 Conditions
 
@@ -468,8 +519,10 @@ overlaps with another mandate of the same agent and principal that is not revoke
 The evaluation always concerns exactly one resource and one action. If an agent addresses
 several resources at once (an area, a group, a list), the PEP resolves them with its
 directory and evaluates each resource separately. Unless the PEP documents otherwise, the
-request is executed only if every single evaluation permits it: one `deny` denies the whole
-request, and one `ask` requires a confirmation that names all resources concerned.
+request is executed only if every single evaluation permits it: one `deny` denies the
+whole request, and one `ask` requires a confirmation that names all resources concerned. A
+`deny` that is not enforced (Section 4.6) counts as permitting here; it is recorded as
+such. The agent is never told which of the resources were not enforced (Section 11.6).
 
 A resource whose activation acts on other resources (a scene, a script, a group that the
 platform executes itself) is evaluated as the resource it is; this is why `scene.activate`
@@ -477,17 +530,32 @@ and `script.run` are critical.
 
 ### 4.5 Parameters and constraints
 
-Some actions carry a value: a temperature, a position, a volume. The vocabulary names
-these **parameters** per action, with the unit in which they are expressed (Section 5).
-Parameters are integers; the units are chosen fine enough that no fraction is needed
-(`temperature` is in hundredths of a degree Celsius, 21.5 °C is `2150`).
+Some actions carry a value: a temperature, a position, a volume, a mode. The vocabulary
+names these **parameters** per action, each with its type (Section 5). A parameter is
+
+- an **integer** in the unit the vocabulary gives it. The units are chosen fine enough
+  that no fraction is needed (`temperature` is in hundredths of a degree Celsius, 21.5 °C
+  is `2150`); there are no fractions anywhere, and the magnitude is at most 2^53 − 1. The
+  vocabulary can give an integer parameter a **range** (`brightness` 0 to 100, both
+  inclusive); no value outside it is valid then. `temperature` has no range;
+- or a **string** of 1 to 64 printable ASCII characters without space (U+0021 to U+007E),
+  the rules of an area (Section 3.4). Strings are compared exactly per character,
+  case-sensitive and without normalization: `heat` and `Heat` are different values. The
+  vocabulary can list the **permitted values** of a string parameter, as it does for
+  `mode`; no other value is valid then.
 
 The PEP derives the parameters from the request of the agent and expresses each in the
-unit of its parameter in the vocabulary. It MUST execute exactly the values that were evaluated: whatever
+type and unit of its parameter in the vocabulary. It MUST execute exactly the values that were evaluated: whatever
 it sends to the platform MUST NOT set a constrained quantity to another value, by rounding
 or through a second, platform-specific parameter for the same quantity. A value that
-cannot be expressed as an integer in the unit makes the request invalid: the PEP refuses
-the request, and never leaves the parameter out or evaluates without it.
+cannot be expressed as an integer in the unit, or as one of the permitted values of a
+string parameter, or that lies outside the range of an integer parameter, makes the
+request invalid: the PEP refuses the request, and never leaves the parameter out or
+evaluates without it. The type is part of the value: a
+request whose parameter has another type than the vocabulary declares for the action
+(the integer `4` for `mode`, the string `"50"` for `brightness`) is invalid as well
+(Section 4, step 0). A parameter that the action does not declare is checked only for
+being an integer or a string.
 
 A quantity can have a parameter per unit: a temperature is `temperature` in hundredths of
 a degree Celsius or `temperature_f` in hundredths of a degree Fahrenheit (70 °F is `7000`;
@@ -496,20 +564,78 @@ request, the one in the unit in which the platform expresses the value; it never
 into the other unit. A rule that constrains the other parameter does not match the
 request, and a rule that constrains both matches no request a PEP derives this way.
 
+A constraint has one of two forms:
+
+- a **range** for an integer parameter: `min`, `max` or both. A limit that is not given
+  does not restrict;
+- a **list** of permitted values for an integer or a string parameter: `one_of` with 1 to
+  32 distinct values of the parameter's type. It does not appear together with `min` or
+  `max`.
+
 A rule with `constraints` matches only if the request carries **every** named parameter
-and each value `v` satisfies `min ≤ v ≤ max`; a limit that is not given does not restrict.
-A request without the parameter does not match the rule. Parameters that no constraint
-names do not influence the evaluation.
+and each value `v` satisfies its constraint: `min ≤ v ≤ max` for a range; for a list, `v`
+equals one of the values exactly (an integer never equals a string). A request without
+the parameter does not match the rule. Parameters that no constraint names do not
+influence the evaluation.
 
 ```json
 { "id": "r-heating", "resource": { "category": "climate" }, "actions": ["set_temperature"],
   "decision": "allow", "constraints": { "temperature": { "min": 1600, "max": 2300 } } }
+{ "id": "r-heating-modes", "resource": { "category": "climate" }, "actions": ["set_mode"],
+  "decision": "allow", "constraints": { "mode": { "one_of": ["heat", "auto"] } } }
 ```
+
+The second rule lets the agent switch the heating to `heat` or `auto`, but never `off`.
+
+A constraint may name values outside the range that the vocabulary gives an integer
+parameter: a `one_of` value, a `min` or a `max` beyond it is valid in a mandate. Such a
+value never matches, because a request with it is invalid; `{"min": 0, "max": 500}` on
+`brightness` permits the same requests as no limits at all.
 
 Constraints narrow an `allow`. Whoever wants a confirmation for values outside the limits
 adds an `ask` rule for the same action without constraints; `ask` then wins inside the
 limits as well, so the usual form is: `allow` with constraints, and nothing else, which
 denies everything outside.
+
+### 4.6 Audit mode
+
+A household that tries a new mandate can first let it run in **audit mode**: the rules are
+evaluated and every decision is recorded, but a denial by the rules does not stop the
+agent. The audit log then shows what the mandate would deny before it does. A mandate is
+in audit mode if it carries `"enforce": false`; without the member, it enforces. `enforce`
+has no other value (Section 3.1 item 11).
+
+In audit mode exactly one kind of result is not enforced: a `deny` that results from the
+rules of the mandate, that is `no_match` (step 3) or a matching `deny` rule
+(`reason: rule`, step 4), for an action that is **not critical** (step 5). The evaluation
+returns it as `deny` with `enforced: false` (Section 4.1). The decision stays `deny`, so
+that the audit log records truthfully what the mandate says. Everything else is enforced
+as in a mandate without `enforce`:
+
+- a `deny` of a critical action, whether no rule matches or a `deny` rule does: audit mode
+  never unlocks a door, opens a gate or takes a snapshot that the mandate does not permit,
+  and a resource the directory marks as critical stays protected in every action except
+  `read`;
+- `ask`, including `critical_demotion`: a human still confirms (Section 11.1);
+- `allow`: unchanged;
+- every `deny` before the rules: an invalid mandate, an invalid request, an unknown
+  resource, category or action, a revoked mandate and one that is not yet valid or has
+  expired (steps 0 and 1), as well as `no_mandate` and `ambiguous_mandate` (Section 4.3);
+- every denial outside the evaluation: the rate limit, the emergency stop, the
+  authentication of the agent, and an approval that was not given (Section 11).
+
+The PEP executes a request whose result is not enforced as it executes an `allow`
+(Section 11.6). What the evaluation does not decide stays as it is: the PEP executes
+exactly the parameters that were evaluated (Section 4.5), the request counts towards the
+rate limit (Section 11.2), and a confirmed `ask` is evaluated again before it is executed,
+where a `deny` prevents the execution in audit mode as well (Section 11.1 item 6).
+
+Audit mode belongs to the mandate, not to the implementation: one mandate can be tried
+while the others enforce. Switching it on or off is a change to the mandate with a new
+digest (Section 3.2), recorded with `mandate.updated` (Section 9.2). Switching it on
+weakens the mandate: it takes effect only after a human of the household has confirmed it
+explicitly, and every approver is notified (Sections 3.5 and 11.6). Switching it off
+strengthens the mandate and needs no confirmation.
 
 ## 5. Vocabulary v0
 
@@ -534,13 +660,20 @@ Machine-readable and normative: `vocabulary/v0.json` (format:
 
 Parameters (Section 4.5):
 
-| Action | Parameter | Unit | Range |
-|---|---|---|---|
-| `light.set` | `brightness` | percent | 0 to 100 |
-| `climate.set_temperature` | `temperature` | 0.01 degree Celsius | – |
-| `climate.set_temperature` | `temperature_f` | 0.01 degree Fahrenheit | – |
-| `cover.set_position` | `position` | percent open | 0 to 100 |
-| `media.set_volume` | `volume` | percent | 0 to 100 |
+| Action | Parameter | Type | Unit | Range or permitted values |
+|---|---|---|---|---|
+| `light.set` | `brightness` | integer | percent | 0 to 100 |
+| `climate.set_temperature` | `temperature` | integer | 0.01 degree Celsius | – |
+| `climate.set_temperature` | `temperature_f` | integer | 0.01 degree Fahrenheit | – |
+| `climate.set_mode` | `mode` | string | – | `off`, `auto`, `cool`, `heat`, `emergency_heat`, `precooling`, `fan_only`, `dry`, `sleep` |
+| `cover.set_position` | `position` | integer | percent open | 0 to 100 |
+| `media.set_volume` | `volume` | integer | percent | 0 to 100 |
+
+The permitted values of `mode` are the values of the attribute SystemMode of the Matter
+Thermostat cluster, in lower case with underscores: what the system as a whole does, not
+a preset such as `eco` or `away`. How the modes of a platform map to them is described in
+the profiles (informative). A value outside the list makes the request invalid
+(Section 4.5).
 
 `scene.activate`, `script.run` and `other.set` are critical because scenes, scripts and
 unknown entities can have arbitrary consequences, including opening doors. What else is
@@ -557,7 +690,9 @@ the specification, and a platform without a profile is not at a disadvantage.
 Extensions for other kinds of resources receive their own namespaces, e.g.
 `paperless:document` with `read`, `tag`, `delete`. An extension defines its vocabulary and
 its critical actions in a file of the same format as `vocabulary/v0.json`, with its own
-`id` and `version`; a vocabulary never changes under the same `id` and `version`. If an
+`id` and `version`. It declares the `type` of every parameter: `integer` with a `unit`,
+or `string`, optionally with 1 to 32 permitted `values`, as many as a `one_of` can list.
+A vocabulary never changes under the same `id` and `version`. If an
 implementation does not know the vocabulary of an extension, every request for a resource
 of that category is `deny`. A registry of extensions does not exist yet.
 
@@ -572,7 +707,7 @@ POST /access/v1/evaluation
                 "properties": { "principal": "household:hm-7f3a" } },
   "action":   { "name": "unlock" },
   "resource": { "type": "lock", "id": "lock.front_door",
-                "properties": { "area": "hallway" } },
+                "properties": { "areas": ["hallway", "ground_floor"] } },
   "context":  { "time": "2026-10-12T21:14:03+02:00" }
 }
 ```
@@ -590,7 +725,14 @@ context:
 `reason` is REQUIRED, as is `mandate_digest` unless Section 4.1 says it is absent; `rule_id` is
 included when Section 4.1 provides for it. For `outcome: ask`, `approval_timeout` and
 `approvers` (the approval settings per Section 4.1) are REQUIRED, so that a PEP can obtain
-the confirmation without knowing the mandate.
+the confirmation without knowing the mandate. `enforced: false` is REQUIRED for a `deny`
+that is not enforced (audit mode, Section 4.6) and absent otherwise:
+
+```json
+{ "decision": false,
+  "context": { "outcome": "deny", "reason": "no_match", "enforced": false,
+               "mandate_digest": "sha256:83d0…" } }
+```
 
 Field mapping:
 
@@ -599,12 +741,12 @@ Field mapping:
 | `subject.id` | `agent.client_id`; together with `subject.properties.principal`, selects the mandate |
 | `resource.id` | entity ID |
 | `resource.type` | category |
-| `resource.properties.area` | area |
+| `resource.properties.areas` | set of areas, as an array (Section 3.4) |
 | `action.name` | action |
-| `action.properties` | parameters (Section 4.5): an object of parameter names and integers |
+| `action.properties` | parameters (Section 4.5): an object of parameter names and values, each a JSON integer or string |
 | `context.time` | point in time |
 
-The PDP does not use `resource.type`, `resource.properties.area` and `context.time` without
+The PDP does not use `resource.type`, `resource.properties.areas` and `context.time` without
 verification, but in accordance with Section 4 "Origin of inputs"; the critical marking of a
 resource likewise comes from the directory, never from the request. The mandate is selected
 per Section 4.3; if there is none for the agent and principal, the result is `deny` with
@@ -613,10 +755,12 @@ per Section 4.3; if there is none for the agent and principal, the result is `de
 - `outcome: allow` → `decision: true`
 - `outcome: ask` → `decision: false`; the PEP MUST obtain a confirmation per Section 11.1 and
   MUST NOT execute the action unless the response is positive
-- `outcome: deny` → `decision: false`
+- `outcome: deny` → `decision: false`; with `enforced: false`, the PEP executes the action
+  as in Section 11.6
 
-A PEP that does not know `ask` automatically treats the response as a denial. The
-extension is thus backward-compatible and safe.
+A PEP that does not know `ask` automatically treats the response as a denial, and a PEP
+that does not know `enforced` enforces the denial. The extension is thus
+backward-compatible and safe.
 
 `subject.type` MUST be `agent`; any other value is `deny` with `invalid_request`.
 
@@ -700,9 +844,9 @@ Fields of a case:
 |---|---|---|
 | `id` | yes | unique identifier |
 | `mandate` / `mandate_inline` | one of them | path to the mandate, or the mandate inline in the case |
-| `resource` | yes | `entity_id`, `category`, `area` of the resource as the PEP resolved it, and optionally `critical: true` if the directory marks it as critical; without `category` the directory does not contain it |
+| `resource` | yes | `entity_id`, `category`, `areas` (an array, Section 3.4) of the resource as the PEP resolved it, and optionally `critical: true` if the directory marks it as critical; without `category` the directory does not contain it |
 | `action` | yes | requested action |
-| `parameters` | no | parameters of the action (Section 4.5); a value that is not an integer stands for a request the PEP cannot express, the expected result is then `invalid_request` |
+| `parameters` | no | parameters of the action (Section 4.5), each an integer or a string; a value that is neither (a fraction, for example) stands for a request the PEP cannot express, the expected result is then `invalid_request` |
 | `time` | yes | point in time per RFC 3339 |
 | `timezone` | no | household time zone (IANA); if absent, the offset in `time` applies |
 | `revoked` | no | `true`: status `revoked`; if the field is absent or `false`: status `active` |
@@ -710,6 +854,7 @@ Fields of a case:
 | `reason` | yes | expected reason code per Section 4.1 |
 | `rule_id` | no | expected `rule_id` per Section 4.1; if the field is absent, it is not checked; `null` means: none |
 | `approval_timeout` | no | expected `timeout` of the approval settings for `ask` |
+| `enforced` | no | `false`: the expected result is a `deny` that is not enforced (Section 4.6); absent or `true`: the result is enforced, and an implementation that reports `enforced: false` fails the case |
 | `why` | no | explanation for humans |
 
 `conformance/invalid-v0.json` contains mandates that are invalid per Section 3.1 and
@@ -812,9 +957,9 @@ Depending on the event, the following are added:
 |---|---|
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
-| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `area` and `critical`), `action`, `time`, optionally `parameters`, `timezone` and `revoked` |
+| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked` |
 | `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest`; for `mandate.removed`, `digest` is that of the last version the implementation held |
-| `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` |
+| `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` and `enforced` (only `false`, Section 4.6) |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
 | `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
@@ -825,9 +970,30 @@ Depending on the event, the following are added:
 
 For `decision`, the following additionally applies:
 
-- `executed` only with `evaluation` and `mandate`, and only if `evaluation.decision` is `allow`
-  or `ask` with `approval.outcome: approved`;
-- if `evaluation.decision` is `deny`, then `result` is `denied` with `denied_by: mandate`;
+- `executed` only with `evaluation` and `mandate`, and only if `evaluation.decision` is
+  `allow`, `ask` with `approval.outcome: approved`, or `deny` with
+  `evaluation.enforced: false`;
+- if `evaluation.decision` is `deny`, then `result` is `denied` with `denied_by: mandate`,
+  unless `evaluation.enforced` is `false`: then `result` is `executed` or `failed`
+  (audit mode, Section 11.6);
+- `evaluation.enforced` appears only in `decision` entries with `mandate` and `request`,
+  only as `false`, and only with `evaluation.decision: deny` and `reason` `no_match` or
+  `rule`. An `allow` or an `ask` is never marked: an allow is executed anyway, and an
+  `ask` is asked in audit mode as well;
+- with `evaluation.enforced: false`, `request.resource` names the `category` and
+  `critical` (`true` or `false`, so that the marking cannot be left out), and the action
+  is not critical: the resource is not marked `critical` unless the action is `read`,
+  and the action is in the vocabulary of the category and not critical there (Section 5).
+  The schema cannot see the vocabulary; a verifier MUST check it for the categories of
+  Section 5 and for every extension whose vocabulary it knows, and an entry that violates
+  it is invalid. A verifier without the vocabulary of an extension cannot
+  tell which actions of that extension are critical, and cannot reject such an entry; a
+  relying party that needs the check gives the verifier the vocabularies of the
+  extensions the implementation uses;
+- a confirmed `ask` that is not executed because the evaluation before the execution gave
+  a `deny`, enforced or not (Section 11.1 item 6), is recorded with the `evaluation` that
+  was confirmed (`ask`, without `enforced`), `approval.outcome: approved` and `result`
+  `denied` with `denied_by: mandate`;
 - `evaluation.reason` belongs to `evaluation.decision` as in the table of Section 4.1
   (`allow` only with `rule`, `ask` only with `rule` or `critical_demotion`);
 - a denial with `denied_by: approval` carries the `approval` object if a request was
@@ -872,8 +1038,8 @@ template.
 | `auth.rejected` | no | rejected sign-in or invalid token |
 
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
-returns for `request` and the version `mandate.digest`. This makes every decision
-reproducible.
+returns for `request` and the version `mandate.digest`, including `enforced`. This makes
+every decision reproducible.
 
 The rate limit and the emergency stop are defined in Sections 11.2 and 11.3. Denials are
 logged with `denied_by: rate_limit` or `emergency_stop` respectively, and the emergency stop
@@ -903,7 +1069,9 @@ with the `emergency_stop.*` events.
 
 An audit log is **valid** if, in file order:
 
-1. every entry conforms to the schema;
+1. every entry conforms to the schema and to the rules of Section 9.1 that the schema
+   cannot express (displayed text, a former value that differs from the current one, and
+   `enforced` against the vocabulary);
 2. the first entry either has `seq` 1, or a later `log.truncated` entry with
    `up_to_seq` = `seq` − 1 and `last_digest` = `prev` of the first entry is present;
 3. every subsequent entry has the `seq` of its predecessor plus 1 and its `prev` is the
@@ -1013,7 +1181,7 @@ cases).
 |---|---|---|
 | `capabilities` | – | `name`, `version`, `ops` (the operations offered) |
 | `validate` | `mandate` | `valid`; `digest` if valid |
-| `evaluate` | `mandate`, `request` | `decision`, `reason`, `rule_id` if Section 4.1 provides one, `approval_timeout` and `approvers` for `ask`, `mandate_digest` unless absent per Section 4.1 |
+| `evaluate` | `mandate`, `request` | `decision`, `reason`, `rule_id` if Section 4.1 provides one, `approval_timeout` and `approvers` for `ask`, `mandate_digest` unless absent per Section 4.1, `enforced: false` for a `deny` that is not enforced (Section 4.6) |
 | `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate) if one was selected |
 | `succession` | `stored`, `offered` | `accept` |
 | `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer) | `valid`; `digest` if valid |
@@ -1021,16 +1189,20 @@ cases).
 | `entry_digest` | `entry` | `digest` |
 
 `request` is the input of the evaluation as the PEP determines it: `resource`
-(`entity_id`, optionally `category`, `area`, `critical`), `action`, optionally `parameters`,
-`time`, optionally `timezone` and `revoked`. A `time` that is no RFC 3339 timestamp or a
-parameter that is no integer yields `deny` with `invalid_request`.
+(`entity_id`, optionally `category`, `areas` (an array), `critical`), `action`, optionally `parameters`
+(an object of names and values, each a JSON number or string), `time`, optionally `timezone`
+and `revoked`. A `time` that is no RFC 3339 timestamp or a parameter that is neither an
+integer nor a string yields `deny` with `invalid_request`. A string is never read as a
+number: `"50"` is the string `50`.
 
-For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
+A request with a member that this section does not define is malformed and is answered with
+an `error`, so that a former member name (such as `area`) is never evaluated as if it were
+absent. For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
 cases of that operation then count as not passed for their class. Any other `error` is a
 failed case. Every request can carry `id`, the identifier of the case, for diagnostics.
 
 ```
-→ {"op":"evaluate","id":"c02","mandate":"{…}","request":{"resource":{"entity_id":"lock.front_door","category":"lock","area":"hallway"},"action":"unlock","time":"2026-10-12T19:00:00+02:00"}}
+→ {"op":"evaluate","id":"c02","mandate":"{…}","request":{"resource":{"entity_id":"lock.front_door","category":"lock","areas":["hallway","ground_floor"]},"action":"unlock","time":"2026-10-12T19:00:00+02:00"}}
 ← {"decision":"ask","reason":"rule","rule_id":"r-locks","approval_timeout":"PT2M","approvers":["user-1"],"mandate_digest":"sha256:…"}
 ```
 
@@ -1043,7 +1215,7 @@ sets the complete state with
 ```
 PUT <control>
 { "mandates":  [ { "mandate": "<JSON text>", "revoked": false } ],
-  "directory": [ { "entity_id": "…", "category": "…", "area": "…", "critical": false } ],
+  "directory": [ { "entity_id": "…", "category": "…", "areas": [ "…" ], "critical": false } ],
   "time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin" }
 ```
 
@@ -1052,9 +1224,9 @@ directory, the point in time the PDP uses as its clock, and the household time z
 (absent: the offset of `time` applies). The answer is a 2xx status. Then the tool sends the
 request of the case to `POST <authzen>/access/v1/evaluation` with `subject` (type `agent`,
 `id`, `properties.principal`), `action` (`name`, `properties` for parameters) and
-`resource.id` only: category, area and the critical marking come from the directory. It
-compares `decision` and, in the response context, `outcome`, `reason`, `rule_id` and
-`approval_timeout`.
+`resource.id` only: category, areas and the critical marking come from the directory. It
+compares `decision` and, in the response context, `outcome`, `reason`, `rule_id`,
+`approval_timeout` and `enforced`.
 
 The tool sends the HTTP headers it was given (for example `Authorization`) with every
 request; the control resource SHOULD require authentication even in a test build.
@@ -1104,9 +1276,11 @@ before it executes the action.
    than `timeout` when the action would be executed has expired.
 6. **Evaluated again.** After the confirmation and immediately before the execution, the
    PEP evaluates the request again. The action is executed only if the result is not
-   `deny` and the `mandate_digest` is the one that was confirmed. A mandate that was
-   revoked, changed or has expired in the meantime, a time window that has closed and an
-   emergency stop all prevail over the confirmation.
+   `deny` and the `mandate_digest` is the one that was confirmed; a `deny` that is not
+   enforced (Section 4.6) prevents the execution as well, and the request is recorded as
+   denied by the mandate with the `ask` that was confirmed (Section 9.1). A mandate that
+   was revoked, changed or has expired in the meantime, a time window that has closed and
+   an emergency stop all prevail over the confirmation.
 7. **Limited.** The number of approval requests of one agent that wait for an answer at
    the same time MUST be limited (RECOMMENDED: 2). A request beyond the limit is `deny`
    without asking anyone. Requests that lead to `ask` count towards the rate limit
@@ -1241,6 +1415,49 @@ It states them in the unit in which the agent gives the value. When it does:
 
 The limits inform; they decide nothing. Every request is evaluated as in Section 4.
 
+Audit mode (Section 4.6) is not part of what an agent is told. An implementation MUST NOT
+tell an agent that its mandate is in audit mode or that a request was not enforced, and
+the limits it names are those of the `allow` rules, as without audit mode (Section 11.6).
+
+### 11.6 Audit mode
+
+An implementation that offers audit mode (Section 4.6):
+
+1. **Executes** a request whose result is not enforced (`enforced: false`) as it executes
+   an `allow`, with every obligation that applies to an `allow`, and records a `decision`
+   entry whose `evaluation` is the result as returned, including `enforced: false`, with
+   `result.status` `executed` or `failed` (Section 9.1). It never records such a request
+   as denied by the mandate, and it never executes a `deny` that is enforced.
+2. **Tells the agent nothing.** The agent receives the same response as for an `allow` of
+   the same request: no hint of the audit mode, of the denial or of the rule. An agent
+   that learned which of its requests the mandate will deny could use the trial to act
+   before audit mode ends, or adapt its requests to the trial.
+3. **Shows audit mode to the household.** Wherever an implementation shows a mandate or a
+   list of mandates, it MUST show clearly that a mandate in audit mode does not enforce
+   its denials, and it SHOULD say so before such a mandate is stored or audit mode is
+   switched on. It SHOULD let the household see the requests that were not enforced (the
+   entries with `enforced: false`), so that the trial ends with a decision. Switching
+   audit mode on or off is a change to the mandate and is recorded with `mandate.updated`
+   and the actor (Section 9.2); no event of its own is needed, because the digest names
+   the version, and the implementation keeps every version an entry refers to
+   (Section 9.3). It SHOULD warn wherever it shows such a mandate if a resource the
+   directory marks as critical can be read under it: `read` is never critical, so audit
+   mode does not protect what such a resource shows (Section 13).
+4. **Lets audit mode be switched on only by a human.** A mandate that switches audit mode
+   on (Section 3.5: no mandate with its `id` in audit mode is in force, which includes a
+   mandate arriving from outside or restored from a backup) MUST NOT take effect before a
+   human of the household has confirmed it explicitly, in the user interface of the
+   implementation and on a path the agent does not control (Section 11.1 item 4). The
+   confirmation names the digest of exactly the version that is adopted and counts for no
+   other; a signed successor is not adopted automatically. The implementation MUST notify
+   every approver of the mandate when such a mandate is proposed, while it waits for the
+   confirmation, and again when audit mode takes effect. Switching audit mode off takes
+   effect without a confirmation.
+
+An implementation is not required to offer audit mode. One that does not MUST refuse to
+store a mandate with `enforce: false` instead of storing it and enforcing it, so that the
+household never believes a mandate is being tried while it enforces, or the reverse.
+
 ## 12. Security considerations
 
 ### 12.1 What the specification protects
@@ -1252,7 +1469,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 
 | Attacker | What the specification does | What remains |
 |---|---|---|
-| **Agent that is malicious or was manipulated** (prompt injection through a website, an e-mail, a document) | The decision is made outside the agent. Default `deny`, most restrictive rule wins, critical actions need `allow_critical` or a human (Section 4). The agent supplies only the resource and the action; category, area, time and status come from the PEP. Rate limit and a limit on waiting approval requests (Section 11) | Everything the mandate allows, the agent can do. A mandate with a broad `allow` is a broad permission |
+| **Agent that is malicious or was manipulated** (prompt injection through a website, an e-mail, a document) | The decision is made outside the agent. Default `deny`, most restrictive rule wins, critical actions need `allow_critical` or a human (Section 4). The agent supplies only the resource and the action; category, areas, time and status come from the PEP. Rate limit and a limit on waiting approval requests (Section 11) | Everything the mandate allows, the agent can do. A mandate with a broad `allow` is a broad permission |
 | **Agent that tries to obtain a confirmation** | The confirmation is bound to one request, used once, comes from a named approver on a path the agent does not control, and the request is evaluated again afterwards (Section 11.1) | A human who confirms without reading. The implementation MUST show what is confirmed; it cannot make the human read |
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
@@ -1260,14 +1477,16 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
 | **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal (Section 3.5) | The specification does not define how this trust is configured |
 | **Attacker between PEP and PDP** | The connection MUST be authenticated in both directions; the PDP MUST NOT be reachable by agents (Section 6) | The specification does not define the mechanism |
+| **Whoever can change a mandate and switches it to audit mode** (a member of the household, a manipulated user interface, an issuer) | Critical actions, `ask` and every denial outside the rules stay enforced (Section 4.6). Switching audit mode on takes effect only after a human of the household confirmed it explicitly, also for a signed successor, and every approver is notified (Sections 3.5, 11.6). The switch is a new version with a new digest, recorded with `mandate.updated` and its actor (Sections 3.2, 9.2), and implementations MUST show audit mode wherever they show mandates (Section 11.6). In a signed mandate, `enforce` is covered by the signature (Section 7); a verifier rejects an audit entry that claims an unenforced deny of a critical action (Section 9.1) | In audit mode the agent can do every action that is not critical, including `read` of cameras and presence sensors. Whoever can change mandates could also write a broad `allow`; audit mode gives no more power, but it looks harmless. A human who confirms without reading; the confirmation and the notice make the switch visible, they do not prevent it |
 | **Compromised PEP** | Nothing. The PEP executes; a PEP that ignores a `deny` cannot be stopped by a format | – |
 
 ### 12.3 Assumptions
 
 The evaluation is only as trustworthy as its inputs. A conforming implementation relies on:
 
-- **the resource directory**: it assigns category, area and the critical marking. A wrong
-  category makes the wrong vocabulary and the wrong rules apply;
+- **the resource directory**: it assigns category, areas and the critical marking. A wrong
+  category makes the wrong vocabulary and the wrong rules apply, a wrong set of areas the
+  wrong rules by `area`;
 - **the clock**: validity periods and time windows depend on it (Section 11.4);
 - **the user management**: it decides who an approver is and authenticates the person;
 - **the approval channel**: it reaches the approver and nobody else can answer on it;
@@ -1290,10 +1509,19 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
 - **Parameters.** Only parameters of the vocabulary can be constrained. Whatever else a
   platform accepts with a command passes unchecked; a PEP SHOULD forward only what it has
   evaluated (Section 4.5).
+- **Mapped values.** Where a profile maps several values of a platform to one permitted
+  value (Home Assistant `heat_cool` and `auto` both to `auto`), a rule that permits the
+  value permits all of them. Interfaces SHOULD show the household which platform values a
+  permitted value stands for.
 - **Renamed resources.** A `deny` or `ask` rule that names the former identifier of a
   renamed resource no longer protects it, and a broader `allow` rule may apply instead.
   Applying the rules of both identifiers until a human resolves the rename keeps the
   protection (Section 11.4).
+- **Audit mode.** A mandate in audit mode permits every action that is not critical.
+  Interfaces SHOULD suggest a short `expires` for it, SHOULD remind the household of a
+  mandate that stays in audit mode for long, and SHOULD show the requests that were not
+  enforced, so that they become rules or audit mode is switched off. What must stay
+  protected during a trial is marked critical in the directory (Section 4, step 5).
 - **Size and time.** Implementations SHOULD bound the size of inputs before parsing them
   (Section 3.1 item 5, nesting depth) and SHOULD verify signatures and schemas before any
   further processing.
@@ -1318,6 +1546,9 @@ behavior of the people in a household and MUST be protected like the devices the
   be created only by a human and SHOULD be recorded.
 - **Agents.** What an agent learns through `read` leaves the household with the agent.
   A mandate is also a decision about which data an agent may see.
+- **Audit mode.** `read` is never critical, so a mandate in audit mode lets the agent read
+  whatever it asks for (Section 4.6). A household that tries a mandate SHOULD be told that
+  the agent can see more during the trial than the mandate will permit afterwards.
 
 ## 14. Versions and compatibility
 
@@ -1385,6 +1616,126 @@ Specification**; repository `github.com/home-mandate/spec`, Go module
 `v0.1.0-alpha.1`. The releases of mandate-spec (up to `v0.2.0-alpha.5`) remain available
 from the Go module proxy under the module path `github.com/mandate-spec/mandate-spec`; their
 changes are listed below.
+
+Audit mode (Sections 2, 3, 3.1, 3.2, 3.5, 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 9.2, 9.4, 10, 11,
+12, 13):
+- New optional member `enforce` of the mandate, only ever `false` (`true`, a string, a
+  number or `null` are invalid, and a rule has no `enforce`). A mandate with
+  `enforce: false` is in audit mode: a `deny` that results from its rules (`no_match` or a
+  `deny` rule) for an action that is not critical is evaluated and recorded but not
+  enforced; the PEP executes the request as if it were allowed. Critical actions, `ask`,
+  `allow`, every denial before the rules (invalid mandate or request, unknown resource,
+  category or action, revoked, not yet valid, expired) and every denial outside the
+  evaluation (rate limit, emergency stop, authentication, approval) are enforced as
+  before. The mandate `type` stays `https://home-mandate.org/mandate/v0`. Compatible:
+  every mandate that was valid stays valid, is evaluated the same way and keeps its
+  digest.
+- The result of the evaluation carries `enforced: false` for such a `deny`; the decision
+  stays `deny`. In AuthZEN it is a member of the response context (Section 6); a PEP that
+  does not know it enforces the denial. In the test interface it is a member of the
+  `evaluate` and `select` response and compared over HTTP (Section 10); the conformance
+  cases have the new field `enforced`.
+- Audit entry: `evaluation.enforced` (only `false`, only for a `decision` with
+  `evaluation.decision: deny` and reason `no_match` or `rule`); only with it may a `deny`
+  be `executed` or `failed`, and it is never `denied`. The audit `type` stays
+  `https://home-mandate.org/audit/v0`. Compatible for logs: every entry that was valid
+  stays valid. A verifier that does not know the member rejects a log that contains it
+  (Section 14, unknown members).
+- With `evaluation.enforced: false`, an entry names `request` with the `category` of the
+  resource; it is invalid for a resource marked `critical` (except for `read`), and a
+  verifier MUST reject it for an action that is critical in the vocabulary or not in it
+  (Sections 9.1, 9.4); `request.resource.critical` is then required, `true` or `false`, so
+  that the marking cannot be left out. The reference verifier (`audit`) checks this
+  against vocabulary v0 and against extension vocabularies it is given
+  (`audit.Options.Vocabularies`, `audit.VerifyWith`, `audit.VerifyJSONLinesWith`); without
+  the vocabulary of an extension, a verifier cannot check its critical actions.
+- Obligations of the PEP (Section 11.6): the agent is told nothing about audit mode, nor
+  which resources of a request for several were not enforced (Section 4.4);
+  implementations MUST show audit mode wherever they show mandates and SHOULD warn when a
+  resource marked critical can be read under it; switching it is a `mandate.updated`. An
+  implementation that does not offer audit mode MUST refuse to store a mandate with
+  `enforce: false`.
+- Switching audit mode on (a mandate with `enforce: false` while no mandate with its `id`
+  in audit mode is valid, active and in force, which includes a predecessor that is
+  revoked, expired or not yet valid, a mandate from outside and a restore from a backup)
+  MUST be confirmed explicitly by a human of the household before it takes effect, also
+  for a signed successor. The confirmation is bound to the digest of the version that is
+  adopted. Every approver MUST be notified when the switch is proposed and when it takes
+  effect (Sections 3.5, 4.6, 11.6). Switching it off needs no confirmation.
+- A confirmed `ask` is not executed if the evaluation before the execution yields any
+  `deny`, enforced or not; it is recorded with the confirmed `ask`, `approved` and
+  `denied_by: mandate` (Sections 9.1, 11.1 item 6).
+- Conformance cases `c174`–`c192` (new mandate `conformance/mandates/audit-mode.json`),
+  `i144`–`i148`, `d43`–`d44`, `a111`–`a125`.
+- Reference evaluator (Go): `Result.NotEnforced`, `Mandate.Enforce` and
+  `EntersAuditMode` (whether adopting a mandate switches audit mode on, compared with the
+  stored mandate only if it is valid, active and in force).
+
+Permitted values and string parameters (Sections 3, 3.1, 3.2, 4, 4.5, 5, 6, 8, 9.1, 10, 12):
+- A parameter is an integer or a string. The vocabulary declares the type of every
+  parameter (`type`: `integer` with a `unit`, or `string`, optionally with permitted
+  `values`); strings follow the rules of an area: 1 to 64 printable ASCII characters
+  without space, compared exactly and case-sensitive. There are still no fractions.
+  Incompatible for extension vocabularies (before `v0.1.0`): they must declare the `type`
+  of every parameter and list at most 32 permitted values; mandates stay valid.
+- New constraint `one_of`: a list of 1 to 32 distinct permitted values of the parameter's
+  type, for integer and string parameters; not together with `min` or `max`, which exist
+  only for integer parameters. A rule with `one_of` matches only if the request carries
+  the parameter with one of the values. A constraint that does not fit the declared type,
+  or a string value outside the permitted values of the vocabulary, makes the mandate
+  invalid (Section 3.1 item 10). Every mandate that was valid stays valid: a constraint
+  with `min` or `max` on a parameter of the vocabulary was on an integer before as well.
+- `climate.set_mode` gets the string parameter `mode` with the permitted values of the
+  Matter Thermostat SystemMode: `off`, `auto`, `cool`, `heat`, `emergency_heat`,
+  `precooling`, `fan_only`, `dry`, `sleep`. A household can now allow heating modes but
+  never `off`. The vocabulary keeps `v0`: it changes before the formats are frozen with
+  `v0.1.0`. `other.set` stays critical and without parameters.
+- A request is invalid (`invalid_request`) if a parameter is neither an integer nor such a
+  string, if a parameter the action declares has another type (`"50"` for `brightness`,
+  `4` for `mode`), if a string is not among the permitted values, or if an integer lies
+  outside the range of the vocabulary (`brightness`, `position` and `volume` 0 to 100;
+  `temperature` and `temperature_f` have none). Before, the range was informative, and
+  `brightness: 101` was evaluated like any other value. Constraints beyond the range stay
+  valid but never match. Before, `set_mode`
+  had no parameters, and a PEP could pass any value without effect.
+- In the test interface (Section 10), in AuthZEN (`action.properties`) and in the audit
+  entry (`request.parameters`), a parameter value is a JSON integer or, new, a JSON
+  string. Incompatible: a string is never read as a number; the harness of the reference code
+  formerly accepted `"50"` as the integer 50. The audit `type` stays
+  `https://home-mandate.org/audit/v0`: the change comes before the formats are frozen.
+  The audit log `a37` carries a boolean instead of the string `"40"` (a string is now a
+  valid value) and is chained anew; its expected result is unchanged.
+- Numbers are read by their exact value: a fraction is never rounded to an integer, however
+  small it is (`50.00000000000000000001`, `1e-400`). The reference code formerly read
+  request parameters through floating point and took such values for integers.
+- Conformance cases `c152`–`c173` (new mandate `conformance/mandates/one-of.json`),
+  `i129`–`i143`, `d41`–`d42`, `a109`–`a110`.
+- Profiles: Home Assistant and Matter map their climate modes to the values of `mode`;
+  Home Assistant `heat_cool` and `auto` both map to `auto` (Section 12.4).
+- Reference evaluator (Go), before `v0.1.0`: `Request.Parameters` is a
+  `map[string]Value`; `Value` is an integer or a string (`IntegerValue`, `StringValue`)
+  and reads and writes itself as JSON; `Limit.OneOf` holds the permitted values of a
+  constraint.
+
+Sets of areas (Sections 1.1, 2, 3.4, 4, 6, 8, 9.1, 10, 12):
+- A resource has a set of 0 to 16 areas instead of at most one: its room and every
+  location above it (for example garage, ground floor, home), or several rooms side by
+  side. A rule still names exactly one `area` and matches if that area is in the set; the
+  mandate format does not change, and every mandate that was valid stays valid. A request
+  with more than 16 areas, the same area twice or an area that is no identifier is
+  invalid (`invalid_request`). The duty to report affected mandates covers every area in
+  the set.
+- Incompatible: in the request of the test interface, in the directory of the HTTP binding,
+  in AuthZEN (`resource.properties.areas`) and in the audit entry
+  (`request.resource.areas`), `area` (a string) became `areas` (an array). An audit entry
+  with `request.resource.area` is invalid. The audit `type` stays
+  `https://home-mandate.org/audit/v0`: the change comes before the formats are frozen
+  with `v0.1.0`. The audit logs in `conformance/audit-v0.json` carry `areas` and are
+  chained anew; every expected result is unchanged.
+- Conformance cases `c140`–`c151` (new mandate `conformance/mandates/areas.json`) and
+  `a106`–`a108`.
+- Test interface (Section 10): a request with a member the section does not define is
+  malformed, so that a former `area` is not evaluated as if it were absent.
 
 Temperatures in degrees Fahrenheit (Sections 4.5, 5):
 - New parameter `temperature_f` of `climate.set_temperature` in hundredths of a degree
