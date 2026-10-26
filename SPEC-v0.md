@@ -523,6 +523,11 @@ request is executed only if every single evaluation permits it: one `deny` denie
 whole request, and one `ask` requires a confirmation that names all resources concerned. A
 `deny` that is not enforced (Section 4.6) counts as permitting here; it is recorded as
 such. The agent is never told which of the resources were not enforced (Section 11.6).
+The PEP MUST execute such a request on exactly the resources it evaluated, naming each of
+them to the platform (for example as a list of identifiers), never the area, group or list
+it resolved them from: the platform would resolve that again on its own, and a resource
+added in the meantime would be acted on without an evaluation. This is the same as for
+parameters, whose evaluated values are the ones executed (Section 4.5).
 
 A confirmation for such a request covers exactly the set of resources the PEP resolved
 and showed (Section 11.1 item 2). Before the execution the PEP resolves the request again;
