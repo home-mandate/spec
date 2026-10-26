@@ -1928,6 +1928,21 @@ new item on features). No change
 to the evaluation, to the vocabulary or to the format of mandates and logs. The profile for
 Home Assistant names where the features of an entity come from.
 
+Conformance cases (no change to any rule or format):
+- Areas: `c193`–`c199` (an area of 64 characters, the edge characters `!` and `~`, U+007F,
+  non-ASCII, an empty area, `Home` next to `home`, a set in another order); two rules added
+  to `conformance/mandates/areas.json`.
+- Parameters: `c200`–`c209`, `c212`, `c213` (2^53 and 2^53 − 1, the spelling `5e1`, the values of `mode`
+  that `one_of` does not list, a constraint beyond the range of the vocabulary), `d45`–`d48`
+  and `i149` (`one_of` with 32 values, a string value of 64 characters, `min`/`max` beyond
+  the range, `one_of` for `mode` in a rule without category).
+- Audit mode: `c210`, `c211` (new mandate `conformance/mandates/audit-mode-critical.json`:
+  a `deny` rule on a resource marked critical), `s20` (selection; the selection cases accept
+  `enforced` as the evaluation cases do), `v13`, `v14` (succession switching audit mode on
+  and off), `a127`–`a129`.
+- Selection with a set of areas: `s21`. Audit log: `a126` (`not_supported`, Section 11.1
+  item 11), `a130`–`a133` (16 and 0 areas, a fraction and an empty string as parameter).
+
 ### History as mandate-spec
 
 #### mandate-spec v0.2.0-alpha.1 to v0.2.0-alpha.5
