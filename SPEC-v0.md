@@ -527,7 +527,7 @@ such. The agent is never told which of the resources were not enforced (Section 
 A confirmation for such a request covers exactly the set of resources the PEP resolved
 and showed (Section 11.1 item 2). Before the execution the PEP resolves the request again;
 if the set differs in any way (a resource added, removed or replaced), nothing is
-executed, also not for the resources that were confirmed, and executing the new set needs
+executed, not even for the resources that were confirmed, and executing the new set needs
 a new request and a new confirmation (Section 11.1 item 6).
 
 A resource whose activation acts on other resources (a scene, a script, a group that the
@@ -1837,6 +1837,9 @@ Confirmations for several resources (Sections 4.4, 11.1):
   for the whole set, also when the mandate is unchanged and every resource still evaluates
   to `ask` or `allow` (Section 11.1 item 6). New RECOMMENDED code `resources_changed`
   (`failed`). No change to any format.
+- The PEP executes a request for several resources on exactly the resources it evaluated
+  and names each of them to the platform, never the area, group or list it resolved them
+  from, so that the platform cannot add a resource that was not evaluated (Section 4.4).
 
 Versions (Section 14, rewritten):
 - The v0 formats (mandate, audit entry, audit checkpoint) are frozen from `v0.1.0`, the first
