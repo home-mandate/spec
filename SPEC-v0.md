@@ -523,6 +523,17 @@ request is executed only if every single evaluation permits it: one `deny` denie
 whole request, and one `ask` requires a confirmation that names all resources concerned. A
 `deny` that is not enforced (Section 4.6) counts as permitting here; it is recorded as
 such. The agent is never told which of the resources were not enforced (Section 11.6).
+The PEP MUST execute such a request on exactly the resources it evaluated, naming each of
+them to the platform (for example as a list of identifiers), never the area, group or list
+it resolved them from: the platform would resolve that again on its own, and a resource
+added in the meantime would be acted on without an evaluation. This is the same as for
+parameters, whose evaluated values are the ones executed (Section 4.5).
+
+A confirmation for such a request covers exactly the set of resources the PEP resolved
+and showed (Section 11.1 item 2). Before the execution the PEP resolves the request again;
+if the set differs in any way (a resource added, removed or replaced), nothing is
+executed, not even for the resources that were confirmed, and executing the new set needs
+a new request and a new confirmation (Section 11.1 item 6).
 
 A resource whose activation acts on other resources (a scene, a script, a group that the
 platform executes itself) is evaluated as the resource it is; this is why `scene.activate`
@@ -1258,9 +1269,11 @@ before it executes the action.
    suffices. An approver that the user management no longer knows does not count. If no
    approver can be reached, the result is `deny`.
 2. **What is confirmed.** A confirmation is bound to exactly one request: the agent, the
-   resource, the action, its parameters and the `mandate_digest` of the evaluation. It
-   MUST NOT be used for any other request, and the human MUST be shown what they confirm:
-   the agent (`display_name` and `client_id`), the resource, the action and the parameters.
+   resource (for a request for several resources, the set the PEP resolved, Section 4.4),
+   the action, its parameters and the `mandate_digest` of the evaluation. It MUST NOT be
+   used for any other request, and the human MUST be shown what they confirm: the agent
+   (`display_name` and `client_id`), the resource or every resource of the set, the action
+   and the parameters.
    Text supplied by the agent (a reason, for example) MUST be recognizable as such.
 3. **Once.** A confirmation permits exactly one execution. A second use, a replay or a
    forged confirmation MUST be rejected; implementations use a value that cannot be
@@ -1280,7 +1293,10 @@ before it executes the action.
    enforced (Section 4.6) prevents the execution as well, and the request is recorded as
    denied by the mandate with the `ask` that was confirmed (Section 9.1). A mandate that
    was revoked, changed or has expired in the meantime, a time window that has closed and
-   an emergency stop all prevail over the confirmation.
+   an emergency stop all prevail over the confirmation. For a request for several
+   resources, the PEP resolves it again and executes only if the set is the one that was
+   confirmed (Section 4.4); otherwise nothing is executed and the entry is `failed`, with
+   the RECOMMENDED `error` `resources_changed`.
 7. **Limited.** The number of approval requests of one agent that wait for an answer at
    the same time MUST be limited (RECOMMENDED: 2). A request beyond the limit is `deny`
    without asking anyone. Requests that lead to `ask` count towards the rate limit
@@ -1832,6 +1848,18 @@ MCP elicitation (Section 11.1, informative, no change to any rule):
   confirms is an approver and binds the page to exactly one request; form mode elicitation
   cannot, because the answer passes through the agent's client. In both cases a PEP still
   needs a path to the approvers.
+
+Confirmations for several resources (Sections 4.4, 11.1):
+- A confirmation for a request that the PEP resolves into several resources covers exactly
+  the resolved set; the human is shown every resource of it (Section 11.1 item 2).
+- Before the execution the PEP resolves the request again and executes only if the set is
+  unchanged; a resource added, removed or replaced in the meantime prevents the execution
+  for the whole set, also when the mandate is unchanged and every resource still evaluates
+  to `ask` or `allow` (Section 11.1 item 6). New RECOMMENDED code `resources_changed`
+  (`failed`). No change to any format.
+- The PEP executes a request for several resources on exactly the resources it evaluated
+  and names each of them to the platform, never the area, group or list it resolved them
+  from, so that the platform cannot add a resource that was not evaluated (Section 4.4).
 
 Versions (Section 14, rewritten):
 - The v0 formats (mandate, audit entry, audit checkpoint) are frozen from `v0.1.0`, the first
