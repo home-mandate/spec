@@ -56,14 +56,14 @@
         "timezone": { "type": "string", "minLength": 1, "maxLength": 64 },
         "revoked": { "description": "Revocation status at evaluation time; absent = false.", "type": "boolean" },
         "resource": {
-          "description": "Resource as requested or resolved; unknown categories are also logged unchanged.",
+          "description": "Resource as requested or resolved; unknown categories and identifiers that the evaluation found invalid are also logged unchanged, so identifiers here are limited only in length and number (SPEC-v0 section 9.1).",
           "type": "object",
           "additionalProperties": false,
           "required": ["entity_id"],
           "properties": {
             "entity_id": { "type": "string", "minLength": 1, "maxLength": 255 },
             "category": { "type": "string", "minLength": 1, "maxLength": 128 },
-            "areas": { "description": "Set of areas of the resource as the directory gave it (SPEC-v0 section 3.4); absent or empty: the resource has no area.", "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
+            "areas": { "description": "Set of areas of the resource as the PEP gave it to the evaluation, also when invalid (SPEC-v0 sections 3.4 and 9.1); absent or empty: the resource has no area.", "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
             "critical": { "description": "true: the directory marked the resource as critical at evaluation time; absent = false.", "type": "boolean" }
           }
         },

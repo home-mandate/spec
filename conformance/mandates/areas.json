@@ -8,7 +8,9 @@
     { "id": "r-ground-floor-lights", "resource": { "category": "light", "area": "ground_floor" }, "actions": ["turn_on", "turn_off"], "decision": "allow" },
     { "id": "r-garage-deny", "resource": { "area": "garage" }, "actions": ["*"], "decision": "deny" },
     { "id": "r-dining-lights", "resource": { "category": "light", "area": "dining_room" }, "actions": ["turn_on", "turn_off"], "decision": "allow" },
-    { "id": "r-kitchen-ask", "resource": { "area": "kitchen" }, "actions": ["turn_off"], "decision": "ask" }
+    { "id": "r-kitchen-ask", "resource": { "area": "kitchen" }, "actions": ["turn_off"], "decision": "ask" },
+    { "id": "r-long-area", "resource": { "category": "light", "area": "a234567890123456789012345678901234567890123456789012345678901234" }, "actions": ["turn_on"], "decision": "allow" },
+    { "id": "r-edge-area", "resource": { "category": "light", "area": "!~" }, "actions": ["turn_on"], "decision": "allow" }
   ],
   "default": "deny",
   "approval": { "timeout": "PT1M", "approvers": ["approver-1"] },

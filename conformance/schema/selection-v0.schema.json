@@ -120,6 +120,10 @@
               "null"
             ]
           },
+          "enforced": {
+            "type": "boolean",
+            "description": "false: the result is a deny that the PEP does not enforce (audit mode, SPEC-v0 section 4.6); absent or true: the result is enforced as usual."
+          },
           "selected": {
             "type": [
               "string",

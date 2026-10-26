@@ -33,6 +33,7 @@ type selectionCase struct {
 	Expected string          `json:"expected"`
 	Reason   string          `json:"reason"`
 	RuleID   json.RawMessage `json:"rule_id"`
+	Enforced *bool           `json:"enforced"`
 	Selected *string         `json:"selected"`
 	Why      string          `json:"why"`
 }
@@ -54,6 +55,9 @@ func TestConformanceSelection(t *testing.T) {
 			})
 			if string(got.Decision) != c.Expected || string(got.Reason) != c.Reason {
 				t.Errorf("got (%s, %s), want (%s, %s): %s", got.Decision, got.Reason, c.Expected, c.Reason, c.Why)
+			}
+			if wantNotEnforced := c.Enforced != nil && !*c.Enforced; got.NotEnforced != wantNotEnforced {
+				t.Errorf("not enforced = %t, want %t (%s)", got.NotEnforced, wantNotEnforced, c.Why)
 			}
 			wantSelected := ""
 			if c.Selected != nil {
