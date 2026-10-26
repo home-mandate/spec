@@ -979,6 +979,14 @@ Depending on the event, the following are added:
 | `template` | change to a template (Section 2): `change` (`stored`: created or changed, `removed`, `hidden`: no longer offered or accepted for creating mandates without being removed, `shown`: offered and accepted again), `name` (1 to 64 characters) and `digest`; for `stored` the digest of the new content, for `removed` that of the last content, for `hidden` and `shown` optionally that of the current content. `previous_digest` only for `stored` and only if the template had content before, different from `digest`. Digests are computed as in Section 3.2 over the template as the implementation stores it. Only with `template.changed` |
 | `approver` | change to the humans whom the implementation lets answer approval requests (Section 11.1): `change` (`added`, `removed`) and `id` (1 to 64 characters), the identifier of the approver in the user management, as in `approval.by`. Only with `approver.changed` |
 
+`request` records the input to the evaluation as the PEP determined it, also when the
+evaluation found it invalid (`invalid_request`). Identifiers in it are therefore limited only
+in length and number, not in their characters; Section 3.4 applies to mandates and to valid
+requests. Input that the log cannot record (a longer identifier, more than 16 areas or areas
+that repeat, more than 16 parameters, a parameter value that is neither an integer nor a
+string of the form of Section 4.5) is not a request: the PEP rejects it at its interface
+before any evaluation (with MCP, for example, as invalid parameters).
+
 For `decision`, the following additionally applies:
 
 - `executed` only with `evaluation` and `mandate`, and only if `evaluation.decision` is
@@ -1942,6 +1950,16 @@ Conformance cases (no change to any rule or format):
   and off), `a127`–`a129`.
 - Selection with a set of areas: `s21`. Audit log: `a126` (`not_supported`, Section 11.1
   item 11), `a130`–`a133` (16 and 0 areas, a fraction and an empty string as parameter).
+
+What `request` records (Section 9.1, text only, no change to any rule or format):
+- `request` records the input to the evaluation as the PEP determined it, also when the
+  evaluation found it invalid (`invalid_request`); identifiers in it are limited in length
+  and number, not in their characters, as the schema has always had it.
+- Input that the log cannot record (a longer identifier, more than 16 areas or areas that
+  repeat, more than 16 parameters, a parameter value that is neither an integer nor a
+  string of the form of Section 4.5) is not a request: the PEP rejects it at its interface
+  before any evaluation. Conformance cases `a134` (valid, an identifier with a space) and
+  `a135` (invalid, an `entity_id` of 256 characters).
 
 ### History as mandate-spec
 

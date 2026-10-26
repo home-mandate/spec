@@ -4534,6 +4534,29 @@
         {"actor": {"kind": "user", "id": "user-1"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000e1330001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
         {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-climate-modes"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000e1330002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"}, "prev": "sha256:37fa1edebaf8ef3cd0d34978ea10978977d3023b282026de1a3896f682d988da", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00.120+02:00", "request": {"time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "climate.living_room", "category": "climate", "areas": ["living_room"]}, "action": "set_mode", "parameters": {"mode": ""}}, "result": {"status": "executed", "duration_ms": 120}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
       ]
+    },
+    {
+      "id": "a134",
+      "why": "a request the evaluation found invalid is recorded as the PEP gave it: identifiers in request are limited in length and number, not in their characters (9.1)",
+      "expected": "valid",
+      "entry_digests": [
+        "sha256:b4a2fa6cc828454c3682d7ffd29c6ae1f6548e76b6307e0b4399c875987684cc",
+        "sha256:5e74dcb86dcc381e8575000432532291600a10b4d6762d093dab05a37632c477"
+      ],
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-000001340001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "deny", "reason": "invalid_request", "rule_id": null}, "event": "decision", "id": "01a0f64c-7140-7001-9007-000001340002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"}, "prev": "sha256:b4a2fa6cc828454c3682d7ffd29c6ae1f6548e76b6307e0b4399c875987684cc", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00.005+02:00", "request": {"time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "light.hall way", "category": "light", "areas": ["hall way"]}, "action": "turn_on"}, "result": {"status": "denied", "denied_by": "mandate", "duration_ms": 2}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "a135",
+      "why": "an entity_id of 256 characters: input beyond the limits of the log is not a request and cannot be recorded (9.1; schema violation)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-000001350001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:10:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "deny", "reason": "invalid_request", "rule_id": null}, "event": "decision", "id": "01a0f64c-7140-7001-9007-000001350002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"}, "prev": "sha256:b29b0bc4974921f32ff350c041038c975080b46788f07fa69a9f619fd4857f1c", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:20:00.005+02:00", "request": {"time": "2026-10-01T09:20:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "light.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "category": "light", "areas": ["hall"]}, "action": "turn_on"}, "result": {"status": "denied", "denied_by": "mandate", "duration_ms": 2}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
     }
   ]
 }
