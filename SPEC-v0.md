@@ -1310,6 +1310,13 @@ before it executes the action.
    been reached, and `state_changed` in any other case. This keeps a confirmation from
    acting twice, for example when an agent repeated a request because its own client gave
    up waiting and both requests were confirmed.
+11. **What the resource can do.** An implementation that knows that the resource cannot
+   carry out the action (for example because the platform reports the features of a
+   device) SHOULD NOT ask anyone for it: a confirmation of an action that cannot happen
+   only teaches people to confirm without reading. It then executes nothing, and the
+   entry is `failed`, with the RECOMMENDED `error` `not_supported` and without an
+   `approval`. It SHOULD tell the agent which actions the resource can carry out. An
+   implementation that does not know what the resource can do asks as before.
 
 **MCP elicitation (informative).** Item 4 names no mechanism. For an agent that uses MCP:
 
@@ -1876,6 +1883,12 @@ New:
   Compatible for logs: every entry that was valid remains valid. A verifier that does not
   know the outcome rejects a log that contains it (Section 14, unknown members).
   Conformance cases `a89`–`a105` in `conformance/audit-v0.json`.
+
+Actions the resource cannot carry out (Section 11.1 item 11): an implementation that knows
+that a resource cannot carry out the action SHOULD NOT ask anyone for it; the entry is
+`failed` with the new RECOMMENDED code `not_supported` and without an `approval`. No change
+to the evaluation, to the vocabulary or to the format of mandates and logs. The profile for
+Home Assistant names where the features of an entity come from.
 
 ### History as mandate-spec
 

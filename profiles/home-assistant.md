@@ -25,6 +25,28 @@
 | `script` | `script.*` |
 | `other` | all other domains |
 
+## What an entity can do
+
+Home Assistant reports the features of an entity in its state: the attribute
+`supported_features` (a bit mask per domain) and, for some actions, other attributes. An
+implementation can tell from them that an entity cannot carry out an action (SPEC-v0
+section 11.1 item 11), for example:
+
+| Category | Action | Needs |
+|---|---|---|
+| `lock` | `open` | `LockEntityFeature.OPEN` |
+| `cover` | `open`, `close`, `stop`, `set_position` | `CoverEntityFeature.OPEN`, `CLOSE`, `STOP`, `SET_POSITION` |
+| `gate` | `open`, `close` | `CoverEntityFeature.OPEN`, `CLOSE` |
+| `light` | `set` (brightness) | a color mode in `supported_color_modes` other than `onoff` |
+| `climate` | `set_temperature` | `ClimateEntityFeature.TARGET_TEMPERATURE` |
+| `climate` | `set_mode` | the mode among the entity's `hvac_modes` (see Climate modes) |
+| `media` | `turn_on`, `turn_off`, `play`, `pause`, `set_volume` | `MediaPlayerEntityFeature.TURN_ON`, `TURN_OFF`, `PLAY`, `PAUSE`, `VOLUME_SET` |
+| `alarm` | `arm` | the feature of the mode, for example `AlarmControlPanelEntityFeature.ARM_AWAY` |
+
+An entity that reports no `supported_features` tells nothing; the implementation then
+asks as before. Some integrations change the features of an entity while it runs, so the
+current state counts, not one remembered from earlier.
+
 ## Parameters
 
 ### Climate modes
