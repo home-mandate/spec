@@ -1315,8 +1315,11 @@ before it executes the action.
    device) SHOULD NOT ask anyone for it: a confirmation of an action that cannot happen
    only teaches people to confirm without reading. It then executes nothing, and the
    entry is `failed`, with the RECOMMENDED `error` `not_supported` and without an
-   `approval`. It SHOULD tell the agent which actions the resource can carry out. An
-   implementation that does not know what the resource can do asks as before.
+   `approval`. It SHOULD tell an agent whose mandate allows it to `read` the resource
+   which of the actions its mandate does not deny the resource can carry out, and SHOULD
+   NOT tell any other agent more than that the resource cannot carry out this one
+   (Section 13). An implementation that does not know what the resource can do asks as
+   before.
 
 **MCP elicitation (informative).** Item 4 names no mechanism. For an agent that uses MCP:
 
@@ -1591,6 +1594,11 @@ behavior of the people in a household and MUST be protected like the devices the
   be created only by a human and SHOULD be recorded.
 - **Agents.** What an agent learns through `read` leaves the household with the agent.
   A mandate is also a decision about which data an agent may see.
+- **Features.** What a resource can carry out is information about it, often about its
+  model. An agent learns it only as far as it may `read` the resource (Section 11.1
+  item 11); an agent that probes actions on resources it may not read learns little, and
+  every probe counts against its rate limit, is recorded, and is executed or asked for
+  whenever the resource can carry it out.
 - **Audit mode.** `read` is never critical, so a mandate in audit mode lets the agent read
   whatever it asks for (Section 4.6). A household that tries a mandate SHOULD be told that
   the agent can see more during the trial than the mandate will permit afterwards.
@@ -1886,7 +1894,9 @@ New:
 
 Actions the resource cannot carry out (Section 11.1 item 11): an implementation that knows
 that a resource cannot carry out the action SHOULD NOT ask anyone for it; the entry is
-`failed` with the new RECOMMENDED code `not_supported` and without an `approval`. No change
+`failed` with the new RECOMMENDED code `not_supported` and without an `approval`. Which
+actions the resource can carry out is told only to an agent that may `read` it (Section 13,
+new item on features). No change
 to the evaluation, to the vocabulary or to the format of mandates and logs. The profile for
 Home Assistant names where the features of an entity come from.
 
