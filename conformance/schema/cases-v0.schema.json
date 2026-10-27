@@ -112,6 +112,10 @@
             "type": "boolean",
             "description": "false: the result is a deny that the PEP does not enforce (audit mode, SPEC-v0 section 4.6); absent or true: the result is enforced as usual."
           },
+          "confirm": {
+            "type": "boolean",
+            "description": "true: the result is a deny that is not enforced and requires a confirmation (audit mode, SPEC-v0 sections 4.1 and 4.6); absent or false: it requires none."
+          },
           "why": {
             "type": "string"
           },

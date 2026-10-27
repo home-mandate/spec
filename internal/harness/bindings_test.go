@@ -184,6 +184,7 @@ func (p *referencePDP) handler() http.Handler {
 			result.RuleID = *answer.RuleID
 		}
 		result.NotEnforced = answer.Enforced != nil && !*answer.Enforced
+		result.Confirm = answer.Confirm
 		if p.mutate != nil {
 			p.mutate(&result)
 		}
@@ -193,6 +194,9 @@ func (p *referencePDP) handler() http.Handler {
 		}
 		if result.NotEnforced {
 			context["enforced"] = false
+		}
+		if result.Confirm {
+			context["confirm"] = true
 		}
 		if answer.ApprovalTimeout != "" {
 			context["approval_timeout"], context["approvers"] = answer.ApprovalTimeout, answer.Approvers
@@ -238,6 +242,7 @@ func TestHTTPBindingDetectsDeviations(t *testing.T) {
 		"no rule":             func(r *evaluator.Result) { r.RuleID = "" },
 		"enforces every deny": func(r *evaluator.Result) { r.NotEnforced = false },
 		"enforces no deny":    func(r *evaluator.Result) { r.NotEnforced = r.Decision == evaluator.Deny },
+		"never confirms":      func(r *evaluator.Result) { r.Confirm = false },
 	} {
 		pdp := &referencePDP{mutate: mutate}
 		server := httptest.NewServer(pdp.handler())

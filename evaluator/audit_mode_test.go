@@ -151,3 +151,50 @@ func TestEntersAuditModeAfterTheTrialExpired(t *testing.T) {
 		t.Error("a predecessor in audit mode that is still in force requires a confirmation")
 	}
 }
+
+// A deny that audit mode does not enforce keeps the confirmation a matching ask rule asks
+// for (SPEC-v0 sections 4 step 6, 4.1 and 4.6; issue #59).
+func TestAuditModeAsksWhenAnAskRuleMatchesTheDeny(t *testing.T) {
+	m := auditMode(t, `[{"id":"r-ask-lights","resource":{"category":"light"},"actions":["turn_on","turn_off"],"decision":"ask"},`+
+		`{"id":"r-ask-own","resource":{"category":"light"},"actions":["turn_off"],"decision":"ask","approval":{"timeout":"PT5M","approvers":["user-2"]}},`+
+		`{"id":"r-no-lights","resource":{"category":"light"},"actions":["turn_on","turn_off"],"decision":"deny"},`+
+		`{"id":"r-media","resource":{"category":"media"},"actions":["play"],"decision":"allow"},`+
+		`{"id":"r-no-media","resource":{"category":"media"},"actions":["play"],"decision":"deny"}]`)
+	criticalOn := request("light", "", "turn_on")
+	criticalOn.Resource.Critical = true
+	for name, tt := range map[string]struct {
+		req         evaluator.Request
+		rule        string
+		notEnforced bool
+		confirm     bool
+		timeout     string
+	}{
+		"ask and deny":              {request("light", "", "turn_on"), "r-no-lights", true, true, "PT2M"},
+		"approval of the first own": {request("light", "", "turn_off"), "r-no-lights", true, true, "PT5M"},
+		"allow and deny":            {request("media", "", "play"), "r-no-media", true, false, ""},
+		"ask and deny on critical":  {criticalOn, "r-no-lights", false, false, ""},
+		"no match":                  {request("switch", "", "turn_on"), "", true, false, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := evaluator.Evaluate(m, tt.req)
+			if got.Decision != evaluator.Deny || got.RuleID != tt.rule || got.NotEnforced != tt.notEnforced || got.Confirm != tt.confirm {
+				t.Fatalf("got (%s, %q, not enforced %t, confirm %t), want (deny, %q, %t, %t)",
+					got.Decision, got.RuleID, got.NotEnforced, got.Confirm, tt.rule, tt.notEnforced, tt.confirm)
+			}
+			if tt.timeout == "" {
+				if got.Approval != nil {
+					t.Errorf("approval settings %+v without a confirmation", got.Approval)
+				}
+				return
+			}
+			if got.Approval == nil || got.Approval.Timeout != tt.timeout {
+				t.Errorf("approval settings %+v, want timeout %s", got.Approval, tt.timeout)
+			}
+		})
+	}
+	enforcing := mandateWithRules(t, `[{"id":"r-ask-lights","resource":{"category":"light"},"actions":["turn_on"],"decision":"ask"},`+
+		`{"id":"r-no-lights","resource":{"category":"light"},"actions":["turn_on"],"decision":"deny"}]`)
+	if got := evaluator.Evaluate(enforcing, request("light", "", "turn_on")); got.NotEnforced || got.Confirm || got.Approval != nil {
+		t.Errorf("an enforcing mandate: %+v", got)
+	}
+}

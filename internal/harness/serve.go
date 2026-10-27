@@ -139,6 +139,7 @@ func result(r evaluator.Result) Response {
 	if r.NotEnforced {
 		resp.Enforced = ptr(false)
 	}
+	resp.Confirm = r.Confirm
 	return resp
 }
 

@@ -100,7 +100,10 @@ type Response struct {
 	MandateDigest   string   `json:"mandate_digest,omitempty"`
 	// Enforced is present, and false, only for a deny the PEP does not enforce (audit
 	// mode, SPEC-v0 section 4.6).
-	Enforced *bool   `json:"enforced,omitempty"`
+	Enforced *bool `json:"enforced,omitempty"`
+	// Confirm is present, and true, only for a deny that is not enforced and requires a
+	// confirmation (SPEC-v0 sections 4.1 and 4.6).
+	Confirm  bool    `json:"confirm,omitempty"`
 	Selected *string `json:"selected,omitempty"`
 
 	// succession

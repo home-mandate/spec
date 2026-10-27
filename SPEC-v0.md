@@ -418,11 +418,14 @@ contain has no category; the result is `deny` with `unknown_resource`.
    protection. An implementation SHOULD let the household mark resources as critical.
 6. Audit mode: if the mandate carries `enforce: false`, the result of step 3 or 4 is
    `deny` and the action is not critical (step 5), the result is **not enforced**
-   (Section 4.6). It stays `deny`.
+   (Section 4.6). It stays `deny`. If one of the matching rules of step 2 decides `ask`,
+   the request still needs a confirmation before it is executed: the result **requires a
+   confirmation** and carries the approval settings of that `ask` (Section 4.1).
 
 The rule is deliberately simple: whoever allows something broadly and denies individual items
 gets the denial. Whoever sets something broadly to `ask` and allows individual items gets `ask`.
-When in doubt, the safer side always wins.
+When in doubt, the safer side always wins, in audit mode as well: a `deny` that is not
+enforced never takes away a confirmation that a matching `ask` rule asks for.
 
 `limits` are not part of the evaluation. The PEP enforces the rate limit (Section 11.2).
 
@@ -454,11 +457,16 @@ In addition to the decision, the evaluation returns:
 - **`rule_id`:** the first rule in document order that carries the final decision.
   For step 5, this is the first matching `allow` rule without `allow_critical`.
   For the pre-check, step 1 and step 3, there is no `rule_id`.
-- **Approval settings** (only for `ask`): the `approval` of the first matching `ask` rule in
-  document order that has its own `approval`, otherwise the `approval` of the mandate.
+- **Approval settings** (only for `ask` and for a result that requires a confirmation): the
+  `approval` of the first matching `ask` rule in document order that has its own
+  `approval`, otherwise the `approval` of the mandate.
 - **`enforced`:** `false` if the result is a `deny` that is not enforced (step 6,
   Section 4.6); then `reason` is `no_match` or `rule`. Every other result is enforced and
   has no `enforced`.
+- **`confirm`:** `true` if the result is a `deny` that is not enforced and requires a
+  confirmation (step 6, Section 4.6); then `enforced` is `false` and `reason` is `rule`.
+  Every other result has no `confirm`; for an `ask` the confirmation follows from the
+  decision.
 
 ### 4.2 Conditions
 
@@ -521,8 +529,8 @@ several resources at once (an area, a group, a list), the PEP resolves them with
 directory and evaluates each resource separately. Unless the PEP documents otherwise, the
 request is executed only if every single evaluation permits it: one `deny` denies the
 whole request, and one `ask` requires a confirmation that names all resources concerned. A
-`deny` that is not enforced (Section 4.6) counts as permitting here; it is recorded as
-such. The agent is never told which of the resources were not enforced (Section 11.6).
+`deny` that is not enforced (Section 4.6) counts as permitting here, and as an `ask` if it
+requires a confirmation; it is recorded as such. The agent is never told which of the resources were not enforced (Section 11.6).
 The PEP MUST execute such a request on exactly the resources it evaluated, naming each of
 them to the platform (for example as a list of identifiers), never the area, group or list
 it resolved them from: the platform would resolve that again on its own, and a resource
@@ -627,7 +635,11 @@ as in a mandate without `enforce`:
   never unlocks a door, opens a gate or takes a snapshot that the mandate does not permit,
   and a resource the directory marks as critical stays protected in every action except
   `read`;
-- `ask`, including `critical_demotion`: a human still confirms (Section 11.1);
+- `ask`, including `critical_demotion`: a human still confirms (Section 11.1), also when a
+  `deny` rule matches the same request. The `deny` wins and is not enforced, but the
+  result **requires a confirmation** (`confirm: true`, step 6): without the `deny` rule
+  the request would be an `ask`, and a stricter rule must not leave it with less
+  protection. The confirmation also shows whether the household wants the `deny`;
 - `allow`: unchanged;
 - every `deny` before the rules: an invalid mandate, an invalid request, an unknown
   resource, category or action, a revoked mandate and one that is not yet valid or has
@@ -635,11 +647,13 @@ as in a mandate without `enforce`:
 - every denial outside the evaluation: the rate limit, the emergency stop, the
   authentication of the agent, and an approval that was not given (Section 11).
 
-The PEP executes a request whose result is not enforced as it executes an `allow`
+The PEP executes a request whose result is not enforced as it executes an `allow`, and
+one that requires a confirmation only after a confirmation, as it executes an `ask`
 (Section 11.6). What the evaluation does not decide stays as it is: the PEP executes
 exactly the parameters that were evaluated (Section 4.5), the request counts towards the
-rate limit (Section 11.2), and a confirmed `ask` is evaluated again before it is executed,
-where a `deny` prevents the execution in audit mode as well (Section 11.1 item 6).
+rate limit (Section 11.2), and a confirmed request is evaluated again before it is
+executed, where a `deny` prevents the execution of a confirmed `ask` in audit mode as well
+(Section 11.1 item 6).
 
 Audit mode belongs to the mandate, not to the implementation: one mandate can be tried
 while the others enforce. Switching it on or off is a change to the mandate with a new
@@ -745,6 +759,17 @@ that is not enforced (audit mode, Section 4.6) and absent otherwise:
                "mandate_digest": "sha256:83d0…" } }
 ```
 
+`confirm: true` is REQUIRED for a `deny` that is not enforced and requires a confirmation
+(Section 4.1), together with `approval_timeout` and `approvers`, and absent otherwise:
+
+```json
+{ "decision": false,
+  "context": { "outcome": "deny", "reason": "rule", "rule_id": "r-no-kids-room",
+               "enforced": false, "confirm": true,
+               "approval_timeout": "PT1M", "approvers": ["parent-1"],
+               "mandate_digest": "sha256:5b1e…" } }
+```
+
 Field mapping:
 
 | AuthZEN | Input per Section 4 |
@@ -767,11 +792,13 @@ per Section 4.3; if there is none for the agent and principal, the result is `de
 - `outcome: ask` → `decision: false`; the PEP MUST obtain a confirmation per Section 11.1 and
   MUST NOT execute the action unless the response is positive
 - `outcome: deny` → `decision: false`; with `enforced: false`, the PEP executes the action
-  as in Section 11.6
+  as in Section 11.6, and with `confirm: true` as well only after a confirmation per
+  Section 11.1
 
 A PEP that does not know `ask` automatically treats the response as a denial, and a PEP
 that does not know `enforced` enforces the denial. The extension is thus
-backward-compatible and safe.
+backward-compatible and safe. A PEP that executes a `deny` with `enforced: false` MUST also
+know `confirm`, because it may only execute one with `confirm: true` after a confirmation.
 
 `subject.type` MUST be `agent`; any other value is `deny` with `invalid_request`.
 
@@ -864,8 +891,9 @@ Fields of a case:
 | `expected` | yes | `allow`, `ask` or `deny` |
 | `reason` | yes | expected reason code per Section 4.1 |
 | `rule_id` | no | expected `rule_id` per Section 4.1; if the field is absent, it is not checked; `null` means: none |
-| `approval_timeout` | no | expected `timeout` of the approval settings for `ask` |
+| `approval_timeout` | no | expected `timeout` of the approval settings for `ask` and for a result that requires a confirmation |
 | `enforced` | no | `false`: the expected result is a `deny` that is not enforced (Section 4.6); absent or `true`: the result is enforced, and an implementation that reports `enforced: false` fails the case |
+| `confirm` | no | `true`: the expected result is a `deny` that is not enforced and requires a confirmation (Section 4.1); absent or `false`: it requires none, and an implementation that reports `confirm: true` fails the case |
 | `why` | no | explanation for humans |
 
 `conformance/invalid-v0.json` contains mandates that are invalid per Section 3.1 and
@@ -876,7 +904,7 @@ error cannot be represented as a JSON object, such as duplicate keys).
 mandates, each as `mandate_inline` with an optional `revoked`), `subject` (`client_id` and
 `principal` of the request), the request as in `cases-v0.json`, `selected` (the `id` of the
 mandate that is evaluated, or `null`) and the expected `expected`, `reason` and optionally
-`rule_id`.
+`rule_id`, `approval_timeout`, `enforced` and `confirm`, as in `cases-v0.json`.
 
 `conformance/succession-v0.json` contains cases for Section 3.5: `stored` and `offered`
 (two valid mandates) and `expected` (`accept` or `reject`).
@@ -970,7 +998,7 @@ Depending on the event, the following are added:
 | `agent` | `client_id`, optionally `display_name` |
 | `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked` |
 | `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest`; for `mandate.removed`, `digest` is that of the last version the implementation held |
-| `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout` and `enforced` (only `false`, Section 4.6) |
+| `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout`, `enforced` (only `false`, Section 4.6) and `confirm` (only `true`, with `enforced`) |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
 | `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
@@ -991,14 +1019,20 @@ For `decision`, the following additionally applies:
 
 - `executed` only with `evaluation` and `mandate`, and only if `evaluation.decision` is
   `allow`, `ask` with `approval.outcome: approved`, or `deny` with
-  `evaluation.enforced: false`;
+  `evaluation.enforced: false`, and then with `evaluation.confirm: true` only with
+  `approval.outcome: approved`;
 - if `evaluation.decision` is `deny`, then `result` is `denied` with `denied_by: mandate`,
   unless `evaluation.enforced` is `false`: then `result` is `executed` or `failed`
-  (audit mode, Section 11.6);
+  (audit mode, Section 11.6), and with `evaluation.confirm: true` the `result` can be
+  anything an `ask` can have;
 - `evaluation.enforced` appears only in `decision` entries with `mandate` and `request`,
   only as `false`, and only with `evaluation.decision: deny` and `reason` `no_match` or
   `rule`. An `allow` or an `ask` is never marked: an allow is executed anyway, and an
   `ask` is asked in audit mode as well;
+- `evaluation.confirm` appears only as `true` and only with `evaluation.enforced: false`
+  and `reason: rule`: the `deny` was not enforced, and a human was asked first because a
+  matching rule decides `ask` (Section 4.6). An `approval` object appears only with
+  `evaluation.decision: ask` or with `evaluation.confirm: true`;
 - with `evaluation.enforced: false`, `request.resource` names the `category` and
   `critical` (`true` or `false`, so that the marking cannot be left out), and the action
   is not critical: the resource is not marked `critical` unless the action is `read`,
@@ -1012,7 +1046,10 @@ For `decision`, the following additionally applies:
 - a confirmed `ask` that is not executed because the evaluation before the execution gave
   a `deny`, enforced or not (Section 11.1 item 6), is recorded with the `evaluation` that
   was confirmed (`ask`, without `enforced`), `approval.outcome: approved` and `result`
-  `denied` with `denied_by: mandate`;
+  `denied` with `denied_by: mandate`; the same holds for a confirmed `deny` with
+  `confirm: true` whose evaluation before the execution gave a `deny` that is enforced,
+  recorded with the `evaluation` that was confirmed (`deny`, `enforced: false`,
+  `confirm: true`);
 - `evaluation.reason` belongs to `evaluation.decision` as in the table of Section 4.1
   (`allow` only with `rule`, `ask` only with `rule` or `critical_demotion`);
 - a denial with `denied_by: approval` carries the `approval` object if a request was
@@ -1200,7 +1237,7 @@ cases).
 |---|---|---|
 | `capabilities` | – | `name`, `version`, `ops` (the operations offered) |
 | `validate` | `mandate` | `valid`; `digest` if valid |
-| `evaluate` | `mandate`, `request` | `decision`, `reason`, `rule_id` if Section 4.1 provides one, `approval_timeout` and `approvers` for `ask`, `mandate_digest` unless absent per Section 4.1, `enforced: false` for a `deny` that is not enforced (Section 4.6) |
+| `evaluate` | `mandate`, `request` | `decision`, `reason`, `rule_id` if Section 4.1 provides one, `approval_timeout` and `approvers` for `ask` and for a result that requires a confirmation, `mandate_digest` unless absent per Section 4.1, `enforced: false` for a `deny` that is not enforced (Section 4.6), `confirm: true` for one that requires a confirmation |
 | `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate) if one was selected |
 | `succession` | `stored`, `offered` | `accept` |
 | `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer) | `valid`; `digest` if valid |
@@ -1245,7 +1282,7 @@ request of the case to `POST <authzen>/access/v1/evaluation` with `subject` (typ
 `id`, `properties.principal`), `action` (`name`, `properties` for parameters) and
 `resource.id` only: category, areas and the critical marking come from the directory. It
 compares `decision` and, in the response context, `outcome`, `reason`, `rule_id`,
-`approval_timeout` and `enforced`.
+`approval_timeout`, `enforced` and `confirm`.
 
 The tool sends the HTTP headers it was given (for example `Authorization`) with every
 request; the control resource SHOULD require authentication even in a test build.
@@ -1269,8 +1306,9 @@ is left open.
 
 ### 11.1 Approval
 
-If the result of the evaluation is `ask`, the PEP obtains a confirmation from a human
-before it executes the action.
+If the result of the evaluation is `ask`, or a `deny` that is not enforced and requires a
+confirmation (`confirm: true`, Section 4.6), the PEP obtains a confirmation from a human
+before it executes the action. What follows holds for both.
 
 1. **Who.** A confirmation counts only if it comes from one of the `approvers` of the
    approval settings (Section 4.1), authenticated by the implementation. One approver
@@ -1281,7 +1319,10 @@ before it executes the action.
    the action, its parameters and the `mandate_digest` of the evaluation. It MUST NOT be
    used for any other request, and the human MUST be shown what they confirm: the agent
    (`display_name` and `client_id`), the resource or every resource of the set, the action
-   and the parameters.
+   and the parameters. For a `deny` that is not enforced, the human SHOULD also be shown
+   that the mandate in audit mode would deny the request, and by which rule: their answer
+   then also says whether the household wants the `deny`. The agent is not told
+   (Section 11.6 item 2).
    Text supplied by the agent (a reason, for example) MUST be recognizable as such.
 3. **Once.** A confirmation permits exactly one execution. A second use, a replay or a
    forged confirmation MUST be rejected; implementations use a value that cannot be
@@ -1299,7 +1340,11 @@ before it executes the action.
    PEP evaluates the request again. The action is executed only if the result is not
    `deny` and the `mandate_digest` is the one that was confirmed; a `deny` that is not
    enforced (Section 4.6) prevents the execution as well, and the request is recorded as
-   denied by the mandate with the `ask` that was confirmed (Section 9.1). A mandate that
+   denied by the mandate with the `ask` that was confirmed (Section 9.1). If what was
+   confirmed was itself a `deny` that is not enforced (`confirm: true`), a `deny` that is
+   not enforced does not prevent the execution, with or without `confirm`; a `deny` that
+   is enforced does, and the request is recorded as denied by the mandate with the
+   evaluation that was confirmed. A mandate that
    was revoked, changed or has expired in the meantime, a time window that has closed and
    an emergency stop all prevail over the confirmation. For a request for several
    resources, the PEP resolves it again and executes only if the set is the one that was
@@ -1473,10 +1518,16 @@ An implementation that offers audit mode (Section 4.6):
 1. **Executes** a request whose result is not enforced (`enforced: false`) as it executes
    an `allow`, with every obligation that applies to an `allow`, and records a `decision`
    entry whose `evaluation` is the result as returned, including `enforced: false`, with
-   `result.status` `executed` or `failed` (Section 9.1). It never records such a request
-   as denied by the mandate, and it never executes a `deny` that is enforced.
+   `result.status` `executed` or `failed` (Section 9.1). If the result requires a
+   confirmation (`confirm: true`), it executes the request only as it executes a confirmed
+   `ask`, with every obligation of Section 11.1, and the entry records the outcome of the
+   approval request as for an `ask`. It never records a request whose result is not
+   enforced as denied by the mandate, except a confirmed one that the evaluation before the
+   execution denied (Section 11.1 item 6) or one whose mandate was revoked while it waited
+   (Section 11.1 item 8), and it never executes a `deny` that is enforced.
 2. **Tells the agent nothing.** The agent receives the same response as for an `allow` of
-   the same request: no hint of the audit mode, of the denial or of the rule. An agent
+   the same request, or, if the result requires a confirmation, as for an `ask`: no hint of
+   the audit mode, of the denial or of the rule. An agent
    that learned which of its requests the mandate will deny could use the trial to act
    before audit mode ends, or adapt its requests to the trial.
 3. **Shows audit mode to the household.** Wherever an implementation shows a mandate or a
@@ -1524,7 +1575,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
 | **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal (Section 3.5) | The specification does not define how this trust is configured |
 | **Attacker between PEP and PDP** | The connection MUST be authenticated in both directions; the PDP MUST NOT be reachable by agents (Section 6) | The specification does not define the mechanism |
-| **Whoever can change a mandate and switches it to audit mode** (a member of the household, a manipulated user interface, an issuer) | Critical actions, `ask` and every denial outside the rules stay enforced (Section 4.6). Switching audit mode on takes effect only after a human of the household confirmed it explicitly, also for a signed successor, and every approver is notified (Sections 3.5, 11.6). The switch is a new version with a new digest, recorded with `mandate.updated` and its actor (Sections 3.2, 9.2), and implementations MUST show audit mode wherever they show mandates (Section 11.6). In a signed mandate, `enforce` is covered by the signature (Section 7); a verifier rejects an audit entry that claims an unenforced deny of a critical action (Section 9.1) | In audit mode the agent can do every action that is not critical, including `read` of cameras and presence sensors. Whoever can change mandates could also write a broad `allow`; audit mode gives no more power, but it looks harmless. A human who confirms without reading; the confirmation and the notice make the switch visible, they do not prevent it |
+| **Whoever can change a mandate and switches it to audit mode** (a member of the household, a manipulated user interface, an issuer) | Critical actions, `ask` and every denial outside the rules stay enforced (Section 4.6). Switching audit mode on takes effect only after a human of the household confirmed it explicitly, also for a signed successor, and every approver is notified (Sections 3.5, 11.6). The switch is a new version with a new digest, recorded with `mandate.updated` and its actor (Sections 3.2, 9.2), and implementations MUST show audit mode wherever they show mandates (Section 11.6). In a signed mandate, `enforce` is covered by the signature (Section 7); a verifier rejects an audit entry that claims an unenforced deny of a critical action (Section 9.1) | In audit mode the agent can do every action that is not critical, including `read` of cameras and presence sensors, without asking unless a rule sets it to `ask`. Whoever can change mandates could also write a broad `allow`; audit mode gives no more power, but it looks harmless. A human who confirms without reading; the confirmation and the notice make the switch visible, they do not prevent it |
 | **Agent with a path past the PEP** (another credential for the platform, for example an MCP tool that talks to the platform with its own API token, or the right to create or change scripts, automations or rules) | Nothing. The evaluation covers only the requests that reach the PEP (Section 12.3, the only path) | Whatever the agent can do on that path, no mandate limits. A script or an automation it writes can scan the network, load programs or unlock the front door |
 | **Compromised PEP** | Nothing. The PEP executes; a PEP that ignores a `deny` cannot be stopped by a format | – |
 
@@ -1589,7 +1640,8 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
   renamed resource no longer protects it, and a broader `allow` rule may apply instead.
   Applying the rules of both identifiers until a human resolves the rename keeps the
   protection (Section 11.4).
-- **Audit mode.** A mandate in audit mode permits every action that is not critical.
+- **Audit mode.** A mandate in audit mode permits every action that is not critical,
+  without a confirmation unless a matching rule decides `ask` (Section 4.6).
   Interfaces SHOULD suggest a short `expires` for it, SHOULD remind the household of a
   mandate that stays in audit mode for long, and SHOULD show the requests that were not
   enforced, so that they become rules or audit mode is switched off. What must stay
@@ -1624,7 +1676,7 @@ behavior of the people in a household and MUST be protected like the devices the
   every probe counts against its rate limit, is recorded, and is executed or asked for
   whenever the resource can carry it out.
 - **Audit mode.** `read` is never critical, so a mandate in audit mode lets the agent read
-  whatever it asks for (Section 4.6). A household that tries a mandate SHOULD be told that
+  whatever it asks for, unless a rule sets the `read` to `ask` (Section 4.6). A household that tries a mandate SHOULD be told that
   the agent can see more during the trial than the mandate will permit afterwards.
 
 ## 14. Versions and compatibility
@@ -1960,6 +2012,37 @@ What `request` records (Section 9.1, text only, no change to any rule or format)
   string of the form of Section 4.5) is not a request: the PEP rejects it at its interface
   before any evaluation. Conformance cases `a134` (valid, an identifier with a space) and
   `a135` (invalid, an `entity_id` of 256 characters).
+
+Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 13; issue #59):
+- In audit mode, a `deny` rule that wins over a matching `ask` rule no longer takes the
+  confirmation away. The `deny` stays the decision and is not enforced, but the result
+  **requires a confirmation**: it carries `confirm: true` and the approval settings of the
+  `ask` (Section 4.1), and the PEP executes it only after a confirmation, as an `ask`
+  (Sections 4.6, 11.1, 11.6). Before, such a request was executed without asking anyone,
+  while the same request without the `deny` rule needed a confirmation. A `deny` without a
+  matching `ask` rule is executed without a confirmation as before; critical actions are
+  enforced as before.
+- New member `confirm` (only `true`, only with `enforced: false` and `reason: rule`) of
+  the result of the evaluation, of the AuthZEN response context (Section 6, REQUIRED there
+  together with `approval_timeout` and `approvers`), of the `evaluate` and `select`
+  responses of the test interface and of the conformance cases (Sections 8, 10), and of
+  `evaluation` in the audit log (Section 9.1). A PEP that executes a `deny` with
+  `enforced: false` MUST know `confirm`; one that does not know `enforced` still enforces
+  every `deny`.
+- Audit entry: an `approval` object appears with `evaluation.decision: ask` or with
+  `evaluation.confirm: true`. With `confirm: true`, `executed` requires
+  `approval.outcome: approved`, and the `result` can be anything an `ask` can have; without
+  it, a `deny` with `enforced: false` is still only `executed` or `failed`. Every entry
+  that was valid stays valid.
+- Before the execution (Section 11.1 item 6), a confirmed request with `confirm: true` is
+  executed unless the evaluation then gives a `deny` that is enforced; a confirmed `ask`
+  is still not executed after any `deny`. The human who confirms SHOULD be shown that the
+  mandate in audit mode would deny the request, and by which rule (Section 11.1 item 2);
+  the agent is not told.
+- Conformance cases `c214`–`c221` (new mandate `conformance/mandates/audit-mode-ask.json`),
+  `s22` (the selection cases accept `approval_timeout` and `confirm`), `a136` (valid: every
+  outcome of an approval request with `confirm: true`) and `a137`–`a143` (invalid).
+- Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
 
 ### History as mandate-spec
 

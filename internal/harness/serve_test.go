@@ -228,3 +228,30 @@ func TestEvaluateParameterValues(t *testing.T) {
 		})
 	}
 }
+
+func TestEvaluateInAuditModeRequiresAConfirmation(t *testing.T) {
+	data, err := fs.ReadFile(spec.FS(), "conformance/mandates/audit-mode-ask.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mandate := string(data)
+	evaluate := func(entityID, category, action string) harness.Request {
+		return harness.Request{Op: harness.OpEvaluate, Mandate: &mandate, Request: &harness.Evaluation{
+			Resource: harness.Resource{EntityID: entityID, Category: category}, Action: action, Time: "2026-10-12T19:00:00+02:00"}}
+	}
+	rs := ask(t, evaluate("light.kids_room", "light", "turn_on"), evaluate("media.kids_room", "media", "play"))
+	if r := rs[0]; r.Decision != "deny" || !r.Confirm || r.Enforced == nil || *r.Enforced || r.ApprovalTimeout != "PT1M" || len(r.Approvers) != 1 {
+		t.Errorf("deny with a matching ask rule = %+v, want enforced false, confirm and approval settings", r)
+	}
+	if r := rs[1]; r.Confirm || r.ApprovalTimeout != "" {
+		t.Errorf("deny without a matching ask rule = %+v, want no confirmation", r)
+	}
+	line, err := json.Marshal(rs[0])
+	if err != nil || !strings.Contains(string(line), `"confirm":true`) {
+		t.Errorf("response line %s, %v", line, err)
+	}
+	line, err = json.Marshal(rs[1])
+	if err != nil || strings.Contains(string(line), `confirm`) {
+		t.Errorf("response line %s, %v", line, err)
+	}
+}

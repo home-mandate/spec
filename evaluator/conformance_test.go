@@ -57,6 +57,7 @@ type conformanceCase struct {
 	RuleID          json.RawMessage            `json:"rule_id"`
 	ApprovalTimeout string                     `json:"approval_timeout"`
 	Enforced        *bool                      `json:"enforced"`
+	Confirm         bool                       `json:"confirm"`
 	Why             string                     `json:"why"`
 }
 
@@ -143,9 +144,9 @@ func assertResult(t *testing.T, c conformanceCase, m *evaluator.Mandate, got eva
 			t.Errorf("rule_id = %q, want %q", got.RuleID, wantID)
 		}
 	}
-	if got.Decision == evaluator.Ask {
+	if got.Decision == evaluator.Ask || got.Confirm {
 		if got.Approval == nil {
-			t.Fatal("ask without approval settings")
+			t.Fatalf("%s without approval settings", got.Decision)
 		}
 		if c.ApprovalTimeout != "" && got.Approval.Timeout != c.ApprovalTimeout {
 			t.Errorf("approval timeout = %q, want %q", got.Approval.Timeout, c.ApprovalTimeout)
@@ -159,6 +160,9 @@ func assertResult(t *testing.T, c conformanceCase, m *evaluator.Mandate, got eva
 	// A case without enforced expects an enforced result (SPEC-v0 sections 4.6 and 8).
 	if wantNotEnforced := c.Enforced != nil && !*c.Enforced; got.NotEnforced != wantNotEnforced {
 		t.Errorf("not enforced = %t, want %t (%s)", got.NotEnforced, wantNotEnforced, c.Why)
+	}
+	if got.Confirm != c.Confirm {
+		t.Errorf("confirm = %t, want %t (%s)", got.Confirm, c.Confirm, c.Why)
 	}
 }
 
