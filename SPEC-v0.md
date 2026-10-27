@@ -99,7 +99,8 @@ PDP, travels signed (Section 7).
   to the platform, obtains approvals and keeps the audit log (Sections 9 and 11).
 - **Audit mode:** a mandate with `enforce: false` is tried, not enforced: its rules are
   evaluated and recorded, but a denial by the rules of an action that is not critical does
-  not stop the agent (Section 4.6).
+  not stop the agent; where a rule asks for a confirmation, a human still confirms
+  (Section 4.6).
 - **Template:** a mandate draft that an implementation stores and from which it creates
   mandates. This version defines no format for templates; the audit log records changes to
   them (Section 9.2).
@@ -420,7 +421,7 @@ contain has no category; the result is `deny` with `unknown_resource`.
    `deny` and the action is not critical (step 5), the result is **not enforced**
    (Section 4.6). It stays `deny`. If one of the matching rules of step 2 decides `ask`,
    the request still needs a confirmation before it is executed: the result **requires a
-   confirmation** and carries the approval settings of that `ask` (Section 4.1).
+   confirmation** and carries the approval settings per Section 4.1.
 
 The rule is deliberately simple: whoever allows something broadly and denies individual items
 gets the denial. Whoever sets something broadly to `ask` and allows individual items gets `ask`.
@@ -530,7 +531,8 @@ directory and evaluates each resource separately. Unless the PEP documents other
 request is executed only if every single evaluation permits it: one `deny` denies the
 whole request, and one `ask` requires a confirmation that names all resources concerned. A
 `deny` that is not enforced (Section 4.6) counts as permitting here, and as an `ask` if it
-requires a confirmation; it is recorded as such. The agent is never told which of the resources were not enforced (Section 11.6).
+requires a confirmation; it is recorded as such. The agent is never told which of the
+resources were not enforced (Section 11.6).
 The PEP MUST execute such a request on exactly the resources it evaluated, naming each of
 them to the platform (for example as a list of identifiers), never the area, group or list
 it resolved them from: the platform would resolve that again on its own, and a resource
@@ -637,7 +639,7 @@ as in a mandate without `enforce`:
   `read`;
 - `ask`, including `critical_demotion`: a human still confirms (Section 11.1), also when a
   `deny` rule matches the same request. The `deny` wins and is not enforced, but the
-  result **requires a confirmation** (`confirm: true`, step 6): without the `deny` rule
+  result **requires a confirmation** (`confirm: true`, step 6): without the `deny` rules
   the request would be an `ask`, and a stricter rule must not leave it with less
   protection. The confirmation also shows whether the household wants the `deny`;
 - `allow`: unchanged;
@@ -652,8 +654,9 @@ one that requires a confirmation only after a confirmation, as it executes an `a
 (Section 11.6). What the evaluation does not decide stays as it is: the PEP executes
 exactly the parameters that were evaluated (Section 4.5), the request counts towards the
 rate limit (Section 11.2), and a confirmed request is evaluated again before it is
-executed, where a `deny` prevents the execution of a confirmed `ask` in audit mode as well
-(Section 11.1 item 6).
+executed: a `deny` prevents the execution of a confirmed `ask` in audit mode as well, and
+of a confirmed `deny` with `confirm: true` every result except `allow`, `ask` and another
+`deny` with `confirm: true` (Section 11.1 item 6).
 
 Audit mode belongs to the mandate, not to the implementation: one mandate can be tried
 while the others enforce. Switching it on or off is a change to the mandate with a new
@@ -1047,9 +1050,11 @@ For `decision`, the following additionally applies:
   a `deny`, enforced or not (Section 11.1 item 6), is recorded with the `evaluation` that
   was confirmed (`ask`, without `enforced`), `approval.outcome: approved` and `result`
   `denied` with `denied_by: mandate`; the same holds for a confirmed `deny` with
-  `confirm: true` whose evaluation before the execution gave a `deny` that is enforced,
-  recorded with the `evaluation` that was confirmed (`deny`, `enforced: false`,
-  `confirm: true`);
+  `confirm: true` whose evaluation before the execution gave a `deny` without
+  `confirm: true`, recorded with the `evaluation` that was confirmed (`deny`,
+  `enforced: false`, `confirm: true`). With `confirm: true`, `denied_by: mandate` appears
+  only so, or with `approval.outcome: cancelled` and `cause: revoked` (Section 11.6
+  item 1);
 - `evaluation.reason` belongs to `evaluation.decision` as in the table of Section 4.1
   (`allow` only with `rule`, `ask` only with `rule` or `critical_demotion`);
 - a denial with `denied_by: approval` carries the `approval` object if a request was
@@ -1094,7 +1099,8 @@ template.
 | `auth.rejected` | no | rejected sign-in or invalid token |
 
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
-returns for `request` and the version `mandate.digest`, including `enforced`. This makes
+returns for `request` and the version `mandate.digest`, including `enforced`, `confirm`
+and `approval_timeout`. This makes
 every decision reproducible.
 
 The rate limit and the emergency stop are defined in Sections 11.2 and 11.3. Denials are
@@ -1341,10 +1347,10 @@ before it executes the action. What follows holds for both.
    `deny` and the `mandate_digest` is the one that was confirmed; a `deny` that is not
    enforced (Section 4.6) prevents the execution as well, and the request is recorded as
    denied by the mandate with the `ask` that was confirmed (Section 9.1). If what was
-   confirmed was itself a `deny` that is not enforced (`confirm: true`), a `deny` that is
-   not enforced does not prevent the execution, with or without `confirm`; a `deny` that
-   is enforced does, and the request is recorded as denied by the mandate with the
-   evaluation that was confirmed. A mandate that
+   confirmed was itself a `deny` that is not enforced (`confirm: true`), the action is
+   executed only if the result is `allow`, `ask` or again a `deny` with `confirm: true`;
+   any other `deny`, enforced or not, prevents the execution, and the request is recorded
+   as denied by the mandate with the evaluation that was confirmed. A mandate that
    was revoked, changed or has expired in the meantime, a time window that has closed and
    an emergency stop all prevail over the confirmation. For a request for several
    resources, the PEP resolves it again and executes only if the set is the one that was
@@ -1766,7 +1772,8 @@ Audit mode (Sections 2, 3, 3.1, 3.2, 3.5, 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 9.2, 9.4,
   cases have the new field `enforced`.
 - Audit entry: `evaluation.enforced` (only `false`, only for a `decision` with
   `evaluation.decision: deny` and reason `no_match` or `rule`); only with it may a `deny`
-  be `executed` or `failed`, and it is never `denied`. The audit `type` stays
+  be `executed` or `failed`, and it is never `denied` unless it also carries `confirm`
+  (see "Audit mode and `ask`" below). The audit `type` stays
   `https://home-mandate.org/audit/v0`. Compatible for logs: every entry that was valid
   stays valid. A verifier that does not know the member rejects a log that contains it
   (Section 14, unknown members).
@@ -2028,20 +2035,23 @@ Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 
   responses of the test interface and of the conformance cases (Sections 8, 10), and of
   `evaluation` in the audit log (Section 9.1). A PEP that executes a `deny` with
   `enforced: false` MUST know `confirm`; one that does not know `enforced` still enforces
-  every `deny`.
+  every `deny`. Implementations that already offer audit mode MUST add `confirm`, or
+  they execute such a request without asking anyone.
 - Audit entry: an `approval` object appears with `evaluation.decision: ask` or with
   `evaluation.confirm: true`. With `confirm: true`, `executed` requires
   `approval.outcome: approved`, and the `result` can be anything an `ask` can have; without
   it, a `deny` with `enforced: false` is still only `executed` or `failed`. Every entry
   that was valid stays valid.
 - Before the execution (Section 11.1 item 6), a confirmed request with `confirm: true` is
-  executed unless the evaluation then gives a `deny` that is enforced; a confirmed `ask`
-  is still not executed after any `deny`. The human who confirms SHOULD be shown that the
+  executed only if the evaluation then gives `allow`, `ask` or again a `deny` with
+  `confirm: true`, so that a time window that has closed prevails as for an `ask`; a
+  confirmed `ask` is still not executed after any `deny`. In the audit log,
+  `denied_by: mandate` with `confirm: true` requires an approved or a revoked request. The human who confirms SHOULD be shown that the
   mandate in audit mode would deny the request, and by which rule (Section 11.1 item 2);
   the agent is not told.
-- Conformance cases `c214`–`c221` (new mandate `conformance/mandates/audit-mode-ask.json`),
+- Conformance cases `c214`–`c223` (new mandate `conformance/mandates/audit-mode-ask.json`),
   `s22` (the selection cases accept `approval_timeout` and `confirm`), `a136` (valid: every
-  outcome of an approval request with `confirm: true`) and `a137`–`a143` (invalid).
+  outcome of an approval request with `confirm: true`) and `a137`–`a145` (invalid).
 - Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
 
 ### History as mandate-spec

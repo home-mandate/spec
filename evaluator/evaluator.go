@@ -126,7 +126,8 @@ type Result struct {
 	// NotEnforced is true only for a Deny that the PEP does not enforce: the mandate is in
 	// audit mode, the deny results from its rules (ReasonNoMatch or a deny rule) and the
 	// action is not critical (SPEC-v0 section 4.6). The PEP then executes the request as
-	// if it were allowed and records it; the decision stays Deny. The zero value enforces.
+	// if it were allowed, after a confirmation if Confirm is set, and records it; the
+	// decision stays Deny. The zero value enforces.
 	NotEnforced bool
 	// Confirm is true only for a Deny that is not enforced while a matching rule decides
 	// Ask: the PEP executes it only after a confirmation, as an Ask, with the approval
