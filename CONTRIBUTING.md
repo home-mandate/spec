@@ -47,8 +47,11 @@ By contributing you agree that your contribution is licensed as the file it chan
 
 ## Governance
 
-Until v1.0 the maintainers of the `home-mandate` organization decide on changes, in public
-pull requests, guided by the principles above. Implementers of the specification are heard
-before an incompatible change. The specification lives in its own repository, separate from any product, so that it
-can be handed to a neutral body once more than one independent implementation exists; the
-process for the vocabulary and for extensions is defined before v1.0.
+Who decides what is in the organization's
+[governance](https://github.com/home-mandate/.github/blob/main/GOVERNANCE.md): until v1.0 I
+edit the specification, in public pull requests, guided by the principles above, and
+implementers are heard before an incompatible change. The organization's
+[contributing rules](https://github.com/home-mandate/.github/blob/main/CONTRIBUTING.md) and
+[code of conduct](https://github.com/home-mandate/.github/blob/main/CODE_OF_CONDUCT.md) apply
+here too; what implementations of the specification keep is in
+[IMPLEMENTATIONS.md](https://github.com/home-mandate/.github/blob/main/IMPLEMENTATIONS.md).
