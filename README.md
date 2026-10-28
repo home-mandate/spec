@@ -72,7 +72,9 @@ attach your report to a release the same way and link it with its SHA-256 in the
 
 The specification text (`SPEC-*.md`) is licensed under CC BY 4.0, see `LICENSE-docs`.
 Everything else is licensed under Apache 2.0, see `LICENSE`.
-The name Home-Mandate and its logo are not covered by these licenses.
+The name Home-Mandate and its logo are not covered by these licenses; how others may use
+them, also for their own implementations:
+[TRADEMARKS.md](https://github.com/home-mandate/.github/blob/main/TRADEMARKS.md).
 
 Contributing: `CONTRIBUTING.md`. Reporting vulnerabilities: `SECURITY.md`.
 
