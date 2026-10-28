@@ -24,7 +24,7 @@
       }
     },
     "enforce": {
-      "description": "Only false: audit mode (SPEC-v0 section 4.6). A deny that results from the rules of the valid, active mandate is evaluated and logged, but not enforced, unless the action is critical. Absent: every decision is enforced. true is not permitted, so that a mandate that enforces has one form.",
+      "description": "Only false: audit mode (SPEC-v0 section 4.6). A deny that results from the rules of the valid, active mandate is evaluated and logged, but not enforced, unless the action is critical; if a matching rule decides ask, it is executed only after a confirmation. Absent: every decision is enforced. true is not permitted, so that a mandate that enforces has one form.",
       "const": false
     },
     "rules": {

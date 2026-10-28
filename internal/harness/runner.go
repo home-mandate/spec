@@ -208,6 +208,7 @@ type evaluationCase struct {
 	RuleID          json.RawMessage            `json:"rule_id"`
 	ApprovalTimeout string                     `json:"approval_timeout"`
 	Enforced        *bool                      `json:"enforced"`
+	Confirm         bool                       `json:"confirm"`
 	Selected        json.RawMessage            `json:"selected"`
 }
 
@@ -216,14 +217,21 @@ func (c evaluationCase) request() *Evaluation {
 }
 
 // outcome renders what a case fixes about a result. A member the case does not give is
-// not compared, except enforced: a case without it expects an enforced result.
-func (c evaluationCase) outcome(decision, reason string, ruleID *string, timeout string, enforced *bool, selected *string) (got, want string) {
+// not compared, except enforced and confirm: a case without them expects an enforced
+// result that requires no confirmation beyond its decision.
+func (c evaluationCase) outcome(decision, reason string, ruleID *string, timeout string, enforced *bool, confirm bool, selected *string) (got, want string) {
 	got, want = decision+" "+reason, c.Expected+" "+c.Reason
 	if notEnforced(enforced) {
 		got += " enforced=false"
 	}
 	if notEnforced(c.Enforced) {
 		want += " enforced=false"
+	}
+	if confirm {
+		got += " confirm=true"
+	}
+	if c.Confirm {
+		want += " confirm=true"
 	}
 	if c.RuleID != nil {
 		got, want = got+" rule_id="+optional(ruleID), want+" rule_id="+rawOptional(c.RuleID)
@@ -277,7 +285,7 @@ func (r *runner) evaluation() error {
 			return fmt.Errorf("conformance: case %s: %w", c.ID, readErr)
 		}
 		resp, doErr := r.impl.Do(Request{Op: OpEvaluate, ID: c.ID, Mandate: &text, Request: c.request()})
-		got, want := c.outcome(resp.Decision, resp.Reason, resp.RuleID, resp.ApprovalTimeout, resp.Enforced, nil)
+		got, want := c.outcome(resp.Decision, resp.Reason, resp.RuleID, resp.ApprovalTimeout, resp.Enforced, resp.Confirm, nil)
 		r.record(ClassEvaluator, fileCases, c.ID, resp, doErr, got, want)
 	}
 	return err
@@ -291,7 +299,7 @@ func (r *runner) selection() error {
 			req.Mandates = append(req.Mandates, StoredMandate{Mandate: string(m.MandateInline), Revoked: m.Revoked})
 		}
 		resp, doErr := r.impl.Do(req)
-		got, want := c.outcome(resp.Decision, resp.Reason, resp.RuleID, resp.ApprovalTimeout, resp.Enforced, resp.Selected)
+		got, want := c.outcome(resp.Decision, resp.Reason, resp.RuleID, resp.ApprovalTimeout, resp.Enforced, resp.Confirm, resp.Selected)
 		r.record(ClassSelection, fileSelection, c.ID, resp, doErr, got, want)
 	}
 	return err

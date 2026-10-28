@@ -34,6 +34,8 @@ type selectionCase struct {
 	Reason   string          `json:"reason"`
 	RuleID   json.RawMessage `json:"rule_id"`
 	Enforced *bool           `json:"enforced"`
+	Confirm  bool            `json:"confirm"`
+	Timeout  string          `json:"approval_timeout"`
 	Selected *string         `json:"selected"`
 	Why      string          `json:"why"`
 }
@@ -58,6 +60,12 @@ func TestConformanceSelection(t *testing.T) {
 			}
 			if wantNotEnforced := c.Enforced != nil && !*c.Enforced; got.NotEnforced != wantNotEnforced {
 				t.Errorf("not enforced = %t, want %t (%s)", got.NotEnforced, wantNotEnforced, c.Why)
+			}
+			if got.Confirm != c.Confirm {
+				t.Errorf("confirm = %t, want %t (%s)", got.Confirm, c.Confirm, c.Why)
+			}
+			if c.Timeout != "" && (got.Approval == nil || got.Approval.Timeout != c.Timeout) {
+				t.Errorf("approval settings %+v, want timeout %q (%s)", got.Approval, c.Timeout, c.Why)
 			}
 			wantSelected := ""
 			if c.Selected != nil {

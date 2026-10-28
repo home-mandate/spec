@@ -171,6 +171,12 @@ func checkResultInvariants(t *testing.T, m *evaluator.Mandate, req evaluator.Req
 	if got.NotEnforced && (got.Decision != evaluator.Deny || !byTheRules || m.Enforce() || req.Resource.Critical && req.Action != "read") {
 		t.Fatalf("not enforced: %+v for %+v", got, req)
 	}
+	if got.Confirm && (!got.NotEnforced || got.Reason != evaluator.ReasonRule || got.Approval == nil) {
+		t.Fatalf("confirm without a deny rule that is not enforced, or without approval settings: %+v for %+v", got, req)
+	}
+	if (got.Decision == evaluator.Ask || got.Confirm) != (got.Approval != nil) {
+		t.Fatalf("approval settings %+v on %+v for %+v", got.Approval, got, req)
+	}
 	if m == nil && got.Reason != evaluator.ReasonInvalidMandate {
 		t.Fatalf("nil mandate gave reason %q", got.Reason)
 	}

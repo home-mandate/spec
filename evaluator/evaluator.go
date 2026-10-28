@@ -118,7 +118,7 @@ type Result struct {
 	Reason   Reason
 	// RuleID is empty if no rule determines the decision.
 	RuleID string
-	// Approval is set only for Ask.
+	// Approval is set only for Ask and for a result with Confirm.
 	Approval *Approval
 	// MandateDigest is empty if no valid mandate was evaluated (ReasonNoMandate,
 	// ReasonAmbiguousMandate, ReasonInvalidMandate).
@@ -126,8 +126,13 @@ type Result struct {
 	// NotEnforced is true only for a Deny that the PEP does not enforce: the mandate is in
 	// audit mode, the deny results from its rules (ReasonNoMatch or a deny rule) and the
 	// action is not critical (SPEC-v0 section 4.6). The PEP then executes the request as
-	// if it were allowed and records it; the decision stays Deny. The zero value enforces.
+	// if it were allowed, after a confirmation if Confirm is set, and records it; the
+	// decision stays Deny. The zero value enforces.
 	NotEnforced bool
+	// Confirm is true only for a Deny that is not enforced while a matching rule decides
+	// Ask: the PEP executes it only after a confirmation, as an Ask, with the approval
+	// settings in Approval (SPEC-v0 sections 4.1 and 4.6).
+	Confirm bool
 }
 
 // Evaluate evaluates req against m according to SPEC-v0 section 4. The result contains
@@ -141,11 +146,16 @@ func Evaluate(m *Mandate, req Request) Result {
 		return Result{Decision: Deny, Reason: reason, MandateDigest: m.digest}
 	}
 	result := Result{Decision: Deny, Reason: ReasonNoMatch, MandateDigest: m.digest}
-	if matched := matchingRules(m, req, local); len(matched) > 0 {
+	matched := matchingRules(m, req, local)
+	if len(matched) > 0 {
 		result = decide(m, matched, critical)
 	}
 	// Audit mode (section 4.6): only a deny by the rules, never one of a critical action.
 	result.NotEnforced = m.auditMode && result.Decision == Deny && !critical
+	// A deny that is not enforced keeps the confirmation a matching ask rule asks for.
+	if result.NotEnforced && slices.ContainsFunc(matched, func(r *rule) bool { return r.decision == Ask }) {
+		result.Confirm, result.Approval = true, askApproval(m, matched)
+	}
 	return result
 }
 

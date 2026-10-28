@@ -74,6 +74,14 @@ func TestRunDetectsDeviations(t *testing.T) {
 			r.Enforced = nil
 			return r, nil
 		}, harness.ClassEvaluator},
+		"never confirms": {func(req harness.Request, r harness.Response) (harness.Response, error) {
+			r.Confirm = false
+			return r, nil
+		}, harness.ClassEvaluator},
+		"confirms every deny": {func(req harness.Request, r harness.Response) (harness.Response, error) {
+			r.Confirm = r.Decision == "deny"
+			return r, nil
+		}, harness.ClassEvaluator},
 		"accepts invalid mandates": {func(req harness.Request, r harness.Response) (harness.Response, error) {
 			if req.Op == harness.OpValidate {
 				r.Valid = &yes

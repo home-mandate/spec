@@ -3,13 +3,13 @@
   "files": [
     {
       "path": "conformance/audit-v0.json",
-      "sha256": "f4a02fcf398e9a71140508cfc272244ccd592dbffe73e0cf85fb09f3a29161a1",
-      "cases": 135
+      "sha256": "6f2f0ac3765d2348fb98ae57f92d16088bf758f13da2f599182207edf3fd88b9",
+      "cases": 145
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "381ad7cc107539e5798fa6a78e985956c5bfc811c0167876d2571c3d7776febd",
-      "cases": 213
+      "sha256": "f4f7ad0c1c1bb2a12e4fac114b22fec842225a85909d021df833bddfa4c3d43f",
+      "cases": 223
     },
     {
       "path": "conformance/digest-v0.json",
@@ -32,6 +32,10 @@
     {
       "path": "conformance/mandates/areas.json",
       "sha256": "5a97b912aec78af5f4d342b3aaa0bca4a5e504d63373c859ff3f2f675796c84a"
+    },
+    {
+      "path": "conformance/mandates/audit-mode-ask.json",
+      "sha256": "ddb3451172c52b74f466d4bf743f6e4c3fffccbfcd4d5292c392cb58b0c0d0c7"
     },
     {
       "path": "conformance/mandates/audit-mode-critical.json",
@@ -79,7 +83,7 @@
     },
     {
       "path": "conformance/schema/cases-v0.schema.json",
-      "sha256": "e2ab5a9a5a314afa0ed5ff6f56c2e3c9fad4f2f891921aa735e40819cacfd1a3"
+      "sha256": "b882beee2bc32fbc54e04323f9ed6a4325e5d7d09c76543a36d72c30d8fb1557"
     },
     {
       "path": "conformance/schema/digest-v0.schema.json",
@@ -95,7 +99,7 @@
     },
     {
       "path": "conformance/schema/selection-v0.schema.json",
-      "sha256": "98d88a0e1a936dc9dce74b5fa159f254f050849c29397fed6a517e27fb0bf9cc"
+      "sha256": "47668cb6a1ba1bd9b0fb4221dc0ddac00372f44fa5513a0d9c6170239eb1aa39"
     },
     {
       "path": "conformance/schema/signed-v0.schema.json",
@@ -107,8 +111,8 @@
     },
     {
       "path": "conformance/selection-v0.json",
-      "sha256": "943913027eb078809e6f301f9a454729b483e26d70832d593e895f303b1ce509",
-      "cases": 21
+      "sha256": "f2aef2d6049520155f252f49183c105142b0efc9a3011eaf0ade9983a40c5e3a",
+      "cases": 22
     },
     {
       "path": "conformance/signed-v0.json",
@@ -138,11 +142,11 @@
     },
     {
       "path": "schema/audit-v0.schema.json",
-      "sha256": "9c35d35224bf65e2160a6104c28b5edb0b9859e37654ad0b0e15aa99694ad40d"
+      "sha256": "f4cad73754ac02086b0588793361c3b39ead6799e4eab165f22a1ee82f31c8b2"
     },
     {
       "path": "schema/mandate-v0.schema.json",
-      "sha256": "a98b6fab5cb55168abede1b7625df3c2404f393ff371cefdb98e573f7337c60b"
+      "sha256": "1a7cd5a4bf3cbcf8b5435bef0343278cc58f9c24d7915676d3a5df86cc306df6"
     },
     {
       "path": "schema/vocabulary-v0.schema.json",
