@@ -225,7 +225,7 @@ func check(compiled *jsonschema.Schema, known actionsByCategory, entry []byte) (
 	obj, _ := v.(map[string]any)
 	l := link{seq: intField(obj, "seq")}
 	if compiled.Validate(v) != nil || !displayable(obj) || !distinctFormerValues(obj) || !truncatesEarlier(obj) ||
-		!enforcedConsistent(obj, known) {
+		!enforcedConsistent(obj, known) || !vocabularyConsistent(obj, known) {
 		return l, false
 	}
 	digest, err := digestOf(v)

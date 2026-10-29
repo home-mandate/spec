@@ -4844,6 +4844,94 @@
         {"actor": {"kind": "user", "id": "user-1"}, "approver": {"change": "added", "id": "approver-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}, "event": "approver.changed", "id": "01a0f64c-7140-7001-9007-0000a1600001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
         {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "approval": {"outcome": "approved", "at": "2026-10-12T19:00:30+02:00", "by": "approver-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}, "evaluation": {"decision": "ask", "reason": "rule", "rule_id": "r-locks", "approval_timeout": "PT2M"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000a1600002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": "sha256:af2514bc6520a44895f30e566b0e5b0960ab5a6a7a3d77b728d84ac7cf74c15f", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "lock.front_door", "category": "lock"}, "action": "unlock"}, "result": {"status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v0"}
       ]
+    },
+    {
+      "id": "a161",
+      "why": "a decision that records the vocabulary the evaluation used: id and version of vocabulary/v0.json (SPEC-v0 sections 5, 9.1)",
+      "expected": "valid",
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1610001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000a1610002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": "sha256:1048d5ee360a239a7e76aae10b67e11d24be6cc1e17d6f5238dfdc1511703dff", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "light.kitchen", "category": "light"}, "action": "turn_on"}, "result": {"status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "v0"}}
+      ]
+    },
+    {
+      "id": "a162",
+      "why": "vocabulary on a mandate.revoked entry: only a decision names the vocabulary it was evaluated with (SPEC-v0 section 9.1)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1620001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "mandate.revoked", "id": "01a0f64c-7140-7001-9007-0000a1620002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": "sha256:4c153ff8ebe5935a20d2aa1baa1ba8bac8aa549edfecd610144c4d908ececd48", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "v0"}}
+      ]
+    },
+    {
+      "id": "a163",
+      "why": "vocabulary without version: a vocabulary is identified by id and version (SPEC-v0 sections 5.1, 9.1)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1630001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000a1630002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": "sha256:6cac534f2a6adb2bd2a4d9429dc12dc0afa23cb7c98d4730d5000ee5df24af5b", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "light.kitchen", "category": "light"}, "action": "turn_on"}, "result": {"status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0"}}
+      ]
+    },
+    {
+      "id": "a164",
+      "why": "vocabulary.version with a space: the version has the form of the vocabulary schema (SPEC-v0 section 9.1)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1640001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000a1640002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": "sha256:deaa541243275ba46c75615be5089410fb75e6135414f3f5419979d1939c5f26", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "light.kitchen", "category": "light"}, "action": "turn_on"}, "result": {"status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "v0 beta"}}
+      ]
+    },
+    {
+      "id": "a165",
+      "why": "a decision for a category of Section 5 that names the vocabulary of an extension: the categories of Section 5 belong to vocabulary v0, and the verifier checks the id (SPEC-v0 sections 5, 9.1)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1650001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000a1650002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": "sha256:cf57ace4156c4022a907f34c33c9f4ad18aa0db2b7c7644cebc9165b688d5739", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "light.kitchen", "category": "light"}, "action": "turn_on"}, "result": {"status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://example.org/vocabulary/paperless", "version": "1"}}
+      ]
+    },
+    {
+      "id": "a166",
+      "why": "a decision for an extension category that names the vocabulary of the extension: a verifier without that vocabulary accepts any id other than that of v0 (SPEC-v0 sections 5.1, 9.1)",
+      "expected": "valid",
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1660001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000a1660002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": "sha256:69215c059b77eb5ae80427c0cfb9fa7d5b8136a2307211e64d4ef404e9081612", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "paperless:doc-4711", "category": "paperless:document"}, "action": "tag"}, "result": {"status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://example.org/vocabulary/paperless", "version": "1"}}
+      ]
+    },
+    {
+      "id": "a167",
+      "why": "a decision for an extension category that names vocabulary v0: v0 defines no extension category (SPEC-v0 sections 5.1, 9.1)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1670001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000a1670002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": "sha256:da395e3acd8a4353fef9348a424b7c98795b818106e34d78980581ecbd83bb78", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "paperless:doc-4711", "category": "paperless:document"}, "action": "tag"}, "result": {"status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "v0"}}
+      ]
+    },
+    {
+      "id": "a168",
+      "why": "a decision denied by the rate limit, without evaluation, that names a vocabulary: no evaluation used one (SPEC-v0 section 9.1)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1680001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000a1680002", "prev": "sha256:982365828905f21524a65b610832cec24a2fac83d4d6756deadd9bc90c0b64a2", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "light.kitchen", "category": "light"}, "action": "turn_on"}, "result": {"status": "denied", "denied_by": "rate_limit", "count": 11}, "seq": 2, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "v0"}}
+      ]
+    },
+    {
+      "id": "a169",
+      "why": "a decision with reason unknown_category that names a vocabulary: no vocabulary was used for a category the implementation does not know (SPEC-v0 section 9.1)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1690001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "deny", "reason": "unknown_category", "rule_id": null}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000a1690002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": "sha256:e95043908c25dcb74734cb4ed96e7953ce712dd074a00526ddf522cb1092e688", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "request": {"time": "2026-10-12T19:00:00+02:00", "timezone": "Europe/Berlin", "resource": {"entity_id": "light.kitchen", "category": "lihgt"}, "action": "turn_on"}, "result": {"status": "denied", "denied_by": "mandate"}, "seq": 2, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "v0"}}
+      ]
     }
   ]
 }
