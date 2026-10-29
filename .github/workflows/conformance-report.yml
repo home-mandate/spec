@@ -53,7 +53,8 @@ jobs:
 
       - name: Run mandate-conformance
         run: |
-          go build -o bin/mandate-harness ./cmd/mandate-harness
+          # The report names the release, not "devel" (SPEC-v0 section 10.4).
+          go build -ldflags "-X github.com/home-mandate/spec/internal/harness.Version=${TAG#v}" -o bin/mandate-harness ./cmd/mandate-harness
           go run ./cmd/mandate-conformance -report conformance-report.json \
             -classes evaluator,selection,signatures,audit,audit-anchored -exec bin/mandate-harness
 

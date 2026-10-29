@@ -1303,6 +1303,11 @@ of cases passed, failed and skipped and whether the implementation conforms, and
 of failed cases with what was expected and what was received. `cmd/mandate-harness` is the
 harness of the reference code and an example for implementers.
 
+`implementation` names the implementation (`name`) and its release (`version`, for example
+`1.4.2`), not the version of the formats, which is in `spec`. Over the process binding the
+implementation names itself (`capabilities`); over the HTTP binding the tool takes both
+from `-name` and `-version`.
+
 ## 11. Obligations of the PEP
 
 The evaluation (Section 4) is a pure function. This section defines what an implementation
@@ -2053,6 +2058,13 @@ Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 
   `s22` (the selection cases accept `approval_timeout` and `confirm`), `a136` (valid: every
   outcome of an approval request with `confirm: true`) and `a137`–`a145` (invalid).
 - Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
+
+Conformance report (Section 10.4, no change to any rule or format; issue #65):
+- `implementation.version` is the release of the implementation, not the version of the
+  formats. Before, the reference harness reported `v0`; it now reports its release.
+- Over the HTTP binding the test tool takes `implementation` from the new options `-name`
+  and `-version`; before, it stayed empty, because the HTTP binding has no
+  `capabilities`.
 
 ### History as mandate-spec
 
