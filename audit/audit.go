@@ -266,6 +266,7 @@ func displayable(obj map[string]any) bool {
 // current one: member, current, former (SPEC-v0 section 9.1).
 var formerValues = [][3]string{
 	{"directory", "entity_id", "previous_entity_id"},
+	{"mandate", "digest", "previous_digest"},
 	{"template", "digest", "previous_digest"},
 }
 

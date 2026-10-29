@@ -114,11 +114,13 @@
         { "if": { "required": ["enforced"] },
           "then": { "properties": { "decision": { "const": "deny" }, "reason": { "enum": ["no_match", "rule"] } } } },
         { "if": { "required": ["confirm"] },
-          "then": { "required": ["enforced"], "properties": { "reason": { "const": "rule" } } } },
+          "then": { "required": ["enforced", "approval_timeout"], "properties": { "reason": { "const": "rule" } } } },
         { "if": { "properties": { "decision": { "const": "allow" } } },
           "then": { "properties": { "reason": { "const": "rule" } } } },
         { "if": { "properties": { "decision": { "const": "ask" } } },
-          "then": { "properties": { "reason": { "enum": ["rule", "critical_demotion"] } } } },
+          "then": { "required": ["approval_timeout"], "properties": { "reason": { "enum": ["rule", "critical_demotion"] } } } },
+        { "if": { "required": ["approval_timeout"] },
+          "then": { "anyOf": [ { "properties": { "decision": { "const": "ask" } } }, { "required": ["confirm"] } ] } },
         { "if": { "properties": { "decision": { "const": "deny" } } },
           "then": { "properties": { "reason": { "not": { "const": "critical_demotion" } } } } }
       ]
@@ -133,7 +135,7 @@
           "description": "Why a request ended without an answer before its timeout (SPEC-v0 section 11.1). Only with outcome cancelled, and required there.",
           "enum": ["withdrawn", "revoked", "emergency_stop", "interrupted"]
         },
-        "by": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "by": { "type": "string", "minLength": 1, "maxLength": 128 },
         "via": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]{0,31}$",
@@ -233,7 +235,7 @@
       "required": ["change", "id"],
       "properties": {
         "change": { "enum": ["added", "removed"] },
-        "id": { "description": "Identifier of the approver in the user management, as in approval.by; displayed text.", "type": "string", "minLength": 1, "maxLength": 64 }
+        "id": { "description": "Identifier of the approver in the user management, as in approval.by; displayed text.", "type": "string", "minLength": 1, "maxLength": 128 }
       }
     },
     "prev": {
@@ -247,7 +249,10 @@
     { "if": { "properties": { "event": { "enum": ["mandate.created", "mandate.updated", "mandate.revoked", "mandate.removed"] } } },
       "then": { "required": ["actor", "mandate"] } },
     { "if": { "properties": { "event": { "const": "mandate.updated" } } },
-      "then": { "properties": { "mandate": { "required": ["previous_digest"] } } } },
+      "then": { "properties": { "mandate": { "required": ["previous_digest"] } } },
+      "else": { "properties": { "mandate": { "not": { "required": ["previous_digest"] } } } } },
+    { "if": { "properties": { "event": { "enum": ["mandate.created", "mandate.updated"] } } },
+      "then": { "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } } },
     { "if": { "properties": { "event": { "enum": ["agent.registered", "agent.revoked", "agent.reconnected", "agent.removed"] } } },
       "then": { "required": ["actor", "agent"] } },
     { "if": { "properties": { "event": { "enum": ["mandate.removed", "agent.removed"] } } },
@@ -256,6 +261,8 @@
       "then": { "properties": { "actor": { "properties": { "kind": { "const": "user" } } } } } },
     { "if": { "properties": { "event": { "enum": ["emergency_stop.activated", "emergency_stop.released"] } } },
       "then": { "required": ["actor"] } },
+    { "if": { "properties": { "event": { "const": "emergency_stop.released" } } },
+      "then": { "properties": { "actor": { "properties": { "kind": { "const": "user" } } } } } },
     { "if": { "properties": { "event": { "const": "auth.rejected" } } },
       "then": { "required": ["result"] } },
     { "if": { "properties": { "event": { "const": "log.truncated" } } },
