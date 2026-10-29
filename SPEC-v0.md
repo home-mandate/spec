@@ -951,7 +951,7 @@ that class in that version.
 | `evaluator` | validates mandates, computes digests, evaluates requests (Sections 3 and 4) | `cases-v0.json`, `invalid-v0.json`, `digest-v0.json` |
 | `selection` | selects the mandate among several (Section 4.3) | `selection-v0.json` |
 | `signatures` | verifies signed mandates and succession (Sections 3.5 and 7) | `signed-v0.json`, `succession-v0.json` |
-| `audit` | verifies the hash chain of audit logs and computes entry digests (Section 9.4) | logs in `audit-v0.json` without `keys` |
+| `audit` | verifies the hash chain of audit logs, the `log_id` of their checkpoints, and computes entry digests (Sections 9.4, 9.5 condition 4 without keys) | logs in `audit-v0.json` without `keys` |
 | `audit-anchored` | additionally verifies checkpoints (Section 9.5) | logs in `audit-v0.json` with `keys` |
 | `pdp` | answers AuthZEN requests from its own mandate store and resource directory (Sections 4.3 and 6) | the cases of `cases-v0.json` and `selection-v0.json` whose mandates are valid, over HTTP |
 
@@ -1126,22 +1126,37 @@ with the `emergency_stop.*` events.
   U+000A (line feed) and by nothing else: readers MUST NOT split at any other character,
   such as U+2028 inside a string. Every line is exactly one entry; white space that JSON
   permits around a value, including a carriage return before the line feed, is ignored. A
-  line feed after the last entry is optional. A byte order mark and empty lines are not
-  permitted; such a line counts as an entry that violates the schema.
+  line feed after the last entry is optional. A byte order mark is not permitted, and
+  neither is a line that contains no JSON value (empty, or white space only); such a line
+  counts as an entry that violates the schema.
+- An entry is at most 65 536 bytes: in the exchange format the line without its line feed
+  and without a carriage return before it, white space around the value included. A longer
+  entry is not read; it counts as an entry that violates the schema.
 
 An audit log is **valid** if, in file order:
 
 1. every entry conforms to the schema and to the rules of Section 9.1 that the schema
    cannot express (displayed text, a former value that differs from the current one, and
-   `enforced` against the vocabulary);
+   `enforced` against the vocabulary), and the `up_to_seq` of a `log.truncated` entry is
+   smaller than the entry's own `seq`;
 2. the first entry either has `seq` 1, or a later `log.truncated` entry with
    `up_to_seq` = `seq` − 1 and `last_digest` = `prev` of the first entry is present;
 3. every subsequent entry has the `seq` of its predecessor plus 1 and its `prev` is the
    predecessor's digest.
 
-If an audit log is invalid, verification reports `broken_at`: the `seq` of the first entry in
-file order that violates one of the conditions. The conditions are checked in the order
-given: first the schema of all entries, then the start, then the chain.
+If an audit log is invalid, verification reports `broken_at`, determined condition by
+condition in the order given:
+
+- if any entry violates condition 1, the `seq` of the first such entry in file order, even
+  if an earlier entry violates condition 2 or 3;
+- otherwise, if condition 2 is violated, the `seq` of the first entry;
+- otherwise the `seq` of the first entry in file order that violates condition 3 (and then
+  condition 4 of Section 9.5).
+
+If the entry that `broken_at` names has no `seq` that can be read as an integer (it is
+longer than permitted, it is not I-JSON, it is not a JSON object, or its `seq` is missing,
+not an integer or of a magnitude of 2^53 or more),
+`broken_at` is `0`.
 
 An audit log without entries is valid. Verification reports the number of entries, because
 an empty log proves nothing: a log that was emptied looks the same.
@@ -1188,15 +1203,16 @@ digest is the checkpoint's `prev`. A checkpoint therefore never has `seq` 1.
 
 Verification (Section 9.4) gains a fourth condition, checked after the chain:
 
-4. all checkpoints carry the same `log_id`; and, if the verifier was given the public keys
-   of the log, the `log_id` is the expected one (if the verifier expects one) and every
-   checkpoint's signature verifies with one of these keys. `broken_at` is the `seq` of the
-   first checkpoint that violates this.
+4. all checkpoints carry the same `log_id`, whether or not the verifier was given keys;
+   and, if the verifier was given the public keys of the log, the `log_id` is the expected
+   one (if the verifier expects one) and every checkpoint's signature verifies with one of
+   these keys. `broken_at` is the `seq` of the first checkpoint that violates this.
 
 A verifier that was given keys additionally reports
 
-- up to which `seq` the log is **anchored**: the position covered by the last checkpoint.
-  Entries after it are consistent but not anchored;
+- up to which `seq` the log is **anchored**: the position covered by the last checkpoint,
+  `0` if the log has no checkpoint whose signature verifies. Entries after it are
+  consistent but not anchored;
 - the `seq` of the first entry present, and, if the beginning of the log was deleted,
   whether the `log.truncated` entry that accounts for it is itself anchored (its `seq` is
   not greater than the anchored `seq`). A `log.truncated` entry after the last checkpoint
@@ -2058,6 +2074,23 @@ Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 
   `s22` (the selection cases accept `approval_timeout` and `confirm`), `a136` (valid: every
   outcome of an approval request with `confirm: true`) and `a137`–`a145` (invalid).
 - Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
+
+Verification of audit logs (Sections 8.1, 9.4, 9.5):
+- `broken_at` is determined condition by condition: a schema violation anywhere in the log
+  comes before a wrong start or a broken chain, even if the chain breaks at an earlier
+  entry. Before, the text also called it "the first entry in file order", which allowed two
+  readings; the reference verifier has always reported the schema violation.
+- `broken_at` is `0` for an entry without a `seq` that can be read as an integer, and
+  `anchored` is `0` for a log without a verified checkpoint, as the conformance cases already
+  expected.
+- An entry is at most 65 536 bytes, as the reference verifier already required; a line of
+  white space only is an entry that violates the schema like an empty line.
+- New rule: the `up_to_seq` of a `log.truncated` entry is smaller than the entry's own
+  `seq`. Incompatible for logs (before `v0.1.0`): an entry that names itself or a later
+  entry as deleted made the log invalid nowhere before; no implementation writes one.
+- All checkpoints of a log carry the same `log_id` also when no keys are given; the class
+  `audit` covers this check, as the reference verifier already did.
+- Conformance cases `a146`–`a152` in `conformance/audit-v0.json`.
 
 Conformance report (Section 10.4, no change to any rule or format; issue #65):
 - `implementation.version` is the release of the implementation, not the version of the
