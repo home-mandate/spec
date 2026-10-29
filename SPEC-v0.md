@@ -170,8 +170,12 @@ A mandate is valid if it conforms to the schema **and** additionally:
    - if it names an extension category, the actions are not checked: whether a mandate
      is valid MUST NOT depend on which extensions an implementation knows. Rules for an
      extension that the implementation does not know never match (Section 4);
-5. it is at most 262 144 bytes (256 KiB) in size. Lengths of strings in the schemas
-   (`maxLength`, `minLength`) count Unicode code points, not bytes and not UTF-16 code units;
+5. it is at most 262 144 bytes (256 KiB) in size, counted in the UTF-8 encoding of the
+   document as it is received or stored, before canonicalization. The same mandate can
+   therefore be valid in its compact form and too large with added white space; a
+   verifier of a signed mandate counts its canonical payload (Section 7.1). Lengths of
+   strings in the schemas (`maxLength`, `minLength`) count Unicode code points, not bytes
+   and not UTF-16 code units;
 6. `expires`, if present, is later than `valid_from`;
 7. every `approval.timeout` is between 10 seconds and 1 hour (both inclusive). A timeout
    has the form `PT[nH][nM][nS]` with at least one component, in this order, each `n` a
@@ -270,18 +274,20 @@ an integer is written in decimal notation without fraction and exponent.
 `agent.client_id` identifies the agent. It is printable ASCII, at most 512 characters, and
 has one of two forms:
 
-- an **https URL** with a lower-case host, optionally a port, and a path; without userinfo
-  (`user@`) and without a fragment (`#…`). This is the form of an OAuth Client ID Metadata
-  Document URL;
-- any **other URI**: a lower-case scheme, `:`, and 1 to 256 characters from
+- an **https URL** with a lower-case host, optionally a port, a path and optionally a
+  query; without userinfo (`user@`) and without a fragment (`#…`). This is the form of an
+  OAuth Client ID Metadata Document URL;
+- any **other URI**: a scheme of 1 to 32 characters from `a–z 0–9 + . -` that begins with
+  a letter, `:`, and 1 to 256 characters from
   `A–Z a–z 0–9 . _ ~ : / -`, for example an identifier assigned by the implementation
   (`<namespace>:<id>`), a DID (`did:web:agent.example`), a SPIFFE ID
   (`spiffe://example.org/agents/voice`) or a URN. The scheme `http` is not permitted.
 
-Neither form contains a dot segment (`/./` or `/../`). Identifiers are compared exactly per
-character, without normalization: two identifiers that differ in any character identify
-different agents. How an implementation authenticates the agent behind an identifier is
-outside this specification.
+Neither form contains a dot segment (`/./` or `/../`). Percent-encoding is not decoded:
+`%2E%2E` is three characters like any others, not a dot segment. Identifiers are compared
+exactly per character, without normalization: two identifiers that differ in any character
+identify different agents. How an implementation authenticates the agent behind an
+identifier is outside this specification.
 
 ### 3.4 Resource and area identifiers
 
@@ -312,7 +318,8 @@ by side where the platform places a resource in more than one. What a platform c
 room, zone, floor or group can be mapped to areas. A resource without an area has an
 empty set. A rule still names exactly one `area`; it matches if that area is in the
 resource's set (Section 4, step 2). `approvers` and `created_by` are identifiers from
-the user management of the implementation and have no meaning outside it; a mandate
+the user management of the implementation, 1 to 128 characters each, and have no meaning
+outside it; a mandate
 that moves to another implementation needs them replaced.
 
 ### 3.5 Issuer and version
@@ -716,13 +723,15 @@ the specification, and a platform without a profile is not at a disadvantage.
 ### 5.1 Extensions
 
 Extensions for other kinds of resources receive their own namespaces, e.g.
-`paperless:document` with `read`, `tag`, `delete`. An extension defines its vocabulary and
-its critical actions in a file of the same format as `vocabulary/v0.json`, with its own
-`id` and `version`. It declares the `type` of every parameter: `integer` with a `unit`,
-or `string`, optionally with 1 to 32 permitted `values`, as many as a `one_of` can list.
-A vocabulary never changes under the same `id` and `version`. If an
-implementation does not know the vocabulary of an extension, every request for a resource
-of that category is `deny`. A registry of extensions does not exist yet.
+`paperless:document` with `read`, `tag`, `delete`. The namespace and the name after the
+colon have at most 32 characters each, in a mandate as in a vocabulary file. An extension
+defines its vocabulary and its critical actions in a file of the same format as
+`vocabulary/v0.json`, with its own `id` and `version`. It declares the `type` of every
+parameter: `integer` with a `unit`, or `string`, optionally with 1 to 32 permitted
+`values`, as many as a `one_of` can list. A vocabulary never changes under the same `id`
+and `version`. If an implementation does not know the vocabulary of an extension, every
+request for a resource of that category is `deny`. A registry of extensions does not exist
+yet.
 
 ## 6. AuthZEN mapping
 
@@ -1000,15 +1009,15 @@ Depending on the event, the following are added:
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
 | `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked` |
-| `mandate` | `id`, `digest`, and for `mandate.updated` additionally `previous_digest`; for `mandate.removed`, `digest` is that of the last version the implementation held |
-| `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, optionally `approval_timeout`, `enforced` (only `false`, Section 4.6) and `confirm` (only `true`, with `enforced`) |
-| `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
+| `mandate` | `id`, `digest`, and only for `mandate.updated` additionally `previous_digest`, different from `digest`; for `mandate.removed`, `digest` is that of the last version the implementation held |
+| `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, `approval_timeout` (the timeout of the approval settings; required for `ask` and with `confirm`, absent otherwise), `enforced` (only `false`, Section 4.6) and `confirm` (only `true`, with `enforced`) |
+| `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, where it names an approver whose answer arrived after the timeout, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
 | `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
 | `checkpoint` | `log_id`, `signature` (Section 9.5) |
 | `directory` | change to the resource directory (Section 11.4): `change` (`critical_marked`, `critical_unmarked`, `renamed`, `rename_applied`, `rename_dismissed`), `entity_id` and, except for `critical_marked` and `critical_unmarked`, `previous_entity_id`, both identifiers per Section 3.4 and different from each other. For `renamed`, `entity_id` is the new and `previous_entity_id` the former identifier; for `rename_applied` (a human took the rename over into the mandates) and `rename_dismissed`, `entity_id` is the current identifier and `previous_entity_id` the former one that was resolved, one entry per former identifier. Only with `directory.changed` |
 | `template` | change to a template (Section 2): `change` (`stored`: created or changed, `removed`, `hidden`: no longer offered or accepted for creating mandates without being removed, `shown`: offered and accepted again), `name` (1 to 64 characters) and `digest`; for `stored` the digest of the new content, for `removed` that of the last content, for `hidden` and `shown` optionally that of the current content. `previous_digest` only for `stored` and only if the template had content before, different from `digest`. Digests are computed as in Section 3.2 over the template as the implementation stores it. Only with `template.changed` |
-| `approver` | change to the humans whom the implementation lets answer approval requests (Section 11.1): `change` (`added`, `removed`) and `id` (1 to 64 characters), the identifier of the approver in the user management, as in `approval.by`. Only with `approver.changed` |
+| `approver` | change to the humans whom the implementation lets answer approval requests (Section 11.1): `change` (`added`, `removed`) and `id` (1 to 128 characters), the identifier of the approver in the user management, as in `approval.by`. Only with `approver.changed` |
 
 `request` records the input to the evaluation as the PEP determined it, also when the
 evaluation found it invalid (`invalid_request`). Identifiers in it are therefore limited only
@@ -1071,8 +1080,13 @@ A `log.truncated` entry has an `actor` of kind `user` or `system`; an agent neve
 entries. The same holds for `directory.changed`, `template.changed`, `approver.changed`,
 `mandate.removed` and `agent.removed`: an agent never changes the directory, a template or
 who may answer approval requests, and never removes a mandate or an agent. An
-`agent.reconnected` entry has an `actor` of kind `user`: only a human reconnects an agent
-(Section 11.3).
+`agent.reconnected` and an `emergency_stop.released` entry have an `actor` of kind
+`user`: only a human reconnects an agent or releases the emergency stop (Section 11.3). A
+`mandate.created` or `mandate.updated` entry has an `actor` of kind `user` or `system`
+(`system` for a mandate an issuer delivered, Section 7): the human chooses the mandate,
+never the agent (Section 7.2). An agent can withdraw, but not grant: it MAY appear as the
+`actor` of `mandate.revoked` (its own mandate), `agent.revoked` (itself) and
+`emergency_stop.activated`, if the implementation lets it.
 
 `actor.id`, `agent.display_name`, `approval.by`, `template.name` and `approver.id` are
 displayed text; Section 3.1 item 8
@@ -2074,6 +2088,30 @@ Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 
   `s22` (the selection cases accept `approval_timeout` and `confirm`), `a136` (valid: every
   outcome of an approval request with `confirm: true`) and `a137`–`a145` (invalid).
 - Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
+
+Schemas and formats in detail (Sections 3.1, 3.3, 3.4, 5.1, 9.1):
+- Audit entry: `emergency_stop.released` has an `actor` of kind `user`; `mandate.created`
+  and `mandate.updated` have one of kind `user` or `system`. The text already said that only
+  a human releases the emergency stop and that the human chooses the mandate; the schema
+  permitted `agent`. Incompatible for logs (before `v0.1.0`). Agents may still revoke their
+  own mandate or themselves and activate the emergency stop.
+- Audit entry: `mandate.previous_digest` appears only with `mandate.updated` and differs from
+  `digest`, as for templates. Incompatible for logs (before `v0.1.0`).
+- Audit entry: `evaluation.approval_timeout` is required for `ask` and with `confirm`, and
+  absent otherwise. Section 9.2 already required the entry to match the evaluation;
+  the schema did not check it. Incompatible for logs (before `v0.1.0`).
+- Identifiers of humans have up to 128 characters everywhere: `approvers` in a mandate,
+  `approval.by` and `approver.id` in the audit entry had 64, while `created_by` and
+  `actor.id` had 128. Compatible: only documents that were invalid become valid.
+- An extension category in a mandate has at most 32 characters before and after the colon,
+  as in a vocabulary file. Incompatible for mandates (before `v0.1.0`): a rule for a longer
+  category could never match.
+- Text only: the size limit of a mandate counts the document as received, before
+  canonicalization, as the reference code always did; the forms of `agent.client_id` and
+  `issuer` name the scheme length and the query the schema permits, and that percent-encoded
+  dots are not dot segments; `approval.by` with `timeout` names an approver whose answer came
+  too late.
+- Conformance cases `a153`–`a160`, `i150`, `i151`, `d49`.
 
 Verification of audit logs (Sections 8.1, 9.4, 9.5):
 - `broken_at` is determined condition by condition: a schema violation anywhere in the log
