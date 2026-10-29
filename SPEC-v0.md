@@ -720,6 +720,19 @@ its resource directory. A resource that fits no other category belongs to `other
 `profiles/` contains informative mappings for individual platforms; they are not part of
 the specification, and a platform without a profile is not at a disadvantage.
 
+The `id` of this vocabulary, `https://home-mandate.org/vocabulary/v0`, belongs to the v0
+formats (Section 14): a mandate of `https://home-mandate.org/mandate/v0` is validated
+against it (Section 3.1 item 4), and a request is evaluated against it (Section 4). Its
+`version` names the state of the file and changes with every change to it; the Changelog
+lists the changes. A new version under this `id` only adds (Section 14): a mandate that was
+valid stays valid, a rule that lists its actions means the same actions, and a request
+keeps its result unless that result was a `deny` of step 0 for an unknown category or
+action or for an invalid parameter value. An implementation uses the newest version it
+knows, for the evaluation as for the verification of an audit log (Section 9.1), and
+SHOULD record it in every `decision` entry whose evaluation used a vocabulary
+(`vocabulary`, Section 9.1), so that a decision stays reproducible after an update
+(Section 9.2).
+
 ### 5.1 Extensions
 
 Extensions for other kinds of resources receive their own namespaces, e.g.
@@ -729,9 +742,12 @@ defines its vocabulary and its critical actions in a file of the same format as
 `vocabulary/v0.json`, with its own `id` and `version`. It declares the `type` of every
 parameter: `integer` with a `unit`, or `string`, optionally with 1 to 32 permitted
 `values`, as many as a `one_of` can list. A vocabulary never changes under the same `id`
-and `version`. If an implementation does not know the vocabulary of an extension, every
-request for a resource of that category is `deny`. A registry of extensions does not exist
-yet.
+and `version`, and a new version under the same `id` SHOULD only add, as Section 14
+requires of `vocabulary/v0.json`: an extension that removes or renames an action, changes
+a critical marking or narrows a parameter publishes the result under a new `id`. Otherwise
+requests that were allowed are denied, or an action runs without the confirmation it had.
+If an implementation does not know the vocabulary of an extension, every request for a
+resource of that category is `deny`. A registry of extensions does not exist yet.
 
 ## 6. AuthZEN mapping
 
@@ -1010,6 +1026,7 @@ Depending on the event, the following are added:
 | `agent` | `client_id`, optionally `display_name` |
 | `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked` |
 | `mandate` | `id`, `digest`, and only for `mandate.updated` additionally `previous_digest`, different from `digest`; for `mandate.removed`, `digest` is that of the last version the implementation held |
+| `vocabulary` | the vocabulary the evaluation used for the category of the resource (Section 5): `id` and `version` as in its file. Only with `decision` and `evaluation`, and not with `reason` `unknown_resource` or `unknown_category`: no vocabulary was used. For a category of Section 5, `id` is `https://home-mandate.org/vocabulary/v0`; for an extension category, the `id` of the extension (Section 5.1). The schema cannot see the vocabulary; a verifier MUST reject any other `id` for a category of Section 5, the `id` of Section 5 for an extension category and, for an extension whose vocabulary it knows, any `id` other than that vocabulary's, and an entry that violates this is invalid |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, `approval_timeout` (the timeout of the approval settings; required for `ask` and with `confirm`, absent otherwise), `enforced` (only `false`, Section 4.6) and `confirm` (only `true`, with `enforced`) |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, where it names an approver whose answer arrived after the timeout, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
 | `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
@@ -1113,9 +1130,12 @@ template.
 | `auth.rejected` | no | rejected sign-in or invalid token |
 
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
-returns for `request` and the version `mandate.digest`, including `enforced`, `confirm`
-and `approval_timeout`. This makes
-every decision reproducible.
+returns for `request` and the version `mandate.digest` under the vocabulary that
+`vocabulary` names, including `enforced`, `confirm` and `approval_timeout`. This makes
+every decision reproducible, also after the implementation has updated its vocabulary
+(Section 14); an implementation SHOULD therefore record `vocabulary` (Section 9.1). Without
+it, the decision is reproducible under the newest version the implementation knew at the
+time of the decision.
 
 The rate limit and the emergency stop are defined in Sections 11.2 and 11.3. Denials are
 logged with `denied_by: rate_limit` or `emergency_stop` respectively, and the emergency stop
@@ -1150,8 +1170,9 @@ with the `emergency_stop.*` events.
 An audit log is **valid** if, in file order:
 
 1. every entry conforms to the schema and to the rules of Section 9.1 that the schema
-   cannot express (displayed text, a former value that differs from the current one, and
-   `enforced` against the vocabulary), and the `up_to_seq` of a `log.truncated` entry is
+   cannot express (displayed text, a former value that differs from the current one,
+   `enforced` against the vocabulary and `vocabulary` against the category), and the
+   `up_to_seq` of a `log.truncated` entry is
    smaller than the entry's own `seq`;
 2. the first entry either has `seq` 1, or a later `log.truncated` entry with
    `up_to_seq` = `seq` − 1 and `last_digest` = `prev` of the first entry is present;
@@ -1643,7 +1664,9 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
 - **Broad mandates.** `{"any": true}` with `"*"` and no `expires` is valid. Interfaces
   SHOULD warn before such a mandate is stored, SHOULD require a separate confirmation for
   every rule with `allow_critical`, and SHOULD suggest an `expires` for mandates that allow
-  critical actions without approval.
+  critical actions without approval. `"*"` also contains every action that a later version
+  of the vocabulary adds (Section 14), and a non-critical one runs without a confirmation;
+  a household that wants a closed list names the actions, and interfaces SHOULD say so.
 - **Indirect effects.** A resource can act on others: a switch on a door opener, a scene
   that unlocks. The vocabulary cannot know this; the critical marking of the resource
   (Section 4, step 5) is the means for it.
@@ -1739,7 +1762,9 @@ behavior of the people in a household and MUST be protected like the devices the
   release.
 - **Incompatible.** A change is incompatible if a document that was valid becomes invalid,
   or if a valid document is evaluated differently: a different result of the evaluation
-  rule (Section 4) or of succession (Section 3.5), a different digest (Sections 3.2, 9.4),
+  rule (Section 4), except a result that replaces a `deny` of step 0 for an unknown
+  category or action or for an invalid parameter value (bullet **Vocabulary**), a
+  different result of succession (Section 3.5), a different digest (Sections 3.2, 9.4),
   or a different outcome of the verification of an audit log (Sections 9.4, 9.5). A change
   that only makes documents valid that were invalid before, such as a new optional member
   or a new audit event, is compatible; it is listed in the Changelog and keeps the `type`.
@@ -1759,9 +1784,9 @@ behavior of the people in a household and MUST be protected like the devices the
     MUST NOT be rewritten into another format, because its digest, its signature and the
     audit entries that refer to it would no longer match.
 - **Until v0.1.0.** The pre-releases (`v0.1.0-alpha.1`, …) are not covered by the freeze:
-  until `v0.1.0`, the v0 formats can still change incompatibly under the same `type`. Every
-  such change is listed in the Changelog together with what happens to documents that were
-  valid before.
+  until `v0.1.0`, the v0 formats can still change incompatibly under the same `type`, and
+  the vocabulary under the same `id`. Every such change is listed in the Changelog together
+  with what happens to documents that were valid before.
 - **Unknown members.** Mandates and audit entries have no extension points: a member
   that the schema does not define makes the document invalid. This is deliberate. An
   implementation that silently ignored a restriction it does not know would allow more
@@ -1770,11 +1795,32 @@ behavior of the people in a household and MUST be protected like the devices the
   know, or a newer major, is invalid there and denies everything. Implementations SHOULD
   therefore state which version they support before a mandate is transferred to them, and
   issuers SHOULD NOT use members or majors the receiver does not support.
-- **Independent versions.** The vocabulary and extensions carry their own `id` and
-  `version` (Section 5.1), are versioned independently of the formats and never change
-  under the same pair; a new vocabulary version does not require a new `type`. The `$id`s
-  of the conformance schemas (`https://home-mandate.org/conformance/v0/…`) identify test
-  material, not formats, and change independently of this section.
+- **Vocabulary.** The vocabulary of the v0 formats is `vocabulary/v0.json` with the `id`
+  `https://home-mandate.org/vocabulary/v0` (Section 5). The `id` belongs to the format
+  major: a new major of the mandate format comes with a new vocabulary `id`, and a new
+  version under the same `id` does not require a new `type`. Its `version` changes with every
+  change to the file. Because the vocabulary decides which mandates are valid (Section 3.1
+  item 4) and how requests are evaluated (Section 4), the freeze covers it: from `v0.1.0`,
+  a new version under this `id` MUST only add. Compatible, and therefore permitted in a new
+  version, are a new category, a new action of a category, critical or not, a new permitted
+  value of a string parameter and a wider range of an integer parameter: they make mandates
+  valid that were invalid, give a result to requests that were a `deny` with
+  `unknown_category`, `unknown_action` or `invalid_request`, and change nothing else (a rule
+  with `"*"` includes a new action, Section 12.4; a rule with `allow_critical` names its
+  actions, Section 3.1 item 9). Incompatible, and therefore only under a new `id` with a new
+  major of the formats, are removing or renaming a category or an action, changing whether
+  an existing action is critical (removing the marking lets an `allow` run without the
+  confirmation it had; adding it changes the result of valid mandates and the verification
+  of audit logs, Section 9.1), declaring a parameter that an action did not have (a request
+  that carried it was evaluated without it and is now checked, Section 4.5), and removing a
+  parameter or changing its type, unit, range or permitted values so that a request that
+  was valid becomes invalid. A verifier whose vocabulary is older than the one an entry
+  names cannot check a `deny` that was not enforced for an action it does not know, and
+  rejects the entry as it rejects a member it does not know (Section 9.1). Extensions carry
+  their own `id` and `version` (Section 5.1) and SHOULD follow the same rule.
+- **Test material.** The `$id`s of the conformance schemas
+  (`https://home-mandate.org/conformance/v0/…`) identify test material, not formats, and
+  change independently of this section.
 
 ## Changelog
 
@@ -2088,6 +2134,31 @@ Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 
   `s22` (the selection cases accept `approval_timeout` and `confirm`), `a136` (valid: every
   outcome of an approval request with `confirm: true`) and `a137`–`a145` (invalid).
 - Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
+
+The vocabulary is bound to the formats (Sections 5, 5.1, 9.1, 9.2, 12.4, 14; issue #71):
+- The vocabulary `https://home-mandate.org/vocabulary/v0` belongs to the v0 formats, and
+  the freeze covers it: from `v0.1.0`, a new version under this `id` only adds (a new
+  category, a new action, a new permitted value, a wider range). Removing or renaming a
+  category or an action, changing a critical marking or narrowing a parameter needs a new
+  `id` with a new major of the formats. Before, Section 14 said only that the vocabulary is
+  versioned independently and never changes under the same `id` and `version`; nothing said
+  what a new version may change, although a removed action would have made valid mandates
+  invalid and a removed marking would have run an action without its confirmation. No
+  change to any document: `vocabulary/v0.json` is unchanged and its `version` stays `v0`.
+- An implementation evaluates and verifies with the newest vocabulary version it knows.
+  Until `v0.1.0`, the vocabulary can still change incompatibly, like the formats.
+- Audit entry: new optional member `vocabulary` (`id`, `version`) of a `decision` entry
+  with `evaluation`, the vocabulary the evaluation used. For a category of Section 5 the
+  `id` is that of v0, for an extension category that of the extension; the reference
+  verifier checks it, and with the vocabularies of extensions it checks their `id` too
+  (an extension vocabulary without `id` is now rejected). Absent with `unknown_resource`
+  and `unknown_category`. Compatible: only entries that were invalid become valid; a
+  verifier that does not know the member rejects a log that contains it (Section 14,
+  unknown members). Implementations SHOULD record it, so that a decision stays
+  reproducible after a vocabulary update.
+- Text only: `"*"` includes the actions a later version adds (Section 12.4); extensions
+  SHOULD follow the same rule (Section 5.1).
+- Conformance cases `a161`–`a169`.
 
 Schemas and formats in detail (Sections 3.1, 3.3, 3.4, 5.1, 9.1):
 - Audit entry: `emergency_stop.released` has an `actor` of kind `user`; `mandate.created`
