@@ -113,6 +113,9 @@ func TestUsageErrors(t *testing.T) {
 		"unknown flag":            {"-nope"},
 		"bad header":              {"-header", "no colon", "-authzen", "http://x", "-control", "http://x"},
 		"stray argument":          {"-authzen", "http://x", "-control", "http://x", "extra"},
+		// The process binding's implementation names itself (capabilities).
+		"name with exec":    {"-name", "x", "-exec", "x"},
+		"version with exec": {"-version", "1", "-exec", "x"},
 	} {
 		if code, _, stderr := runMain(t, args...); code != harness.ExitUsage || !strings.Contains(stderr, "usage") {
 			t.Errorf("%s: exit %d, stderr %q", name, code, stderr)
@@ -223,6 +226,21 @@ func TestHTTPBindingAgainstAReferencePDP(t *testing.T) {
 	c := report.Classes[harness.ClassPDP]
 	if !c.Conforms || c.Cases < 100 || report.Binding != "http" {
 		t.Errorf("pdp = %+v", c)
+	}
+	// The HTTP binding has no capabilities: -name and -version name the implementation.
+	path := filepath.Join(t.TempDir(), "report.json")
+	code, stdout, stderr = runMain(t, "-header", "Authorization: Bearer secret", "-name", "Example PDP", "-version", "1.2.0",
+		"-report", path, "-authzen", server.URL, "-control", server.URL+"/test/state")
+	if code != harness.ExitConforms || !strings.Contains(stdout, `implementation: "Example PDP" "1.2.0"`) {
+		t.Fatalf("with -name and -version: exit %d\n%s\n%s", code, stdout, stderr)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var written harness.Report
+	if err := json.Unmarshal(data, &written); err != nil || written.Implementation != (harness.Described{Name: "Example PDP", Version: "1.2.0"}) {
+		t.Errorf("implementation = %+v, %v", written.Implementation, err)
 	}
 	// Without the header the control resource refuses, and nothing conforms.
 	code, _, _ = runMain(t, "-authzen", server.URL, "-control", server.URL+"/test/state")

@@ -31,6 +31,9 @@ type PDP struct {
 	// Header is sent with every request, for example Authorization.
 	Header http.Header
 	Client *http.Client
+	// Name and Version name the implementation in the report: the HTTP binding has no
+	// capabilities (SPEC-v0 section 10.4).
+	Name, Version string
 }
 
 // State is what the tool sets before a request: everything the PDP otherwise takes from
@@ -89,6 +92,7 @@ func RunPDP(ctx context.Context, fsys fs.FS, pdp PDP) (Report, error) {
 			return http.ErrUseLastResponse
 		}}
 	}
+	report.Implementation = Described{Name: pdp.Name, Version: pdp.Version}
 	r := &runner{fsys: fsys, report: report}
 	cases, err := load[evaluationCase](fsys, fileCases, "cases")
 	if err != nil {

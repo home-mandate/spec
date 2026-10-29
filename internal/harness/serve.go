@@ -45,11 +45,16 @@ func Serve(r io.Reader, w io.Writer) error {
 	return nil
 }
 
+// Version is the release of the reference code that capabilities reports (SPEC-v0 section
+// 10.4), set at build time with
+// -ldflags "-X github.com/home-mandate/spec/internal/harness.Version=0.1.0".
+var Version = "devel"
+
 // Answer answers one request with the reference code.
 func Answer(req Request) Response {
 	switch req.Op {
 	case OpCapabilities:
-		return Response{Name: "Home-Mandate reference (Go)", Version: "v0", Ops: []string{
+		return Response{Name: "Home-Mandate reference (Go)", Version: Version, Ops: []string{
 			OpValidate, OpEvaluate, OpSelect, OpSuccession, OpVerifySigned, OpVerifyAudit, OpEntryDigest}}
 	case OpValidate:
 		if req.Mandate == nil {

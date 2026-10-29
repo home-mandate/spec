@@ -26,11 +26,14 @@ const (
 const usage = `usage:
   mandate-conformance [-report file] [-classes a,b] -exec <command> [arguments]
   mandate-conformance [-report file] -authzen <url> -control <url> [-header "Name: value"]
+                      [-name name] [-version version]
 
 Process binding (-exec): starts the command and tests the classes evaluator, selection,
 signatures, audit and audit-anchored. The exit code is 0 if the implementation conforms to
 the classes named with -classes (default: evaluator).
-HTTP binding (-authzen, -control): tests the class pdp.
+HTTP binding (-authzen, -control): tests the class pdp. -name and -version name the
+implementation and its release in the report; over the process binding the implementation
+names itself.
 `
 
 type headerFlag struct{ header http.Header }
@@ -56,6 +59,8 @@ func Main(ctx context.Context, fsys fs.FS, args []string, stdout, stderr io.Writ
 	control := flags.String("control", "", "URL of the test control resource")
 	reportPath := flags.String("report", "", "write the report as JSON to this file")
 	classes := flags.String("classes", "", "classes the implementation must conform to")
+	name := flags.String("name", "", "name of the implementation (HTTP binding)")
+	version := flags.String("version", "", "release of the implementation (HTTP binding)")
 	timeout := flags.Duration("timeout", 10*time.Minute, "limit for the whole run")
 	header := headerFlag{header: http.Header{}}
 	flags.Var(&header, "header", "HTTP header for every request")
@@ -70,11 +75,11 @@ func Main(ctx context.Context, fsys fs.FS, args []string, stdout, stderr io.Writ
 	var err error
 	required := []string{ClassEvaluator}
 	switch {
-	case *exec && *authzen == "" && flags.NArg() > 0:
+	case *exec && *authzen == "" && flags.NArg() > 0 && *name == "" && *version == "":
 		report, err = runProcess(ctx, fsys, flags.Args())
 	case !*exec && *authzen != "" && *control != "" && flags.NArg() == 0:
 		required = []string{ClassPDP}
-		report, err = RunPDP(ctx, fsys, PDP{AuthZEN: *authzen, Control: *control, Header: header.header})
+		report, err = RunPDP(ctx, fsys, PDP{AuthZEN: *authzen, Control: *control, Header: header.header, Name: *name, Version: *version})
 	default:
 		fmt.Fprint(stderr, usage)
 		return ExitUsage

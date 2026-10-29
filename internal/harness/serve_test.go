@@ -56,6 +56,10 @@ func TestCapabilitiesListEveryOperation(t *testing.T) {
 	if r.Name == "" || len(r.Ops) != 7 {
 		t.Errorf("capabilities = %+v", r)
 	}
+	// The version of the release (set at build time), not the version of the format.
+	if r.Version != harness.Version || r.Version == "v0" {
+		t.Errorf("capabilities version = %q, want %q", r.Version, harness.Version)
+	}
 }
 
 func TestValidateAndEvaluate(t *testing.T) {
