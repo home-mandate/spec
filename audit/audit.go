@@ -224,7 +224,8 @@ func check(compiled *jsonschema.Schema, known actionsByCategory, entry []byte) (
 	}
 	obj, _ := v.(map[string]any)
 	l := link{seq: intField(obj, "seq")}
-	if compiled.Validate(v) != nil || !displayable(obj) || !distinctFormerValues(obj) || !enforcedConsistent(obj, known) {
+	if compiled.Validate(v) != nil || !displayable(obj) || !distinctFormerValues(obj) || !truncatesEarlier(obj) ||
+		!enforcedConsistent(obj, known) {
 		return l, false
 	}
 	digest, err := digestOf(v)
@@ -278,6 +279,14 @@ func distinctFormerValues(obj map[string]any) bool {
 		}
 	}
 	return true
+}
+
+// truncatesEarlier reports whether a log.truncated entry accounts only for entries before
+// itself: its up_to_seq is smaller than its own seq (SPEC-v0 section 9.4). JSON Schema
+// cannot compare two members.
+func truncatesEarlier(obj map[string]any) bool {
+	t, ok := obj["truncated"].(map[string]any)
+	return !ok || intField(t, "up_to_seq") < intField(obj, "seq")
 }
 
 // maxExactInteger is 2^53; integers below it are exact in every JSON implementation

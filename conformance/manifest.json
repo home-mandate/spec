@@ -3,8 +3,8 @@
   "files": [
     {
       "path": "conformance/audit-v0.json",
-      "sha256": "6f2f0ac3765d2348fb98ae57f92d16088bf758f13da2f599182207edf3fd88b9",
-      "cases": 145
+      "sha256": "4c4eb8672e68b0952e01e754d8b6c7c4018f7ca789833837efe241c6a44fec44",
+      "cases": 152
     },
     {
       "path": "conformance/cases-v0.json",
