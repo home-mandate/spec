@@ -348,7 +348,8 @@ and `id`, also after the mandate was revoked, removed (Section 11.3) or deleted,
 long as an older version could still be valid, and it MUST treat a restore from a backup
 like the arrival of mandates from outside. A revocation is local as well: a signed mandate
 stays verifiable until it expires, so a revoked mandate MUST NOT be accepted again by way
-of its signature.
+of its signature. A mandate from outside that is not accepted, for succession or for any
+other reason, is recorded with `mandate.rejected` (Section 9.2).
 
 **Audit mode.** A mandate that switches audit mode on MUST NOT take effect until a human
 of the household has confirmed it explicitly (Section 11.6 item 4). It switches audit
@@ -360,8 +361,10 @@ arriving from outside. The confirmation is bound to the digest (Section 3.2) of 
 the version that is adopted; any other version needs its own. This holds for a signed
 successor as well: succession and the signature make it acceptable, not adopted, and
 until the confirmation the stored mandate stays as it is. Every approver of the mandate
-MUST be notified when such a mandate is proposed and when it takes effect. A replacement
-that switches audit mode off needs no confirmation.
+MUST be notified when such a mandate is proposed and when it takes effect; the proposal
+is recorded with `mandate.proposed`, and a proposal that does not take effect with
+`mandate.discarded` (Section 9.2). A replacement that switches audit mode off needs no
+confirmation.
 
 An issuer can end the sequence of an `id` by issuing the highest possible version; the
 mandate then needs a new `id`. A mandate that leaves the implementation that
@@ -538,8 +541,9 @@ directory and evaluates each resource separately. Unless the PEP documents other
 request is executed only if every single evaluation permits it: one `deny` denies the
 whole request, and one `ask` requires a confirmation that names all resources concerned. A
 `deny` that is not enforced (Section 4.6) counts as permitting here, and as an `ask` if it
-requires a confirmation; it is recorded as such. The agent is never told which of the
-resources were not enforced (Section 11.6).
+requires a confirmation; it is recorded as such, every resource as its own `decision`
+entry, and the entries of one request SHOULD carry the same `request.group` (Section 9.1).
+The agent is never told which of the resources were not enforced (Section 11.6).
 The PEP MUST execute such a request on exactly the resources it evaluated, naming each of
 them to the platform (for example as a list of identifiers), never the area, group or list
 it resolved them from: the platform would resolve that again on its own, and a resource
@@ -881,6 +885,9 @@ A verifier accepts a signed mandate only if
 2. the payload is canonical and a valid mandate (Section 3.1);
 3. succession holds against what the verifier has stored (Section 3.5).
 
+A signed mandate that fails one of these is not accepted and is recorded with
+`mandate.rejected` and its `cause` (Sections 9.1 and 9.2).
+
 How a verifier comes to trust the keys of an issuer is outside this specification
 (configuration, pairing, a JWK Set under the issuer's URL, …). Keys are exchanged as JWK or
 JWK Set (RFC 7517): `{"kty":"OKP","crv":"Ed25519","x":…}` or
@@ -1024,15 +1031,16 @@ Depending on the event, the following are added:
 |---|---|
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
-| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked` |
-| `mandate` | `id`, `digest`, and only for `mandate.updated` additionally `previous_digest`, different from `digest`; for `mandate.removed`, `digest` is that of the last version the implementation held |
+| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked`; optionally `group`, a UUID (RFC 9562, lower case) that is the same in every `decision` entry of one request for several resources (Section 4.4) and appears in the entries of no other request |
+| `mandate` | `id`, `digest`, and only for `mandate.updated` additionally `previous_digest`, different from `digest`; for `mandate.removed`, `digest` is that of the last version the implementation held; for `mandate.proposed` and `mandate.discarded`, `digest` is that of the proposed version (Section 11.6 item 4). `cause`, required with `mandate.discarded` and `mandate.rejected` and absent otherwise: for `mandate.discarded` why the proposal did not take effect (`rejected`: a human declined it, `superseded`: another version took effect or a later proposal replaced it, `revoked`: the mandate was revoked, `expired`: the proposed version expired first); for `mandate.rejected` why a mandate from outside was not accepted (`invalid`: not a valid mandate or not canonical, Sections 3.1 and 7.1; `signature`: the signature does not verify, or the header or `kid` is not acceptable; `untrusted_issuer`: no trusted key for the issuer, or the issuer may not issue for this principal or agent; `succession`: Section 3.5, a rollback included; `unsupported`: the implementation does not offer what the mandate needs, such as audit mode, Section 11.6, or a format major it does not support, Section 14). With `mandate.rejected`, `digest` is present if the document was a JSON object (Section 3.2) and `id` if it named one; if nothing could be read, the object has only `cause` |
 | `vocabulary` | the vocabulary the evaluation used for the category of the resource (Section 5): `id` and `version` as in its file. Only with `decision` and `evaluation`, and not with `reason` `unknown_resource` or `unknown_category`: no vocabulary was used. For a category of Section 5, `id` is `https://home-mandate.org/vocabulary/v0`; for an extension category, the `id` of the extension (Section 5.1). The schema cannot see the vocabulary; a verifier MUST reject any other `id` for a category of Section 5, the `id` of Section 5 for an extension category and, for an extension whose vocabulary it knows, any `id` other than that vocabulary's, and an entry that violates this is invalid |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, `approval_timeout` (the timeout of the approval settings; required for `ask` and with `confirm`, absent otherwise), `enforced` (only `false`, Section 4.6) and `confirm` (only `true`, with `enforced`) |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, where it names an approver whose answer arrived after the timeout, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
 | `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
+| `exported` | `from_seq`, `to_seq`: the range of entries an export contained (Section 13), with `from_seq` ≤ `to_seq` < the entry's own `seq`. Only with `log.exported`, optional there: without it, the export contained all entries before this one |
 | `checkpoint` | `log_id`, `signature` (Section 9.5) |
-| `directory` | change to the resource directory (Section 11.4): `change` (`critical_marked`, `critical_unmarked`, `renamed`, `rename_applied`, `rename_dismissed`), `entity_id` and, except for `critical_marked` and `critical_unmarked`, `previous_entity_id`, both identifiers per Section 3.4 and different from each other. For `renamed`, `entity_id` is the new and `previous_entity_id` the former identifier; for `rename_applied` (a human took the rename over into the mandates) and `rename_dismissed`, `entity_id` is the current identifier and `previous_entity_id` the former one that was resolved, one entry per former identifier. Only with `directory.changed` |
+| `directory` | change to the resource directory (Section 11.4): `change` (`added`, `removed`, `critical_marked`, `critical_unmarked`, `category_changed`, `areas_changed`, `renamed`, `rename_applied`, `rename_dismissed`) and `entity_id`, an identifier per Section 3.4. With `renamed`, `rename_applied` and `rename_dismissed` also `previous_entity_id`, different from `entity_id`: for `renamed`, `entity_id` is the new and `previous_entity_id` the former identifier; for `rename_applied` (a human took the rename over into the mandates) and `rename_dismissed`, `entity_id` is the current identifier and `previous_entity_id` the former one that was resolved, one entry per former identifier. With `category_changed` also `previous_category` and `category`, different from each other; with `areas_changed` also `previous_areas` and `areas`, two different sets; with `added` and `removed` optionally `category` and `areas`, the resource as it was added or last known. `category` is a category of Section 5 or an extension category, `areas` a set of up to 16 areas per Section 3.4, empty for a resource without an area. Only with `directory.changed` |
 | `template` | change to a template (Section 2): `change` (`stored`: created or changed, `removed`, `hidden`: no longer offered or accepted for creating mandates without being removed, `shown`: offered and accepted again), `name` (1 to 64 characters) and `digest`; for `stored` the digest of the new content, for `removed` that of the last content, for `hidden` and `shown` optionally that of the current content. `previous_digest` only for `stored` and only if the template had content before, different from `digest`. Digests are computed as in Section 3.2 over the template as the implementation stores it. Only with `template.changed` |
 | `approver` | change to the humans whom the implementation lets answer approval requests (Section 11.1): `change` (`added`, `removed`) and `id` (1 to 128 characters), the identifier of the approver in the user management, as in `approval.by`. Only with `approver.changed` |
 
@@ -1093,10 +1101,13 @@ For `decision`, the following additionally applies:
   ended while it was waiting is recorded with this outcome, not without an `approval`
   object.
 
-A `log.truncated` entry has an `actor` of kind `user` or `system`; an agent never deletes
-entries. The same holds for `directory.changed`, `template.changed`, `approver.changed`,
-`mandate.removed` and `agent.removed`: an agent never changes the directory, a template or
-who may answer approval requests, and never removes a mandate or an agent. An
+A `log.truncated` or `log.exported` entry has an `actor` of kind `user` or `system`; an
+agent never deletes or exports entries. The same holds for `directory.changed`,
+`template.changed`, `approver.changed`, `mandate.removed`, `agent.removed`,
+`mandate.proposed`, `mandate.discarded` and `mandate.rejected`: an agent never changes the
+directory, a template or who may answer approval requests, never removes a mandate or an
+agent, and never proposes, discards or delivers a mandate (`system` stands for the
+implementation itself or for a mandate an issuer delivered, Section 7). An
 `agent.reconnected` and an `emergency_stop.released` entry have an `actor` of kind
 `user`: only a human reconnects an agent or releases the emergency stop (Section 11.3). A
 `mandate.created` or `mandate.updated` entry has an `actor` of kind `user` or `system`
@@ -1122,10 +1133,13 @@ template.
 | `emergency_stop.activated`, `emergency_stop.released` | yes | emergency stop, if the implementation has one |
 | `log.truncated` | yes | before deleting old entries (Section 9.4) |
 | `log.checkpoint` | no | signed statement about the log so far (Section 9.5) |
-| `directory.changed` | yes, if the implementation lets humans change the critical marking or tracks renamed resources | every such change to the directory, and every rename a human resolves (Section 11.4) |
+| `log.exported` | yes, if the implementation exports the log (Section 13) | every export |
+| `directory.changed` | yes, if the implementation tracks the change in question: the critical marking, renamed resources, resources added or removed, a changed category or set of areas | every such change to the directory, and every rename a human resolves (Section 11.4) |
 | `template.changed` | yes, if the implementation lets humans change templates | every template stored, removed, hidden or shown again |
 | `approver.changed` | yes, if the implementation keeps its own list of humans who may answer approval requests | every approver added to or removed from that list (Section 11.1) |
 | `mandate.removed`, `agent.removed` | yes, if the implementation removes revoked mandates or agents | every revoked mandate or agent removed from the implementation's lists (Section 11.3) |
+| `mandate.proposed`, `mandate.discarded` | yes, if the implementation offers audit mode | every mandate that would switch audit mode on and waits for a confirmation, and every such proposal that does not take effect (Section 11.6 item 4) |
+| `mandate.rejected` | yes, if the implementation accepts mandates from outside (Sections 3.5 and 7) | every mandate from outside that was not accepted: invalid, not verifiable, from an untrusted issuer, against succession or unsupported |
 | `agent.reconnected` | yes, if the implementation lets humans reconnect agents | every existing agent that receives new credentials instead of being admitted anew (Section 11.3) |
 | `auth.rejected` | no | rejected sign-in or invalid token |
 
@@ -1543,8 +1557,9 @@ The validity period, time windows and the audit log depend on the clock of the P
 evaluation on its resource directory. An implementation SHOULD synchronize its clock and
 SHOULD deny requests while it has reason to believe the clock is wrong (for example a time
 before the newest entry of its audit log). Changes to the directory are covered by
-Section 3.4. Changes that affect the evaluation (the critical marking, renamed resources)
-are recorded with `directory.changed` (Section 9.2).
+Section 3.4. Changes that affect the evaluation (the critical marking, renamed resources, a
+resource added or removed, a changed category or set of areas) are recorded with
+`directory.changed` (Section 9.2), as far as the implementation tracks them.
 
 When a resource is renamed, an implementation SHOULD keep applying the rules that name its
 former identifier to it, together with the rules that name the new one, and take the
@@ -1611,8 +1626,11 @@ An implementation that offers audit mode (Section 4.6):
    confirmation names the digest of exactly the version that is adopted and counts for no
    other; a signed successor is not adopted automatically. The implementation MUST notify
    every approver of the mandate when such a mandate is proposed, while it waits for the
-   confirmation, and again when audit mode takes effect. Switching audit mode off takes
-   effect without a confirmation.
+   confirmation, and again when audit mode takes effect. It records the proposal with
+   `mandate.proposed`, and a proposal that does not take effect, because a human declined
+   it, another version took effect or replaced it, the mandate was revoked or the proposed
+   version expired, with `mandate.discarded` and that `cause` (Section 9.1). Switching
+   audit mode off takes effect without a confirmation.
 
 An implementation is not required to offer audit mode. One that does not MUST refuse to
 store a mandate with `enforce: false` instead of storing it and enforcing it, so that the
@@ -1632,7 +1650,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Agent that is malicious or was manipulated** (prompt injection through a website, an e-mail, a document) | The decision is made outside the agent. Default `deny`, most restrictive rule wins, critical actions need `allow_critical` or a human (Section 4). The agent supplies only the resource and the action; category, areas, time and status come from the PEP. Rate limit and a limit on waiting approval requests (Section 11) | Everything the mandate allows, the agent can do. A mandate with a broad `allow` is a broad permission. An automation or a rule on the platform that reacts to an allowed action on a harmless-looking resource (a switch, a virtual datapoint) does what the household would not let the agent do directly; the PEP sees only the switch. Such a resource is marked critical (Section 12.4) |
 | **Agent that tries to obtain a confirmation** | The confirmation is bound to one request, used once, comes from a named approver on a path the agent does not control, and the request is evaluated again afterwards (Section 11.1) | A human who confirms without reading. The implementation MUST show what is confirmed; it cannot make the human read |
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
-| **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
+| **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded, and so are added or removed resources and changed categories or areas, as far as the implementation tracks them (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
 | **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only |
 | **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
 | **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal (Section 3.5) | The specification does not define how this trust is configured |
@@ -1731,7 +1749,8 @@ behavior of the people in a household and MUST be protected like the devices the
   from the middle of a log is not possible without breaking the chain; this version offers
   no remedy other than retention limits.
 - **Export.** An exported log leaves the protection of the implementation. Exports SHOULD
-  be created only by a human and SHOULD be recorded.
+  be created only by a human and are recorded with `log.exported` (Section 9.2), with the
+  range of entries they contained.
 - **Agents.** What an agent learns through `read` leaves the household with the agent.
   A mandate is also a decision about which data an agent may see.
 - **Features.** What a resource can carry out is information about it, often about its
@@ -2134,6 +2153,28 @@ Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 
   `s22` (the selection cases accept `approval_timeout` and `confirm`), `a136` (valid: every
   outcome of an approval request with `confirm: true`) and `a137`–`a145` (invalid).
 - Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
+
+New audit events (Sections 3.5, 4.4, 7.1, 9.1, 9.2, 11.4, 11.6, 13; issues #53, #73):
+- `log.exported`, with optional `exported` (`from_seq`, `to_seq`): Section 13 asked for
+  exports to be recorded, but no event existed for it.
+- `directory.change` gains `added`, `removed`, `category_changed` (`previous_category`,
+  `category`) and `areas_changed` (`previous_areas`, `areas`). A resource that enters the
+  scope of a rule, a category that changes the vocabulary that applies and a set of areas
+  that changes which rules match were not recordable.
+- `mandate.proposed` and `mandate.discarded` (with `mandate.cause`): a mandate that would
+  switch audit mode on and waits for a confirmation, and a proposal that does not take
+  effect. Only the moment it took effect was recorded (#53). Added to `audit/v0` now rather
+  than to a later audit version: after the freeze, every new event needs a new `type`.
+- `mandate.rejected` (with `mandate.cause`, and `mandate.id` and `digest` as far as the
+  document could be read): a mandate from outside that was not accepted. The protection
+  against rollback and forged signatures left no trace in the log.
+- `request.group`, optional: connects the `decision` entries of one request for several
+  resources.
+- Compatible: only entries that were invalid become valid; a verifier that does not know an
+  event or a member rejects a log that contains it (Section 14, unknown members). The
+  reference verifier checks `from_seq` ≤ `to_seq` < `seq`, and that `category` and `areas`
+  differ from their former values.
+- Conformance cases `a170`–`a189`.
 
 The vocabulary is bound to the formats (Sections 5, 5.1, 9.1, 9.2, 12.4, 14; issue #71):
 - The vocabulary `https://home-mandate.org/vocabulary/v0` belongs to the v0 formats, and

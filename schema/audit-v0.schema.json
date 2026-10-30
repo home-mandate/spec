@@ -19,10 +19,11 @@
       "enum": [
         "decision",
         "mandate.created", "mandate.updated", "mandate.revoked", "mandate.removed",
+        "mandate.proposed", "mandate.discarded", "mandate.rejected",
         "agent.registered", "agent.revoked", "agent.reconnected", "agent.removed",
         "emergency_stop.activated", "emergency_stop.released",
         "auth.rejected",
-        "log.truncated", "log.checkpoint",
+        "log.truncated", "log.checkpoint", "log.exported",
         "directory.changed",
         "template.changed", "approver.changed"
       ]
@@ -55,6 +56,7 @@
         "time": { "$ref": "#/$defs/date_time" },
         "timezone": { "type": "string", "minLength": 1, "maxLength": 64 },
         "revoked": { "description": "Revocation status at evaluation time; absent = false.", "type": "boolean" },
+        "group": { "description": "The same in every decision entry of one request for several resources (SPEC-v0 sections 4.4 and 9.1): a UUID (RFC 9562), lower case.", "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
         "resource": {
           "description": "Resource as requested or resolved; unknown categories and identifiers that the evaluation found invalid are also logged unchanged, so identifiers here are limited only in length and number (SPEC-v0 section 9.1).",
           "type": "object",
@@ -83,13 +85,17 @@
       }
     },
     "mandate": {
+      "description": "id and digest are required except with mandate.rejected, where digest is present if the document was a JSON object and id if it named one (SPEC-v0 section 9.1).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "digest"],
       "properties": {
         "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{4,64}$" },
         "digest": { "$ref": "#/$defs/digest" },
-        "previous_digest": { "$ref": "#/$defs/digest" }
+        "previous_digest": { "$ref": "#/$defs/digest" },
+        "cause": {
+          "description": "Only with mandate.discarded (rejected, superseded, revoked, expired: why a proposal did not take effect) and mandate.rejected (invalid, signature, untrusted_issuer, succession, unsupported: why a mandate from outside was not accepted), required there (SPEC-v0 section 9.1).",
+          "enum": ["rejected", "superseded", "revoked", "expired", "invalid", "signature", "untrusted_issuer", "succession", "unsupported"]
+        }
       }
     },
     "vocabulary": {
@@ -177,6 +183,16 @@
         { "if": { "required": ["count"] }, "then": { "properties": { "denied_by": { "const": "rate_limit" } } } }
       ]
     },
+    "exported": {
+      "description": "Range of entries an export contained (SPEC-v0 sections 9.1 and 13): from_seq <= to_seq < the entry's own seq. Only with log.exported.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from_seq", "to_seq"],
+      "properties": {
+        "from_seq": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "to_seq": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+      }
+    },
     "truncated": {
       "type": "object",
       "additionalProperties": false,
@@ -211,13 +227,25 @@
       "additionalProperties": false,
       "required": ["change", "entity_id"],
       "properties": {
-        "change": { "enum": ["critical_marked", "critical_unmarked", "renamed", "rename_applied", "rename_dismissed"] },
+        "change": { "enum": ["added", "removed", "critical_marked", "critical_unmarked", "category_changed", "areas_changed", "renamed", "rename_applied", "rename_dismissed"] },
         "entity_id": { "$ref": "#/$defs/entity_id" },
-        "previous_entity_id": { "$ref": "#/$defs/entity_id" }
+        "previous_entity_id": { "$ref": "#/$defs/entity_id" },
+        "category": { "description": "With added and removed optionally, with category_changed required: the category of the resource (SPEC-v0 section 9.1).", "$ref": "#/$defs/category" },
+        "previous_category": { "description": "Only with category_changed; differs from category.", "$ref": "#/$defs/category" },
+        "areas": { "description": "With added and removed optionally, with areas_changed required: the set of areas of the resource, empty for none (SPEC-v0 sections 3.4 and 9.1).", "$ref": "#/$defs/areas" },
+        "previous_areas": { "description": "Only with areas_changed; another set than areas.", "$ref": "#/$defs/areas" }
       },
       "allOf": [
         { "if": { "properties": { "change": { "enum": ["renamed", "rename_applied", "rename_dismissed"] } } },
-          "then": { "required": ["previous_entity_id"] }, "else": { "not": { "required": ["previous_entity_id"] } } }
+          "then": { "required": ["previous_entity_id"] }, "else": { "not": { "required": ["previous_entity_id"] } } },
+        { "if": { "properties": { "change": { "const": "category_changed" } } },
+          "then": { "required": ["category", "previous_category"] }, "else": { "not": { "required": ["previous_category"] } } },
+        { "if": { "properties": { "change": { "const": "areas_changed" } } },
+          "then": { "required": ["areas", "previous_areas"] }, "else": { "not": { "required": ["previous_areas"] } } },
+        { "if": { "properties": { "change": { "enum": ["added", "removed", "category_changed"] } } },
+          "else": { "not": { "required": ["category"] } } },
+        { "if": { "properties": { "change": { "enum": ["added", "removed", "areas_changed"] } } },
+          "else": { "not": { "required": ["areas"] } } }
       ]
     },
     "template": {
@@ -260,12 +288,22 @@
       "then": { "required": ["evaluation"],
                 "properties": { "event": { "const": "decision" },
                                 "evaluation": { "properties": { "reason": { "not": { "enum": ["unknown_resource", "unknown_category"] } } } } } } },
-    { "if": { "properties": { "event": { "enum": ["mandate.created", "mandate.updated", "mandate.revoked", "mandate.removed"] } } },
+    { "if": { "properties": { "event": { "enum": ["mandate.created", "mandate.updated", "mandate.revoked", "mandate.removed", "mandate.proposed", "mandate.discarded"] } } },
       "then": { "required": ["actor", "mandate"] } },
+    { "if": { "properties": { "event": { "const": "mandate.rejected" } } },
+      "then": { "required": ["actor", "mandate"], "properties": { "mandate": { "required": ["cause"], "properties": { "cause": { "enum": ["invalid", "signature", "untrusted_issuer", "succession", "unsupported"] } } } } },
+      "else": { "properties": { "mandate": { "required": ["id", "digest"] } } } },
+    { "if": { "properties": { "event": { "const": "mandate.discarded" } } },
+      "then": { "properties": { "mandate": { "required": ["cause"], "properties": { "cause": { "enum": ["rejected", "superseded", "revoked", "expired"] } } } } } },
+    { "if": { "properties": { "event": { "enum": ["mandate.discarded", "mandate.rejected"] } } },
+      "else": { "properties": { "mandate": { "not": { "required": ["cause"] } } } } },
+    { "if": { "properties": { "event": { "const": "log.exported" } } },
+      "then": { "required": ["actor"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } },
+      "else": { "not": { "required": ["exported"] } } },
     { "if": { "properties": { "event": { "const": "mandate.updated" } } },
       "then": { "properties": { "mandate": { "required": ["previous_digest"] } } },
       "else": { "properties": { "mandate": { "not": { "required": ["previous_digest"] } } } } },
-    { "if": { "properties": { "event": { "enum": ["mandate.created", "mandate.updated"] } } },
+    { "if": { "properties": { "event": { "enum": ["mandate.created", "mandate.updated", "mandate.proposed", "mandate.discarded", "mandate.rejected"] } } },
       "then": { "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } } },
     { "if": { "properties": { "event": { "enum": ["agent.registered", "agent.revoked", "agent.reconnected", "agent.removed"] } } },
       "then": { "required": ["actor", "agent"] } },
@@ -349,6 +387,20 @@
       "description": "Identifier of a resource in the directory: printable ASCII without space, compared exactly per character (SPEC-v0 section 3.4).",
       "type": "string",
       "pattern": "^[!-~]{1,255}$"
+    },
+    "category": {
+      "description": "A category of SPEC-v0 section 5 or an extension category (section 5.1), as in a mandate.",
+      "anyOf": [
+        { "enum": ["light", "switch", "climate", "cover", "gate", "lock", "alarm", "camera", "media", "sensor", "scene", "script", "other"] },
+        { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}:[a-z][a-z0-9_]{0,31}$" }
+      ]
+    },
+    "areas": {
+      "description": "Set of areas of a resource in the directory (SPEC-v0 section 3.4); empty: no area.",
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[!-~]{1,64}$" }
     },
     "digest": {
       "description": "SHA-256 over the canonical form according to RFC 8785, hexadecimal, lower case.",

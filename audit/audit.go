@@ -224,8 +224,8 @@ func check(compiled *jsonschema.Schema, known actionsByCategory, entry []byte) (
 	}
 	obj, _ := v.(map[string]any)
 	l := link{seq: intField(obj, "seq")}
-	if compiled.Validate(v) != nil || !displayable(obj) || !distinctFormerValues(obj) || !truncatesEarlier(obj) ||
-		!enforcedConsistent(obj, known) || !vocabularyConsistent(obj, known) {
+	if compiled.Validate(v) != nil || !displayable(obj) || !distinctFormerValues(obj) || !distinctAreas(obj) ||
+		!truncatesEarlier(obj) || !exportsEarlier(obj) || !enforcedConsistent(obj, known) || !vocabularyConsistent(obj, known) {
 		return l, false
 	}
 	digest, err := digestOf(v)
@@ -266,6 +266,7 @@ func displayable(obj map[string]any) bool {
 // current one: member, current, former (SPEC-v0 section 9.1).
 var formerValues = [][3]string{
 	{"directory", "entity_id", "previous_entity_id"},
+	{"directory", "category", "previous_category"},
 	{"mandate", "digest", "previous_digest"},
 	{"template", "digest", "previous_digest"},
 }
@@ -288,6 +289,52 @@ func distinctFormerValues(obj map[string]any) bool {
 func truncatesEarlier(obj map[string]any) bool {
 	t, ok := obj["truncated"].(map[string]any)
 	return !ok || intField(t, "up_to_seq") < intField(obj, "seq")
+}
+
+// distinctAreas reports whether an areas_changed entry names two different sets of areas
+// (SPEC-v0 section 9.1): the order of the members does not count. JSON Schema cannot
+// compare two members.
+func distinctAreas(obj map[string]any) bool {
+	directory, _ := obj["directory"].(map[string]any)
+	current, ok := directory["areas"].([]any)
+	if !ok {
+		return true
+	}
+	former, ok := directory["previous_areas"].([]any)
+	if !ok {
+		return true
+	}
+	return !sameSet(current, former)
+}
+
+// sameSet reports whether two JSON arrays of strings hold the same members. The schema
+// has already made each a set of strings.
+func sameSet(a, b []any) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	members := make(map[any]bool, len(a))
+	for _, m := range a {
+		members[m] = true
+	}
+	for _, m := range b {
+		if !members[m] {
+			return false
+		}
+	}
+	return true
+}
+
+// exportsEarlier reports whether a log.exported entry names a range of entries before
+// itself: from_seq is at most to_seq, and to_seq is smaller than its own seq (SPEC-v0
+// section 9.1). JSON Schema cannot compare two members.
+func exportsEarlier(obj map[string]any) bool {
+	e, ok := obj["exported"].(map[string]any)
+	if !ok {
+		return true
+	}
+	from, to := intField(e, "from_seq"), intField(e, "to_seq")
+	return from <= to && to < intField(obj, "seq")
 }
 
 // maxExactInteger is 2^53; integers below it are exact in every JSON implementation
