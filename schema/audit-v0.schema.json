@@ -25,7 +25,8 @@
         "auth.rejected",
         "log.truncated", "log.checkpoint", "log.exported",
         "directory.changed",
-        "template.changed", "approver.changed"
+        "template.changed", "approver.changed",
+        "issuer.changed", "config.changed"
       ]
     },
     "principal": { "type": "string", "pattern": "^(household|person):[A-Za-z0-9_-]{1,64}$" },
@@ -266,6 +267,37 @@
           "else": { "not": { "required": ["previous_digest"] } } }
       ]
     },
+    "issuer": {
+      "description": "Change to the issuers a verifier trusts and to their keys (SPEC-v0 section 7.1). kid only with key_added and key_removed, required there.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["change", "issuer"],
+      "properties": {
+        "change": { "enum": ["trusted", "untrusted", "key_added", "key_removed"] },
+        "issuer": { "description": "The issuer as a mandate names it (SPEC-v0 section 3.5).", "type": "string", "minLength": 1, "maxLength": 512 },
+        "kid": { "description": "The key ID of the key added or removed (SPEC-v0 section 7.1).", "type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$" }
+      },
+      "if": { "properties": { "change": { "enum": ["key_added", "key_removed"] } } },
+      "then": { "required": ["kid"] },
+      "else": { "not": { "required": ["kid"] } }
+    },
+    "config": {
+      "description": "Change to a setting that affects every evaluation or the anchoring of the log (SPEC-v0 sections 9.5 and 11.4): the household time zone, the clock check, the checkpoint key. previous_value, if present, differs from value.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["setting", "value"],
+      "properties": {
+        "setting": { "enum": ["timezone", "clock_check", "checkpoint_key"] },
+        "value": { "$ref": "#/$defs/setting_value" },
+        "previous_value": { "$ref": "#/$defs/setting_value" }
+      },
+      "allOf": [
+        { "if": { "properties": { "setting": { "const": "clock_check" } } },
+          "then": { "properties": { "value": { "enum": ["on", "off"] }, "previous_value": { "enum": ["on", "off"] } } } },
+        { "if": { "properties": { "setting": { "const": "checkpoint_key" } } },
+          "then": { "properties": { "value": { "pattern": "^[A-Za-z0-9._-]{1,64}$" }, "previous_value": { "pattern": "^[A-Za-z0-9._-]{1,64}$" } } } }
+      ]
+    },
     "approver": {
       "description": "Change to the humans the implementation lets answer approval requests (SPEC-v0 section 11.1).",
       "type": "object",
@@ -326,6 +358,12 @@
     { "if": { "properties": { "event": { "const": "template.changed" } } },
       "then": { "required": ["actor", "template"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } },
       "else": { "not": { "required": ["template"] } } },
+    { "if": { "properties": { "event": { "const": "issuer.changed" } } },
+      "then": { "required": ["actor", "issuer"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } },
+      "else": { "not": { "required": ["issuer"] } } },
+    { "if": { "properties": { "event": { "const": "config.changed" } } },
+      "then": { "required": ["actor", "config"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } },
+      "else": { "not": { "required": ["config"] } } },
     { "if": { "properties": { "event": { "const": "approver.changed" } } },
       "then": { "required": ["actor", "approver"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } },
       "else": { "not": { "required": ["approver"] } } },
@@ -377,6 +415,11 @@
       "else": { "properties": { "prev": { "$ref": "#/$defs/digest" } } } }
   ],
   "$defs": {
+    "setting_value": {
+      "description": "The value of a setting: an IANA time zone name, on or off for the clock check, a key ID for the checkpoint key; printable ASCII without space.",
+      "type": "string",
+      "pattern": "^[!-~]{1,64}$"
+    },
     "date_time": {
       "description": "Timestamp according to RFC 3339 with offset; asserting format is required (SPEC-v0 section 3.1 item 0).",
       "type": "string",

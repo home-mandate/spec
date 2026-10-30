@@ -204,6 +204,12 @@ func (p *referencePDP) handler() http.Handler {
 		if answer.ApprovalTimeout != "" {
 			context["approval_timeout"], context["approvers"] = answer.ApprovalTimeout, answer.Approvers
 		}
+		if answer.MandateDigest != "" {
+			context["mandate_digest"] = answer.MandateDigest
+		}
+		if answer.Selected != nil {
+			context["mandate_id"] = *answer.Selected
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"decision": result.Decision == evaluator.Allow, "context": context})
 	})

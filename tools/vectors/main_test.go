@@ -151,20 +151,22 @@ func TestCheckpointSignsWithATestKey(t *testing.T) {
 	}
 	const logID = "0198f1c2-7c3a-7000-8000-0000000000aa"
 	digest := "sha256:" + strings.Repeat("a", 64)
-	out, err := runTool(t, dir, "", "checkpoint", keyFile, "test-ed25519", logID, "2", digest)
+	const recordedAt = "2026-10-01T09:03:00+02:00"
+	out, err := runTool(t, dir, "", "checkpoint", keyFile, "test-ed25519", logID, "2", digest, recordedAt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, err := audit.SignCheckpoint(logID, 2, digest, "test-ed25519", ed25519.NewKeyFromSeed(mustDecode(t, "nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A")))
+	want, err := audit.SignCheckpoint(logID, 2, digest, recordedAt, "test-ed25519", ed25519.NewKeyFromSeed(mustDecode(t, "nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A")))
 	if err != nil || strings.TrimSpace(out) != want {
 		t.Errorf("checkpoint = %q, want %q (%v)", out, want, err)
 	}
 	for name, args := range map[string][]string{
-		"too few arguments": {"checkpoint", keyFile, "test-ed25519", logID, "2"},
-		"unknown key":       {"checkpoint", keyFile, "nope", logID, "2", digest},
-		"seq not a number":  {"checkpoint", keyFile, "test-ed25519", logID, "two", digest},
-		"missing key file":  {"checkpoint", filepath.Join(dir, "none.json"), "test-ed25519", logID, "2", digest},
-		"bad log ID":        {"checkpoint", keyFile, "test-ed25519", "log", "2", digest},
+		"too few arguments": {"checkpoint", keyFile, "test-ed25519", logID, "2", digest},
+		"unknown key":       {"checkpoint", keyFile, "nope", logID, "2", digest, recordedAt},
+		"seq not a number":  {"checkpoint", keyFile, "test-ed25519", logID, "two", digest, recordedAt},
+		"missing key file":  {"checkpoint", filepath.Join(dir, "none.json"), "test-ed25519", logID, "2", digest, recordedAt},
+		"bad log ID":        {"checkpoint", keyFile, "test-ed25519", "log", "2", digest, recordedAt},
+		"bad time":          {"checkpoint", keyFile, "test-ed25519", logID, "2", digest, "yesterday"},
 	} {
 		if _, err := runTool(t, dir, "", args...); err == nil {
 			t.Errorf("%s: accepted", name)

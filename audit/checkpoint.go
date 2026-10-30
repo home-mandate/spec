@@ -8,6 +8,7 @@ import (
 	"io"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/home-mandate/spec/jcs"
 	"github.com/home-mandate/spec/jws"
@@ -34,28 +35,34 @@ type Anchor struct {
 }
 
 // checkpointPayload is the statement a checkpoint signs: the log, the seq of the last
-// entry it covers and that entry's digest, in canonical form.
-func checkpointPayload(logID string, seq int64, digest string) ([]byte, error) {
+// entry it covers, that entry's digest and the time of the checkpoint entry (its
+// recorded_at, as written), in canonical form (SPEC-v0 section 9.5).
+func checkpointPayload(logID string, seq int64, digest, at string) ([]byte, error) {
 	return jcs.Canonicalize(map[string]any{
 		"type":   checkpointType,
 		"log_id": logID,
 		"seq":    json.Number(strconv.FormatInt(seq, 10)),
 		"digest": digest,
+		"at":     at,
 	})
 }
 
 // SignCheckpoint returns the signature of a checkpoint over the log up to and including
 // the entry seq with the given digest: a compact JWS with detached payload. The
-// log.checkpoint entry that carries it is the next entry, with seq+1 and prev = digest.
+// log.checkpoint entry that carries it is the next entry, with seq+1, prev = digest and
+// recorded_at = at, byte for byte: the signature covers the time of the checkpoint.
 // signer is an ed25519.PrivateKey or an *ecdsa.PrivateKey on P-256.
-func SignCheckpoint(logID string, seq int64, digest, kid string, signer any) (string, error) {
+func SignCheckpoint(logID string, seq int64, digest, at, kid string, signer any) (string, error) {
 	if !logIDPattern.MatchString(logID) {
 		return "", fmt.Errorf("audit: log ID %q is not a UUID in lower case", logID)
 	}
 	if seq < 1 || !digestPattern.MatchString(digest) {
 		return "", fmt.Errorf("audit: checkpoint needs a seq of at least 1 and a digest")
 	}
-	payload, err := checkpointPayload(logID, seq, digest)
+	if _, err := time.Parse(time.RFC3339Nano, at); err != nil {
+		return "", fmt.Errorf("audit: checkpoint time %q is not an RFC 3339 timestamp", at)
+	}
+	payload, err := checkpointPayload(logID, seq, digest, at)
 	if err != nil {
 		return "", fmt.Errorf("audit: %w", err)
 	}
@@ -86,7 +93,7 @@ func (v *verifier) checkpoint(l link) (violation bool) {
 	if v.anchor == nil {
 		return false
 	}
-	payload, err := checkpointPayload(l.logID, l.seq-1, l.prev)
+	payload, err := checkpointPayload(l.logID, l.seq-1, l.prev, l.recordedAt)
 	if err != nil {
 		return true
 	}

@@ -8,7 +8,7 @@
 //	                            with their digests (SPEC-v0 section 9.4)
 //	vectors codepoints <ucd>    print data/forbidden-codepoints-v0.json from the Unicode
 //	                            Character Database (SPEC-v0 section 3.1 item 8)
-//	vectors checkpoint <keys> <kid> <log ID> <seq> <digest>
+//	vectors checkpoint <keys> <kid> <log ID> <seq> <digest> <recorded_at>
 //	                            print the signature of an audit log checkpoint, signed with a
 //	                            test key (SPEC-v0 section 9.5)
 //	vectors sign [-raw] <keys> <kid> <file>

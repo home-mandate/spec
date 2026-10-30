@@ -166,6 +166,7 @@ type rawRule struct {
 	} `json:"resource"`
 	Actions    []string `json:"actions"`
 	Decision   string   `json:"decision"`
+	Note       string   `json:"note"`
 	Conditions *struct {
 		TimeWindow string   `json:"time_window"`
 		Weekdays   []string `json:"weekdays"`
@@ -184,6 +185,7 @@ type rawConstraint struct {
 type rawMandate struct {
 	Type      string `json:"type"`
 	ID        string `json:"id"`
+	Name      string `json:"name"`
 	Principal string `json:"principal"`
 	Agent     struct {
 		ClientID    string `json:"client_id"`
@@ -227,6 +229,12 @@ func buildMandate(raw rawMandate, digest string) (*Mandate, error) {
 	}
 	if err := checkDisplayedText("created_by", raw.CreatedBy); err != nil {
 		return nil, err
+	}
+	// name and note are optional; the schema has already rejected an empty one.
+	if raw.Name != "" {
+		if err := checkDisplayedText("name", raw.Name); err != nil {
+			return nil, err
+		}
 	}
 	approval, err := buildApproval("approval", raw.Approval)
 	if err != nil {
@@ -278,6 +286,11 @@ func buildRule(rr rawRule) (rule, error) {
 	}
 	if err := checkRuleVocabulary(rr); err != nil {
 		return rule{}, err
+	}
+	if rr.Note != "" {
+		if err := checkDisplayedText("rule "+strconv.Quote(rr.ID)+" note", rr.Note); err != nil {
+			return rule{}, err
+		}
 	}
 	r := rule{
 		id: rr.ID,
