@@ -91,7 +91,7 @@
       "properties": {
         "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{4,64}$" },
         "digest": { "$ref": "#/$defs/digest" },
-        "previous_digest": { "$ref": "#/$defs/digest" },
+        "previous_digest": { "description": "Required with mandate.updated (the version replaced); with mandate.proposed the version held when the proposal was recorded, if any; mandate.discarded repeats the proposal's value; absent with every other event. Differs from digest (SPEC-v0 section 9.1).", "$ref": "#/$defs/digest" },
         "cause": {
           "description": "Only with mandate.discarded (rejected, superseded, revoked, expired: why a proposal did not take effect) and mandate.rejected (invalid, signature, untrusted_issuer, succession, unsupported: why a mandate from outside was not accepted), required there (SPEC-v0 section 9.1).",
           "enum": ["rejected", "superseded", "revoked", "expired", "invalid", "signature", "untrusted_issuer", "succession", "unsupported"]
@@ -301,7 +301,8 @@
       "then": { "required": ["actor"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } },
       "else": { "not": { "required": ["exported"] } } },
     { "if": { "properties": { "event": { "const": "mandate.updated" } } },
-      "then": { "properties": { "mandate": { "required": ["previous_digest"] } } },
+      "then": { "properties": { "mandate": { "required": ["previous_digest"] } } } },
+    { "if": { "properties": { "event": { "enum": ["mandate.updated", "mandate.proposed", "mandate.discarded"] } } },
       "else": { "properties": { "mandate": { "not": { "required": ["previous_digest"] } } } } },
     { "if": { "properties": { "event": { "enum": ["mandate.created", "mandate.updated", "mandate.proposed", "mandate.discarded", "mandate.rejected"] } } },
       "then": { "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } } },
