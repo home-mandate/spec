@@ -30,8 +30,8 @@ type privateJWK struct {
 // runCheckpoint prints the signature of a checkpoint (SPEC-v0 section 9.5), signed
 // with a test key from a JWK Set that contains private keys.
 func runCheckpoint(args []string, dir string, stdout io.Writer) error {
-	if len(args) != 5 {
-		return errors.New("usage: vectors checkpoint <private JWK Set> <kid> <log ID> <seq> <digest>")
+	if len(args) != 6 {
+		return errors.New("usage: vectors checkpoint <private JWK Set> <kid> <log ID> <seq> <digest> <recorded_at of the checkpoint entry>")
 	}
 	signer, err := privateKey(resolve(dir, args[0]), args[1])
 	if err != nil {
@@ -41,7 +41,7 @@ func runCheckpoint(args []string, dir string, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("seq: %w", err)
 	}
-	signature, err := audit.SignCheckpoint(args[2], seq, args[4], args[1], signer)
+	signature, err := audit.SignCheckpoint(args[2], seq, args[4], args[5], args[1], signer)
 	if err != nil {
 		return err
 	}

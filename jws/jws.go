@@ -45,6 +45,11 @@ const maxCompactBytes = 512 << 10
 
 const p256Bytes = 32
 
+// ed25519FieldPrime is p = 2^255 - 19. An Ed25519 public key encodes the y coordinate
+// in its lower 255 bits; an encoding with y >= p is not canonical and is rejected, so that
+// a key has exactly one form (RFC 8032 section 5.1.3).
+var ed25519FieldPrime = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 255), big.NewInt(19))
+
 // halfOrder is half the order of P-256. An ES256 signature (r, s) is accepted only with
 // s in the lower half, so that a signature has exactly one form.
 var halfOrder = new(big.Int).Rsh(elliptic.P256().Params().N, 1)
@@ -316,6 +321,9 @@ func publicKey(k jwk) (crypto.PublicKey, error) {
 		if len(x) != ed25519.PublicKeySize {
 			return nil, errors.New("wrong length")
 		}
+		if !canonicalEd25519(x) {
+			return nil, errors.New("not a canonical encoding")
+		}
 		return ed25519.PublicKey(x), nil
 	case k.Kty == "EC" && k.Crv == "P-256":
 		y, err := b64.DecodeString(k.Y)
@@ -331,6 +339,17 @@ func publicKey(k jwk) (crypto.PublicKey, error) {
 		return ecdsa.ParseUncompressedPublicKey(elliptic.P256(), point)
 	}
 	return nil, fmt.Errorf("key type %q with curve %q", k.Kty, k.Crv)
+}
+
+// canonicalEd25519 reports whether a 32-byte point encoding has y < p: the little-endian
+// value of the bytes without the sign bit (the top bit of the last byte).
+func canonicalEd25519(encoded []byte) bool {
+	y := make([]byte, len(encoded))
+	for i, b := range encoded {
+		y[len(encoded)-1-i] = b
+	}
+	y[0] &= 0x7f
+	return new(big.Int).SetBytes(y).Cmp(ed25519FieldPrime) < 0
 }
 
 // MarshalJWKS writes public keys as a JWK Set, sorted by key ID.

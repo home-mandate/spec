@@ -10,6 +10,10 @@
   "properties": {
     "type": { "const": "https://home-mandate.org/mandate/v0" },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{4,64}$" },
+    "name": {
+      "description": "Optional name of the mandate for user interfaces and confirmations; displayed text (SPEC-v0 section 3.1 item 8), not part of the evaluation.",
+      "type": "string", "minLength": 1, "maxLength": 64
+    },
     "principal": { "type": "string", "pattern": "^(household|person):[A-Za-z0-9_-]{1,64}$" },
     "agent": {
       "type": "object",
@@ -192,6 +196,10 @@
           "items": { "type": "string", "pattern": "^(\\*|[a-z][a-z0-9_]{0,63})$" }
         },
         "decision": { "enum": ["allow", "ask", "deny"] },
+        "note": {
+          "description": "Optional explanation of the rule for user interfaces and confirmations (by which rule); displayed text (SPEC-v0 section 3.1 item 8), not part of the evaluation.",
+          "type": "string", "minLength": 1, "maxLength": 200
+        },
         "conditions": { "$ref": "#/$defs/conditions" },
         "constraints": { "$ref": "#/$defs/constraints" },
         "approval": { "$ref": "#/$defs/approval" },

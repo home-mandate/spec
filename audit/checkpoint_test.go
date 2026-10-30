@@ -13,7 +13,10 @@ import (
 	"github.com/home-mandate/spec/jws"
 )
 
-const testLogID = "0198f1c2-7c3a-7000-8000-0000000000aa"
+const (
+	testLogID      = "0198f1c2-7c3a-7000-8000-0000000000aa"
+	testRecordedAt = "2026-10-01T09:00:00+02:00"
+)
 
 func testSigner() ed25519.PrivateKey { return ed25519.NewKeyFromSeed(bytes.Repeat([]byte{7}, 32)) }
 
@@ -47,7 +50,7 @@ func (b *logBuilder) stop() {
 // checkpoint appends a checkpoint over everything written so far.
 func (b *logBuilder) checkpoint(logID, kid string, signer any) {
 	b.t.Helper()
-	sig, err := audit.SignCheckpoint(logID, int64(len(b.entries)), b.prev, kid, signer)
+	sig, err := audit.SignCheckpoint(logID, int64(len(b.entries)), b.prev, testRecordedAt, kid, signer)
 	if err != nil {
 		b.t.Fatal(err)
 	}
@@ -104,7 +107,7 @@ func TestRewrittenLogDoesNotMatchItsCheckpoint(t *testing.T) {
 	original := &logBuilder{t: t}
 	original.stop()
 	original.stop()
-	sig, err := audit.SignCheckpoint(testLogID, 2, original.prev, "log-key-1", testSigner())
+	sig, err := audit.SignCheckpoint(testLogID, 2, original.prev, testRecordedAt, "log-key-1", testSigner())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,11 +132,11 @@ func TestCheckpointViolations(t *testing.T) {
 		"unknown key ID":          func(b *logBuilder) { b.checkpoint(testLogID, "log-key-2", testSigner()) },
 		"another log":             func(b *logBuilder) { b.checkpoint(otherLog, "log-key-1", testSigner()) },
 		"signature for another position": func(b *logBuilder) {
-			sig, _ := audit.SignCheckpoint(testLogID, 1, b.prev, "log-key-1", testSigner())
+			sig, _ := audit.SignCheckpoint(testLogID, 1, b.prev, testRecordedAt, "log-key-1", testSigner())
 			b.checkpointWith(testLogID, sig)
 		},
 		"signature for another digest": func(b *logBuilder) {
-			sig, _ := audit.SignCheckpoint(testLogID, 2, "sha256:"+strings.Repeat("0", 64), "log-key-1", testSigner())
+			sig, _ := audit.SignCheckpoint(testLogID, 2, "sha256:"+strings.Repeat("0", 64), testRecordedAt, "log-key-1", testSigner())
 			b.checkpointWith(testLogID, sig)
 		},
 	} {
@@ -196,10 +199,14 @@ func TestChainBreakComesBeforeACheckpointViolation(t *testing.T) {
 func TestSignCheckpointRejectsBadInput(t *testing.T) {
 	good := "sha256:" + strings.Repeat("a", 64)
 	for name, call := range map[string]func() (string, error){
-		"bad log ID": func() (string, error) { return audit.SignCheckpoint("log", 1, good, "k", testSigner()) },
-		"seq zero":   func() (string, error) { return audit.SignCheckpoint(testLogID, 0, good, "k", testSigner()) },
-		"bad digest": func() (string, error) { return audit.SignCheckpoint(testLogID, 1, "sha256:x", "k", testSigner()) },
-		"bad key":    func() (string, error) { return audit.SignCheckpoint(testLogID, 1, good, "k", "key") },
+		"bad log ID": func() (string, error) { return audit.SignCheckpoint("log", 1, good, testRecordedAt, "k", testSigner()) },
+		"seq zero": func() (string, error) {
+			return audit.SignCheckpoint(testLogID, 0, good, testRecordedAt, "k", testSigner())
+		},
+		"bad digest": func() (string, error) {
+			return audit.SignCheckpoint(testLogID, 1, "sha256:x", testRecordedAt, "k", testSigner())
+		},
+		"bad key": func() (string, error) { return audit.SignCheckpoint(testLogID, 1, good, testRecordedAt, "k", "key") },
 	} {
 		if _, err := call(); err == nil {
 			t.Errorf("%s: accepted", name)

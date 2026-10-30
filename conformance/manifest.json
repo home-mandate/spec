@@ -3,8 +3,8 @@
   "files": [
     {
       "path": "conformance/audit-v0.json",
-      "sha256": "3eb71def9f70868f8c19bf4f2540709548e46ca2f32b8c1b9e6f10992f22b58d",
-      "cases": 193
+      "sha256": "a8c2e2d75265845586b06a22945352d3f7acf4d7ef1bcafb82816507e33c9155",
+      "cases": 202
     },
     {
       "path": "conformance/cases-v0.json",
@@ -13,13 +13,13 @@
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "707d81bb3cef01eaa1e0a2289b81831c4584a46c14d931bd6978b37bd6bdc2ba",
-      "cases": 48
+      "sha256": "3eee0dd5e46fc6ecc8cf87648f2ce13cf182765371c61801806540ab15e17ab6",
+      "cases": 49
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "accca5a1edfdcdd5d529745e28d50381ac384c745f51207e08400e569a1c26cd",
-      "cases": 151
+      "sha256": "ab9fa7653d095d84ecb1501b2b92551e3936a7540f71b99ef274fbed9e199155",
+      "cases": 155
     },
     {
       "path": "conformance/keys/test-keys.json",
@@ -111,13 +111,13 @@
     },
     {
       "path": "conformance/selection-v0.json",
-      "sha256": "f2aef2d6049520155f252f49183c105142b0efc9a3011eaf0ade9983a40c5e3a",
-      "cases": 22
+      "sha256": "ef2dc9366900b0e6b798d0534171f9491201b593028ab8c610bbf13738202dd2",
+      "cases": 23
     },
     {
       "path": "conformance/signed-v0.json",
-      "sha256": "6c6c42755753fe60c480e1c3300329ad6f7ff79fc350cf9c4f2bb2c1f41481ad",
-      "cases": 18
+      "sha256": "d844447007246e0a5937dd614510fa8e953d871bc24e241fc26afe9b10139d78",
+      "cases": 21
     },
     {
       "path": "conformance/succession-v0.json",
@@ -142,11 +142,11 @@
     },
     {
       "path": "schema/audit-v0.schema.json",
-      "sha256": "4a65f71520a9d44758b0a59d057e3564964f7515a295b62e2fdf2cd176743208"
+      "sha256": "85b382f33397d1c11d4861fc0167498f3daac92e93ac6a8de277ee810778abba"
     },
     {
       "path": "schema/mandate-v0.schema.json",
-      "sha256": "28e35610ac65f776402a22769925f7b5d2cff3ac81bda821b6a33b33f13f4df8"
+      "sha256": "9a73ca3e09c0ec8088a274a90858d0a1367cf35631de834c4a4d0249b6420927"
     },
     {
       "path": "schema/vocabulary-v0.schema.json",

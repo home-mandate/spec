@@ -112,6 +112,7 @@ type link struct {
 	digest     string
 	logID      string // of a checkpoint
 	signature  string // of a checkpoint
+	recordedAt string // of a checkpoint, as written: the signature covers it
 }
 
 // Verify checks entries in file order: first the schema of all entries, then the start
@@ -238,6 +239,7 @@ func check(compiled *jsonschema.Schema, known actionsByCategory, entry []byte) (
 	if c, ok := obj["checkpoint"].(map[string]any); ok {
 		l.logID, _ = c["log_id"].(string)
 		l.signature, _ = c["signature"].(string)
+		l.recordedAt, _ = obj["recorded_at"].(string)
 	}
 	if t, ok := obj["truncated"].(map[string]any); ok {
 		l.upToSeq = intField(t, "up_to_seq")
@@ -269,6 +271,7 @@ var formerValues = [][3]string{
 	{"directory", "category", "previous_category"},
 	{"mandate", "digest", "previous_digest"},
 	{"template", "digest", "previous_digest"},
+	{"config", "value", "previous_value"},
 }
 
 // distinctFormerValues reports whether every change that names a former value names one

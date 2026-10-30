@@ -126,6 +126,7 @@ Summary:
 Mandate
 ├── type          "https://home-mandate.org/mandate/v0"
 ├── id            unique ID
+├── name?         displayed text for interfaces, see Section 3.1 item 8
 ├── principal     "household:<id>" or "person:<id>"
 ├── agent         { client_id, display_name }   client_id: see Section 3.3
 ├── enforce?      only false: audit mode (Section 4.6); absent: enforced
@@ -135,6 +136,7 @@ Mandate
 │   │             entity_id and area are opaque identifiers, see Section 3.4
 │   ├── actions[] actions from the vocabulary or "*"
 │   ├── decision  allow | ask | deny
+│   ├── note?     displayed text for interfaces, see Section 3.1 item 8
 │   ├── conditions? { time_window, weekdays }
 │   ├── constraints? { <parameter>: { min, max } or { one_of } }   only with allow, see Section 4.5
 │   ├── approval?   { timeout, approvers }   only with ask
@@ -182,9 +184,12 @@ A mandate is valid if it conforms to the schema **and** additionally:
    decimal number of 1 to 5 digits (`PT2M`, `PT1M30S`, `PT1H`). Its value is the sum of the
    components. Different spellings of the same duration are different mandates with
    different digests;
-8. `agent.display_name`, `created_by` and all `approvers` are **displayed text**: they are
-   shown to humans, for example in an approval request, and MUST NOT be able to mislead
-   them. A displayed text
+8. `agent.display_name`, `created_by`, all `approvers`, `name` and every rule's `note` are
+   **displayed text**: they are shown to humans, for example in an approval request, and
+   MUST NOT be able to mislead them. `name` (1 to 64 code points) names the mandate and
+   `note` (1 to 200) explains a rule, so that an interface or a confirmation can show
+   something readable next to `id` and `rule_id`; neither is part of the evaluation. A
+   displayed text
    - contains no code point listed under `forbidden` in
      `data/forbidden-codepoints-v0.json`. The list is normative and fixed; it was derived
      from Unicode 17.0.0 and contains the general categories Cc, Cf, Zl, Zp, Co and Cs
@@ -449,10 +454,10 @@ In addition to the decision, the evaluation returns:
 
   | Code | Decision | Meaning |
   |---|---|---|
-  | `no_mandate` | deny | no mandate for the agent and the principal (Section 4.3) |
+  | `no_mandate` | deny | no mandate selected for the agent and the principal (Section 4.3); not for a subject no mandate could name, which is `invalid_request` |
   | `ambiguous_mandate` | deny | several mandates for the agent and the principal (Section 4.3) |
   | `invalid_mandate` | deny | mandate invalid (Section 3.1) |
-  | `invalid_request` | deny | request invalid (step 0, second item) |
+  | `invalid_request` | deny | request invalid (step 0, second item), or the subject of the request names no agent or no valid principal (Sections 4.3, 6) |
   | `unknown_resource` | deny | resource not in the directory of the PEP (no category) |
   | `unknown_category` | deny | category neither in Section 5 nor a known extension |
   | `unknown_action` | deny | action not in the category's vocabulary |
@@ -516,7 +521,11 @@ time**: the point in time is converted to the household's time zone.
 An implementation can store several mandates. Which one is evaluated for a request is
 determined by the agent (`agent.client_id`) and the principal of the request, both compared
 exactly. `household:x` and `person:x` are different principals; nothing is inherited from
-one to the other. The PEP determines the principal; it does not take it from the agent.
+one to the other. The PEP determines the principal; it does not take it from the agent. A
+request that names no agent, or whose principal does not match the pattern of `principal`
+in the schema, is `deny` with `invalid_request` before any mandate is selected, so that
+`no_mandate` and `ambiguous_mandate` do not arise for a subject no mandate could name
+(Section 6).
 
 1. Candidates are the stored mandates of the agent and the principal that are not revoked.
    A stored document that is not a valid mandate (Section 3.1) is a candidate as well.
@@ -764,8 +773,8 @@ POST /access/v1/evaluation
                 "properties": { "principal": "household:hm-7f3a" } },
   "action":   { "name": "unlock" },
   "resource": { "type": "lock", "id": "lock.front_door",
-                "properties": { "areas": ["hallway", "ground_floor"] } },
-  "context":  { "time": "2026-10-12T21:14:03+02:00" }
+                "properties": { "areas": ["hallway", "ground_floor"], "critical": false } },
+  "context":  { "time": "2026-10-12T21:14:03+02:00", "timezone": "Europe/Berlin" }
 }
 ```
 
@@ -776,11 +785,13 @@ context:
 { "decision": false,
   "context": { "outcome": "ask", "reason": "rule", "rule_id": "r-locks",
                "approval_timeout": "PT2M", "approvers": ["user-1"],
-               "mandate_digest": "sha256:9f2c…" } }
+               "mandate_id": "m-voice-assistant", "mandate_digest": "sha256:9f2c…" } }
 ```
 
-`reason` is REQUIRED, as is `mandate_digest` unless Section 4.1 says it is absent; `rule_id` is
-included when Section 4.1 provides for it. For `outcome: ask`, `approval_timeout` and
+`reason` is REQUIRED, as are `mandate_id` (the `id` of the evaluated mandate) and
+`mandate_digest` unless Section 4.1 says the digest is absent: a PEP with a separate PDP
+records both in the audit entry (Section 9.1) and need not resolve the `id` from the
+digest. `rule_id` is included when Section 4.1 provides for it. For `outcome: ask`, `approval_timeout` and
 `approvers` (the approval settings per Section 4.1) are REQUIRED, so that a PEP can obtain
 the confirmation without knowing the mandate. `enforced: false` is REQUIRED for a `deny`
 that is not enforced (audit mode, Section 4.6) and absent otherwise:
@@ -788,7 +799,7 @@ that is not enforced (audit mode, Section 4.6) and absent otherwise:
 ```json
 { "decision": false,
   "context": { "outcome": "deny", "reason": "no_match", "enforced": false,
-               "mandate_digest": "sha256:83d0…" } }
+               "mandate_id": "m-trial", "mandate_digest": "sha256:83d0…" } }
 ```
 
 `confirm: true` is REQUIRED for a `deny` that is not enforced and requires a confirmation
@@ -799,7 +810,7 @@ that is not enforced (audit mode, Section 4.6) and absent otherwise:
   "context": { "outcome": "deny", "reason": "rule", "rule_id": "r-no-kids-room",
                "enforced": false, "confirm": true,
                "approval_timeout": "PT1M", "approvers": ["parent-1"],
-               "mandate_digest": "sha256:5b1e…" } }
+               "mandate_id": "m-trial", "mandate_digest": "sha256:5b1e…" } }
 ```
 
 Field mapping:
@@ -810,13 +821,18 @@ Field mapping:
 | `resource.id` | entity ID |
 | `resource.type` | category |
 | `resource.properties.areas` | set of areas, as an array (Section 3.4) |
+| `resource.properties.critical` | whether the directory marks the resource as critical (Section 4 step 5): a boolean; absent is `false` |
 | `action.name` | action |
 | `action.properties` | parameters (Section 4.5): an object of parameter names and values, each a JSON integer or string |
 | `context.time` | point in time |
+| `context.timezone` | household time zone, an IANA name (Section 4.2); absent: the offset of `context.time` applies |
 
-The PDP does not use `resource.type`, `resource.properties.areas` and `context.time` without
-verification, but in accordance with Section 4 "Origin of inputs"; the critical marking of a
-resource likewise comes from the directory, never from the request. The mandate is selected
+The PDP does not use `resource.type`, `resource.properties` and `context` without
+verification, but in accordance with Section 4 "Origin of inputs": they come from the
+directory, the clock and the household configuration, never from the agent. A PDP that
+holds the directory, the clock and the household configuration itself ignores
+`resource.type`, `resource.properties` and `context` and uses its own (as in the test
+interface, Section 10.3). The mandate is selected
 per Section 4.3; if there is none for the agent and principal, the result is `deny` with
 `reason: no_mandate`.
 
@@ -832,7 +848,11 @@ that does not know `enforced` enforces the denial. The extension is thus
 backward-compatible and safe. A PEP that executes a `deny` with `enforced: false` MUST also
 know `confirm`, because it may only execute one with `confirm: true` after a confirmation.
 
-`subject.type` MUST be `agent`; any other value is `deny` with `invalid_request`.
+**Subject.** A request whose `subject.type` is not `agent`, whose `subject.id` is missing or
+empty, or whose `subject.properties.principal` is missing or does not match the pattern of
+`principal` in the mandate schema is answered with `deny` and `invalid_request` before any
+mandate is selected (Section 4.3); `mandate_id` and `mandate_digest` are absent. Two PDPs
+therefore answer alike whether or not a mandate exists for such a subject.
 
 **Trust between PEP and PDP.** The PDP decides on the basis of the resource directory, the
 clock, the household time zone and the mandate status. Whoever holds these is part of the
@@ -840,8 +860,8 @@ trusted side. If PEP and PDP are separate components, exactly one of them holds 
 directory, and both MUST know which. The connection between them MUST be authenticated in
 both directions and protected against modification; a PDP MUST NOT answer callers it has
 not authenticated, and it MUST NOT be reachable by agents. A PDP that does not hold the
-directory itself takes `resource.type`, `resource.properties` and `context.time` from the
-authenticated PEP, and only from it.
+directory itself takes `resource.type`, `resource.properties`, `context.time` and
+`context.timezone` from the authenticated PEP, and only from it.
 
 ## 7. Signed mandates and transport
 
@@ -869,9 +889,13 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
 - `kid` is 1 to 64 characters from `A–Z a–z 0–9 . _ -` and names a key of the issuer.
 - A signed object has exactly one spelling. The three segments are base64url without
   padding and without any other character (no line breaks); the names of the header
-  members are case-sensitive; and of the two values of `s` that verify for an ES256
-  signature, only the lower one (`s` ≤ n/2) is accepted, and signers produce it. A
-  verifier MUST reject everything else, even if the signature would verify.
+  members are case-sensitive; of the two values of `s` that verify for an ES256
+  signature, only the lower one (`s` ≤ n/2) is accepted, and signers produce it; and for
+  EdDSA, `S` is less than the group order `L`, and `R` and the public key are canonically
+  encoded (RFC 8032 sections 5.1.3 and 5.1.7; here: the encoded y-coordinate is less than
+  p = 2^255 − 19), because libraries differ on what else they accept. `alg` MUST match the
+  type of the key `kid` names: `EdDSA` an Ed25519 key, `ES256` a P-256 key. A verifier
+  MUST reject everything else, even if the signature would verify.
 - Keys that sign mandates MUST NOT be used to sign checkpoints (Section 9.5), and vice
   versa.
 
@@ -891,7 +915,10 @@ A signed mandate that fails one of these is not accepted and is recorded with
 How a verifier comes to trust the keys of an issuer is outside this specification
 (configuration, pairing, a JWK Set under the issuer's URL, …). Keys are exchanged as JWK or
 JWK Set (RFC 7517): `{"kty":"OKP","crv":"Ed25519","x":…}` or
-`{"kty":"EC","crv":"P-256","x":…,"y":…}`, each with a `kid`.
+`{"kty":"EC","crv":"P-256","x":…,"y":…}`, each with a `kid`. An issuer that becomes
+trusted or stops being trusted, and every key of an issuer that is added or removed, is
+recorded with `issuer.changed` (Section 9.2): which mandates a verifier accepts depends on
+it.
 
 The algorithms are fixed per version of the specification. The prefix of a digest
 (`sha256:`) and the `alg` of a signature name the algorithm, so that a later version can
@@ -1039,10 +1066,12 @@ Depending on the event, the following are added:
 | `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
 | `exported` | `from_seq`, `to_seq`: the range of entries an export contained (Section 13), with `from_seq` ≤ `to_seq` < the entry's own `seq`. Only with `log.exported`, optional there: without it, the export contained all entries before this one |
-| `checkpoint` | `log_id`, `signature` (Section 9.5) |
+| `checkpoint` | `log_id`, `signature` (Section 9.5); the signature also covers the entry's `recorded_at` |
 | `directory` | change to the resource directory (Section 11.4): `change` (`added`, `removed`, `critical_marked`, `critical_unmarked`, `category_changed`, `areas_changed`, `renamed`, `rename_applied`, `rename_dismissed`) and `entity_id`, an identifier per Section 3.4. With `renamed`, `rename_applied` and `rename_dismissed` also `previous_entity_id`, different from `entity_id`: for `renamed`, `entity_id` is the new and `previous_entity_id` the former identifier; for `rename_applied` (a human took the rename over into the mandates) and `rename_dismissed`, `entity_id` is the current identifier and `previous_entity_id` the former one that was resolved, one entry per former identifier. With `category_changed` also `previous_category` and `category`, different from each other; with `areas_changed` also `previous_areas` and `areas`, two different sets; with `added` and `removed` optionally `category` and `areas`, the resource as it was added or last known. `category` is a category of Section 5 or an extension category, `areas` a set of up to 16 areas per Section 3.4, empty for a resource without an area. Only with `directory.changed` |
 | `template` | change to a template (Section 2): `change` (`stored`: created or changed, `removed`, `hidden`: no longer offered or accepted for creating mandates without being removed, `shown`: offered and accepted again), `name` (1 to 64 characters) and `digest`; for `stored` the digest of the new content, for `removed` that of the last content, for `hidden` and `shown` optionally that of the current content. `previous_digest` only for `stored` and only if the template had content before, different from `digest`. Digests are computed as in Section 3.2 over the template as the implementation stores it. Only with `template.changed` |
 | `approver` | change to the humans whom the implementation lets answer approval requests (Section 11.1): `change` (`added`, `removed`) and `id` (1 to 128 characters), the identifier of the approver in the user management, as in `approval.by`. Only with `approver.changed` |
+| `issuer` | change to the issuers the implementation trusts and to their keys (Section 7.1): `change` (`trusted`, `untrusted`, `key_added`, `key_removed`), `issuer` (as a mandate names it, Section 3.5, recorded as given) and, only with `key_added` and `key_removed`, `kid` (as in Section 7.1), required there. Only with `issuer.changed` |
+| `config` | change to a setting that affects every evaluation or the anchoring of the log: `setting` (`timezone`: the household time zone, Section 4.2; `clock_check`: whether the implementation denies requests while it believes its clock is wrong, Section 11.4; `checkpoint_key`: the key that signs checkpoints, Section 9.5), `value` (the IANA name, `on` or `off`, or the `kid` as in Section 7.1; 1 to 64 printable ASCII characters without space) and `previous_value` (same form, different from `value`) if the setting had a value before. Only with `config.changed` |
 
 `request` records the input to the evaluation as the PEP determined it, also when the
 evaluation found it invalid (`invalid_request`). Identifiers in it are therefore limited only
@@ -1103,9 +1132,10 @@ For `decision`, the following additionally applies:
 
 A `log.truncated` or `log.exported` entry has an `actor` of kind `user` or `system`; an
 agent never deletes or exports entries. The same holds for `directory.changed`,
-`template.changed`, `approver.changed`, `mandate.removed`, `agent.removed`,
-`mandate.proposed`, `mandate.discarded` and `mandate.rejected`: an agent never changes the
-directory, a template or who may answer approval requests, never removes a mandate or an
+`template.changed`, `approver.changed`, `issuer.changed`, `config.changed`,
+`mandate.removed`, `agent.removed`, `mandate.proposed`, `mandate.discarded` and
+`mandate.rejected`: an agent never changes the directory, a template, who may answer
+approval requests, which issuers are trusted or a setting, never removes a mandate or an
 agent, and never proposes, discards or delivers a mandate (`system` stands for the
 implementation itself or for a mandate an issuer delivered, Section 7). An
 `agent.reconnected` and an `emergency_stop.released` entry have an `actor` of kind
@@ -1137,6 +1167,8 @@ template.
 | `directory.changed` | yes, if the implementation tracks the change in question: the critical marking, renamed resources, resources added or removed, a changed category or set of areas | every such change to the directory, and every rename a human resolves (Section 11.4) |
 | `template.changed` | yes, if the implementation lets humans change templates | every template stored, removed, hidden or shown again |
 | `approver.changed` | yes, if the implementation keeps its own list of humans who may answer approval requests | every approver added to or removed from that list (Section 11.1) |
+| `issuer.changed` | yes, if the implementation accepts signed mandates (Section 7) | every issuer that becomes trusted or stops being trusted, and every key of an issuer added or removed (Section 7.1) |
+| `config.changed` | yes | every change to the household time zone, to the clock check (Section 11.4) and to the key that signs checkpoints (Section 9.5) |
 | `mandate.removed`, `agent.removed` | yes, if the implementation removes revoked mandates or agents | every revoked mandate or agent removed from the implementation's lists (Section 11.3) |
 | `mandate.proposed`, `mandate.discarded` | yes, if the implementation offers audit mode | every mandate that would switch audit mode on and waits for a confirmation, and every such proposal that does not take effect, each with the digest of the proposed version and, if one is stored, that of the stored version (Section 11.6 item 4) |
 | `mandate.rejected` | yes, if the implementation accepts mandates from outside (Sections 3.5 and 7) | every mandate from outside that was not accepted: invalid, not verifiable, from an untrusted issuer, against succession or unsupported |
@@ -1247,8 +1279,13 @@ digest is the checkpoint's `prev`. A checkpoint therefore never has `seq` 1.
 
   ```json
   { "type": "https://home-mandate.org/audit-checkpoint/v0",
-    "log_id": <log_id>, "seq": <seq of the checkpoint entry − 1>, "digest": <prev of the checkpoint entry> }
+    "log_id": <log_id>, "seq": <seq of the checkpoint entry − 1>, "digest": <prev of the checkpoint entry>,
+    "at": <recorded_at of the checkpoint entry> }
   ```
+
+  `at` is the `recorded_at` of the checkpoint entry, character for character. The
+  signature thus covers when the checkpoint was made, not only what it covers; a verifier
+  builds the payload from the entry, so nothing is repeated in `checkpoint`.
 
 Verification (Section 9.4) gains a fourth condition, checked after the chain:
 
@@ -1272,9 +1309,12 @@ MUST therefore write a checkpoint directly after every `log.truncated` entry, an
 relying party SHOULD give the verifier the `log_id` it expects: without it, the log of
 another household signed with the same key would verify.
 
+A change of the key that signs checkpoints is recorded with `config.changed` (Section 9.2)
+in the log it signs.
+
 What a checkpoint adds: a log that was rewritten or replaced no longer matches the
-checkpoints signed before, and nobody without the key can sign new ones. What it does not
-add: it does not prevent the removal of entries after the last checkpoint, and a verifier
+checkpoints signed before, nobody without the key can sign new ones, and the time a
+checkpoint names is part of what it signs. What it does not add: it does not prevent the removal of entries after the last checkpoint, and a verifier
 that does not know how far the log should reach cannot tell that the log and its last
 checkpoints were removed together. Implementations SHOULD write a checkpoint at regular
 intervals, and a party that relies on the log SHOULD keep the `log_id` and the highest
@@ -1320,7 +1360,13 @@ cases).
 (an object of names and values, each a JSON number or string), `time`, optionally `timezone`
 and `revoked`. A `time` that is no RFC 3339 timestamp or a parameter that is neither an
 integer nor a string yields `deny` with `invalid_request`. A string is never read as a
-number: `"50"` is the string `50`.
+number: `"50"` is the string `50`. For `select`, a `subject` whose `client_id` is empty or
+whose `principal` does not match the pattern of `principal` yields `deny` with
+`invalid_request` and no `selected` (Section 6). A request that cannot be expressed yields
+`invalid_request` after the selection (Section 4.1: `no_mandate`, `ambiguous_mandate` and
+`invalid_mandate` come first), with `selected` and `mandate_digest` when a mandate is
+selected; a point in time that is not readable selects only a sole candidate (Section 4.3
+step 3), several candidates cannot be told apart.
 
 A request with a member that this section does not define is malformed and is answered with
 an `error`, so that a former member name (such as `area`) is never evaluated as if it were
@@ -1351,9 +1397,11 @@ directory, the point in time the PDP uses as its clock, and the household time z
 (absent: the offset of `time` applies). The answer is a 2xx status. Then the tool sends the
 request of the case to `POST <authzen>/access/v1/evaluation` with `subject` (type `agent`,
 `id`, `properties.principal`), `action` (`name`, `properties` for parameters) and
-`resource.id` only: category, areas and the critical marking come from the directory. It
-compares `decision` and, in the response context, `outcome`, `reason`, `rule_id`,
-`approval_timeout`, `enforced` and `confirm`.
+`resource.id` only: category, areas, the critical marking and the time zone come from the
+state the control resource set, so `resource.type`, `resource.properties` and `context`
+are not sent. It compares `decision` and, in the response context, `outcome`, `reason`,
+`rule_id`, `approval_timeout`, `enforced`, `confirm` and `mandate_id`: against `selected`
+of a selection case, and against the `id` of the stored mandate of an evaluation case.
 
 The tool sends the HTTP headers it was given (for example `Authorization`) with every
 request; the control resource SHOULD require authentication even in a test build.
@@ -1559,7 +1607,10 @@ SHOULD deny requests while it has reason to believe the clock is wrong (for exam
 before the newest entry of its audit log). Changes to the directory are covered by
 Section 3.4. Changes that affect the evaluation (the critical marking, renamed resources, a
 resource added or removed, a changed category or set of areas) are recorded with
-`directory.changed` (Section 9.2), as far as the implementation tracks them.
+`directory.changed` (Section 9.2), as far as the implementation tracks them. A change of the
+household time zone, and switching the check of the clock off or on, are recorded with
+`config.changed` (Section 9.2): every time window and every validity period depends on
+them.
 
 When a resource is renamed, an implementation SHOULD keep applying the rules that name its
 former identifier to it, together with the rules that name the new one, and take the
@@ -1659,7 +1710,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded, and so are added or removed resources and changed categories or areas, as far as the implementation tracks them (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
 | **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only |
 | **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
-| **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal (Section 3.5) | The specification does not define how this trust is configured |
+| **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal (Section 3.5); every change to the trusted issuers and their keys is recorded (`issuer.changed`, Section 9.2) | The specification does not define how this trust is configured |
 | **Attacker between PEP and PDP** | The connection MUST be authenticated in both directions; the PDP MUST NOT be reachable by agents (Section 6) | The specification does not define the mechanism |
 | **Whoever can change a mandate and switches it to audit mode** (a member of the household, a manipulated user interface, an issuer) | Critical actions, `ask` and every denial outside the rules stay enforced (Section 4.6). Switching audit mode on takes effect only after a human of the household confirmed it explicitly, also for a signed successor, and every approver is notified (Sections 3.5, 11.6). The switch is a new version with a new digest, recorded with `mandate.updated` and its actor (Sections 3.2, 9.2), and implementations MUST show audit mode wherever they show mandates (Section 11.6). In a signed mandate, `enforce` is covered by the signature (Section 7); a verifier rejects an audit entry that claims an unenforced deny of a critical action (Section 9.1) | In audit mode the agent can do every action that is not critical, including `read` of cameras and presence sensors, without asking unless a rule sets it to `ask`. Whoever can change mandates could also write a broad `allow`; audit mode gives no more power, but it looks harmless. A human who confirms without reading; the confirmation and the notice make the switch visible, they do not prevent it |
 | **Agent with a path past the PEP** (another credential for the platform, for example an MCP tool that talks to the platform with its own API token, or the right to create or change scripts, automations or rules) | Nothing. The evaluation covers only the requests that reach the PEP (Section 12.3, the only path) | Whatever the agent can do on that path, no mandate limits. A script or an automation it writes can scan the network, load programs or unlock the front door |
@@ -2159,6 +2210,35 @@ Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 
   `s22` (the selection cases accept `approval_timeout` and `confirm`), `a136` (valid: every
   outcome of an approval request with `confirm: true`) and `a137`–`a145` (invalid).
 - Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
+
+AuthZEN mapping completed, optional mandate members, signed checkpoint time, further audit
+events, EdDSA canonicality (Sections 3, 3.1, 4.1, 4.3, 6, 7.1, 9.1, 9.2, 9.5, 10.2, 10.3,
+11.4, 12.2; issues #77, #82, #83, #93):
+- AuthZEN (#77): `resource.properties.critical` and `context.timezone` carry the critical
+  marking and the household time zone to a PDP that does not hold the directory; the
+  response context carries `mandate_id` next to `mandate_digest`; a subject whose `type` is
+  not `agent`, whose `id` is missing or whose `principal` does not match the pattern is
+  `invalid_request` before any mandate is selected, also in the `select` operation of the
+  process binding. The test tool compares `mandate_id`. Incompatible for the classes
+  `selection` and `pdp` (before `v0.1.0`): such a subject was `no_mandate`.
+- Mandate (#82): optional `name` (1 to 64 code points) and per rule `note` (1 to 200), both
+  displayed text, not part of the evaluation. A mandate that uses them is invalid for an
+  implementation of an earlier pre-release (Section 14, unknown members).
+- Checkpoint (#82): the signed payload gains `at`, the `recorded_at` of the checkpoint
+  entry. Incompatible for logs (before `v0.1.0`): checkpoints signed before do not verify.
+- Audit log (#83): events `issuer.changed` (member `issuer`: `trusted`, `untrusted`,
+  `key_added`, `key_removed`, with `kid` for the keys) and `config.changed` (member
+  `config`: `timezone`, `clock_check`, `checkpoint_key`, with `value` and
+  `previous_value`). Compatible for logs: only entries that were invalid become valid; a
+  verifier that does not know the events rejects a log that contains them. The reference
+  verifier checks that `previous_value` differs from `value`.
+- Signatures (#93): for EdDSA, `S` < `L` and canonical encodings of `R` and of the public
+  key; `alg` must match the key type. The text states what the reference already did; the
+  reference now also rejects an Ed25519 public key that is not canonically encoded.
+- Conformance cases `d50`, `i152`–`i155`, `s23`, `g19`–`g21`, `a194`–`a202`; `a39`–`a44`,
+  `a46`–`a49` and `a147` re-signed with the time in the payload; the selection cases that
+  select no mandate now say `selected: null`, so that the HTTP binding checks that
+  `mandate_id` is absent.
 
 Proposals name the version they would replace (Sections 9.1, 9.2, 11.6; issue #53):
 - `mandate.previous_digest` is allowed with `mandate.proposed` and `mandate.discarded`: the

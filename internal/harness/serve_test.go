@@ -259,3 +259,44 @@ func TestEvaluateInAuditModeRequiresAConfirmation(t *testing.T) {
 		t.Errorf("response line %s, %v", line, err)
 	}
 }
+
+// TestSelectAnswersAnInexpressibleRequestAfterTheSelection covers SPEC-v0 section 10.2:
+// no_mandate, ambiguous_mandate and invalid_mandate come before invalid_request, and a
+// point in time that is not readable selects only a sole candidate.
+func TestSelectAnswersAnInexpressibleRequestAfterTheSelection(t *testing.T) {
+	voice := *example(t)
+	subject := &harness.Subject{ClientID: "hm-client:voice-7c21e9a4", Principal: "household:hm-7f3a"}
+	badTime := &harness.Evaluation{Resource: harness.Resource{EntityID: "light.kitchen", Category: "light"}, Action: "turn_on", Time: "yesterday"}
+	badParameter := &harness.Evaluation{Resource: harness.Resource{EntityID: "light.kitchen", Category: "light"}, Action: "set",
+		Parameters: map[string]json.RawMessage{"brightness": json.RawMessage("0.5")}, Time: "2026-10-12T19:00:00+02:00"}
+	one := []harness.StoredMandate{{Mandate: voice}}
+	responses := ask(t,
+		harness.Request{Op: harness.OpSelect, Mandates: one, Subject: subject, Request: badTime},
+		harness.Request{Op: harness.OpSelect, Mandates: []harness.StoredMandate{{Mandate: voice}, {Mandate: voice}}, Subject: subject, Request: badTime},
+		harness.Request{Op: harness.OpSelect, Mandates: one, Subject: &harness.Subject{ClientID: "hm-client:other", Principal: "household:hm-7f3a"}, Request: badTime},
+		harness.Request{Op: harness.OpSelect, Mandates: []harness.StoredMandate{{Mandate: `{"agent":{"client_id":"hm-client:voice-7c21e9a4"},"principal":"household:hm-7f3a"}`}}, Subject: subject, Request: badTime},
+		harness.Request{Op: harness.OpSelect, Mandates: one, Subject: subject, Request: badParameter},
+		harness.Request{Op: harness.OpSelect, Mandates: one, Subject: &harness.Subject{ClientID: "hm-client:voice-7c21e9a4", Principal: "home"}, Request: badParameter},
+	)
+	want := []struct {
+		reason   string
+		selected string
+	}{
+		{"invalid_request", "m-voice-assistant"}, // sole candidate, time not readable
+		{"invalid_request", ""},                  // several candidates cannot be told apart
+		{"no_mandate", ""},                       // no candidate for the agent
+		{"invalid_mandate", ""},                  // the sole candidate is an invalid document
+		{"invalid_request", "m-voice-assistant"}, // readable time, parameter not expressible
+		{"invalid_request", ""},                  // the subject is not valid
+	}
+	for i, w := range want {
+		got := responses[i]
+		selected := ""
+		if got.Selected != nil {
+			selected = *got.Selected
+		}
+		if got.Decision != "deny" || got.Reason != w.reason || selected != w.selected || (w.selected != "") != (got.MandateDigest != "") {
+			t.Errorf("request %d: %s %s selected=%q digest=%q, want %s selected=%q", i+1, got.Decision, got.Reason, selected, got.MandateDigest, w.reason, w.selected)
+		}
+	}
+}

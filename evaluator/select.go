@@ -4,10 +4,22 @@ package evaluator
 
 import (
 	"encoding/json"
+	"regexp"
 	"time"
 
 	"github.com/home-mandate/spec/internal/ijson"
 )
+
+// principalPattern is the pattern of principal in the mandate schema.
+var principalPattern = regexp.MustCompile(`^(household|person):[A-Za-z0-9_-]{1,64}$`)
+
+// ValidSubject reports whether a request names its subject in a form a mandate could
+// name: a non-empty client ID and a principal that matches the pattern of the schema.
+// A request that does not is deny with invalid_request before any mandate is selected
+// (SPEC-v0 sections 4.3 and 6).
+func ValidSubject(clientID, principal string) bool {
+	return clientID != "" && principalPattern.MatchString(principal)
+}
 
 // Stored is a mandate as an implementation has stored it, with its status. It is
 // created by NewStored.
@@ -45,6 +57,23 @@ func NewStored(document []byte, status MandateStatus) Stored {
 	return s
 }
 
+// Mandate returns the stored mandate, nil if the stored document is not a valid mandate.
+func (s Stored) Mandate() *Mandate { return s.mandate }
+
+// Candidates are the stored mandates of the agent and the principal that are not
+// revoked, an invalid document that concerns them included (SPEC-v0 section 4.3 step 1).
+// It is what a selection can do without a point in time: a sole candidate is selected
+// whether or not it is current.
+func Candidates(stored []Stored, clientID, principal string) []Stored {
+	var candidates []Stored
+	for _, s := range stored {
+		if s.status != StatusRevoked && s.concerns(clientID, principal) {
+			candidates = append(candidates, s)
+		}
+	}
+	return candidates
+}
+
 func (s Stored) concerns(clientID, principal string) bool {
 	return !s.readable || (s.clientID == clientID && s.principal == principal)
 }
@@ -64,17 +93,22 @@ func (s Stored) validAt(t time.Time) bool {
 // ignored; the status of the selected mandate applies. It returns the selected
 // mandate, nil if none was selected or the selected document is invalid.
 //
+// A subject that is not valid (ValidSubject) is deny with invalid_request before any
+// mandate is selected.
+//
 // Selection: revoked mandates are never selected. Of the others, the one that is valid
 // at the point in time is selected; if several are, none is (ambiguous_mandate). If
 // none is valid at that time and there is exactly one, it is selected and yields
 // not_yet_valid or expired; otherwise the result is no_mandate.
 func SelectAndEvaluate(stored []Stored, clientID, principal string, req Request) (*Mandate, Result) {
-	var candidates, valid []Stored
-	for _, s := range stored {
-		if s.status == StatusRevoked || !s.concerns(clientID, principal) {
-			continue
-		}
-		candidates = append(candidates, s)
+	// A subject no mandate could name is rejected before any mandate is selected, so
+	// that two PDPs answer alike: invalid_request, never no_mandate (SPEC-v0 section 6).
+	if !ValidSubject(clientID, principal) {
+		return nil, Result{Decision: Deny, Reason: ReasonInvalidRequest}
+	}
+	candidates := Candidates(stored, clientID, principal)
+	var valid []Stored
+	for _, s := range candidates {
 		if s.validAt(req.Time) {
 			valid = append(valid, s)
 		}

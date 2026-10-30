@@ -76,6 +76,8 @@ type (
 			// Confirm is true only for a deny that is not enforced and requires a
 			// confirmation (SPEC-v0 section 6).
 			Confirm bool `json:"confirm"`
+			// MandateID names the evaluated mandate, with its digest (SPEC-v0 section 6).
+			MandateID *string `json:"mandate_id"`
 		} `json:"context"`
 	}
 )
@@ -110,6 +112,8 @@ func RunPDP(ctx context.Context, fsys fs.FS, pdp PDP) (Report, error) {
 			continue
 		}
 		c.Subject = &Subject{ClientID: m.ClientID(), Principal: m.Principal()}
+		// The stored mandate is the one evaluated; the response names it in mandate_id.
+		c.Selected, _ = json.Marshal(m.ID())
 		r.pdpCase(ctx, pdp, fileCases, c, []StoredMandate{{Mandate: text}})
 	}
 	selection, err := load[evaluationCase](fsys, fileSelection, "cases")
@@ -150,10 +154,9 @@ func (r *runner) pdpCase(ctx context.Context, pdp PDP, file string, c evaluation
 			Resource: authzenResource{ID: c.Resource.EntityID},
 		}, &resp)
 	}
-	// selected is not visible through AuthZEN; the decision is.
-	c.Selected = nil
+	// selected is visible through AuthZEN as mandate_id in the response context.
 	got, want := c.outcome(resp.Context.Outcome, resp.Context.Reason, resp.Context.RuleID, resp.Context.ApprovalTimeout,
-		resp.Context.Enforced, resp.Context.Confirm, nil)
+		resp.Context.Enforced, resp.Context.Confirm, resp.Context.MandateID)
 	got, want = fmt.Sprintf("decision=%t %s", resp.Decision, got), fmt.Sprintf("decision=%t %s", c.Expected == "allow", want)
 	r.record(ClassPDP, file, c.ID, Response{}, err, got, want)
 }

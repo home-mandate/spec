@@ -162,7 +162,7 @@ func selectMandate(req Request) Response {
 	}
 	er, ok := evaluation(*req.Request)
 	if !ok {
-		return Response{Decision: string(evaluator.Deny), Reason: string(evaluator.ReasonInvalidRequest)}
+		return inexpressible(stored, req)
 	}
 	selected, r := evaluator.SelectAndEvaluate(stored, req.Subject.ClientID, req.Subject.Principal, er)
 	resp := result(r)
@@ -170,6 +170,38 @@ func selectMandate(req Request) Response {
 		resp.Selected = ptr(selected.ID())
 	}
 	return resp
+}
+
+// inexpressible answers a selection whose request the PEP could not express. The
+// selection still comes first (SPEC-v0 section 4.1: no_mandate, ambiguous_mandate and
+// invalid_mandate precede invalid_request), so the answer names the selected mandate.
+// Without a readable point in time, nothing can be current: a sole candidate is selected
+// (SPEC-v0 section 4.3 step 3), several cannot be told apart.
+func inexpressible(stored []evaluator.Stored, req Request) Response {
+	invalid := Response{Decision: string(evaluator.Deny), Reason: string(evaluator.ReasonInvalidRequest)}
+	if !evaluator.ValidSubject(req.Subject.ClientID, req.Subject.Principal) {
+		return invalid
+	}
+	var selected *evaluator.Mandate
+	if at, err := time.Parse(time.RFC3339, req.Request.Time); err == nil {
+		var r evaluator.Result
+		if selected, r = evaluator.SelectAndEvaluate(stored, req.Subject.ClientID, req.Subject.Principal, evaluator.Request{Time: at}); selected == nil {
+			return result(r)
+		}
+	} else {
+		candidates := evaluator.Candidates(stored, req.Subject.ClientID, req.Subject.Principal)
+		switch {
+		case len(candidates) == 0:
+			return Response{Decision: string(evaluator.Deny), Reason: string(evaluator.ReasonNoMandate)}
+		case len(candidates) > 1:
+			return invalid
+		case candidates[0].Mandate() == nil:
+			return result(evaluator.Evaluate(nil, evaluator.Request{}))
+		}
+		selected = candidates[0].Mandate()
+	}
+	invalid.MandateDigest, invalid.Selected = selected.Digest(), ptr(selected.ID())
+	return invalid
 }
 
 func succession(req Request) Response {

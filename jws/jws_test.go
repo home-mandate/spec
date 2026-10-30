@@ -291,3 +291,21 @@ func TestES256RequiresLowS(t *testing.T) {
 		}
 	}
 }
+
+func TestParseJWKSRejectsNonCanonicalEd25519Key(t *testing.T) {
+	// y = p + 1 encodes the identity non-canonically (RFC 8032 section 5.1.3).
+	p := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 255), big.NewInt(19))
+	be := new(big.Int).Add(p, big.NewInt(1)).FillBytes(make([]byte, 32))
+	le := make([]byte, 32)
+	for i := range be {
+		le[31-i] = be[i]
+	}
+	set := `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","x":"` + base64.RawURLEncoding.EncodeToString(le) + `"}]}`
+	if _, err := ParseJWKS([]byte(set)); !errors.Is(err, ErrKey) {
+		t.Fatalf("non-canonical key: err = %v, want ErrKey", err)
+	}
+	canonical := `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","x":"` + rfc8037Public + `"}]}`
+	if _, err := ParseJWKS([]byte(canonical)); err != nil {
+		t.Fatalf("canonical key: %v", err)
+	}
+}
