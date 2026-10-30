@@ -1032,7 +1032,7 @@ Depending on the event, the following are added:
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
 | `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked`; optionally `group`, a UUID (RFC 9562, lower case) that is the same in every `decision` entry of one request for several resources (Section 4.4) and appears in the entries of no other request |
-| `mandate` | `id`, `digest`, and only for `mandate.updated` additionally `previous_digest`, different from `digest`; for `mandate.removed`, `digest` is that of the last version the implementation held; for `mandate.proposed` and `mandate.discarded`, `digest` is that of the proposed version (Section 11.6 item 4). `cause`, required with `mandate.discarded` and `mandate.rejected` and absent otherwise: for `mandate.discarded` why the proposal did not take effect (`rejected`: a human declined it, `superseded`: another version took effect or a later proposal replaced it, `revoked`: the mandate was revoked, `expired`: the proposed version expired first); for `mandate.rejected` why a mandate from outside was not accepted (`invalid`: not a valid mandate or not canonical, Sections 3.1 and 7.1; `signature`: the signature does not verify, or the header or `kid` is not acceptable; `untrusted_issuer`: no trusted key for the issuer, or the issuer may not issue for this principal or agent; `succession`: Section 3.5, a rollback included; `unsupported`: the implementation does not offer what the mandate needs, such as audit mode, Section 11.6, or a format major it does not support, Section 14). With `mandate.rejected`, `digest` is present if the document was a JSON object (Section 3.2) and `id` if it named one; if nothing could be read, the object has only `cause` |
+| `mandate` | `id` and `digest`. `previous_digest`, different from `digest`: required for `mandate.updated`, the version replaced; for `mandate.proposed` the version the implementation held when it recorded the proposal, in force or not (Section 3.5), absent if it held none; a `mandate.discarded` repeats the `digest` and `previous_digest` of its proposal (Section 11.6 item 4); absent with every other event. For `mandate.removed`, `digest` is that of the last version the implementation held; for `mandate.proposed` and `mandate.discarded`, `digest` is that of the proposed version. `cause`, required with `mandate.discarded` and `mandate.rejected` and absent otherwise: for `mandate.discarded` why the proposal did not take effect (`rejected`: a human declined it, `superseded`: another version took effect or a later proposal replaced it, `revoked`: the mandate was revoked, `expired`: the proposed version expired first); for `mandate.rejected` why a mandate from outside was not accepted (`invalid`: not a valid mandate or not canonical, Sections 3.1 and 7.1; `signature`: the signature does not verify, or the header or `kid` is not acceptable; `untrusted_issuer`: no trusted key for the issuer, or the issuer may not issue for this principal or agent; `succession`: Section 3.5, a rollback included; `unsupported`: the implementation does not offer what the mandate needs, such as audit mode, Section 11.6, or a format major it does not support, Section 14). With `mandate.rejected`, `digest` is present if the document was a JSON object (Section 3.2) and `id` if it named one; if nothing could be read, the object has only `cause` |
 | `vocabulary` | the vocabulary the evaluation used for the category of the resource (Section 5): `id` and `version` as in its file. Only with `decision` and `evaluation`, and not with `reason` `unknown_resource` or `unknown_category`: no vocabulary was used. For a category of Section 5, `id` is `https://home-mandate.org/vocabulary/v0`; for an extension category, the `id` of the extension (Section 5.1). The schema cannot see the vocabulary; a verifier MUST reject any other `id` for a category of Section 5, the `id` of Section 5 for an extension category and, for an extension whose vocabulary it knows, any `id` other than that vocabulary's, and an entry that violates this is invalid |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, `approval_timeout` (the timeout of the approval settings; required for `ask` and with `confirm`, absent otherwise), `enforced` (only `false`, Section 4.6) and `confirm` (only `true`, with `enforced`) |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, where it names an approver whose answer arrived after the timeout, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
@@ -1138,7 +1138,7 @@ template.
 | `template.changed` | yes, if the implementation lets humans change templates | every template stored, removed, hidden or shown again |
 | `approver.changed` | yes, if the implementation keeps its own list of humans who may answer approval requests | every approver added to or removed from that list (Section 11.1) |
 | `mandate.removed`, `agent.removed` | yes, if the implementation removes revoked mandates or agents | every revoked mandate or agent removed from the implementation's lists (Section 11.3) |
-| `mandate.proposed`, `mandate.discarded` | yes, if the implementation offers audit mode | every mandate that would switch audit mode on and waits for a confirmation, and every such proposal that does not take effect (Section 11.6 item 4) |
+| `mandate.proposed`, `mandate.discarded` | yes, if the implementation offers audit mode | every mandate that would switch audit mode on and waits for a confirmation, and every such proposal that does not take effect, each with the digest of the proposed version and, if one is stored, that of the stored version (Section 11.6 item 4) |
 | `mandate.rejected` | yes, if the implementation accepts mandates from outside (Sections 3.5 and 7) | every mandate from outside that was not accepted: invalid, not verifiable, from an untrusted issuer, against succession or unsupported |
 | `agent.reconnected` | yes, if the implementation lets humans reconnect agents | every existing agent that receives new credentials instead of being admitted anew (Section 11.3) |
 | `auth.rejected` | no | rejected sign-in or invalid token |
@@ -1626,11 +1626,17 @@ An implementation that offers audit mode (Section 4.6):
    confirmation names the digest of exactly the version that is adopted and counts for no
    other; a signed successor is not adopted automatically. The implementation MUST notify
    every approver of the mandate when such a mandate is proposed, while it waits for the
-   confirmation, and again when audit mode takes effect. It records the proposal with
-   `mandate.proposed`, and a proposal that does not take effect, because a human declined
-   it, another version took effect or replaced it, the mandate was revoked or the proposed
-   version expired, with `mandate.discarded` and that `cause` (Section 9.1). Switching
-   audit mode off takes effect without a confirmation.
+   confirmation, and again when audit mode takes effect. It MUST record the proposal with
+   `mandate.proposed`, with the digest of the proposed version as `digest` and that of the
+   stored version, if there is one, as `previous_digest`. A proposal that does not take
+   effect, because a human declined it, another version took effect or replaced it, the
+   mandate was revoked or the proposed version expired, it MUST record with
+   `mandate.discarded`, with the same `digest` and `previous_digest` as the proposal and
+   with that `cause` (Section 9.1). The confirmation is recorded as
+   `mandate.updated`, or as `mandate.created` if no version was stored, with the same
+   `digest` and `previous_digest` as the proposal; these two name the proposal that was
+   confirmed, so the entry needs no member of its own for it. Switching audit mode off
+   takes effect without a confirmation.
 
 An implementation is not required to offer audit mode. One that does not MUST refuse to
 store a mandate with `enforce: false` instead of storing it and enforcing it, so that the
@@ -2154,6 +2160,18 @@ Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 
   outcome of an approval request with `confirm: true`) and `a137`–`a145` (invalid).
 - Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
 
+Proposals name the version they would replace (Sections 9.1, 9.2, 11.6; issue #53):
+- `mandate.previous_digest` is allowed with `mandate.proposed` and `mandate.discarded`: the
+  digest of the version the implementation held when it recorded the proposal, present
+  whenever there was one; a `mandate.discarded` repeats it. A proposal named only the
+  proposed version, so a reader had to search the log for the version in force at the time.
+- Section 11.6 item 4 now requires (MUST) an implementation that offers audit mode to record
+  proposals and discards, as the table in Section 9.2 already did, and says how the
+  confirmation is linked to the proposal: the `mandate.updated` (or `mandate.created`, if no
+  version was stored) carries the same `digest` and `previous_digest`; no member of its own.
+- Compatible for logs: only entries that were invalid become valid.
+- Conformance cases `a190`–`a193`; `a157` reworded.
+
 New audit events (Sections 3.5, 4.4, 7.1, 9.1, 9.2, 11.4, 11.6, 13; issues #53, #73):
 - `log.exported`, with optional `exported` (`from_seq`, `to_seq`): Section 13 asked for
   exports to be recorded, but no event existed for it.
@@ -2207,8 +2225,10 @@ Schemas and formats in detail (Sections 3.1, 3.3, 3.4, 5.1, 9.1):
   a human releases the emergency stop and that the human chooses the mandate; the schema
   permitted `agent`. Incompatible for logs (before `v0.1.0`). Agents may still revoke their
   own mandate or themselves and activate the emergency stop.
-- Audit entry: `mandate.previous_digest` appears only with `mandate.updated` and differs from
-  `digest`, as for templates. Incompatible for logs (before `v0.1.0`).
+- Audit entry: `mandate.previous_digest` appears only with `mandate.updated` (later also
+  with `mandate.proposed` and `mandate.discarded`, see "Proposals name the version they
+  would replace" above) and differs from `digest`, as for templates. Incompatible for logs
+  (before `v0.1.0`).
 - Audit entry: `evaluation.approval_timeout` is required for `ask` and with `confirm`, and
   absent otherwise. Section 9.2 already required the entry to match the evaluation;
   the schema did not check it. Incompatible for logs (before `v0.1.0`).

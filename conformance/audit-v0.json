@@ -4808,7 +4808,7 @@
     },
     {
       "id": "a157",
-      "why": "mandate.created with previous_digest: only mandate.updated names a former version (SPEC-v0 section 9.1)",
+      "why": "mandate.created with previous_digest: only mandate.updated, mandate.proposed and mandate.discarded name a former version (SPEC-v0 section 9.1)",
       "expected": "invalid",
       "broken_at": 2,
       "entries": [
@@ -5134,6 +5134,49 @@
       "entries": [
         {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1890001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
         {"actor": {"kind": "system", "id": "issuer-sync"}, "event": "mandate.rejected", "id": "01a0f64c-7140-7001-9007-0000a1890002", "prev": "sha256:ca5cee203534d2e9df4523b95731b2264467d000563c9a75d4167c0b61033d41", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "a190",
+      "why": "proposals that name the version in force: one declined, one confirmed, each with the digest of the stored version as previous_digest and that of the proposed version as digest; the confirmation is the mandate.updated with the same pair; and a proposal for a mandate of which no version was stored, confirmed with mandate.created (SPEC-v0 sections 3.5, 9.1, 11.6)",
+      "expected": "valid",
+      "entries": [
+        {"actor": {"kind": "system", "id": "issuer-sync"}, "event": "mandate.proposed", "id": "01a0f64c-7140-7001-9007-0000a1900001", "mandate": {"id": "m-voice-assistant", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "previous_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "mandate.discarded", "id": "01a0f64c-7140-7001-9007-0000a1900002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "previous_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "cause": "rejected"}, "prev": "sha256:0961a086ebdbe46140aaa94d4cdb683ca949afc588df4a8f2d415fd206e80f6d", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0"},
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "mandate.proposed", "id": "01a0f64c-7140-7001-9007-0000a1900003", "mandate": {"id": "m-voice-assistant", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "previous_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": "sha256:3852d3b16bc9d1948f1d7d444277a0ee8a62a0b60655a4759dccd0aa2e9971e2", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:03:00+02:00", "seq": 3, "type": "https://home-mandate.org/audit/v0"},
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "mandate.updated", "id": "01a0f64c-7140-7001-9007-0000a1900004", "mandate": {"id": "m-voice-assistant", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "previous_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"}, "prev": "sha256:a43a72fa5a529ab80767bd1bebebe2786932dac73568d0e7c5ab5620a4b5f768", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:04:00+02:00", "seq": 4, "type": "https://home-mandate.org/audit/v0"},
+        {"actor": {"kind": "system", "id": "issuer-sync"}, "event": "mandate.proposed", "id": "01a0f64c-7140-7001-9007-0000a1900005", "mandate": {"id": "m-cleaning-robot", "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"}, "prev": "sha256:6de1c1eedb9890c128f696d032a9c3a051efa9b529f5860b00f7f597b87d51b5", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:05:00+02:00", "seq": 5, "type": "https://home-mandate.org/audit/v0"},
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "mandate.created", "id": "01a0f64c-7140-7001-9007-0000a1900006", "mandate": {"id": "m-cleaning-robot", "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"}, "prev": "sha256:1e9afa74d36cbf236bd96e129346846cf8b15649aadb7786cf3489a4dc017c91", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:06:00+02:00", "seq": 6, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "a191",
+      "why": "mandate.proposed whose previous_digest equals its digest: a proposal replaces another version (SPEC-v0 sections 3.5, 9.1)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1910001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"actor": {"kind": "system", "id": "issuer-sync"}, "event": "mandate.proposed", "id": "01a0f64c-7140-7001-9007-0000a1910002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "previous_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"}, "prev": "sha256:dfca62422b7d3346d0f423dcf9c463ea565be888bdb7e15774f713aa3dc555de", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "a192",
+      "why": "mandate.discarded whose previous_digest equals its digest: a discarded proposal names the version it would have replaced (SPEC-v0 sections 9.1, 11.6)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1920001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "mandate.discarded", "id": "01a0f64c-7140-7001-9007-0000a1920002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "previous_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "cause": "expired"}, "prev": "sha256:be15bbdaf27976e722ee08707819a2748a71a77b5c7d2103e763c8a95c62f1b8", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "a193",
+      "why": "mandate.rejected with previous_digest: only mandate.updated, mandate.proposed and mandate.discarded name a former version (SPEC-v0 section 9.1)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "entries": [
+        {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a1930001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"actor": {"kind": "system", "id": "issuer-sync"}, "event": "mandate.rejected", "id": "01a0f64c-7140-7001-9007-0000a1930002", "mandate": {"id": "m-voice-assistant", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "previous_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "cause": "signature"}, "prev": "sha256:d8ac0903ec3858f19ed7d02eeb47664fa1fd9fb0171aca948068b2ace3759ad2", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0"}
       ]
     }
   ]
