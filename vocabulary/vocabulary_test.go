@@ -153,7 +153,7 @@ func TestSpecTableMatchesV0(t *testing.T) {
 	}
 }
 
-var parameterRow = regexp.MustCompile("^\\| `([a-z_]+)[.]([a-z_]+)` \\| `([a-z_]+)` \\| (integer|string) \\| ([^|]+) \\| ([^|]+) \\|$")
+var parameterRow = regexp.MustCompile("^\\| `([a-z_]+)[.]([a-z_]+)` \\| `([a-z_]+)` \\| (integer|string) \\| ([^|]+) \\| ([^|]+) \\| ([^|]+) \\|$")
 
 // TestSpecParameterTableMatchesV0 keeps the parameter table in SPEC-v0.md section 5 and
 // vocabulary/v0.json in agreement: type, unit, range and permitted values.
@@ -167,19 +167,21 @@ func TestSpecParameterTableMatchesV0(t *testing.T) {
 	table := map[string]string{}
 	for _, line := range strings.Split(section, "\n") {
 		if m := parameterRow.FindStringSubmatch(line); m != nil {
-			table[m[1]+"."+m[2]+" "+m[3]] = m[4] + " | " + strings.TrimSpace(m[5]) + " | " + strings.TrimSpace(m[6])
+			table[m[1]+"."+m[2]+" "+m[3]] = m[4] + " | " + strings.TrimSpace(m[5]) + " | " + strings.TrimSpace(m[6]) + " | " + strings.TrimSpace(m[7])
 		}
 	}
 	var doc struct {
 		Categories map[string]struct {
 			Actions map[string]struct {
 				Parameters map[string]struct {
-					Type    string   `json:"type"`
-					Unit    string   `json:"unit"`
-					Minimum *int     `json:"minimum"`
-					Maximum *int     `json:"maximum"`
-					Values  []string `json:"values"`
+					Type     string   `json:"type"`
+					Unit     string   `json:"unit"`
+					Minimum  *int     `json:"minimum"`
+					Maximum  *int     `json:"maximum"`
+					Values   []string `json:"values"`
+					Required bool     `json:"required"`
 				} `json:"parameters"`
+				RequiredOneOf [][]string `json:"required_one_of"`
 			} `json:"actions"`
 		} `json:"categories"`
 	}
@@ -201,13 +203,66 @@ func TestSpecParameterTableMatchesV0(t *testing.T) {
 				} else if p.Minimum != nil && p.Maximum != nil {
 					rest = fmt.Sprintf("%d to %d", *p.Minimum, *p.Maximum)
 				}
-				file[category+"."+action+" "+name] = p.Type + " | " + unit + " | " + rest
+				required := "–"
+				switch {
+				case p.Required:
+					required = "yes"
+				case inAlternative(a.RequiredOneOf, name):
+					required = "one alternative"
+				}
+				file[category+"."+action+" "+name] = p.Type + " | " + unit + " | " + rest + " | " + required
 			}
 		}
 	}
 	if len(file) == 0 || !maps.Equal(table, file) {
 		t.Errorf("table %v\nfile  %v", table, file)
 	}
+}
+
+// Every name of required_one_of is a declared parameter of the action without required, and
+// the alternatives share no name: otherwise an alternative could never be satisfied, or
+// "no name of another alternative" would contradict itself (SPEC-v0 sections 4.5 and 5).
+func TestRequiredOneOfNamesDeclaredOptionalDisjointParameters(t *testing.T) {
+	var doc struct {
+		Categories map[string]struct {
+			Actions map[string]struct {
+				Parameters    map[string]struct{ Required bool } `json:"parameters"`
+				RequiredOneOf [][]string                         `json:"required_one_of"`
+			} `json:"actions"`
+		} `json:"categories"`
+	}
+	if err := json.Unmarshal(vocabulary.V0(), &doc); err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for category, c := range doc.Categories {
+		for action, a := range c.Actions {
+			seen := map[string]bool{}
+			for _, alternative := range a.RequiredOneOf {
+				found++
+				for _, name := range alternative {
+					p, declared := a.Parameters[name]
+					if !declared || p.Required || seen[name] {
+						t.Errorf("%s.%s: required_one_of names %q: declared %t, required %t, in another alternative %t", category, action, name, declared, p.Required, seen[name])
+					}
+					seen[name] = true
+				}
+			}
+		}
+	}
+	if found == 0 {
+		t.Error("no required_one_of in the vocabulary; the test checks nothing")
+	}
+}
+
+// inAlternative reports whether name is part of one of the alternatives of required_one_of.
+func inAlternative(alternatives [][]string, name string) bool {
+	for _, alternative := range alternatives {
+		if slices.Contains(alternative, name) {
+			return true
+		}
+	}
+	return false
 }
 
 // values returns n distinct JSON strings, separated by commas.
