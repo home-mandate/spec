@@ -74,5 +74,5 @@ func Parse(data []byte) (*Mandate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrSchema, err)
 	}
-	return buildMandate(raw, digest)
+	return buildMandate(raw, digest, instance)
 }

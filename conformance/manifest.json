@@ -13,13 +13,13 @@
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "3eee0dd5e46fc6ecc8cf87648f2ce13cf182765371c61801806540ab15e17ab6",
-      "cases": 49
+      "sha256": "1d96ff3fd7aa1a3e91bde6a2c1456199fa9f7e1ca42ec0089d6a947968f012da",
+      "cases": 50
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "ab9fa7653d095d84ecb1501b2b92551e3936a7540f71b99ef274fbed9e199155",
-      "cases": 155
+      "sha256": "c0e3b839d04209dd40eacea38774c03e1c56b227aaefe9c3c14bf77a1b472ed1",
+      "cases": 157
     },
     {
       "path": "conformance/keys/test-keys.json",
@@ -107,22 +107,22 @@
     },
     {
       "path": "conformance/schema/succession-v0.schema.json",
-      "sha256": "755e2a2cb35e550a0179bc143cb3029e49d84b7b89ace87b43c40fd2b49c7881"
+      "sha256": "ddffc42bd4434232541629a9bbaf61a587be93fdae8057baa0e5a76ec7f45d14"
     },
     {
       "path": "conformance/selection-v0.json",
-      "sha256": "ef2dc9366900b0e6b798d0534171f9491201b593028ab8c610bbf13738202dd2",
-      "cases": 23
+      "sha256": "855b28445a25df7203b7b22ed07b094ba412b54428596af4d6f0f8e3e3d246cc",
+      "cases": 28
     },
     {
       "path": "conformance/signed-v0.json",
-      "sha256": "d844447007246e0a5937dd614510fa8e953d871bc24e241fc26afe9b10139d78",
-      "cases": 21
+      "sha256": "af6bbbcec1dbc850fa48ca321695c6fe87b796c933cd1b09905d56b0fce1ca91",
+      "cases": 23
     },
     {
       "path": "conformance/succession-v0.json",
-      "sha256": "a81da2e8146d6a268e4758941c3a823fd3109349d674450af4c62df753a10ec8",
-      "cases": 14
+      "sha256": "fa238e39a66f0d372aa226565f330a6b0a84fc3bed34cc2228e9e1b9432873fd",
+      "cases": 23
     },
     {
       "path": "data/forbidden-codepoints-v0.json",
@@ -146,7 +146,7 @@
     },
     {
       "path": "schema/mandate-v0.schema.json",
-      "sha256": "9a73ca3e09c0ec8088a274a90858d0a1367cf35631de834c4a4d0249b6420927"
+      "sha256": "9f301de95dea034503c41154779103276bfbac88e4136ee7a86ec1f35ecb377e"
     },
     {
       "path": "schema/vocabulary-v0.schema.json",

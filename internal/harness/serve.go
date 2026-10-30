@@ -213,7 +213,14 @@ func succession(req Request) Response {
 		return Response{Error: "stored mandate is invalid"}
 	}
 	offered, _ := evaluator.Parse([]byte(*req.Offered))
-	return Response{Accept: ptr(evaluator.CheckSuccessor(stored, offered) == nil)}
+	if evaluator.CheckSuccessor(stored, offered) != nil {
+		return Response{Accept: ptr(false)}
+	}
+	status := evaluator.StatusActive
+	if req.StoredRevoked {
+		status = evaluator.StatusRevoked
+	}
+	return Response{Accept: ptr(true), Confirm: evaluator.NeedsConfirmation(stored, status, time.Time{}, offered)}
 }
 
 func verifySigned(req Request) Response {

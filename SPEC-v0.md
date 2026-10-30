@@ -146,6 +146,7 @@ Mandate
 ├── limits        { max_actions_per_hour }
 ├── valid_from, expires?
 ├── issuer?, version?   only together, see Section 3.5
+├── audience?     the verifier the mandate is for; required in a signed mandate, see Section 3.5
 └── created_by, created_at
 ```
 
@@ -325,7 +326,8 @@ empty set. A rule still names exactly one `area`; it matches if that area is in 
 resource's set (Section 4, step 2). `approvers` and `created_by` are identifiers from
 the user management of the implementation, 1 to 128 characters each, and have no meaning
 outside it; a mandate
-that moves to another implementation needs them replaced.
+that moves to another implementation needs them replaced, or, in a signed mandate, whose
+payload cannot be changed, confirmed by a human of the household (Section 3.5).
 
 ### 3.5 Issuer and version
 
@@ -339,36 +341,76 @@ Both appear together or not at all. The digest (Section 3.2) says *which* versio
 document is; it does not say which of two documents is newer. Without a version, an older
 and more generous mandate with a valid digest cannot be told from the current one.
 
-An implementation that stores a mandate and is offered a replacement with the same `id`
-accepts it only if (**succession**) the offered mandate names the same agent
+A mandate MAY also name the verifier it is for: `audience`, a URI with the same form as
+`agent.client_id`, the identifier under which the issuer knows the implementation that is
+to accept the mandate. A signed mandate MUST carry it, and a verifier accepts a signed
+mandate only for its own `audience` (Section 7.1): an issuer that signs for many
+households with one key could otherwise have a mandate for one of them accepted by
+another whose principal and agent happen to carry the same names.
+
+An implementation that holds a mandate under an `id` and is offered a replacement with
+that `id` accepts it only if (**succession**) the offered mandate names the same agent
 (`agent.client_id`) and the same `principal`, and
 
 1. the stored mandate has no `version`, or
 2. the offered mandate has the same `issuer` and a `version` greater than the stored one.
 
-A mandate without `version` therefore never replaces one that has a version, and an older
-version is not accepted while the newer one is known (rollback). This protection is local
-state: an implementation MUST keep the highest `version` it has accepted for an `issuer`
-and `id`, also after the mandate was revoked, removed (Section 11.3) or deleted, for as
-long as an older version could still be valid, and it MUST treat a restore from a backup
-like the arrival of mandates from outside. A revocation is local as well: a signed mandate
-stays verifiable until it expires, so a revoked mandate MUST NOT be accepted again by way
-of its signature. A mandate from outside that is not accepted, for succession or for any
-other reason, is recorded with `mandate.rejected` (Section 9.2).
+For this rule, an implementation *holds* a mandate as long as it remembers one that took
+effect under the `id`, also after that mandate was revoked, removed (Section 11.3), expired
+or deleted; item 1 applies only if no mandate with a `version` ever took effect under the
+`id`. A mandate under an `id` the implementation does not hold is not a successor; it takes
+effect at once unless it switches audit mode on or names unknown `approvers` (below). A
+mandate without `version` never replaces one that has a version, and an older version is
+not accepted while the newer one is known (rollback). This protection is local state: an
+implementation MUST keep the highest `version` that took effect for an `issuer` and `id`
+for as long as an older version could still be valid, and it MUST treat a restore from a
+backup like the arrival of mandates from outside. A
+revocation is local as well: a signed mandate stays verifiable until it expires, so a
+revoked mandate MUST NOT be accepted again by way of its signature. A mandate from outside
+that is not accepted, for succession or for any other reason, is recorded with
+`mandate.rejected` (Section 9.2).
+
+**Accepted is not in effect.** An accepted successor takes effect at once only if it
+*narrows* the stored mandate or leaves it as it is. It narrows if it differs from the
+stored version only in some of these ways: an `allow` rule is removed; a `deny` rule is
+added; an `ask` rule without its own `approval` is added; `expires` is added or moved
+earlier; `valid_from` is moved later; `limits.max_actions_per_hour` is lowered; audit mode
+is switched off; `issuer`, `version`, `created_by` and `created_at` differ. Every other
+difference is a **weakening**: a changed or added `allow` rule; a changed or removed `deny`
+or `ask` rule; an added `ask` rule with its own `approval`; a changed `approval`, `name` or
+`agent.display_name`; an `audience` added or changed; `expires` removed or moved later;
+`valid_from` moved earlier; a higher rate limit; or audit mode switched on (below). Rules
+are compared as wholes: a rule counts as changed when any of its members differs, `note`
+included, so a rule tightened in place (a constraint added, `allow_critical` removed) needs
+a confirmation too; an issuer narrows without one by removing the rule or adding a `deny`.
+An added `ask` rule without its own `approval` narrows because it lets the agent ask for
+more, never do more, and the approvers stay those of the mandate. A weakening successor,
+and every successor of a mandate that the household revoked, MUST NOT take effect before a
+human of the household has confirmed exactly this version (Section 11.6 item 4):
+succession and the signature make it acceptable, not adopted, and until the confirmation
+the stored mandate stays as it is, revoked if it was revoked. The issuer thus cannot expand
+what an agent may do, change what a human reads, or undo a revocation, without a human.
+The version the succession rule compares against is that of the mandate that took effect
+or is remembered, never that of a waiting proposal; a successor that arrives while one
+waits and is accepted (any version above the stored one) replaces the waiting proposal,
+which is discarded (`mandate.discarded`, `cause: superseded`, Section 9.2).
+
+The `approvers` of a mandate from outside are identifiers the issuer chose (Section 3.4).
+A signed mandate whose `approvers` are not all approvers the implementation knows
+(Section 11.1) takes effect only after a human of the household confirmed it as well, so
+that whoever signs a mandate does not decide who confirms the agent's requests.
 
 **Audit mode.** A mandate that switches audit mode on MUST NOT take effect until a human
-of the household has confirmed it explicitly (Section 11.6 item 4). It switches audit
-mode on if it has `enforce: false` (Section 4.6) and no mandate with the same `id` in
-audit mode is in force: the stored mandate enforces, or it is not in force because it is
-revoked, expired, not yet valid or invalid, or there is none. A mandate that arrives
-without a predecessor in force, a restore from a backup included, therefore counts as
-arriving from outside. The confirmation is bound to the digest (Section 3.2) of exactly
-the version that is adopted; any other version needs its own. This holds for a signed
-successor as well: succession and the signature make it acceptable, not adopted, and
-until the confirmation the stored mandate stays as it is. Every approver of the mandate
-MUST be notified when such a mandate is proposed and when it takes effect; the proposal
-is recorded with `mandate.proposed`, and a proposal that does not take effect with
-`mandate.discarded` (Section 9.2). A replacement that switches audit mode off needs no
+of the household has confirmed it explicitly (Section 11.6 item 4), like a weakening. It
+switches audit mode on if it has `enforce: false` (Section 4.6) and no mandate with the
+same `id` in audit mode is in force: the stored mandate enforces, or it is not in force
+because it is revoked, expired, not yet valid or invalid, or there is none. A mandate that
+arrives without a predecessor in force, a restore from a backup included, therefore counts
+as arriving from outside. The confirmation is bound to the digest (Section 3.2) of exactly
+the version that is adopted; any other version needs its own. Every approver of the
+mandate MUST be notified when such a mandate is proposed and when it takes effect; the
+proposal is recorded with `mandate.proposed`, and a proposal that does not take effect
+with `mandate.discarded` (Section 9.2). A replacement that switches audit mode off needs no
 confirmation.
 
 An issuer can end the sequence of an `id` by issuing the highest possible version; the
@@ -461,7 +503,7 @@ In addition to the decision, the evaluation returns:
   | `unknown_resource` | deny | resource not in the directory of the PEP (no category) |
   | `unknown_category` | deny | category neither in Section 5 nor a known extension |
   | `unknown_action` | deny | action not in the category's vocabulary |
-  | `revoked` | deny | mandate revoked |
+  | `revoked` | deny | mandate revoked (step 1); or, from the selection and before any evaluation, in the place of `no_mandate`: the agent and principal have only revoked mandates (Section 4.3) |
   | `not_yet_valid` | deny | point in time before `valid_from` |
   | `expired` | deny | point in time at or after `expires` |
   | `no_match` | deny | no rule matches, `default` |
@@ -469,7 +511,8 @@ In addition to the decision, the evaluation returns:
   | `rule` | allow, ask, deny | decision of a rule per step 4 |
 
 - **`mandate_digest`:** digest of the evaluated mandate (Section 3.2); absent for
-  `no_mandate`, `ambiguous_mandate` and `invalid_mandate`.
+  `no_mandate`, `ambiguous_mandate` and `invalid_mandate`, and for a `revoked` that the
+  selection returns unless it names exactly one mandate (Section 4.3).
 - **`rule_id`:** the first rule in document order that carries the final decision.
   For step 5, this is the first matching `allow` rule without `allow_critical`.
   For the pre-check, step 1 and step 3, there is no `rule_id`.
@@ -528,8 +571,16 @@ in the schema, is `deny` with `invalid_request` before any mandate is selected, 
 (Section 6).
 
 1. Candidates are the stored mandates of the agent and the principal that are not revoked.
-   A stored document that is not a valid mandate (Section 3.1) is a candidate as well.
-2. No candidate → `deny` with `no_mandate`.
+   A stored document that is not a valid mandate (Section 3.1) is a candidate as well: for
+   the agent and principal it names in `agent.client_id` and `principal`, read without
+   further validation, or, if these cannot be read (the document is not I-JSON or lacks
+   them), for every agent and principal, so that it is never ignored silently.
+2. No candidate → `deny` with `no_mandate`; but if revoked documents are stored for the
+   agent and principal (attributed as in step 1), `deny` with `revoked`. A revoked mandate
+   is never evaluated; the result names it (`mandate_digest`, and `selected` in the test
+   interface) if exactly one revoked document is stored for them and it is a valid mandate,
+   and names none otherwise. The log then shows that the agent's mandate was revoked, not
+   that it never had one (Section 11.3).
 3. Of the candidates, those are *current* that are valid at the point in time
    (`valid_from ≤ t < expires`); an invalid document always counts as current.
    - exactly one current candidate → it is evaluated (Section 4);
@@ -541,6 +592,12 @@ in the schema, is `deny` with `invalid_request` before any mandate is selected, 
 An agent can therefore have mandates that follow one another in time, but never two at
 the same time. Implementations SHOULD refuse to store a mandate whose validity period
 overlaps with another mandate of the same agent and principal that is not revoked.
+
+A stored document becomes invalid without anyone storing an invalid mandate: the
+specification became stricter between versions, an extension vocabulary the mandate relies
+on changed, or the storage was damaged. Implementations MUST reject invalid mandates when
+they are stored (Section 3.1) and SHOULD show the household every stored document that is
+no longer a valid mandate, because it denies every request of its agent.
 
 ### 4.4 Requests for several resources
 
@@ -788,7 +845,8 @@ context:
                "mandate_id": "m-voice-assistant", "mandate_digest": "sha256:9f2c…" } }
 ```
 
-`reason` is REQUIRED, as are `mandate_id` (the `id` of the evaluated mandate) and
+`reason` is REQUIRED, as are `mandate_id` (the `id` of the evaluated mandate, or of the
+revoked mandate the result names, Section 4.3) and
 `mandate_digest` unless Section 4.1 says the digest is absent: a PEP with a separate PDP
 records both in the audit entry (Section 9.1) and need not resolve the `id` from the
 digest. `rule_id` is included when Section 4.1 provides for it. For `outcome: ask`, `approval_timeout` and
@@ -834,7 +892,8 @@ holds the directory, the clock and the household configuration itself ignores
 `resource.type`, `resource.properties` and `context` and uses its own (as in the test
 interface, Section 10.3). The mandate is selected
 per Section 4.3; if there is none for the agent and principal, the result is `deny` with
-`reason: no_mandate`.
+`reason: no_mandate`, or `revoked` if they have only revoked mandates; `mandate_id` and
+`mandate_digest` then name the revoked mandate if it is exactly one valid one.
 
 - `outcome: allow` → `decision: true`
 - `outcome: ask` → `decision: false`; the PEP MUST obtain a confirmation per Section 11.1 and
@@ -880,7 +939,10 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
 
 - The payload is the canonical form of the mandate (Section 3.2), byte for byte. A verifier
   MUST reject a payload that is not canonical; one mandate thus has exactly one payload.
-- The mandate carries `issuer` and `version` (Section 3.5).
+- The mandate carries `issuer`, `version` and `audience` (Section 3.5) and `expires`
+  (RECOMMENDED at most one year ahead): a signed mandate stays verifiable until it expires,
+  so one without an expiry would be valid forever once the verifier's memory of versions
+  is lost.
 - The protected header has exactly two members: `alg` and `kid`. `alg` is `EdDSA` with
   Ed25519 (RFC 8037) or `ES256`. Every implementation that verifies signed mandates MUST
   support `EdDSA` and MAY support `ES256`. Any other algorithm (in particular `none`) and
@@ -902,15 +964,24 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
 A verifier accepts a signed mandate only if
 
 1. it holds public keys that it trusts **for the issuer the mandate names**, and the
-   signature verifies with the key `kid` among them;
-   it has also decided, by its own configuration, that this issuer may issue mandates for
-   the `principal` and the agent the mandate names. A key that is trusted for one
-   household MUST NOT be accepted for another;
+   signature verifies with the key `kid` among them; the mandate's `audience` is the
+   verifier's own identifier; and it has decided, by its own configuration, that this
+   issuer may issue mandates for the `principal` and the agent the mandate names. A key
+   that is trusted for one household MUST NOT be accepted for another;
 2. the payload is canonical and a valid mandate (Section 3.1);
 3. succession holds against what the verifier has stored (Section 3.5).
 
 A signed mandate that fails one of these is not accepted and is recorded with
-`mandate.rejected` and its `cause` (Sections 9.1 and 9.2).
+`mandate.rejected` and its `cause` (Sections 9.1 and 9.2). One that passes is accepted;
+whether it takes effect at once or only after a human confirmed it is decided by
+Section 3.5 (a weakening, a revoked predecessor, audit mode, unknown `approvers`).
+
+A verifier MUST NOT take keys for an issuer from a location that an unverified mandate
+names, such as a URL in its payload: the mapping from issuer to keys is configured before
+any mandate is verified. A verifier remembers by which `kid` it accepted each stored
+mandate; when it stops trusting a key (`issuer.changed`, Section 9.2), every mandate it
+accepted only by that key MUST lose its effect or be confirmed again by a human, because a
+key that was compromised may have signed it.
 
 How a verifier comes to trust the keys of an issuer is outside this specification
 (configuration, pairing, a JWK Set under the issuer's URL, …). Keys are exchanged as JWK or
@@ -965,15 +1036,19 @@ error cannot be represented as a JSON object, such as duplicate keys).
 `conformance/selection-v0.json` contains cases for Section 4.3: `mandates` (the stored
 mandates, each as `mandate_inline` with an optional `revoked`), `subject` (`client_id` and
 `principal` of the request), the request as in `cases-v0.json`, `selected` (the `id` of the
-mandate that is evaluated, or `null`) and the expected `expected`, `reason` and optionally
+mandate that is evaluated, or of the revoked mandate the result names, Section 4.3 step 2,
+else `null`) and the expected `expected`, `reason` and optionally
 `rule_id`, `approval_timeout`, `enforced` and `confirm`, as in `cases-v0.json`.
 
 `conformance/succession-v0.json` contains cases for Section 3.5: `stored` and `offered`
-(two valid mandates) and `expected` (`accept` or `reject`).
+(two valid mandates), optionally `stored_revoked` (the stored mandate is revoked),
+`expected` (`accept` or `reject`) and, with `accept`, optionally `confirm: true`: the
+successor takes effect only after a human confirmed it.
 
 `conformance/signed-v0.json` contains cases for Section 7.1: `jws` (the signed mandate),
 `keys` (path to the JWK Set the verifier trusts), `issuer` (the issuer the keys are trusted
 for), `expected` (`valid` or `invalid`) and, for `valid`, the `digest` of the mandate. The
+verifier under test counts as `hm-verifier:conf-0001`, the `audience` of the cases. The
 keys in `conformance/keys/` are test keys whose private parts are public.
 
 `conformance/digest-v0.json` contains, under `cases`, mandates (`mandate`, `mandate_inline` or
@@ -1012,7 +1087,7 @@ that class in that version.
 | `signatures` | verifies signed mandates and succession (Sections 3.5 and 7) | `signed-v0.json`, `succession-v0.json` |
 | `audit` | verifies the hash chain of audit logs, the `log_id` of their checkpoints, and computes entry digests (Sections 9.4, 9.5 condition 4 without keys) | logs in `audit-v0.json` without `keys` |
 | `audit-anchored` | additionally verifies checkpoints (Section 9.5) | logs in `audit-v0.json` with `keys` |
-| `pdp` | answers AuthZEN requests from its own mandate store and resource directory (Sections 4.3 and 6) | the cases of `cases-v0.json` and `selection-v0.json` whose mandates are valid, over HTTP |
+| `pdp` | answers AuthZEN requests from its own mandate store and resource directory (Sections 4.3 and 6) | the cases of `cases-v0.json` whose mandate is valid and not revoked, and the cases of `selection-v0.json` whose mandates are valid, over HTTP. A PDP never evaluates a revoked mandate (Section 4.3): the `revoked` cases of `cases-v0.json` test the order of the reasons in direct evaluation; the `revoked` of a PDP is covered by the selection cases |
 
 `evaluator` is the basis: an implementation that claims any conformance to the
 evaluation conforms to it. The obligations of the PEP (Section 11: approval, rate limit,
@@ -1059,7 +1134,7 @@ Depending on the event, the following are added:
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
 | `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked`; optionally `group`, a UUID (RFC 9562, lower case) that is the same in every `decision` entry of one request for several resources (Section 4.4) and appears in the entries of no other request |
-| `mandate` | `id` and `digest`. `previous_digest`, different from `digest`: required for `mandate.updated`, the version replaced; for `mandate.proposed` the version the implementation held when it recorded the proposal, in force or not (Section 3.5), absent if it held none; a `mandate.discarded` repeats the `digest` and `previous_digest` of its proposal (Section 11.6 item 4); absent with every other event. For `mandate.removed`, `digest` is that of the last version the implementation held; for `mandate.proposed` and `mandate.discarded`, `digest` is that of the proposed version. `cause`, required with `mandate.discarded` and `mandate.rejected` and absent otherwise: for `mandate.discarded` why the proposal did not take effect (`rejected`: a human declined it, `superseded`: another version took effect or a later proposal replaced it, `revoked`: the mandate was revoked, `expired`: the proposed version expired first); for `mandate.rejected` why a mandate from outside was not accepted (`invalid`: not a valid mandate or not canonical, Sections 3.1 and 7.1; `signature`: the signature does not verify, or the header or `kid` is not acceptable; `untrusted_issuer`: no trusted key for the issuer, or the issuer may not issue for this principal or agent; `succession`: Section 3.5, a rollback included; `unsupported`: the implementation does not offer what the mandate needs, such as audit mode, Section 11.6, or a format major it does not support, Section 14). With `mandate.rejected`, `digest` is present if the document was a JSON object (Section 3.2) and `id` if it named one; if nothing could be read, the object has only `cause` |
+| `mandate` | `id` and `digest`. `previous_digest`, different from `digest`: required for `mandate.updated`, the version replaced; for `mandate.proposed` the version the implementation held when it recorded the proposal, in force or not (Section 3.5), absent if it held none; a `mandate.discarded` repeats the `digest` and `previous_digest` of its proposal (Section 11.6 item 4); absent with every other event. For `mandate.removed`, `digest` is that of the last version the implementation held; for `mandate.proposed` and `mandate.discarded`, `digest` is that of the proposed version. `cause`, required with `mandate.discarded` and `mandate.rejected` and absent otherwise: for `mandate.discarded` why the proposal did not take effect (`rejected`: a human declined it, `superseded`: another version took effect or a later proposal replaced it, `revoked`: the mandate was revoked, `expired`: the proposed version expired first); for `mandate.rejected` why a mandate from outside was not accepted (`invalid`: not a valid mandate or not canonical, or a signed mandate without `audience` or `expires`, Sections 3.1 and 7.1; `signature`: the signature does not verify, or the header or `kid` is not acceptable; `untrusted_issuer`: no trusted key for the issuer, the issuer may not issue for this principal or agent, or the mandate names another `audience`; `succession`: Section 3.5, a rollback included; `unsupported`: the implementation does not offer what the mandate needs, such as audit mode, Section 11.6, or a format major it does not support, Section 14). With `mandate.rejected`, `digest` is present if the document was a JSON object (Section 3.2) and `id` if it named one; if nothing could be read, the object has only `cause` |
 | `vocabulary` | the vocabulary the evaluation used for the category of the resource (Section 5): `id` and `version` as in its file. Only with `decision` and `evaluation`, and not with `reason` `unknown_resource` or `unknown_category`: no vocabulary was used. For a category of Section 5, `id` is `https://home-mandate.org/vocabulary/v0`; for an extension category, the `id` of the extension (Section 5.1). The schema cannot see the vocabulary; a verifier MUST reject any other `id` for a category of Section 5, the `id` of Section 5 for an extension category and, for an extension whose vocabulary it knows, any `id` other than that vocabulary's, and an entry that violates this is invalid |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, `approval_timeout` (the timeout of the approval settings; required for `ask` and with `confirm`, absent otherwise), `enforced` (only `false`, Section 4.6) and `confirm` (only `true`, with `enforced`) |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, where it names an approver whose answer arrived after the timeout, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
@@ -1170,7 +1245,7 @@ template.
 | `issuer.changed` | yes, if the implementation accepts signed mandates (Section 7) | every issuer that becomes trusted or stops being trusted, and every key of an issuer added or removed (Section 7.1) |
 | `config.changed` | yes | every change to the household time zone, to the clock check (Section 11.4) and to the key that signs checkpoints (Section 9.5) |
 | `mandate.removed`, `agent.removed` | yes, if the implementation removes revoked mandates or agents | every revoked mandate or agent removed from the implementation's lists (Section 11.3) |
-| `mandate.proposed`, `mandate.discarded` | yes, if the implementation offers audit mode | every mandate that would switch audit mode on and waits for a confirmation, and every such proposal that does not take effect, each with the digest of the proposed version and, if one is stored, that of the stored version (Section 11.6 item 4) |
+| `mandate.proposed`, `mandate.discarded` | yes, if the implementation offers audit mode or accepts mandates from outside | every mandate that waits for a confirmation before it takes effect (Section 3.5: audit mode, a weakening, a revoked predecessor, unknown `approvers`), and every such proposal that does not take effect, each with the digest of the proposed version and, if one is stored, that of the stored version (Section 11.6 item 4) |
 | `mandate.rejected` | yes, if the implementation accepts mandates from outside (Sections 3.5 and 7) | every mandate from outside that was not accepted: invalid, not verifiable, from an untrusted issuer, against succession or unsupported |
 | `agent.reconnected` | yes, if the implementation lets humans reconnect agents | every existing agent that receives new credentials instead of being admitted anew (Section 11.3) |
 | `auth.rejected` | no | rejected sign-in or invalid token |
@@ -1349,8 +1424,8 @@ cases).
 | `capabilities` | – | `name`, `version`, `ops` (the operations offered) |
 | `validate` | `mandate` | `valid`; `digest` if valid |
 | `evaluate` | `mandate`, `request` | `decision`, `reason`, `rule_id` if Section 4.1 provides one, `approval_timeout` and `approvers` for `ask` and for a result that requires a confirmation, `mandate_digest` unless absent per Section 4.1, `enforced: false` for a `deny` that is not enforced (Section 4.6), `confirm: true` for one that requires a confirmation |
-| `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate) if one was selected |
-| `succession` | `stored`, `offered` | `accept` |
+| `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate, or of the revoked mandate the result names, Section 4.3) if there is one |
+| `succession` | `stored`, `offered`, optionally `stored_revoked` | `accept`; with `accept`, `confirm: true` if the successor takes effect only after a human confirmed it (Section 3.5) |
 | `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer) | `valid`; `digest` if valid |
 | `verify_audit` | `entries` (array of entry texts) or `jsonl` (the exchange format); optionally `keys` and `log_id` | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given |
 | `entry_digest` | `entry` | `digest` |
@@ -1363,8 +1438,9 @@ integer nor a string yields `deny` with `invalid_request`. A string is never rea
 number: `"50"` is the string `50`. For `select`, a `subject` whose `client_id` is empty or
 whose `principal` does not match the pattern of `principal` yields `deny` with
 `invalid_request` and no `selected` (Section 6). A request that cannot be expressed yields
-`invalid_request` after the selection (Section 4.1: `no_mandate`, `ambiguous_mandate` and
-`invalid_mandate` come first), with `selected` and `mandate_digest` when a mandate is
+`invalid_request` after the selection (Section 4.1: `no_mandate`, `revoked` from the
+selection, `ambiguous_mandate` and `invalid_mandate` come first), with `selected` and
+`mandate_digest` when a mandate is
 selected; a point in time that is not readable selects only a sole candidate (Section 4.3
 step 3), several candidates cannot be told apart.
 
@@ -1563,7 +1639,10 @@ of them.
 
 - A revocation of a mandate or of an agent takes effect with the next evaluation: no
   request that is evaluated after the revocation was recorded is permitted. An
-  implementation MUST NOT cache decisions beyond a request.
+  implementation MUST NOT cache decisions beyond a request. Requests of an agent whose only
+  mandates are revoked are denied with `revoked` (Section 4.3), so that the log shows the
+  revocation. A successor of a revoked mandate that arrives from outside is accepted by
+  the succession rule but takes effect only after a human confirmed it (Section 3.5).
 - Approval requests of the agent that are waiting end with `deny` when the mandate or the
   agent is revoked, recorded with `approval.outcome: cancelled` and `cause: revoked`
   (Section 11.1 item 8); Section 11.1 item 6 covers a confirmation that arrives at the
@@ -1641,7 +1720,9 @@ the limits it names are those of the `allow` rules, as without audit mode (Secti
 
 ### 11.6 Audit mode
 
-An implementation that offers audit mode (Section 4.6):
+An implementation that offers audit mode (Section 4.6); item 4 applies to every
+implementation that accepts mandates from outside (Section 7), whether or not it offers
+audit mode:
 
 1. **Executes** a request whose result is not enforced (`enforced: false`) as it executes
    an `allow`, with every obligation that applies to an `allow`, and records a `decision`
@@ -1669,15 +1750,19 @@ An implementation that offers audit mode (Section 4.6):
    (Section 9.3). It SHOULD warn wherever it shows such a mandate if a resource the
    directory marks as critical can be read under it: `read` is never critical, so audit
    mode does not protect what such a resource shows (Section 13).
-4. **Lets audit mode be switched on only by a human.** A mandate that switches audit mode
-   on (Section 3.5: no mandate with its `id` in audit mode is in force, which includes a
-   mandate arriving from outside or restored from a backup) MUST NOT take effect before a
-   human of the household has confirmed it explicitly, in the user interface of the
-   implementation and on a path the agent does not control (Section 11.1 item 4). The
-   confirmation names the digest of exactly the version that is adopted and counts for no
-   other; a signed successor is not adopted automatically. The implementation MUST notify
-   every approver of the mandate when such a mandate is proposed, while it waits for the
-   confirmation, and again when audit mode takes effect. It MUST record the proposal with
+4. **Lets audit mode be switched on, and a mandate weakened from outside, only by a
+   human.** A mandate that switches audit mode on (Section 3.5: no mandate with its `id` in
+   audit mode is in force, which includes a mandate arriving from outside or restored from
+   a backup), and likewise a successor that weakens the stored mandate, follows a revoked
+   one or names `approvers` the implementation does not know (Section 3.5), MUST NOT take
+   effect before a human of the household has confirmed it explicitly, in the user
+   interface of the implementation and on a path the agent does not control (Section 11.1
+   item 4). The confirmation names the digest of exactly the version that is adopted and
+   counts for no other; a signed successor is not adopted automatically. What follows
+   about proposals applies to every such mandate, not only to audit mode. The
+   implementation MUST notify every approver of the mandate when such a mandate is
+   proposed, while it waits for the confirmation, and again when the mandate takes effect.
+   It MUST record the proposal with
    `mandate.proposed`, with the digest of the proposed version as `digest` and that of the
    stored version, if there is one, as `previous_digest`. A proposal that does not take
    effect, because a human declined it, another version took effect or replaced it, the
@@ -1709,8 +1794,9 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded, and so are added or removed resources and changed categories or areas, as far as the implementation tracks them (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
 | **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only |
-| **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
-| **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal (Section 3.5); every change to the trusted issuers and their keys is recorded (`issuer.changed`, Section 9.2) | The specification does not define how this trust is configured |
+| **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7); a signed mandate expires and names its `audience`, so it is not replayed at another verifier (Sections 3.5, 7.1) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
+| **Compromised or rotated issuer key** | Keys are configured, never fetched from a location a mandate names; the verifier remembers by which key it accepted a mandate, and a mandate accepted only by a key that is no longer trusted loses its effect or is confirmed again; a weakening successor needs a human (Sections 3.5, 7.1); every change of trust is recorded (Section 9.2) | Until the key is withdrawn, the attacker can issue narrowing successors and new mandates for the audience, within what the configuration lets the issuer issue; a new mandate takes effect without a human unless it is in audit mode or names unknown `approvers` |
+| **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal, and a replacement that weakens the mandate or follows a revoked one takes effect only after a human confirmed it (Section 3.5); every change to the trusted issuers and their keys is recorded (`issuer.changed`, Section 9.2) | The specification does not define how this trust is configured |
 | **Attacker between PEP and PDP** | The connection MUST be authenticated in both directions; the PDP MUST NOT be reachable by agents (Section 6) | The specification does not define the mechanism |
 | **Whoever can change a mandate and switches it to audit mode** (a member of the household, a manipulated user interface, an issuer) | Critical actions, `ask` and every denial outside the rules stay enforced (Section 4.6). Switching audit mode on takes effect only after a human of the household confirmed it explicitly, also for a signed successor, and every approver is notified (Sections 3.5, 11.6). The switch is a new version with a new digest, recorded with `mandate.updated` and its actor (Sections 3.2, 9.2), and implementations MUST show audit mode wherever they show mandates (Section 11.6). In a signed mandate, `enforce` is covered by the signature (Section 7); a verifier rejects an audit entry that claims an unenforced deny of a critical action (Section 9.1) | In audit mode the agent can do every action that is not critical, including `read` of cameras and presence sensors, without asking unless a rule sets it to `ask`. Whoever can change mandates could also write a broad `allow`; audit mode gives no more power, but it looks harmless. A human who confirms without reading; the confirmation and the notice make the switch visible, they do not prevent it |
 | **Agent with a path past the PEP** (another credential for the platform, for example an MCP tool that talks to the platform with its own API token, or the right to create or change scripts, automations or rules) | Nothing. The evaluation covers only the requests that reach the PEP (Section 12.3, the only path) | Whatever the agent can do on that path, no mandate limits. A script or an automation it writes can scan the network, load programs or unlock the front door |
@@ -2210,6 +2296,36 @@ Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 
   `s22` (the selection cases accept `approval_timeout` and `confirm`), `a136` (valid: every
   outcome of an approval request with `confirm: true`) and `a137`–`a145` (invalid).
 - Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
+
+Acceptance and selection (Sections 3, 3.4, 3.5, 4.1, 4.3, 6, 7.1, 8, 8.1, 9.1, 9.2, 10.2,
+11.3, 11.6, 12.2; issues #76, #79, #80, #81):
+- Selection (#76): an agent whose only mandates are revoked is denied with `revoked`, not
+  `no_mandate`; the result names the revoked mandate if it is exactly one valid one. An
+  invalid stored document is a candidate for the agent and principal it names, or for every
+  agent and principal if these cannot be read. Section 4.3 says how a stored document
+  becomes invalid and that the household is shown such documents. The class `pdp` runs the
+  evaluation cases whose mandate is not revoked; its `revoked` is tested by the selection
+  cases. Incompatible for the classes `selection` and `pdp` (before `v0.1.0`): `s07`
+  changes.
+- Succession (#79): the stored mandate of the succession rule includes one that is
+  remembered after revocation, removal or expiry; the highest version is updated when a
+  mandate takes effect, and a later successor replaces a waiting proposal.
+- Accepted is not in effect (#80): a successor that does not merely narrow the stored
+  mandate (defined in Section 3.5), one that follows a revoked mandate, and a signed mandate
+  with `approvers` the implementation does not know take effect only after a human
+  confirmed them, as audit mode did. The `succession` operation of the process binding
+  answers `confirm: true` for such a successor; cases carry `stored_revoked` and `confirm`.
+  The reference code offers `NeedsConfirmation` and `Narrows`.
+- Signed mandates (#81): `audience`, an optional member of the mandate with the form of
+  `agent.client_id`, required in a signed mandate together with `expires`; a verifier
+  accepts a signed mandate only for its own audience, never fetches keys from a location a
+  mandate names, and withdraws the effect of mandates accepted by a key it stops trusting.
+  Incompatible for the class `signatures` (before `v0.1.0`): the signed cases are
+  regenerated from a mandate with `audience` and `expires`; a mandate that uses `audience`
+  is invalid for an implementation of an earlier pre-release (Section 14, unknown members).
+- Conformance cases `s07` (changed), `s24`–`s28`, `v01` and `v09` (the offered mandate keeps
+  the rate limit), `v13` (`confirm`), `v15`–`v23`, `g01`–`g21` (regenerated), `g22`, `g23`,
+  `d51`, `i156`, `i157`.
 
 AuthZEN mapping completed, optional mandate members, signed checkpoint time, further audit
 events, EdDSA canonicality (Sections 3, 3.1, 4.1, 4.3, 6, 7.1, 9.1, 9.2, 9.5, 10.2, 10.3,

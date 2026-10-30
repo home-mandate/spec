@@ -50,8 +50,8 @@ func Sign(mandate []byte, kid string, signer any) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if m.issuer == "" {
-		return "", fmt.Errorf("%w: a signed mandate needs issuer and version", ErrSemantic)
+	if err := signable(m); err != nil {
+		return "", fmt.Errorf("%w: %w", ErrSemantic, err)
 	}
 	payload, err := Canonical(mandate)
 	if err != nil {
@@ -90,7 +90,25 @@ func ParseSigned(compact string, trusted Issuers) (*Mandate, error) {
 	if m.issuer != issuer {
 		return nil, fmt.Errorf("%w: issuer changed during parsing", ErrSignature)
 	}
+	if err := signable(m); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrSignature, err)
+	}
 	return m, nil
+}
+
+// signable reports why a valid mandate cannot be a signed mandate: it needs issuer and
+// version, the audience it is for and an expiry (SPEC-v0 section 7.1). Whether the
+// audience is the verifier's own is the verifier's decision, like the trust in the issuer.
+func signable(m *Mandate) error {
+	switch {
+	case m.issuer == "":
+		return errors.New("SPEC-v0 section 7.1: a signed mandate needs issuer and version")
+	case m.audience == "":
+		return errors.New("SPEC-v0 section 7.1: a signed mandate names its audience")
+	case !m.hasExpires:
+		return errors.New("SPEC-v0 section 7.1: a signed mandate expires")
+	}
+	return nil
 }
 
 // unverifiedIssuer reads the issuer from the payload before the signature is checked,
@@ -118,11 +136,12 @@ func unverifiedIssuer(compact string) (string, error) {
 
 // CheckSuccessor reports whether offered may replace stored as the next version of a
 // mandate (SPEC-v0 section 3.5). It protects against rollback: an older version with a
-// valid digest or signature is not accepted again. stored is nil if nothing is stored
-// and nothing was stored before: an implementation keeps the highest version it has
-// seen per mandate, also after the mandate was revoked or deleted, and passes it here.
-// The check does not decide whether the issuer may issue mandates for the principal;
-// that is the caller's decision (SPEC-v0 section 7.1).
+// valid digest or signature is not accepted again. stored is the mandate the
+// implementation holds or remembers under the id, also after it was revoked, removed or
+// expired; nil only if no mandate was ever accepted under the id. Whether an accepted
+// successor takes effect at once or only after a human confirmed it is NeedsConfirmation.
+// The check does not decide whether the issuer may issue mandates for the principal and
+// the audience; that is the caller's decision (SPEC-v0 section 7.1).
 func CheckSuccessor(stored, offered *Mandate) error {
 	switch {
 	case offered == nil || !offered.valid:
@@ -143,11 +162,72 @@ func CheckSuccessor(stored, offered *Mandate) error {
 	return nil
 }
 
+// NeedsConfirmation reports whether an accepted successor takes effect only after a human
+// confirmed exactly this version (SPEC-v0 sections 3.5 and 11.6): it switches audit mode
+// on (EntersAuditMode), its predecessor is revoked (the issuer cannot undo a revocation
+// of the household), or it does not merely narrow the stored mandate (Narrows). A zero at
+// means the stored mandate counts as in force if it is valid and active. Whether the
+// approvers of a signed mandate are known to the implementation (SPEC-v0 section 3.5) is
+// the caller's check; this package does not know the approvers.
+func NeedsConfirmation(stored *Mandate, status MandateStatus, at time.Time, offered *Mandate) bool {
+	if offered == nil || !offered.valid {
+		return false
+	}
+	if EntersAuditMode(stored, status, at, offered) {
+		return true
+	}
+	if stored == nil {
+		return false
+	}
+	return status == StatusRevoked || !Narrows(stored, offered)
+}
+
+// Narrows reports whether offered differs from stored only in ways that take nothing
+// away from the household's protection (SPEC-v0 section 3.5): removed allow rules, added
+// deny rules, added ask rules without their own approval, an earlier or added expiry, a
+// later start, a lower rate limit, audit mode switched off, and the issuer's version.
+// Everything else, a changed rule or displayed text included, is a weakening, so that a
+// successor from outside cannot expand what an agent may do, or change what a human
+// reads, without a human. Both mandates must be valid and name the same id, agent and
+// principal.
+func Narrows(stored, offered *Mandate) bool {
+	if stored == nil || offered == nil || !stored.valid || !offered.valid ||
+		stored.id != offered.id || stored.clientID != offered.clientID || stored.principal != offered.principal {
+		return false
+	}
+	if offered.auditMode && !stored.auditMode || offered.name != stored.name || offered.displayName != stored.displayName || offered.audience != stored.audience ||
+		offered.approvalText != stored.approvalText || offered.maxActions > stored.maxActions || offered.validFrom.Before(stored.validFrom) {
+		return false
+	}
+	if stored.hasExpires && (!offered.hasExpires || offered.expires.After(stored.expires)) {
+		return false
+	}
+	kept := make(map[string]bool, len(stored.ruleTexts))
+	for _, r := range stored.ruleTexts {
+		kept[r.text] = false
+	}
+	for _, r := range offered.ruleTexts {
+		if _, ok := kept[r.text]; ok {
+			kept[r.text] = true
+			continue
+		}
+		if r.decision != Deny && !(r.decision == Ask && !r.ownApproval) {
+			return false // an added or changed allow rule, or an ask rule that names approvers
+		}
+	}
+	for _, r := range stored.ruleTexts {
+		if !kept[r.text] && r.decision != Allow {
+			return false // a removed or changed deny or ask rule
+		}
+	}
+	return true
+}
+
 // EntersAuditMode reports whether adopting offered switches audit mode on: offered is in
 // audit mode ("enforce": false) and no mandate in audit mode is in force for it. stored
 // is the mandate the implementation holds under the same id, with its status, and at is
 // the point in time; stored counts only if it is valid, active and valid at at (SPEC-v0
-// section 4, step 1). A predecessor that is revoked, expired or not yet valid counts as
+// section 4, step 1); a zero at skips the check of the validity period. A predecessor that is revoked, expired or not yet valid counts as
 // none, and offered then arrives as if from outside. Such a mandate takes effect only
 // after a human of the household confirmed exactly this version (its digest), and every
 // approver is notified, also for a signed successor that passed CheckSuccessor (SPEC-v0
@@ -159,8 +239,11 @@ func EntersAuditMode(stored *Mandate, status MandateStatus, at time.Time, offere
 	return !stored.inForce(status, at) || stored.Enforce()
 }
 
-// inForce reports whether m is a valid mandate that is active and valid at t.
+// inForce reports whether m is a valid mandate that is active and valid at t; a zero t
+// asks only whether it is valid and active.
 func (m *Mandate) inForce(status MandateStatus, t time.Time) bool {
-	return m != nil && m.valid && status == StatusActive && !t.Before(m.validFrom) &&
-		(!m.hasExpires || t.Before(m.expires))
+	if m == nil || !m.valid || status != StatusActive {
+		return false
+	}
+	return t.IsZero() || !t.Before(m.validFrom) && (!m.hasExpires || t.Before(m.expires))
 }

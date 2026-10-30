@@ -105,8 +105,10 @@ func RunPDP(ctx context.Context, fsys fs.FS, pdp PDP) (Report, error) {
 		if err != nil {
 			return Report{}, fmt.Errorf("conformance: case %s: %w", c.ID, err)
 		}
-		// A PDP stores only valid mandates and never selects a revoked one; those cases
-		// belong to the evaluator class and to the selection cases.
+		// A PDP stores only valid mandates and never evaluates a revoked one: the cases
+		// with revoked: true test the order of the reasons in direct evaluation and belong
+		// to the evaluator class; the revoked result of a PDP is covered by the selection
+		// cases (SPEC-v0 sections 4.3 and 8.1).
 		m, err := evaluator.Parse([]byte(text))
 		if err != nil || c.Revoked {
 			continue

@@ -88,6 +88,25 @@ func (s Stored) validAt(t time.Time) bool {
 	return !t.Before(m.validFrom) && (!m.hasExpires || t.Before(m.expires))
 }
 
+// revokedOnly answers a selection without candidates: no_mandate, unless the agent and
+// principal have revoked mandates, which are not evaluated but shown (SPEC-v0 section
+// 4.3 step 2): deny with revoked, naming the mandate if it is exactly one valid one.
+func revokedOnly(stored []Stored, clientID, principal string) (*Mandate, Result) {
+	var revoked []Stored
+	for _, s := range stored {
+		if s.status == StatusRevoked && s.concerns(clientID, principal) {
+			revoked = append(revoked, s)
+		}
+	}
+	switch {
+	case len(revoked) == 0:
+		return nil, Result{Decision: Deny, Reason: ReasonNoMandate}
+	case len(revoked) == 1 && revoked[0].mandate != nil:
+		return revoked[0].mandate, Result{Decision: Deny, Reason: ReasonRevoked, MandateDigest: revoked[0].mandate.digest}
+	}
+	return nil, Result{Decision: Deny, Reason: ReasonRevoked}
+}
+
 // SelectAndEvaluate selects the mandate for an agent and a principal among the stored
 // mandates (SPEC-v0 section 4.3) and evaluates req against it. The status in req is
 // ignored; the status of the selected mandate applies. It returns the selected
@@ -96,10 +115,12 @@ func (s Stored) validAt(t time.Time) bool {
 // A subject that is not valid (ValidSubject) is deny with invalid_request before any
 // mandate is selected.
 //
-// Selection: revoked mandates are never selected. Of the others, the one that is valid
+// Selection: revoked mandates are never evaluated. Of the others, the one that is valid
 // at the point in time is selected; if several are, none is (ambiguous_mandate). If
 // none is valid at that time and there is exactly one, it is selected and yields
-// not_yet_valid or expired; otherwise the result is no_mandate.
+// not_yet_valid or expired; otherwise the result is no_mandate. Without any candidate,
+// revoked mandates of the agent and principal yield revoked instead of no_mandate, with
+// the mandate if it is exactly one.
 func SelectAndEvaluate(stored []Stored, clientID, principal string, req Request) (*Mandate, Result) {
 	// A subject no mandate could name is rejected before any mandate is selected, so
 	// that two PDPs answer alike: invalid_request, never no_mandate (SPEC-v0 section 6).
@@ -121,6 +142,8 @@ func SelectAndEvaluate(stored []Stored, clientID, principal string, req Request)
 		return nil, Result{Decision: Deny, Reason: ReasonAmbiguousMandate}
 	case len(candidates) == 1:
 		selected = candidates[0]
+	case len(candidates) == 0:
+		return revokedOnly(stored, clientID, principal)
 	default:
 		return nil, Result{Decision: Deny, Reason: ReasonNoMandate}
 	}

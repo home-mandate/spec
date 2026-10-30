@@ -55,6 +55,10 @@
       "description": "Who issued the mandate; only together with version. Required in a signed mandate (SPEC-v0 sections 3.5 and 7).",
       "$ref": "#/$defs/uri"
     },
+    "audience": {
+      "description": "The verifier the mandate is for, as the issuer knows it; the same form as agent.client_id. Required in a signed mandate; a verifier accepts a signed mandate only for its own audience (SPEC-v0 sections 3.5 and 7.1).",
+      "$ref": "#/$defs/uri"
+    },
     "version": {
       "description": "Version of the mandate with this id, increasing with every change; only together with issuer.",
       "type": "integer",

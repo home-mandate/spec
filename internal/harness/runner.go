@@ -341,20 +341,28 @@ func (r *runner) validate(file string, want func(validityCase) string) error {
 
 func (r *runner) succession() error {
 	type successionCase struct {
-		ID       string          `json:"id"`
-		Stored   json.RawMessage `json:"stored"`
-		Offered  json.RawMessage `json:"offered"`
-		Expected string          `json:"expected"`
+		ID            string          `json:"id"`
+		Stored        json.RawMessage `json:"stored"`
+		StoredRevoked bool            `json:"stored_revoked"`
+		Offered       json.RawMessage `json:"offered"`
+		Expected      string          `json:"expected"`
+		Confirm       bool            `json:"confirm"`
 	}
 	cases, err := load[successionCase](r.fsys, fileSuccession, "cases")
 	for _, c := range cases {
 		stored, offered := string(c.Stored), string(c.Offered)
-		resp, doErr := r.impl.Do(Request{Op: OpSuccession, ID: c.ID, Stored: &stored, Offered: &offered})
-		got := "reject"
+		resp, doErr := r.impl.Do(Request{Op: OpSuccession, ID: c.ID, Stored: &stored, StoredRevoked: c.StoredRevoked, Offered: &offered})
+		got, want := "reject", c.Expected
 		if resp.Accept != nil && *resp.Accept {
 			got = "accept"
+			if resp.Confirm {
+				got += " confirm"
+			}
 		}
-		r.record(ClassSignatures, fileSuccession, c.ID, resp, doErr, got, c.Expected)
+		if c.Confirm {
+			want += " confirm"
+		}
+		r.record(ClassSignatures, fileSuccession, c.ID, resp, doErr, got, want)
 	}
 	return err
 }
