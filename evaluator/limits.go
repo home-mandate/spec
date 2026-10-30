@@ -29,8 +29,10 @@ func (m *Mandate) Limits(req Request) []map[string]Limit {
 	if m == nil || !m.valid {
 		return nil
 	}
+	// The question is asked before any parameter exists, so the parameters, required or
+	// not, are not checked.
 	req.Parameters = nil
-	local, _, reason := precheck(m, req)
+	local, _, reason := precheckInputs(m, req, false)
 	if reason != "" {
 		return nil
 	}

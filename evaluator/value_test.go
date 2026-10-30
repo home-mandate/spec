@@ -104,21 +104,21 @@ func TestEvaluateOneOf(t *testing.T) {
 		"string listed":             {req("climate", "set_mode", map[string]evaluator.Value{"mode": str("heat")}), evaluator.ReasonRule},
 		"second string listed":      {req("climate", "set_mode", map[string]evaluator.Value{"mode": str("auto")}), evaluator.ReasonRule},
 		"permitted, not listed":     {req("climate", "set_mode", map[string]evaluator.Value{"mode": str("off")}), evaluator.ReasonNoMatch},
-		"absent":                    {req("climate", "set_mode", nil), evaluator.ReasonNoMatch},
+		"absent":                    {req("climate", "set_mode", nil), evaluator.ReasonInvalidRequest}, // mode is required
 		"other case":                {req("climate", "set_mode", map[string]evaluator.Value{"mode": str("HEAT")}), evaluator.ReasonInvalidRequest},
 		"not permitted":             {req("climate", "set_mode", map[string]evaluator.Value{"mode": str("eco")}), evaluator.ReasonInvalidRequest},
 		"integer for a string":      {req("climate", "set_mode", map[string]evaluator.Value{"mode": num(4)}), evaluator.ReasonInvalidRequest},
 		"zero value":                {req("climate", "set_mode", map[string]evaluator.Value{"mode": {}}), evaluator.ReasonInvalidRequest},
 		"empty string":              {req("climate", "set_mode", map[string]evaluator.Value{"mode": str("heat"), "x": str("")}), evaluator.ReasonInvalidRequest},
 		"65 characters":             {req("climate", "set_mode", map[string]evaluator.Value{"mode": str("heat"), "x": str(longString(65))}), evaluator.ReasonInvalidRequest},
-		"64 characters, undeclared": {req("climate", "set_mode", map[string]evaluator.Value{"mode": str("heat"), "x": str(longString(64))}), evaluator.ReasonRule},
+		"64 characters, undeclared": {req("climate", "set_mode", map[string]evaluator.Value{"mode": str("heat"), "x": str(longString(64))}), evaluator.ReasonInvalidRequest},
 		"space":                     {req("climate", "set_mode", map[string]evaluator.Value{"mode": str("heat"), "x": str("a b")}), evaluator.ReasonInvalidRequest},
 		"not ASCII":                 {req("climate", "set_mode", map[string]evaluator.Value{"mode": str("heat"), "x": str("wärme")}), evaluator.ReasonInvalidRequest},
 		"integer listed":            {req("light", "set", map[string]evaluator.Value{"brightness": num(50)}), evaluator.ReasonRule},
 		"zero listed":               {req("light", "set", map[string]evaluator.Value{"brightness": num(0)}), evaluator.ReasonRule},
 		"between listed":            {req("light", "set", map[string]evaluator.Value{"brightness": num(51)}), evaluator.ReasonNoMatch},
 		"string for an integer":     {req("light", "set", map[string]evaluator.Value{"brightness": str("50")}), evaluator.ReasonInvalidRequest},
-		"read ignores parameters":   {req("climate", "read", map[string]evaluator.Value{"mode": num(4)}), evaluator.ReasonNoMatch},
+		"read with a parameter":     {req("climate", "read", map[string]evaluator.Value{"mode": num(4)}), evaluator.ReasonInvalidRequest}, // read declares none
 		"unknown category":          {req("vendor:wallbox", "set", map[string]evaluator.Value{"charge_mode": str("PV")}), evaluator.ReasonUnknownCategory},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -138,10 +138,10 @@ func longString(n int) string {
 	return string(b)
 }
 
-// A range constraint never matches a string, and a one_of constraint never matches a
-// value of the other type. This matters where the request's action does not declare the
-// parameter: a rule without category is valid if any category declares it.
-func TestConstraintsOnUndeclaredParametersMatchOnlyTheirType(t *testing.T) {
+// A rule without category is valid if any category declares the constrained parameter,
+// but a request for an action that does not declare it is invalid, whatever the type of
+// the value: an undeclared parameter never reaches the rules (SPEC-v0 section 4, step 0).
+func TestUndeclaredParametersAreInvalidWhateverTheirType(t *testing.T) {
 	m := mandateWithRules(t, `[
 		{"id":"r-range","resource":{"entity_id":"dev-1"},"actions":["set"],"decision":"allow",
 		 "constraints":{"brightness":{"max":60}}},
@@ -150,19 +150,24 @@ func TestConstraintsOnUndeclaredParametersMatchOnlyTheirType(t *testing.T) {
 	for name, tt := range map[string]struct {
 		entity string
 		value  evaluator.Value
-		reason evaluator.Reason
 	}{
-		"range, integer": {"dev-1", evaluator.IntegerValue(60), evaluator.ReasonCriticalDemotion},
-		"range, string":  {"dev-1", evaluator.StringValue("60"), evaluator.ReasonNoMatch},
-		"list, integer":  {"dev-2", evaluator.IntegerValue(20), evaluator.ReasonCriticalDemotion},
-		"list, string":   {"dev-2", evaluator.StringValue("20"), evaluator.ReasonNoMatch},
+		"range, integer": {"dev-1", evaluator.IntegerValue(60)},
+		"range, string":  {"dev-1", evaluator.StringValue("60")},
+		"list, integer":  {"dev-2", evaluator.IntegerValue(20)},
+		"list, string":   {"dev-2", evaluator.StringValue("20")},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := request("other", "", "set") // other.set has no parameter brightness
 			r.Resource.EntityID = tt.entity
 			r.Parameters = map[string]evaluator.Value{"brightness": tt.value}
-			if got := evaluator.Evaluate(m, r); got.Reason != tt.reason {
-				t.Errorf("got (%s, %s), want reason %s", got.Decision, got.Reason, tt.reason)
+			if got := evaluator.Evaluate(m, r); got.Reason != evaluator.ReasonInvalidRequest {
+				t.Errorf("got (%s, %s), want invalid_request", got.Decision, got.Reason)
+			}
+			// Without the parameter the request is valid; a rule with a constraint on the
+			// parameter does not match it (SPEC-v0 section 4.5).
+			r.Parameters = nil
+			if got := evaluator.Evaluate(m, r); got.Reason != evaluator.ReasonNoMatch {
+				t.Errorf("without the parameter: got (%s, %s), want no_match", got.Decision, got.Reason)
 			}
 		})
 	}
@@ -200,23 +205,23 @@ func TestParseRejectsConstraintsThatDoNotFitTheParameter(t *testing.T) {
 	}
 }
 
-// Parameters the action does not declare are checked only for being an integer or a
-// string; their type is not checked against the vocabulary, and they do not influence
-// the evaluation (SPEC-v0 section 4.5).
-func TestUndeclaredParametersDoNotInfluenceTheEvaluation(t *testing.T) {
+// A parameter the action does not declare makes the request invalid, whatever its name
+// and type: what the PEP would forward has not been evaluated (SPEC-v0 sections 4 step 0,
+// 4.5 and 12.4). Only the declared parameters reach the rules.
+func TestUndeclaredParametersMakeTheRequestInvalid(t *testing.T) {
 	m := mandateWithRules(t, `[
 		{"id":"r-modes","resource":{"category":"climate"},"actions":["set_mode"],"decision":"allow",
 		 "constraints":{"mode":{"one_of":["heat"]}}},
 		{"id":"r-read","resource":{"category":"climate"},"actions":["read"],"decision":"allow"}]`)
 	for name, extra := range map[string]map[string]evaluator.Value{
-		"none":                         nil,
 		"integer named like a string":  {"preset": evaluator.IntegerValue(4)},
 		"string named like an integer": {"temperature": evaluator.StringValue("hot")},
 		"any string":                   {"preset": evaluator.StringValue("Eco")},
-		"mode on another action":       {"brightness": evaluator.StringValue("x"), "x": evaluator.IntegerValue(-1)},
+		"another resource":             {"entity_id": evaluator.StringValue("lock.front_door")},
+		"parameter of another action":  {"brightness": evaluator.IntegerValue(50)},
 	} {
 		t.Run(name, func(t *testing.T) {
-			for action, want := range map[string]string{"set_mode": "r-modes", "read": "r-read"} {
+			for _, action := range []string{"set_mode", "read"} {
 				r := request("climate", "", action)
 				r.Parameters = map[string]evaluator.Value{}
 				if action == "set_mode" {
@@ -225,11 +230,15 @@ func TestUndeclaredParametersDoNotInfluenceTheEvaluation(t *testing.T) {
 				for k, v := range extra {
 					r.Parameters[k] = v
 				}
-				// temperature is declared for set_temperature, not for set_mode or read.
-				assertDecision(t, evaluator.Evaluate(m, r), evaluator.Allow, evaluator.ReasonRule, want)
+				if got := evaluator.Evaluate(m, r); got.Decision != evaluator.Deny || got.Reason != evaluator.ReasonInvalidRequest {
+					t.Errorf("%s: got (%s, %s), want invalid_request", action, got.Decision, got.Reason)
+				}
 			}
 		})
 	}
+	// Only the declared parameter: the rules decide.
+	assertDecision(t, evaluator.Evaluate(m, request("climate", "", "set_mode")), evaluator.Allow, evaluator.ReasonRule, "r-modes")
+	assertDecision(t, evaluator.Evaluate(m, request("climate", "", "read")), evaluator.Allow, evaluator.ReasonRule, "r-read")
 }
 
 // A mandate may name a value outside the vocabulary's range, but it never matches: a

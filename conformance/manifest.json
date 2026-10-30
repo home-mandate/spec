@@ -8,8 +8,8 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "f4f7ad0c1c1bb2a12e4fac114b22fec842225a85909d021df833bddfa4c3d43f",
-      "cases": 223
+      "sha256": "0c245438245f355fc3ea64fcc5e2d1d66fbe662dae9005409d9ad0b568d80931",
+      "cases": 242
     },
     {
       "path": "conformance/digest-v0.json",
@@ -68,6 +68,10 @@
     {
       "path": "conformance/mandates/one-of.json",
       "sha256": "fdcce44d9083f036162530d4feb9fb1c03942977cedd5de4ce5668d65ec12d86"
+    },
+    {
+      "path": "conformance/mandates/parameters.json",
+      "sha256": "00e7c177be9ed5ad91c493e1c6a40a3ac13ebf4e7ec392fcb675c019dbee0aab"
     },
     {
       "path": "conformance/mandates/precedence.json",
@@ -150,11 +154,11 @@
     },
     {
       "path": "schema/vocabulary-v0.schema.json",
-      "sha256": "d9474860a0d2559928496fe73e42d27786c9795546a2c86413ffadbc83f17791"
+      "sha256": "4643d4fae8d879ca05238de15e920e20c50c70b1fd0638ba1c0645974033805b"
     },
     {
       "path": "vocabulary/v0.json",
-      "sha256": "787380f1010583d4e64a82eba475a85394d02c592e7ceb5d233abfac0ec07ca7"
+      "sha256": "954b4dfc9ccec520c4d2c90dc55a74e8eec67790a643c1c91719904d338b3222"
     }
   ]
 }
