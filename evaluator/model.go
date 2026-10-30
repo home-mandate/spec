@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/home-mandate/spec/displaytext"
+	"github.com/home-mandate/spec/jcs"
 )
 
 // Limits for approval.timeout (SPEC-v0 section 3.1 item 7).
@@ -37,6 +38,23 @@ type Mandate struct {
 	auditMode bool
 	rules     []rule
 	approval  Approval
+	// What Narrows compares (SPEC-v0 section 3.5): the name, the audience, the rate
+	// limit, the canonical form of the mandate's approval and of every rule.
+	name         string
+	displayName  string
+	audience     string
+	maxActions   int64
+	approvalText string
+	ruleTexts    []ruleText
+}
+
+// ruleText is a rule as Narrows sees it: its canonical form and what decides whether
+// adding it can weaken a mandate.
+type ruleText struct {
+	id          string
+	decision    Decision
+	ownApproval bool
+	text        string
 }
 
 // ID returns the mandate ID; empty for nil.
@@ -200,6 +218,7 @@ type rawMandate struct {
 	} `json:"limits"`
 	Issuer    string      `json:"issuer"`
 	Version   json.Number `json:"version"`
+	Audience  string      `json:"audience"`
 	ValidFrom string      `json:"valid_from"`
 	Expires   string      `json:"expires"`
 	CreatedBy string      `json:"created_by"`
@@ -211,9 +230,16 @@ var weekdayNames = map[string]time.Weekday{
 	"thu": time.Thursday, "fri": time.Friday, "sat": time.Saturday,
 }
 
-func buildMandate(raw rawMandate, digest string) (*Mandate, error) {
+func buildMandate(raw rawMandate, digest string, instance any) (*Mandate, error) {
 	m := &Mandate{id: raw.ID, clientID: raw.Agent.ClientID, principal: raw.Principal, digest: digest,
-		auditMode: raw.Enforce != nil && !*raw.Enforce, rules: make([]rule, 0, len(raw.Rules))}
+		auditMode: raw.Enforce != nil && !*raw.Enforce, rules: make([]rule, 0, len(raw.Rules)),
+		name: raw.Name, displayName: raw.Agent.DisplayName, audience: raw.Audience}
+	if n, ok := integerValue(raw.Limits.MaxActionsPerHour); ok {
+		m.maxActions = n
+	}
+	if err := m.setTexts(instance); err != nil {
+		return nil, err
+	}
 	if err := m.setValidity(raw); err != nil {
 		return nil, err
 	}
@@ -255,6 +281,38 @@ func buildMandate(raw rawMandate, digest string) (*Mandate, error) {
 	}
 	m.valid = true
 	return m, nil
+}
+
+// setTexts keeps the canonical form of the approval and of every rule, for Narrows.
+// instance is the decoded document the schema validated.
+func (m *Mandate) setTexts(instance any) error {
+	top, _ := instance.(map[string]any)
+	approval, err := jcs.Canonicalize(top["approval"])
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrSchema, err)
+	}
+	m.approvalText = string(approval)
+	rules, _ := top["rules"].([]any)
+	for _, r := range rules {
+		obj, _ := r.(map[string]any)
+		text, err := jcs.Canonicalize(obj)
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrSchema, err)
+		}
+		id, _ := obj["id"].(string)
+		decision, _ := obj["decision"].(string)
+		_, ownApproval := obj["approval"]
+		m.ruleTexts = append(m.ruleTexts, ruleText{id: id, decision: Decision(decision), ownApproval: ownApproval, text: string(text)})
+	}
+	return nil
+}
+
+// Audience returns the verifier the mandate is for; empty if it names none or for nil.
+func (m *Mandate) Audience() string {
+	if m == nil {
+		return ""
+	}
+	return m.audience
 }
 
 // setValidity reads the validity period (SPEC-v0 section 3.1 items 0 and 6).

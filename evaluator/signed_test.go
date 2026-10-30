@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/home-mandate/spec"
 	"github.com/home-mandate/spec/evaluator"
@@ -18,8 +19,11 @@ import (
 
 const testIssuer = "https://issuer.example/mandates"
 
+// issuedMandate is the test mandate as an issuer signs it: with issuer and version, the
+// audience it is for and an expiry (SPEC-v0 section 7.1).
 func issuedMandate(version string) []byte {
-	return mandateReplacing(`"created_by":"a-1"`, `"issuer":"`+testIssuer+`","version":`+version+`,"created_by":"a-1"`)
+	return mandateReplacing(`"created_by":"a-1"`, `"issuer":"`+testIssuer+`","version":`+version+
+		`,"audience":"hm-verifier:test-0001","expires":"2030-01-01T00:00:00+01:00","created_by":"a-1"`)
 }
 
 func issuerKey() ed25519.PrivateKey { return ed25519.NewKeyFromSeed(bytes.Repeat([]byte{3}, 32)) }
@@ -225,11 +229,13 @@ func TestConformanceSignedMandates(t *testing.T) {
 }
 
 type successionCase struct {
-	ID       string          `json:"id"`
-	Stored   json.RawMessage `json:"stored"`
-	Offered  json.RawMessage `json:"offered"`
-	Expected string          `json:"expected"`
-	Why      string          `json:"why"`
+	ID            string          `json:"id"`
+	Stored        json.RawMessage `json:"stored"`
+	StoredRevoked bool            `json:"stored_revoked"`
+	Offered       json.RawMessage `json:"offered"`
+	Expected      string          `json:"expected"`
+	Confirm       bool            `json:"confirm"`
+	Why           string          `json:"why"`
 }
 
 func TestConformanceSuccession(t *testing.T) {
@@ -246,6 +252,16 @@ func TestConformanceSuccession(t *testing.T) {
 			err = evaluator.CheckSuccessor(stored, offered)
 			if (err == nil) != (c.Expected == "accept") {
 				t.Errorf("CheckSuccessor = %v, want %s (%s)", err, c.Expected, c.Why)
+			}
+			if err != nil {
+				return
+			}
+			status := evaluator.StatusActive
+			if c.StoredRevoked {
+				status = evaluator.StatusRevoked
+			}
+			if got := evaluator.NeedsConfirmation(stored, status, time.Time{}, offered); got != c.Confirm {
+				t.Errorf("NeedsConfirmation = %t, want %t (%s)", got, c.Confirm, c.Why)
 			}
 		})
 	}
@@ -286,5 +302,63 @@ func TestParseSignedBoundsItsInput(t *testing.T) {
 	huge := "a." + strings.Repeat("A", 600<<10) + ".b"
 	if _, err := evaluator.ParseSigned(huge, trusted()); !errors.Is(err, evaluator.ErrSignature) {
 		t.Errorf("oversized signed mandate: %v, want ErrSignature", err)
+	}
+}
+
+// TestNarrowsAndNeedsConfirmation covers the edges of SPEC-v0 section 3.5 that the
+// conformance cases leave out: every change that is not listed as narrowing weakens.
+func TestNarrowsAndNeedsConfirmation(t *testing.T) {
+	parse := func(data []byte) *evaluator.Mandate {
+		m, err := evaluator.Parse(data)
+		if err != nil {
+			t.Fatalf("%s: %v", data, err)
+		}
+		return m
+	}
+	stored := parse(issuedMandate("3"))
+	next := func(old, replacement string) *evaluator.Mandate {
+		return parse(bytes.Replace(issuedMandate("4"), []byte(old), []byte(replacement), 1))
+	}
+	same := parse(issuedMandate("4"))
+	for name, offered := range map[string]*evaluator.Mandate{
+		"a name":                            next(`"id":"m-test"`, `"id":"m-test","name":"Trial"`),
+		"another audience":                  next(`"audience":"hm-verifier:test-0001"`, `"audience":"hm-verifier:other"`),
+		"an earlier start":                  next(`"valid_from":"2026-01-01T00:00:00+01:00"`, `"valid_from":"2025-01-01T00:00:00+01:00"`),
+		"a later expiry":                    next(`"expires":"2030-01-01T00:00:00+01:00"`, `"expires":"2031-01-01T00:00:00+01:00"`),
+		"no expiry any more":                next(`,"expires":"2030-01-01T00:00:00+01:00"`, ``),
+		"another display name":              next(`"display_name":"Test"`, `"display_name":"Trusted Assistant"`),
+		"other approvers":                   next(`"approvers":["a-1"]`, `"approvers":["a-1","a-2"]`),
+		"audit mode switched on":            next(`"default":"deny"`, `"enforce":false,"default":"deny"`),
+		"a changed allow rule":              next(`"actions":["turn_on"]`, `"actions":["turn_on","turn_off"]`),
+		"an ask rule with its own approval": next(`"decision":"allow"}`, `"decision":"allow"},{"id":"r-2","resource":{"category":"cover"},"actions":["open"],"decision":"ask","approval":{"timeout":"PT1M","approvers":["a-2"]}}`),
+	} {
+		if evaluator.Narrows(stored, offered) {
+			t.Errorf("%s: Narrows = true", name)
+		}
+		if !evaluator.NeedsConfirmation(stored, evaluator.StatusActive, time.Time{}, offered) {
+			t.Errorf("%s: NeedsConfirmation = false", name)
+		}
+	}
+	if !evaluator.Narrows(stored, same) || evaluator.NeedsConfirmation(stored, evaluator.StatusActive, time.Time{}, same) {
+		t.Error("the same content under the next version is not a weakening")
+	}
+	// A stored deny rule that disappears is a weakening; a disappearing allow rule is not.
+	withDeny := parse(bytes.Replace(issuedMandate("3"), []byte(`"decision":"allow"}`),
+		[]byte(`"decision":"allow"},{"id":"r-no","resource":{"category":"lock"},"actions":["*"],"decision":"deny"}`), 1))
+	if evaluator.Narrows(withDeny, same) {
+		t.Error("removing a deny rule narrows")
+	}
+	if !evaluator.Narrows(withDeny, withDeny) {
+		t.Error("the same mandate narrows itself")
+	}
+	// Nothing stored, nothing invalid: only audit mode asks for a confirmation.
+	invalid, _ := evaluator.Parse([]byte(`{}`))
+	if evaluator.NeedsConfirmation(nil, evaluator.StatusActive, time.Time{}, same) || evaluator.NeedsConfirmation(stored, evaluator.StatusActive, time.Time{}, invalid) ||
+		evaluator.Narrows(nil, same) || evaluator.Narrows(stored, invalid) {
+		t.Error("nil or invalid mandates")
+	}
+	// A revoked predecessor asks for a confirmation even without any change.
+	if !evaluator.NeedsConfirmation(stored, evaluator.StatusRevoked, time.Time{}, same) {
+		t.Error("a successor of a revoked mandate takes effect only after a confirmation")
 	}
 }

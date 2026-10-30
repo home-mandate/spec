@@ -33,8 +33,10 @@ type Request struct {
 	Subject  *Subject        `json:"subject,omitempty"`
 	Request  *Evaluation     `json:"request,omitempty"`
 
-	Stored  *string `json:"stored,omitempty"`
-	Offered *string `json:"offered,omitempty"`
+	Stored *string `json:"stored,omitempty"`
+	// StoredRevoked is true if the stored mandate is revoked (succession).
+	StoredRevoked bool    `json:"stored_revoked,omitempty"`
+	Offered       *string `json:"offered,omitempty"`
 
 	JWS    string          `json:"jws,omitempty"`
 	Issuer string          `json:"issuer,omitempty"`
@@ -102,7 +104,8 @@ type Response struct {
 	// mode, SPEC-v0 section 4.6).
 	Enforced *bool `json:"enforced,omitempty"`
 	// Confirm is present, and true, only for a deny that is not enforced and requires a
-	// confirmation (SPEC-v0 sections 4.1 and 4.6).
+	// confirmation (SPEC-v0 sections 4.1 and 4.6), and for an accepted successor that
+	// takes effect only after a human confirmed it (succession, SPEC-v0 section 3.5).
 	Confirm  bool    `json:"confirm,omitempty"`
 	Selected *string `json:"selected,omitempty"`
 

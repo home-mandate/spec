@@ -31,7 +31,11 @@
           },
           "stored": {
             "type": "object",
-            "description": "The valid mandate an implementation has stored."
+            "description": "The valid mandate an implementation has stored, or remembers after it was revoked or removed."
+          },
+          "stored_revoked": {
+            "type": "boolean",
+            "description": "true: the stored mandate is revoked; absent or false: active."
           },
           "offered": {
             "type": "object",
@@ -42,6 +46,10 @@
               "accept",
               "reject"
             ]
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "true: the accepted successor takes effect only after a human confirmed it (SPEC-v0 section 3.5); absent or false: it takes effect at once. Only with accept."
           },
           "why": {
             "type": "string"
