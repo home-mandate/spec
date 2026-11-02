@@ -1,9 +1,10 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
-# Home-Mandate Specification v0 (Draft)
+# Home-Mandate Specification v0
 
-Status: **Working draft**. From `v0.1.0` on, the v0 formats are frozen; incompatible changes
-then require a new major version (Section 14).
+Status: **Released**. The v0 formats are frozen since `v0.1.0` (2026-11-02): a document that
+is valid under a released version stays valid and is evaluated the same way in every later
+release; incompatible changes require a new major version (Section 14).
 License of this document: CC BY 4.0 (`LICENSE-docs`). Schema, examples, conformance cases and
 code: Apache 2.0 (`LICENSE`).
 Reference evaluator: the code in this repository. Changes are listed in the Changelog at the end.
@@ -2071,10 +2072,11 @@ behavior of the people in a household and MUST be protected like the devices the
     the same `id` with a higher `version` in the newer format. A stored or signed mandate
     MUST NOT be rewritten into another format, because its digest, its signature and the
     audit entries that refer to it would no longer match.
-- **Until v0.1.0.** The pre-releases (`v0.1.0-alpha.1`, …) are not covered by the freeze:
-  until `v0.1.0`, the v0 formats can still change incompatibly under the same `type`, and
-  the vocabulary under the same `id`. Every such change is listed in the Changelog together
-  with what happens to documents that were valid before.
+- **Before v0.1.0.** The pre-releases (`v0.1.0-alpha.1`, …, `v0.1.0-rc.5`) were not covered
+  by the freeze: until `v0.1.0`, the v0 formats could still change incompatibly under the
+  same `type`, and the vocabulary under the same `id`. Every such change is listed in the
+  Changelog together with what happened to documents that were valid before. A document
+  from a pre-release is valid under `v0.1.0` only if it conforms to the released schemas.
 - **Unknown members.** Mandates and audit entries have no extension points: a member
   that the schema does not define makes the document invalid. This is deliberate. An
   implementation that silently ignored a restriction it does not know would allow more
@@ -2115,6 +2117,16 @@ behavior of the people in a household and MUST be protected like the devices the
 ## Changelog
 
 ### Unreleased
+
+Nothing yet.
+
+### v0.1.0 (2026-11-02)
+
+First release without a pre-release suffix. The v0 formats (mandate, audit entry, audit
+checkpoint) and the vocabulary `v0` are frozen from this release on (Section 14). The
+entries below are every change since the rename, through the pre-releases `v0.1.0-alpha.1`
+to `v0.1.0-rc.5` and the changes after `v0.1.0-rc.5`; `v0.1.0` itself changes no rule, format
+or conformance case (conformance manifest of commit 116d009).
 
 Renamed: the specification formerly published as mandate-spec is now the **Home-Mandate
 Specification**; repository `github.com/home-mandate/spec`, Go module
