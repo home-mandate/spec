@@ -9,7 +9,7 @@ Vendor-neutral specification for **mandates of software agents in the household*
 AI agent may do on behalf of a household, with the decisions allow, ask and
 deny, plus test tools with which any implementation demonstrates its conformance.
 
-Status: Draft v0. The reference evaluator is the Go code in this repository; the first
+Status: v0.1.0 released, formats frozen (Section 14). The reference evaluator is the Go code in this repository; the first
 product that implements the specification is Home-Mandate for Home Assistant.
 
 ## Contents
@@ -101,5 +101,6 @@ Contributing: `CONTRIBUTING.md`. Reporting vulnerabilities: `SECURITY.md`.
 - Every change to the evaluation rule requires new or modified conformance cases.
 - Bugs in an implementation that stem from an ambiguity in the specification are
   first clarified here.
-- Until `v0.1.0`, incompatible changes are permitted but must be recorded in the Changelog;
-  from `v0.1.0` on they require a new major version of the format (Section 14).
+- Since `v0.1.0`, an incompatible change requires a new major version of the format
+  (Section 14); compatible changes are recorded in the Changelog. Until `v0.1.0`,
+  incompatible changes were permitted and are recorded there too.

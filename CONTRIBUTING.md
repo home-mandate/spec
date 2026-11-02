@@ -34,10 +34,10 @@ platform. Changes are judged by that goal first.
   minutes on the 1st and 15th of every month; a failure opens an issue.
 - The reference evaluator uses the Go standard library and a JSON Schema validator, nothing
   else.
-- Incompatible changes are permitted until `v0.1.0` and are listed in the Changelog of the
-  specification, together with what happens to mandates that were valid before. From
-  `v0.1.0` on, an incompatible change requires a new major version of the format
-  (Section 14 of the specification).
+- Since `v0.1.0`, an incompatible change requires a new major version of the format
+  (Section 14 of the specification): a document that was valid stays valid and is
+  evaluated the same way. Compatible changes, such as a new optional member, go into the
+  Changelog under "Unreleased" with what they mean for older implementations.
 - Security problems: see `SECURITY.md`, not a public issue.
 
 ## Licenses
