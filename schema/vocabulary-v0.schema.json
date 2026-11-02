@@ -57,6 +57,22 @@
                   "description": "true: the action is critical (SPEC-v0 section 4, step 5). Absent: not critical.",
                   "const": true
                 },
+                "required_one_of": {
+                  "description": "Alternatives of which a request carries exactly one: each a set of parameter names that are all present, none of the other alternatives' names (SPEC-v0 section 4, step 0). The names are declared parameters without required.",
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 8,
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                    }
+                  }
+                },
                 "parameters": {
                   "description": "Parameters of the action that a rule can constrain (SPEC-v0 section 4.5): integers in a unit, or strings.",
                   "type": "object",
@@ -91,6 +107,10 @@
                             "description": "Largest valid value, inclusive. A request with a larger value is invalid (SPEC-v0 section 4, step 0).",
                             "type": "integer"
                           },
+                          "required": {
+                            "description": "true: a request for the action carries the parameter; without it the request is invalid (SPEC-v0 section 4, step 0).",
+                            "const": true
+                          },
                           "description": {
                             "type": "string"
                           }
@@ -116,6 +136,10 @@
                               "type": "string",
                               "pattern": "^[!-~]{1,64}$"
                             }
+                          },
+                          "required": {
+                            "description": "true: a request for the action carries the parameter; without it the request is invalid (SPEC-v0 section 4, step 0).",
+                            "const": true
                           },
                           "description": {
                             "type": "string"

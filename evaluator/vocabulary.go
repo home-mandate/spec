@@ -10,20 +10,24 @@ import (
 	"github.com/home-mandate/spec/vocabulary"
 )
 
-// actionInfo is what the vocabulary says about one action.
+// actionInfo is what the vocabulary says about one action: whether it is critical, its
+// parameters, and the alternatives of which a request carries exactly one (SPEC-v0
+// section 5, required_one_of).
 type actionInfo struct {
-	critical   bool
-	parameters map[string]parameterInfo
+	critical      bool
+	parameters    map[string]parameterInfo
+	requiredOneOf [][]string
 }
 
 // parameterInfo is what the vocabulary says about one parameter (SPEC-v0 sections 4.5
 // and 5): its type, for an integer the inclusive range (nil: not bounded), and for a
 // string the permitted values (nil: any string).
 type parameterInfo struct {
-	Type    string   `json:"type"`
-	Minimum *int64   `json:"minimum"`
-	Maximum *int64   `json:"maximum"`
-	Values  []string `json:"values"`
+	Type     string   `json:"type"`
+	Minimum  *int64   `json:"minimum"`
+	Maximum  *int64   `json:"maximum"`
+	Values   []string `json:"values"`
+	Required bool     `json:"required"`
 }
 
 // admits reports whether a request may carry v for the parameter (SPEC-v0 section 4,
@@ -63,8 +67,9 @@ var vocabularyV0 = sync.OnceValue(func() map[string]map[string]actionInfo {
 	var doc struct {
 		Categories map[string]struct {
 			Actions map[string]struct {
-				Critical   bool                     `json:"critical"`
-				Parameters map[string]parameterInfo `json:"parameters"`
+				Critical      bool                     `json:"critical"`
+				Parameters    map[string]parameterInfo `json:"parameters"`
+				RequiredOneOf [][]string               `json:"required_one_of"`
 			} `json:"actions"`
 		} `json:"categories"`
 	}
@@ -75,7 +80,7 @@ var vocabularyV0 = sync.OnceValue(func() map[string]map[string]actionInfo {
 	for category, c := range doc.Categories {
 		actions := make(map[string]actionInfo, len(c.Actions))
 		for action, a := range c.Actions {
-			actions[action] = actionInfo{critical: a.Critical, parameters: a.Parameters}
+			actions[action] = actionInfo{critical: a.Critical, parameters: a.Parameters, requiredOneOf: a.RequiredOneOf}
 		}
 		out[category] = actions
 	}
@@ -118,18 +123,47 @@ func parameterFits(category, action string, c constraint) bool {
 	return false
 }
 
-// parametersAdmitted reports whether every parameter of the request that the action
-// declares has its type and lies within its range or is one of its permitted values (SPEC-v0 section 4,
-// step 0). Parameters the action does not declare, and every parameter of a category or
-// action outside the vocabulary, are not checked here.
+// parametersAdmitted reports whether the parameters of a request fit the action (SPEC-v0
+// section 4, step 0): every parameter is one the action declares and has its type, lies
+// within its range or is one of its permitted values; every required parameter is present;
+// and of the alternatives of required_one_of, exactly one is fully present and no
+// parameter of another one. Parameters of a category or action outside the vocabulary
+// are not checked here; such a request is denied anyway.
 func parametersAdmitted(category, action string, parameters map[string]Value) bool {
-	declared := vocabularyV0()[category][action].parameters
+	info, known := vocabularyV0()[category][action]
+	if !known {
+		return true
+	}
 	for name, value := range parameters {
-		if p, ok := declared[name]; ok && !p.admits(value) {
+		if p, ok := info.parameters[name]; !ok || !p.admits(value) {
 			return false
 		}
 	}
-	return true
+	for name, p := range info.parameters {
+		if _, present := parameters[name]; p.Required && !present {
+			return false
+		}
+	}
+	if len(info.requiredOneOf) == 0 {
+		return true
+	}
+	satisfied := 0
+	for _, alternative := range info.requiredOneOf {
+		present := 0
+		for _, name := range alternative {
+			if _, ok := parameters[name]; ok {
+				present++
+			}
+		}
+		switch present {
+		case 0:
+		case len(alternative):
+			satisfied++
+		default:
+			return false // a part of an alternative
+		}
+	}
+	return satisfied == 1
 }
 
 // IsCritical reports whether action is a critical action of category in vocabulary v0

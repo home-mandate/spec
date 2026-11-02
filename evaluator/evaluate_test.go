@@ -28,16 +28,40 @@ func mandateWithRules(t *testing.T, rules string) *evaluator.Mandate {
 var noon = time.Date(2026, 10, 12, 12, 0, 0, 0, time.FixedZone("CEST", 2*60*60))
 
 // request builds a request for a resource in at most one area; "" means no area.
+// requiredParameters gives an action the parameters the vocabulary requires of it, so that
+// a test about something else is a valid request (SPEC-v0 section 4, step 0).
+func requiredParameters(category, action string) map[string]evaluator.Value {
+	switch action {
+	case "set":
+		if category != "light" {
+			return nil // other.set and extensions declare no parameter
+		}
+		return map[string]evaluator.Value{"brightness": evaluator.IntegerValue(50)}
+	case "set_temperature":
+		return map[string]evaluator.Value{"temperature": evaluator.IntegerValue(2100)}
+	case "set_mode":
+		return map[string]evaluator.Value{"mode": evaluator.StringValue("heat")}
+	case "set_position":
+		return map[string]evaluator.Value{"position": evaluator.IntegerValue(50)}
+	case "set_volume":
+		return map[string]evaluator.Value{"volume": evaluator.IntegerValue(30)}
+	case "arm":
+		return map[string]evaluator.Value{"mode": evaluator.StringValue("away")}
+	}
+	return nil
+}
+
 func request(category, area, action string) evaluator.Request {
 	var areas []string
 	if area != "" {
 		areas = []string{area}
 	}
 	return evaluator.Request{
-		Resource: evaluator.Resource{EntityID: "device.test", Category: category, Areas: areas},
-		Action:   action,
-		Time:     noon,
-		Status:   evaluator.StatusActive,
+		Resource:   evaluator.Resource{EntityID: "device.test", Category: category, Areas: areas},
+		Action:     action,
+		Parameters: requiredParameters(category, action),
+		Time:       noon,
+		Status:     evaluator.StatusActive,
 	}
 }
 
@@ -497,7 +521,7 @@ func TestEvaluateConstraints(t *testing.T) {
 		"upper limit":       {req("light", "set", map[string]int64{"brightness": 60}), evaluator.ReasonRule},
 		"just above":        {req("light", "set", map[string]int64{"brightness": 61}), evaluator.ReasonNoMatch},
 		"just below":        {req("light", "set", map[string]int64{"brightness": 9}), evaluator.ReasonNoMatch},
-		"nil parameters":    {req("light", "set", nil), evaluator.ReasonNoMatch},
+		"nil parameters":    {req("light", "set", nil), evaluator.ReasonNoMatch}, // brightness is not required; the constraint does not match
 		"only max, far low": {req("climate", "set_temperature", map[string]int64{"temperature": -1 << 52}), evaluator.ReasonRule},
 		"only max, at max":  {req("climate", "set_temperature", map[string]int64{"temperature": 2250}), evaluator.ReasonRule},
 		"only max, above":   {req("climate", "set_temperature", map[string]int64{"temperature": 2251}), evaluator.ReasonNoMatch},

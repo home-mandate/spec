@@ -41,7 +41,7 @@ section 11.1 item 11), for example:
 | `climate` | `set_temperature` | `ClimateEntityFeature.TARGET_TEMPERATURE` |
 | `climate` | `set_mode` | the mode among the entity's `hvac_modes` (see Climate modes) |
 | `media` | `turn_on`, `turn_off`, `play`, `pause`, `set_volume` | `MediaPlayerEntityFeature.TURN_ON`, `TURN_OFF`, `PLAY`, `PAUSE`, `VOLUME_SET` |
-| `alarm` | `arm` | the feature of the mode, for example `AlarmControlPanelEntityFeature.ARM_AWAY` |
+| `alarm` | `arm` | the feature of the mode the request names (see Alarm modes), for example `AlarmControlPanelEntityFeature.ARM_AWAY` |
 
 An entity that reports no `supported_features` tells nothing; the implementation then
 asks as before. Some integrations change the features of an entity while it runs, so the
@@ -79,3 +79,36 @@ does not map them to an action. The parameter is derived from the requested HVAC
 exactly that mode is executed (SPEC-v0 section 4.5). An HVAC mode that a later version of
 Home Assistant adds and that is not in the table makes the request invalid until the
 profile maps it.
+
+### Alarm modes
+
+The services `alarm_control_panel.alarm_arm_*` map to the action `arm` with the required
+parameter `mode` (SPEC-v0 section 5):
+
+| Home Assistant service | `mode` |
+|---|---|
+| `alarm_arm_home` | `home` |
+| `alarm_arm_away` | `away` |
+| `alarm_arm_night` | `night` |
+| `alarm_arm_vacation` | `vacation` |
+| `alarm_arm_custom_bypass` | `custom_bypass` |
+
+A panel offers the modes its `supported_features` name; a request for a mode the panel
+does not offer is evaluated but not executed, and recorded as `failed` with
+`not_supported`, like an action an entity does not support (SPEC-v0 section 11.1 item 11). `alarm_disarm` is
+the action `disarm` without a parameter. A `code` the service accepts is never a parameter
+of the request: the implementation holds it, or asks the household for it, and the agent
+never sends it (SPEC-v0 section 12.4).
+
+### Temperature setpoints
+
+The service `climate.set_temperature` with the field `temperature` maps to the parameter
+`temperature` (`temperature_f` in a household that uses degrees Fahrenheit). With the
+fields `target_temp_low` and `target_temp_high`, as a thermostat in `heat_cool` expects, it
+maps to the alternative `temperature_low` and `temperature_high` (or the pair in degrees
+Fahrenheit). A call with both a single and a range setpoint, or with one end of a range, is
+invalid (SPEC-v0 section 4.5). The field `hvac_mode`, which the service accepts along with
+the temperature, is a second action, `set_mode`: the implementation evaluates both, and
+executes the call only if both are permitted, as for a request for several resources
+(SPEC-v0 section 4.4); one `deny` denies the call, one `ask` needs a confirmation that
+names both. An implementation MAY instead refuse combined calls and ask the agent for two.

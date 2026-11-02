@@ -224,8 +224,10 @@ A mandate is valid if it conforms to the schema **and** additionally:
     `one_of` has the type of the parameter and, for a string parameter with permitted
     values, is one of them, compared exactly and case-sensitive (Section 4.5). Rules for
     an extension category are not checked. A constraint on a `deny` or `ask` rule would
-    fail open, because a request without the parameter would not match the rule;
-    therefore it is invalid.
+    fail open where the parameter is not required or has alternatives: a request without
+    the parameter, or with another alternative (`temperature_f` or a range setpoint
+    instead of `temperature`, Section 4.5), would not match the rule. Constraints
+    therefore only narrow an `allow`; on a `deny` or `ask` rule they are invalid.
 
 11. `enforce`, if present, is `false` (audit mode, Section 4.6). A mandate that enforces
     has no `enforce` member: `true` would be a second form of the same mandate with a
@@ -438,13 +440,21 @@ contain has no category; the result is `deny` with `unknown_resource`.
    - the mandate is invalid (Section 3.1);
    - the request is invalid: the entity ID is missing or does not match the pattern of
      `entity_id` in the schema, an area of the resource does not match the pattern of
-     `area`, the resource has more than 16 areas or the same area twice,
-     a parameter is neither an integer of magnitude at most 2^53 − 1 nor a string of 1 to
-     64 printable ASCII characters without space, a parameter that the action declares in
-     the vocabulary of the resource's category has another type, lies outside the range
-     of an integer parameter or, for a string with permitted values, is another value
-     (Section 4.5), the point in time or the time zone is
-     invalid or unknown, or the status is neither `active` nor `revoked`;
+     `area`, the resource has more than 16 areas or the same area twice, there are more
+     than 16 parameters, a parameter name does not match `^[a-z][a-z0-9_]{0,63}$`, a
+     parameter is neither an integer of magnitude at most 2^53 − 1 nor a string of 1 to
+     64 printable ASCII characters without space, a parameter has another type than the
+     action declares for it in the vocabulary of the resource's category, lies outside the
+     range of an integer parameter or, for a string with permitted values, is another
+     value, a parameter is one the action does not declare, a parameter the action
+     requires is missing, or of the alternatives the action requires one of, none is
+     present whole, more than one is, or a part of one (Sections 4.5 and 5), the point in
+     time or the time zone is invalid or unknown, or the status is neither `active` nor
+     `revoked`. The checks against the vocabulary (declared, type, range, permitted
+     values, required, alternatives) presuppose a category and an action of a vocabulary
+     the implementation knows; for any other request only the number, the names and the
+     values of the parameters are checked, and the result is `unknown_category` or
+     `unknown_action`;
    - the category is missing: the resource is not in the directory of the PEP;
    - the category is neither listed in Section 5 nor an extension whose vocabulary
      the implementation knows;
@@ -643,24 +653,41 @@ names these **parameters** per action, each with its type (Section 5). A paramet
   `mode`; no other value is valid then.
 
 The PEP derives the parameters from the request of the agent and expresses each in the
-type and unit of its parameter in the vocabulary. It MUST execute exactly the values that were evaluated: whatever
-it sends to the platform MUST NOT set a constrained quantity to another value, by rounding
-or through a second, platform-specific parameter for the same quantity. A value that
-cannot be expressed as an integer in the unit, or as one of the permitted values of a
+type and unit of its parameter in the vocabulary. It MUST execute exactly the values that
+were evaluated: whatever it sends to the platform MUST NOT set a constrained quantity to
+another value, by rounding or through a second, platform-specific parameter for the same
+quantity, and it MUST NOT send anything the evaluation did not see (Section 12.4). A value
+that cannot be expressed as an integer in the unit, or as one of the permitted values of a
 string parameter, or that lies outside the range of an integer parameter, makes the
 request invalid: the PEP refuses the request, and never leaves the parameter out or
-evaluates without it. The type is part of the value: a
-request whose parameter has another type than the vocabulary declares for the action
-(the integer `4` for `mode`, the string `"50"` for `brightness`) is invalid as well
-(Section 4, step 0). A parameter that the action does not declare is checked only for
-being an integer or a string.
+evaluates without it. The type is part of the value: a request whose parameter has another
+type than the vocabulary declares for the action (the integer `4` for `mode`, the string
+`"50"` for `brightness`) is invalid as well (Section 4, step 0).
+
+A request carries exactly the parameters its action declares. A parameter that the action
+does not declare makes the request invalid, whatever its name and type: the evaluation
+cannot judge it, and a PEP that forwarded it would let the platform act on something no
+rule saw (a second target, a code, a transition). The vocabulary marks the parameters an
+action **requires**; a request without one of them is invalid as well, so that a rule that
+constrains the parameter can never be bypassed by leaving it out, and the PEP never
+executes an action whose value nobody evaluated. Where a quantity has several forms, the
+vocabulary lists **alternatives** of which a request carries exactly one (Section 5):
+`climate.set_temperature` carries `temperature`, or `temperature_f`, or the pair
+`temperature_low` and `temperature_high`, or that pair in degrees Fahrenheit; a request
+with none of them, with a part of a pair or with two alternatives is invalid.
 
 A quantity can have a parameter per unit: a temperature is `temperature` in hundredths of
 a degree Celsius or `temperature_f` in hundredths of a degree Fahrenheit (70 °F is `7000`;
 it is no integer in `temperature`, 21.111… °C). The PEP derives exactly one of them for a
 request, the one in the unit in which the platform expresses the value; it never converts
 into the other unit. A rule that constrains the other parameter does not match the
-request, and a rule that constrains both matches no request a PEP derives this way.
+request, and a rule that constrains both matches no request a PEP derives this way. A
+range setpoint is a form of its own: a rule that constrains `temperature` does not match a
+request that sets a range (`temperature_low` and `temperature_high`, or the pair in degrees
+Fahrenheit), and a household that wants to bound ranges constrains `temperature_low` and
+`temperature_high`. The order of the two ends is not checked: a request whose lower end is
+above its upper end is valid, the platform decides what it does with it, and a rule bounds
+each end on its own.
 
 A constraint has one of two forms:
 
@@ -765,20 +792,39 @@ Machine-readable and normative: `vocabulary/v0.json` (format:
 
 Parameters (Section 4.5):
 
-| Action | Parameter | Type | Unit | Range or permitted values |
-|---|---|---|---|---|
-| `light.set` | `brightness` | integer | percent | 0 to 100 |
-| `climate.set_temperature` | `temperature` | integer | 0.01 degree Celsius | – |
-| `climate.set_temperature` | `temperature_f` | integer | 0.01 degree Fahrenheit | – |
-| `climate.set_mode` | `mode` | string | – | `off`, `auto`, `cool`, `heat`, `emergency_heat`, `precooling`, `fan_only`, `dry`, `sleep` |
-| `cover.set_position` | `position` | integer | percent open | 0 to 100 |
-| `media.set_volume` | `volume` | integer | percent | 0 to 100 |
+| Action | Parameter | Type | Unit | Range or permitted values | Required |
+|---|---|---|---|---|---|
+| `light.set` | `brightness` | integer | percent | 0 to 100 | – |
+| `climate.set_temperature` | `temperature` | integer | 0.01 degree Celsius | – | one alternative |
+| `climate.set_temperature` | `temperature_f` | integer | 0.01 degree Fahrenheit | – | one alternative |
+| `climate.set_temperature` | `temperature_low` | integer | 0.01 degree Celsius | – | one alternative |
+| `climate.set_temperature` | `temperature_high` | integer | 0.01 degree Celsius | – | one alternative |
+| `climate.set_temperature` | `temperature_low_f` | integer | 0.01 degree Fahrenheit | – | one alternative |
+| `climate.set_temperature` | `temperature_high_f` | integer | 0.01 degree Fahrenheit | – | one alternative |
+| `climate.set_mode` | `mode` | string | – | `off`, `auto`, `cool`, `heat`, `emergency_heat`, `precooling`, `fan_only`, `dry`, `sleep` | yes |
+| `cover.set_position` | `position` | integer | percent open | 0 to 100 | yes |
+| `media.set_volume` | `volume` | integer | percent | 0 to 100 | yes |
+| `alarm.arm` | `mode` | string | – | `home`, `away`, `night`, `vacation`, `custom_bypass` | yes |
 
-The permitted values of `mode` are the values of the attribute SystemMode of the Matter
-Thermostat cluster, in lower case with underscores: what the system as a whole does, not
-a preset such as `eco` or `away`. How the modes of a platform map to them is described in
-the profiles (informative). A value outside the list makes the request invalid
-(Section 4.5).
+A request carries exactly the parameters its action declares (Section 4.5). **Required**
+says which of them it carries at least: `yes` for a parameter the request always carries
+(`required` in the file); `–` for one it may leave out (`light.set` without `brightness`
+sets what else a light has, such as a colour, until the vocabulary names it);
+`one alternative` for the alternatives of
+`climate.set_temperature` (`required_one_of` in the file), of which a request carries
+exactly one, whole: `temperature`, or `temperature_f`, or `temperature_low` with
+`temperature_high` (a range setpoint, as a thermostat in `auto` keeps the temperature
+between two values), or that pair in degrees Fahrenheit. An action without parameters,
+such as `read` or `turn_on`, carries none.
+
+The permitted values of `mode` for `climate.set_mode` are the values of the attribute
+SystemMode of the Matter Thermostat cluster, in lower case with underscores: what the
+system as a whole does, not a preset such as `eco` or `away`. The permitted values of
+`mode` for `alarm.arm` are the arming modes of common alarm panels (`home`: armed with
+people inside, `away`, `night`, `vacation`, `custom_bypass`: armed with some zones left
+out); which of them a panel offers, and how the modes of a platform map to them, is
+described in the profiles (informative). A value outside the list makes the request
+invalid (Section 4.5).
 
 `scene.activate`, `script.run` and `other.set` are critical because scenes, scripts and
 unknown entities can have arbitrary consequences, including opening doors. What else is
@@ -797,7 +843,7 @@ against it (Section 3.1 item 4), and a request is evaluated against it (Section 
 lists the changes. A new version under this `id` only adds (Section 14): a mandate that was
 valid stays valid, a rule that lists its actions means the same actions, and a request
 keeps its result unless that result was a `deny` of step 0 for an unknown category or
-action or for an invalid parameter value. An implementation uses the newest version it
+action, for an invalid parameter value or for a parameter the action did not declare. An implementation uses the newest version it
 knows, for the evaluation as for the verification of an audit log (Section 9.1), and
 SHOULD record it in every `decision` entry whose evaluation used a vocabulary
 (`vocabulary`, Section 9.1), so that a decision stays reproducible after an update
@@ -811,7 +857,12 @@ colon have at most 32 characters each, in a mandate as in a vocabulary file. An 
 defines its vocabulary and its critical actions in a file of the same format as
 `vocabulary/v0.json`, with its own `id` and `version`. It declares the `type` of every
 parameter: `integer` with a `unit`, or `string`, optionally with 1 to 32 permitted
-`values`, as many as a `one_of` can list. A vocabulary never changes under the same `id`
+`values`, as many as a `one_of` can list; `required: true` for a parameter every request
+carries, and `required_one_of` for alternatives of which a request carries exactly one
+(Section 5); every name in an alternative is a declared parameter of the action without
+`required`, and no name appears in two alternatives. A request for an extension action
+carries exactly the parameters it declares (Section 4.5); an implementation that does not
+know the extension cannot check them and denies the request anyway. A vocabulary never changes under the same `id`
 and `version`, and a new version under the same `id` SHOULD only add, as Section 14
 requires of `vocabulary/v0.json`: an extension that removes or renames an action, changes
 a critical marking or narrows a parameter publishes the result under a new `id`. Otherwise
@@ -1152,9 +1203,12 @@ Depending on the event, the following are added:
 evaluation found it invalid (`invalid_request`). Identifiers in it are therefore limited only
 in length and number, not in their characters; Section 3.4 applies to mandates and to valid
 requests. Input that the log cannot record (a longer identifier, more than 16 areas or areas
-that repeat, more than 16 parameters, a parameter value that is neither an integer nor a
-string of the form of Section 4.5) is not a request: the PEP rejects it at its interface
-before any evaluation (with MCP, for example, as invalid parameters).
+that repeat, more than 16 parameters, a parameter name outside
+`^[a-z][a-z0-9_]{0,63}$`, a parameter value that is neither an integer nor a string of the
+form of Section 4.5) is not a request: the PEP rejects it at its interface before any
+evaluation (with MCP, for example, as invalid parameters), and records no `decision` entry
+for it (Section 9.2). The `invalid_request` results of Section 4 for the same input exist
+so that an evaluator fails closed if such input reaches it anyway.
 
 For `decision`, the following additionally applies:
 
@@ -1232,7 +1286,7 @@ template.
 
 | `event` | Required | When |
 |---|---|---|
-| `decision` | yes | every request from an authenticated agent, even if it is rejected before evaluation (e.g. rate limit, emergency stop) |
+| `decision` | yes | every request from an authenticated agent, even if it is rejected before evaluation (e.g. rate limit, emergency stop). Input the log cannot record (Section 9.1) is not a request in the sense of this table and gets no entry |
 | `mandate.created`, `mandate.updated`, `mandate.revoked` | yes | every change to a mandate, with old and new digest |
 | `agent.registered`, `agent.revoked` | yes | admission and revocation of an agent |
 | `emergency_stop.activated`, `emergency_stop.released` | yes | emergency stop, if the implementation has one |
@@ -1434,7 +1488,8 @@ cases).
 (`entity_id`, optionally `category`, `areas` (an array), `critical`), `action`, optionally `parameters`
 (an object of names and values, each a JSON number or string), `time`, optionally `timezone`
 and `revoked`. A `time` that is no RFC 3339 timestamp or a parameter that is neither an
-integer nor a string yields `deny` with `invalid_request`. A string is never read as a
+integer nor a string yields `deny` with `invalid_request`, as do a parameter the action
+does not declare and a missing required parameter (Section 4, step 0). A string is never read as a
 number: `"50"` is the string `50`. For `select`, a `subject` whose `client_id` is empty or
 whose `principal` does not match the pattern of `principal` yields `deny` with
 `invalid_request` and no `selected` (Section 6). A request that cannot be expressed yields
@@ -1854,9 +1909,12 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
 - **Reading is not harmless.** `read` is never critical, but presence sensors, door
   contacts and cameras reveal who is at home. Mandates SHOULD allow `read` per category,
   not for `any`.
-- **Parameters.** Only parameters of the vocabulary can be constrained. Whatever else a
-  platform accepts with a command passes unchecked; a PEP SHOULD forward only what it has
-  evaluated (Section 4.5).
+- **Parameters.** Only parameters of the vocabulary can be constrained, and a request
+  carries only those (Section 4.5). A PEP MUST send to the platform only the resource
+  identifiers and the declared parameters it evaluated, and MUST NOT pass any other member
+  of the agent's request: a platform fills in whatever else its command accepts (a second
+  target, a code, a transition), and nothing a rule did not see may reach it. Whatever the
+  PEP adds itself, such as the identifier of the resolved resource, is not the agent's.
 - **Mapped values.** Where a profile maps several values of a platform to one permitted
   value (Home Assistant `heat_cool` and `auto` both to `auto`), a rule that permits the
   value permits all of them. Interfaces SHOULD show the household which platform values a
@@ -1969,17 +2027,19 @@ behavior of the people in a household and MUST be protected like the devices the
   valid that were invalid, give a result to requests that were a `deny` with
   `unknown_category`, `unknown_action` or `invalid_request`, and change nothing else (a rule
   with `"*"` includes a new action, Section 12.4; a rule with `allow_critical` names its
-  actions, Section 3.1 item 9). Incompatible, and therefore only under a new `id` with a new
-  major of the formats, are removing or renaming a category or an action, changing whether
-  an existing action is critical (removing the marking lets an `allow` run without the
-  confirmation it had; adding it changes the result of valid mandates and the verification
-  of audit logs, Section 9.1), declaring a parameter that an action did not have (a request
-  that carried it was evaluated without it and is now checked, Section 4.5), and removing a
-  parameter or changing its type, unit, range or permitted values so that a request that
-  was valid becomes invalid. A verifier whose vocabulary is older than the one an entry
-  names cannot check a `deny` that was not enforced for an action it does not know, and
-  rejects the entry as it rejects a member it does not know (Section 9.1). Extensions carry
-  their own `id` and `version` (Section 5.1) and SHOULD follow the same rule.
+  actions, Section 3.1 item 9), and so is a new parameter of an action that is not required
+  and part of no alternative (a request that carried the name was invalid before, Section 4
+  step 0). Incompatible, and therefore only under a new `id` with a new major of the
+  formats, are removing or renaming a category or an action, changing whether an existing
+  action is critical (removing the marking lets an `allow` run without the confirmation it
+  had; adding it changes the result of valid mandates and the verification of audit logs,
+  Section 9.1), requiring a parameter that was not required, adding or changing alternatives
+  so that a request that was valid becomes invalid, and removing a parameter or changing its
+  type, unit, range or permitted values with the same effect. A verifier whose vocabulary
+  is older than the one an entry names cannot check a `deny` that was not enforced for an
+  action it does not know, and rejects the entry as it rejects a member it does not know
+  (Section 9.1). Extensions carry their own `id` and `version` (Section 5.1) and SHOULD
+  follow the same rule.
 - **Test material.** The `$id`s of the conformance schemas
   (`https://home-mandate.org/conformance/v0/…`) identify test material, not formats, and
   change independently of this section.
@@ -2296,6 +2356,33 @@ Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 
   `s22` (the selection cases accept `approval_timeout` and `confirm`), `a136` (valid: every
   outcome of an approval request with `confirm: true`) and `a137`–`a145` (invalid).
 - Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
+
+Request parameters and vocabulary `v0.1` (Sections 3.1, 4, 4.5, 5, 5.1, 9.1, 9.2, 10.2,
+12.4, 14; issues #78, #84):
+- A request carries exactly the parameters its action declares: a parameter the action
+  does not declare makes it invalid (`c120`, `c160` and the unit tests change), as do more
+  than 16 parameters, a name outside `^[a-z][a-z0-9_]{0,63}$`, a missing required
+  parameter, and none or more than one of the alternatives the action requires one of. The
+  vocabulary file gains `required` per parameter and `required_one_of` per action, the
+  table in Section 5 a column. Section 12.4 makes forwarding only what was evaluated a MUST.
+  Incompatible for the class `evaluator` (before `v0.1.0`): `c117`–`c120`, `c122`, `c138`,
+  `c139`, `c158` and `c160` are `invalid_request` now; `c10`, `c12`, `c28`–`c30`,
+  `c47`–`c49` carry the parameter their action requires.
+- Vocabulary `v0.1`: `alarm.arm` takes the required `mode` (`home`, `away`, `night`,
+  `vacation`, `custom_bypass`); `climate.set_temperature` takes a range setpoint,
+  `temperature_low` with `temperature_high` or the pair in degrees Fahrenheit, as one of
+  its alternatives; `mode`, `position` and `volume` are required, `brightness` stays
+  optional until the vocabulary names what else `light.set` sets (#29). Section 14
+  now counts a new parameter that is not required as compatible and a newly required one as
+  incompatible.
+- Sections 9.1 and 9.2 name the parameter names among the input the log cannot record, and
+  say that such input is not a request and gets no entry; the `invalid_request` results
+  exist so that an evaluator fails closed. Section 3.1 item 10 keeps constraints off `deny`
+  and `ask` rules and says why that still holds with required parameters.
+- No mandate changes validity: constraints on the new parameters become possible, nothing
+  becomes invalid. `decision` entries recorded under vocabulary `v0` keep their result; the
+  version they name decides (Section 9.2).
+- Conformance cases `c224`–`c242`, new mandate `conformance/mandates/parameters.json`.
 
 Acceptance and selection (Sections 3, 3.4, 3.5, 4.1, 4.3, 6, 7.1, 8, 8.1, 9.1, 9.2, 10.2,
 11.3, 11.6, 12.2; issues #76, #79, #80, #81):

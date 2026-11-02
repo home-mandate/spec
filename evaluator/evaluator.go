@@ -6,6 +6,7 @@
 package evaluator
 
 import (
+	"regexp"
 	"slices"
 	"time"
 )
@@ -163,8 +164,14 @@ func Evaluate(m *Mandate, req Request) Result {
 // section 4.1. It returns the household local time, whether the action is critical and,
 // on denial, the reason.
 func precheck(m *Mandate, req Request) (local time.Time, critical bool, reason Reason) {
+	return precheckInputs(m, req, true)
+}
+
+// precheckInputs is precheck; without checkParameters the parameters are not checked, for
+// a question about the limits of an action before any parameter exists (Limits).
+func precheckInputs(m *Mandate, req Request, checkParameters bool) (local time.Time, critical bool, reason Reason) {
 	local, ok := localTime(req.Time, req.TimeZone)
-	if !ok || !validRequest(req) {
+	if !ok || !validRequest(req) || checkParameters && !validParameters(req) {
 		return time.Time{}, false, ReasonInvalidRequest
 	}
 	if req.Resource.Category == "" {
@@ -193,8 +200,7 @@ func validRequest(req Request) bool {
 	res := req.Resource
 	return opaque(res.EntityID, maxEntityIDLength) &&
 		validAreas(res.Areas) &&
-		(req.Status == StatusActive || req.Status == StatusRevoked) &&
-		validParameters(req)
+		(req.Status == StatusActive || req.Status == StatusRevoked)
 }
 
 // validAreas reports whether areas is a set of at most maxAreas area identifiers without
@@ -215,12 +221,23 @@ func validAreas(areas []string) bool {
 // implementation (RFC 7493).
 const maxParameter = 1<<53 - 1
 
-// validParameters reports whether every parameter is a valid value that can be written to
-// an audit log as it is, and whether the parameters the action declares have their type
-// and permitted values (SPEC-v0 section 4, step 0).
+// maxParameters bounds the number of parameters of a request, as the audit log does
+// (SPEC-v0 section 9.1).
+const maxParameters = 16
+
+// parameterNamePattern is the form of a parameter name in a vocabulary and in an audit entry.
+var parameterNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+
+// validParameters reports whether the parameters can be written to an audit log as they
+// are (at most 16, names of the form of a vocabulary, values that are integers or strings)
+// and fit the action: declared, of the declared type and values, the required ones
+// present (SPEC-v0 section 4, step 0).
 func validParameters(req Request) bool {
-	for _, value := range req.Parameters {
-		if !value.valid() {
+	if len(req.Parameters) > maxParameters {
+		return false
+	}
+	for name, value := range req.Parameters {
+		if !parameterNamePattern.MatchString(name) || !value.valid() {
 			return false
 		}
 	}
