@@ -5276,6 +5276,504 @@
         {"actor": {"kind": "user", "id": "user-1"}, "event": "emergency_stop.activated", "id": "01a0f64c-7140-7001-9007-0000a2020001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:01:00+02:00", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
         {"actor": {"kind": "user", "id": "user-1"}, "config": {"setting": "clock_check", "value": "maybe", "previous_value": "on"}, "event": "config.changed", "id": "01a0f64c-7140-7001-9007-0000a2020002", "prev": "sha256:da1b3c908b9e30034a01700736170887b5f659ef27aa871e888dad9a126a2f22", "principal": "household:hm-7f3a", "recorded_at": "2026-10-01T09:02:00+02:00", "seq": 2, "type": "https://home-mandate.org/audit/v0"}
       ]
+    },
+    {
+      "id": "a203",
+      "why": "denied_by audit with an allow: the PEP could not record the request and did not execute it (SPEC-v0 section 9)",
+      "expected": "valid",
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "allow",
+            "reason": "rule",
+            "rule_id": "r-lights"
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2030001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "light.wohnzimmer_decke",
+              "category": "light",
+              "areas": [
+                "wohnzimmer"
+              ]
+            },
+            "action": "turn_on"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "audit",
+            "error": "log_unwritable"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a204",
+      "why": "denied_by audit without an evaluation: the log was unwritable before the evaluation (SPEC-v0 section 9)",
+      "expected": "valid",
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2040001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "light.wohnzimmer_decke",
+              "category": "light",
+              "areas": [
+                "wohnzimmer"
+              ]
+            },
+            "action": "turn_off"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "audit",
+            "error": "log_unwritable"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a205",
+      "why": "denied_by audit after a confirmed ask: the log failed between the confirmation and the execution (SPEC-v0 sections 9 and 9.1)",
+      "expected": "valid",
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "approval": {
+            "outcome": "approved",
+            "by": "user-1",
+            "at": "2026-10-01T09:30:31+02:00"
+          },
+          "evaluation": {
+            "decision": "ask",
+            "reason": "rule",
+            "rule_id": "r-locks",
+            "approval_timeout": "PT2M"
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2050001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "lock.haustuer",
+              "category": "lock",
+              "areas": [
+                "flur"
+              ]
+            },
+            "action": "unlock"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "audit",
+            "error": "log_unwritable"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a206",
+      "why": "denied_by audit with an enforced deny: an enforced deny is denied by the mandate, whatever the state of the log (SPEC-v0 section 9.1)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "no_match",
+            "rule_id": null
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2060001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "cover.garage",
+              "category": "cover",
+              "areas": [
+                "garage"
+              ]
+            },
+            "action": "open"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "audit",
+            "error": "log_unwritable"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a207",
+      "why": "denied_by audit with an approval that timed out: an answer other than approved is denied by the approval (SPEC-v0 section 9.1)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "approval": {
+            "outcome": "timeout",
+            "at": "2026-10-01T09:32:00+02:00"
+          },
+          "evaluation": {
+            "decision": "ask",
+            "reason": "rule",
+            "rule_id": "r-locks",
+            "approval_timeout": "PT2M"
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2070001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "lock.haustuer",
+              "category": "lock",
+              "areas": [
+                "flur"
+              ]
+            },
+            "action": "unlock"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "audit",
+            "error": "log_unwritable"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a208",
+      "why": "request values as sent: a line feed, a right-to-left override, a terminal escape sequence and markup are recorded unchanged (SPEC-v0 section 9.1)",
+      "expected": "valid",
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "invalid_request",
+            "rule_id": null
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2080001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "lock.haustuer\n2026-10-01T09:31:00 decision allow",
+              "category": "light",
+              "areas": [
+                "\u001b[2J\u001b[1;31mflur"
+              ]
+            },
+            "action": "<script>alert(1)</script>\u202eunlock"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "mandate"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a209",
+      "why": "failed with outcome_unknown for an allow: the process ended while the command was under way, the entry is completed from the stored intent (SPEC-v0 sections 9 and 11.1 item 9)",
+      "expected": "valid",
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "allow",
+            "reason": "rule",
+            "rule_id": "r-lights"
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2090001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "light.wohnzimmer_decke",
+              "category": "light",
+              "areas": [
+                "wohnzimmer"
+              ]
+            },
+            "action": "turn_on"
+          },
+          "result": {
+            "status": "failed",
+            "error": "outcome_unknown"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a210",
+      "why": "denied_by audit with a deny that is not enforced: in audit mode the request would have been executed, the log could not be written (SPEC-v0 sections 9, 9.1 and 11.6)",
+      "expected": "valid",
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "no_match",
+            "rule_id": null,
+            "enforced": false
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2100001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "light.wohnzimmer_decke",
+              "category": "light",
+              "areas": [
+                "wohnzimmer"
+              ],
+              "critical": false
+            },
+            "action": "turn_on"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "audit",
+            "error": "log_unwritable"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a211",
+      "why": "denied_by audit with confirm true and an approved confirmation: the log failed between the confirmation and the execution (SPEC-v0 sections 9 and 9.1)",
+      "expected": "valid",
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "approval": {
+            "outcome": "approved",
+            "by": "user-1",
+            "at": "2026-10-01T09:30:31+02:00"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "rule",
+            "rule_id": "r-lights-ask",
+            "approval_timeout": "PT2M",
+            "enforced": false,
+            "confirm": true
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2110001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "light.wohnzimmer_decke",
+              "category": "light",
+              "areas": [
+                "wohnzimmer"
+              ],
+              "critical": false
+            },
+            "action": "turn_on"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "audit",
+            "error": "log_unwritable"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a212",
+      "why": "the chain over request values with a line feed, a right-to-left override, a terminal escape sequence and markup: the digest of entry 1 is computed over them as sent (SPEC-v0 sections 9.1 and 9.4)",
+      "expected": "valid",
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "invalid_request",
+            "rule_id": null
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2120001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "lock.haustuer\n2026-10-01T09:31:00 decision allow",
+              "category": "light",
+              "areas": [
+                "\u001b[2J\u001b[1;31mflur"
+              ]
+            },
+            "action": "<script>alert(1)</script>\u202eunlock"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "mandate"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "allow",
+            "reason": "rule",
+            "rule_id": "r-lights"
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2120002",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": "sha256:5299788b8029b7716fdcae94b71a168de181c6c831c1023d2aede36b3df703d1",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:32:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "light.wohnzimmer_decke",
+              "category": "light",
+              "areas": [
+                "wohnzimmer"
+              ]
+            },
+            "action": "turn_on"
+          },
+          "result": {
+            "status": "executed"
+          },
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
     }
   ]
 }
