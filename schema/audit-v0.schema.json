@@ -64,13 +64,13 @@
           "additionalProperties": false,
           "required": ["entity_id"],
           "properties": {
-            "entity_id": { "type": "string", "minLength": 1, "maxLength": 255 },
-            "category": { "type": "string", "minLength": 1, "maxLength": 128 },
-            "areas": { "description": "Set of areas of the resource as the PEP gave it to the evaluation, also when invalid (SPEC-v0 sections 3.4 and 9.1); absent or empty: the resource has no area.", "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
+            "entity_id": { "description": "As the agent sent it, any character (SPEC-v0 section 9.1): untrusted text wherever it is shown.", "type": "string", "minLength": 1, "maxLength": 255 },
+            "category": { "description": "As the PEP gave it to the evaluation, any character (SPEC-v0 section 9.1): untrusted text wherever it is shown.", "type": "string", "minLength": 1, "maxLength": 128 },
+            "areas": { "description": "Set of areas of the resource as the PEP gave it to the evaluation, also when invalid (SPEC-v0 sections 3.4 and 9.1), any character: untrusted text wherever it is shown; absent or empty: the resource has no area.", "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
             "critical": { "description": "true: the directory marked the resource as critical at evaluation time; absent = false.", "type": "boolean" }
           }
         },
-        "action": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "action": { "description": "As the agent sent it, any character (SPEC-v0 section 9.1): untrusted text wherever it is shown.", "type": "string", "minLength": 1, "maxLength": 64 },
         "parameters": {
           "description": "Parameters of the action that were input to the evaluation (SPEC-v0 section 4.5): integers or strings.",
           "type": "object",
@@ -167,7 +167,7 @@
       "required": ["status"],
       "properties": {
         "status": { "enum": ["executed", "denied", "failed"] },
-        "denied_by": { "enum": ["mandate", "approval", "rate_limit", "emergency_stop", "authentication"] },
+        "denied_by": { "description": "Who or what denied: audit is a request the PEP did not execute because it could not record it (SPEC-v0 section 9).", "enum": ["mandate", "approval", "rate_limit", "emergency_stop", "authentication", "audit"] },
         "error": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
         "duration_ms": { "type": "integer", "minimum": 0 },
         "count": {
@@ -387,6 +387,8 @@
       "then": { "properties": { "result": { "properties": { "denied_by": { "enum": ["authentication", "mandate"] } } } } } },
     { "if": { "required": ["approval"], "properties": { "approval": { "required": ["cause"], "properties": { "cause": { "const": "emergency_stop" } } } } },
       "then": { "properties": { "result": { "properties": { "denied_by": { "const": "emergency_stop" } } } } } },
+    { "if": { "required": ["result"], "properties": { "result": { "required": ["denied_by"], "properties": { "denied_by": { "const": "audit" } } } } },
+      "then": { "properties": { "approval": { "properties": { "outcome": { "const": "approved" } } } } } },
     { "if": { "required": ["result"], "properties": { "result": { "required": ["status"], "properties": { "status": { "const": "executed" } } } } },
       "then": { "required": ["evaluation", "mandate"],
                 "properties": { "evaluation": { "anyOf": [ { "properties": { "decision": { "enum": ["allow", "ask"] } } }, { "required": ["enforced"] } ] } } } },
@@ -409,7 +411,8 @@
                 "properties": { "approval": { "anyOf": [ { "properties": { "outcome": { "const": "approved" } } },
                                                          { "required": ["cause"], "properties": { "cause": { "const": "revoked" } } } ] } } } },
     { "if": { "required": ["evaluation"], "properties": { "evaluation": { "required": ["enforced"], "not": { "required": ["confirm"] } } } },
-      "then": { "properties": { "result": { "required": ["status"], "properties": { "status": { "enum": ["executed", "failed"] } } } } } },
+      "then": { "properties": { "result": { "required": ["status"], "anyOf": [ { "properties": { "status": { "enum": ["executed", "failed"] } } },
+                                                                                { "properties": { "status": { "const": "denied" }, "denied_by": { "const": "audit" } } } ] } } } },
     { "if": { "properties": { "seq": { "const": 1 } } },
       "then": { "properties": { "prev": { "type": "null" } } },
       "else": { "properties": { "prev": { "$ref": "#/$defs/digest" } } } }

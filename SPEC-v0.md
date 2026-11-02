@@ -1165,6 +1165,32 @@ basis of which configuration**. The format and the hash chain are fixed so that
 audit logs of different implementations can be verified with the same tools.
 Machine-readable: `schema/audit-v0.schema.json`.
 
+**Recording comes before executing.** The log is evidence only if every execution left an
+entry. A PEP therefore MUST NOT dispatch a command to the platform before it has durably
+stored what it will record about the request: the `decision` entry except its `result`
+(an intent), or the entry itself where the result is already known. Durably means that
+the stored intent survives the end of the process, a crash included; whether it survives a
+loss of power is up to the implementation, which SHOULD give the intent and the entry the
+same durability (Section 12.4). The intent is stored immediately before the dispatch,
+after any confirmation and after the evaluation that precedes the execution (Section 11.1
+item 6); a request that waits for an approval is not an intent. It may live outside the
+log, in the state that Section 11.1 item 9 asks for anyway, and it is that state; it is
+not an entry and takes no part in the chain. When the execution has ended, the entry is
+appended with its `result`. If the PEP cannot store the intent, or determines that it
+cannot append to the log (the storage is full, read-only or gone), it does not execute:
+the result is `deny` with `denied_by: audit`. Denials by authentication, by the emergency
+stop and by the rate limit come before this one and keep their `denied_by`; a PEP that
+finds its log unwritable MAY deny every other request this way without evaluating it or
+asking anyone. The PEP records such denials as soon as the log can be written again, with
+`recorded_at` the time of the recording and `request.time` that of the request; until
+then it keeps them, bounded in number (RECOMMENDED: at least the newest 64). Denials that
+the bound or a restart lose are the gap a failed log leaves; a PEP SHOULD tell the
+household that its log failed and when. After a restart, an intent without a result is
+recorded as `failed` with `error: outcome_unknown`, whether or not the action was
+confirmed and whether or not the command had left the process (Section 11.1 item 9): the
+command may have reached the platform. A log that fails thus stops the agents, not the
+record (Section 12.2).
+
 ### 9.1 Entries
 
 Each entry is a JSON object with `type: "https://home-mandate.org/audit/v0"` and:
@@ -1189,7 +1215,7 @@ Depending on the event, the following are added:
 | `vocabulary` | the vocabulary the evaluation used for the category of the resource (Section 5): `id` and `version` as in its file. Only with `decision` and `evaluation`, and not with `reason` `unknown_resource` or `unknown_category`: no vocabulary was used. For a category of Section 5, `id` is `https://home-mandate.org/vocabulary/v0`; for an extension category, the `id` of the extension (Section 5.1). The schema cannot see the vocabulary; a verifier MUST reject any other `id` for a category of Section 5, the `id` of Section 5 for an extension category and, for an extension whose vocabulary it knows, any `id` other than that vocabulary's, and an entry that violates this is invalid |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, `approval_timeout` (the timeout of the approval settings; required for `ask` and with `confirm`, absent otherwise), `enforced` (only `false`, Section 4.6) and `confirm` (only `true`, with `enforced`) |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, where it names an approver whose answer arrived after the timeout, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
-| `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
+| `result` | `status`: `executed`, `denied` (with `denied_by`: `mandate`, `approval`, `rate_limit`, `emergency_stop`, `authentication`, or `audit`: the PEP could not record the request and therefore did not execute it, Section 9) or `failed` (with `error`, a code consisting of lowercase letters, digits and `_`); `denied_by` only with `denied`; `error` is required with `failed`, MAY give the cause of a `denied` and never appears with `executed`; optionally `duration_ms`; optionally `count` (Section 11.2) |
 | `truncated` | `up_to_seq`, `last_digest` (Section 9.4) |
 | `exported` | `from_seq`, `to_seq`: the range of entries an export contained (Section 13), with `from_seq` ≤ `to_seq` < the entry's own `seq`. Only with `log.exported`, optional there: without it, the export contained all entries before this one |
 | `checkpoint` | `log_id`, `signature` (Section 9.5); the signature also covers the entry's `recorded_at` |
@@ -1210,6 +1236,22 @@ evaluation (with MCP, for example, as invalid parameters), and records no `decis
 for it (Section 9.2). The `invalid_request` results of Section 4 for the same input exist
 so that an evaluator fails closed if such input reaches it anyway.
 
+The values of `request` are therefore not under the control of the household:
+`resource.entity_id` and `action` are what the agent sent, `category` and `areas` what the
+directory gave, which a device or an integration can have chosen (Section 12.2). Any of
+them can contain any character: a line feed, a control character, a direction-changing
+mark, a terminal escape sequence or markup, none of which can occur in an identifier that
+matches anything (Section 3.4). An entry records them unchanged, so that the log shows
+what was sent, and the schema does not restrict them; an export (Section 13) carries them
+unchanged as well, since the digests are computed over them. Whatever renders entries for
+a human (an interface, the report of a verifier, a reader of an export) MUST treat these
+values as untrusted text: show them as a JSON string shows them, with every character
+outside U+0020 to U+007E and every backslash in the escaped form of JSON (`\n`, `\u202e`,
+`\\`), never interpret them as markup, as an escape sequence or as a line break, and keep
+them from changing the direction or the layout of what surrounds them. `parameters` are
+limited by Section 4.5, `timezone` comes from the PEP, and the displayed text of
+Section 3.1 item 8 is restricted at the source.
+
 For `decision`, the following additionally applies:
 
 - `executed` only with `evaluation` and `mandate`, and only if `evaluation.decision` is
@@ -1217,9 +1259,9 @@ For `decision`, the following additionally applies:
   `evaluation.enforced: false`, and then with `evaluation.confirm: true` only with
   `approval.outcome: approved`;
 - if `evaluation.decision` is `deny`, then `result` is `denied` with `denied_by: mandate`,
-  unless `evaluation.enforced` is `false`: then `result` is `executed` or `failed`
-  (audit mode, Section 11.6), and with `evaluation.confirm: true` the `result` can be
-  anything an `ask` can have;
+  unless `evaluation.enforced` is `false`: then `result` is `executed`, `failed` or
+  `denied` with `denied_by: audit` (audit mode, Section 11.6; the log, Section 9), and
+  with `evaluation.confirm: true` the `result` can be anything an `ask` can have;
 - `evaluation.enforced` appears only in `decision` entries with `mandate` and `request`,
   only as `false`, and only with `evaluation.decision: deny` and `reason` `no_match` or
   `rule`. An `allow` or an `ask` is never marked: an allow is executed anyway, and an
@@ -1249,6 +1291,14 @@ For `decision`, the following additionally applies:
   item 1);
 - `evaluation.reason` belongs to `evaluation.decision` as in the table of Section 4.1
   (`allow` only with `rule`, `ask` only with `rule` or `critical_demotion`);
+- `denied_by: audit` marks a request the PEP did not execute because it could not record
+  it (Section 9). It appears only where no other denial came first: without `evaluation`
+  (the PEP denied before evaluating; authentication, the emergency stop and the rate limit
+  precede it and keep their `denied_by`), with `evaluation.decision: allow`, with a `deny`
+  that is not enforced, or with `ask` or `confirm: true` and then either without
+  `approval` (nobody was asked) or with `approval.outcome: approved`. An answer other than
+  `approved` is denied by the approval and an enforced `deny` by the mandate, whatever the
+  state of the log. `error` MAY name the cause, RECOMMENDED `log_unwritable`;
 - a denial with `denied_by: approval` carries the `approval` object if a request was
   made: answered, timed out or cancelled. It has none if no request was made: no approver
   could be reached, or the agent already had too many requests waiting (Section 11.1);
@@ -1286,7 +1336,7 @@ template.
 
 | `event` | Required | When |
 |---|---|---|
-| `decision` | yes | every request from an authenticated agent, even if it is rejected before evaluation (e.g. rate limit, emergency stop). Input the log cannot record (Section 9.1) is not a request in the sense of this table and gets no entry |
+| `decision` | yes | every request from an authenticated agent, even if it is rejected before evaluation (e.g. rate limit, emergency stop) or not executed because the log could not be written (`denied_by: audit`, Section 9). Input the log cannot record (Section 9.1) is not a request in the sense of this table and gets no entry |
 | `mandate.created`, `mandate.updated`, `mandate.revoked` | yes | every change to a mandate, with old and new digest |
 | `agent.registered`, `agent.revoked` | yes | admission and revocation of an agent |
 | `emergency_stop.activated`, `emergency_stop.released` | yes | emergency stop, if the implementation has one |
@@ -1314,7 +1364,8 @@ time of the decision.
 
 The rate limit and the emergency stop are defined in Sections 11.2 and 11.3. Denials are
 logged with `denied_by: rate_limit` or `emergency_stop` respectively, and the emergency stop
-with the `emergency_stop.*` events.
+with the `emergency_stop.*` events. A request the PEP did not execute because it could not
+record it is logged with `denied_by: audit` (Section 9).
 
 ### 9.3 Retention
 
@@ -1623,10 +1674,12 @@ before it executes the action. What follows holds for both.
    that made it. After a restart the implementation MUST NOT execute an action for a
    request that was waiting, and MUST NOT reopen such a request or accept an answer to
    it; it records every such request with `cancelled` and `cause: interrupted`, as soon as
-   it can, with `approval.at` the time it determined that the request had ended. If the execution of a confirmed action was under way when the process ended and
-   its effect is unknown, the action MUST NOT be repeated; the entry is `failed` with
-   `error: outcome_unknown` (RECOMMENDED code). An implementation therefore keeps enough
-   state outside the process to tell these cases apart.
+   it can, with `approval.at` the time it determined that the request had ended. If the
+   execution of an action was under way when the process ended and its effect is unknown,
+   confirmed or not, the action MUST NOT be repeated; the entry is `failed` with
+   `error: outcome_unknown` (RECOMMENDED code), completed from what the PEP stored before
+   it dispatched the command (Section 9). An implementation therefore keeps enough state
+   outside the process to tell these cases apart.
 10. **The state that was shown.** An implementation that shows the human the state of the
    resource together with the request SHOULD execute only if the state is still the one
    shown. Otherwise the action is not executed and the entry is `failed`, with the
@@ -1782,7 +1835,8 @@ audit mode:
 1. **Executes** a request whose result is not enforced (`enforced: false`) as it executes
    an `allow`, with every obligation that applies to an `allow`, and records a `decision`
    entry whose `evaluation` is the result as returned, including `enforced: false`, with
-   `result.status` `executed` or `failed` (Section 9.1). If the result requires a
+   `result.status` `executed` or `failed`, or `denied` with `denied_by: audit` when the
+   log could not be written (Sections 9 and 9.1). If the result requires a
    confirmation (`confirm: true`), it executes the request only as it executes a confirmed
    `ask`, with every obligation of Section 11.1, and the entry records the outcome of the
    approval request as for an `ask`. It never records a request whose result is not
@@ -1849,6 +1903,8 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded, and so are added or removed resources and changed categories or areas, as far as the implementation tracks them (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
 | **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only |
+| **Failure of the audit log** (full or read-only storage, a crash between the command and the entry, a log removed while the PEP runs) | The PEP stores what it will record before it dispatches a command and denies when it cannot (`denied_by: audit`); an execution the process did not see end is recorded as `outcome_unknown` (Sections 9, 11.1 item 9) | A full disk stops the agents, not the household: the platform itself is unaffected. Whoever can fill the storage denies service to every agent; the entries that record it are written once the log can be written again |
+| **Agent, device or integration that writes into the log** (a resource, area or action name with a line feed, a control character, a direction-changing mark, a terminal escape sequence or markup) | Such a name matches nothing and is denied (Section 3.4); the entry records it as sent, and whatever renders entries for a human MUST show the values of `request` as a JSON string shows them, escapes included (Sections 9.1, 13); identifiers in mandates and in matched requests are ASCII | An interface, a consumer of an export or a verifier that ignores Section 9.1 shows a forged or hidden line, or runs an escape sequence in a terminal |
 | **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7); a signed mandate expires and names its `audience`, so it is not replayed at another verifier (Sections 3.5, 7.1) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
 | **Compromised or rotated issuer key** | Keys are configured, never fetched from a location a mandate names; the verifier remembers by which key it accepted a mandate, and a mandate accepted only by a key that is no longer trusted loses its effect or is confirmed again; a weakening successor needs a human (Sections 3.5, 7.1); every change of trust is recorded (Section 9.2) | Until the key is withdrawn, the attacker can issue narrowing successors and new mandates for the audience, within what the configuration lets the issuer issue; a new mandate takes effect without a human unless it is in audit mode or names unknown `approvers` |
 | **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal, and a replacement that weakens the mandate or follows a revoked one takes effect only after a human confirmed it (Section 3.5); every change to the trusted issuers and their keys is recorded (`issuer.changed`, Section 9.2) | The specification does not define how this trust is configured |
@@ -1932,6 +1988,17 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
 - **Size and time.** Implementations SHOULD bound the size of inputs before parsing them
   (Section 3.1 item 5, nesting depth) and SHOULD verify signatures and schemas before any
   further processing.
+- **Showing the log.** The values of `request` are not the household's (Section 9.1).
+  Interfaces SHOULD show them in a field of their own that isolates the text direction,
+  escaped as JSON escapes them (`\u202e` for the right-to-left override, `\\` for a
+  backslash, so that a value that spells out an escape cannot pass for one), and SHOULD
+  mark an entry whose identifiers no identifier of Section 3.4 could be. In a terminal, an
+  entry is printed as JSON, with its escapes, or not at all. The reference verifier reports
+  numbers and never prints a value of an entry.
+- **Storing the log.** Section 9 and Section 11.1 item 9 ask for state that outlives the
+  process. Intent and entry SHOULD be written with the same durability (a synchronized
+  write, a transaction), and the storage of the log SHOULD be monitored: a PEP that denies
+  because its log is full is working as specified, and the household needs to learn why.
 
 ## 13. Privacy considerations
 
@@ -1951,7 +2018,8 @@ behavior of the people in a household and MUST be protected like the devices the
   no remedy other than retention limits.
 - **Export.** An exported log leaves the protection of the implementation. Exports SHOULD
   be created only by a human and are recorded with `log.exported` (Section 9.2), with the
-  range of entries they contained.
+  range of entries they contained. An export carries the values of `request` as the agent
+  sent them; whoever reads it treats them as untrusted text (Section 9.1).
 - **Agents.** What an agent learns through `read` leaves the household with the agent.
   A mandate is also a decision about which data an agent may see.
 - **Features.** What a resource can carry out is information about it, often about its
@@ -2356,6 +2424,29 @@ Audit mode and `ask` (Sections 4, 4.1, 4.4, 4.6, 6, 8, 9.1, 10, 11.1, 11.6, 12, 
   `s22` (the selection cases accept `approval_timeout` and `confirm`), `a136` (valid: every
   outcome of an approval request with `confirm: true`) and `a137`–`a145` (invalid).
 - Reference evaluator (Go): `Result.Confirm`; `Result.Approval` is also set with it.
+
+Recording before executing, and the agent's values in the log (Sections 9, 9.1, 9.2, 11.1,
+12.2, 12.4, 13; issues #86, #90):
+- A PEP stores what it will record before it dispatches a command, and does not execute
+  when it cannot: new value `audit` of `result.denied_by`, for a request that was not
+  executed because the log could not be written. Before, nothing said that recording comes
+  first; a full disk or a crash between the command and the entry could execute an `allow`
+  without a trace, although Section 9 promises a log that shows which agent did what.
+  `denied_by: audit` appears only where no other denial came first: authentication, the
+  emergency stop and the rate limit precede it; an answer other than `approved` is still
+  denied by the approval, an enforced `deny` by the mandate; an unenforced `deny` (audit
+  mode) can now end so as well. `outcome_unknown` after a restart now covers every action,
+  not only confirmed ones. Section 9 says what durable means and what becomes of denials
+  the PEP could not record yet. Compatible for writers of logs; a verifier of an earlier pre-release rejects an
+  entry with the new value (before `v0.1.0`).
+- The values of `request` come from the agent and from the directory and may contain any
+  character; whatever renders them for a human MUST treat them as untrusted text and show
+  every character outside printable ASCII, and every backslash, as a JSON string shows
+  them, never interpret them. Exports carry them unchanged. Text only: the schema already
+  permitted the characters and Section 9.1 said so, but not what follows for interfaces,
+  verifier reports and readers of exports. Conformance cases record such values. The
+  reference verifier prints no value of an entry.
+- Conformance cases `a203`–`a212`.
 
 Request parameters and vocabulary `v0.1` (Sections 3.1, 4, 4.5, 5, 5.1, 9.1, 9.2, 10.2,
 12.4, 14; issues #78, #84):
