@@ -1,0 +1,11 @@
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "kid": "unused",
+      "KID": "test-ed25519",
+      "x": "sD-Dp3g_YEAOY2QXevVAJ4llHJDBwzeaX1KSlYH_YyU"
+    }
+  ]
+}

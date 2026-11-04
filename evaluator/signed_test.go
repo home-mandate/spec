@@ -209,7 +209,11 @@ func TestConformanceSignedMandates(t *testing.T) {
 			}
 			keys, err := jws.ParseJWKS(data)
 			if err != nil {
-				t.Fatal(err)
+				// A key set that cannot be used verifies nothing (SPEC-v0 section 10.2).
+				if c.Expected != "invalid" {
+					t.Fatal(err)
+				}
+				return
 			}
 			m, err := evaluator.ParseSigned(c.JWS, evaluator.Issuers{c.Issuer: keys})
 			switch c.Expected {

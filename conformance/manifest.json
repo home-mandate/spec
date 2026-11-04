@@ -22,12 +22,52 @@
       "cases": 175
     },
     {
+      "path": "conformance/keys/case-keys.json",
+      "sha256": "f1334a56518f8ac58a4ace2c80475d9ce3015a2118ce0fa3fb07f95233177f55"
+    },
+    {
+      "path": "conformance/keys/case-kid.json",
+      "sha256": "430daa2fa2401dd949c1946e9f5fab8fc6fc7dd0bba5671a86c424e2a662877b"
+    },
+    {
+      "path": "conformance/keys/case-kty.json",
+      "sha256": "42480f7b5fcf80ade0de03b507ead62c18b6980ce0b02c7dddd747addfbac111"
+    },
+    {
+      "path": "conformance/keys/case-upper.json",
+      "sha256": "6bd5aabecfa6dd0166f6a2c57e7b9a7996147c2f94610c5070efd528df2c9493"
+    },
+    {
+      "path": "conformance/keys/case-x.json",
+      "sha256": "b50a4b64c13b90bda0572a2e1fc2ceb3e5e658d225cce2bcfc91edfd5a8a154b"
+    },
+    {
+      "path": "conformance/keys/d-empty.json",
+      "sha256": "e1a26364bf00f22bd0a154911571079c20a0bff256fdf01c68f0edbe0a05b10a"
+    },
+    {
+      "path": "conformance/keys/d-null.json",
+      "sha256": "d2ae0e43fafca47ba76835405d5593b5ac2736b582cb91a1d4bd7dd03513692b"
+    },
+    {
+      "path": "conformance/keys/line-feed-x.json",
+      "sha256": "f6575991475874ab5d6761078f8f49a3a89f833a29e2c86970195318bf6c28c3"
+    },
+    {
       "path": "conformance/keys/test-keys.json",
       "sha256": "b1a82e878fbc2cfed804202740c920f25067519ccc8f98a587203e59177e614f"
     },
     {
       "path": "conformance/keys/test-keys.private.json",
       "sha256": "3fafab652d26ca9c76b8138f2136a999d3bf216fa68dee7d60fa78a959971c1b"
+    },
+    {
+      "path": "conformance/keys/weak-identity.json",
+      "sha256": "5d9f7dae72f6cbcc4e906ff83da47682e9f4057bff4698aa2ffdfdfa3110fbdb"
+    },
+    {
+      "path": "conformance/keys/weak-order8.json",
+      "sha256": "35dea5582dc844c37847ee415325f6951e0cad8775f719eea6f7c6e7be413854"
     },
     {
       "path": "conformance/mandates/areas.json",
@@ -120,8 +160,8 @@
     },
     {
       "path": "conformance/signed-v0.json",
-      "sha256": "65cb0314063c5efc8929de7e0871ba3ab3869feeb7f6139cbd8aa6acdb5ff7f6",
-      "cases": 24
+      "sha256": "6dd1fd392557ae7488257345f37bf24b21dbb5e137cc4bf886f0453d09f1032e",
+      "cases": 35
     },
     {
       "path": "conformance/succession-v0.json",

@@ -4,11 +4,13 @@ package jws
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"os"
@@ -320,5 +322,164 @@ func TestParseJWKSKeepsAcceptingNoncharactersInUnknownMembers(t *testing.T) {
 	marked := bytes.Replace(data, []byte(`{`), []byte(`{"comment":"￿",`), 1)
 	if _, err := ParseJWKS(marked); err != nil {
 		t.Errorf("ParseJWKS = %v", err)
+	}
+}
+
+const (
+	testGood = "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+	testAtk  = "sD-Dp3g_YEAOY2QXevVAJ4llHJDBwzeaX1KSlYH_YyU"
+)
+
+func okp(members string) []byte {
+	return []byte(`{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k",` + members + `}]}`)
+}
+
+func TestParseJWKSReadsMemberNamesExactly(t *testing.T) {
+	keys, err := ParseJWKS(okp(`"x":"` + testGood + `","X":"` + testAtk + `"`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, _ := b64.DecodeString(testGood)
+	if got := keys["k"].(ed25519.PublicKey); !bytes.Equal(got, want) {
+		t.Errorf("key = %x, want the one under x", got)
+	}
+	for name, set := range map[string]string{
+		"upper keys only": `{"KEYS":[{"kty":"OKP","crv":"Ed25519","kid":"k","x":"` + testGood + `"}]}`,
+		"upper kty only":  `{"keys":[{"KTY":"OKP","crv":"Ed25519","kid":"k","x":"` + testGood + `"}]}`,
+		"upper crv only":  `{"keys":[{"kty":"OKP","CRV":"Ed25519","kid":"k","x":"` + testGood + `"}]}`,
+		"upper kid only":  `{"keys":[{"kty":"OKP","crv":"Ed25519","KID":"k","x":"` + testGood + `"}]}`,
+		"upper x only":    `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","X":"` + testGood + `"}]}`,
+		"RSA with KTY":    `{"keys":[{"kty":"RSA","KTY":"OKP","crv":"Ed25519","kid":"k","x":"` + testGood + `"}]}`,
+	} {
+		if _, err := ParseJWKS([]byte(set)); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	both := `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","x":"` + testGood + `"}],"KEYS":[{"kty":"OKP","crv":"Ed25519","kid":"k","x":"` + testAtk + `"}]}`
+	keys, err = ParseJWKS([]byte(both))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := keys["k"].(ed25519.PublicKey); !bytes.Equal(got, want) {
+		t.Errorf("key = %x, want the one under keys", got)
+	}
+	// The upper-case D is an unknown member, like any other (RFC 7517 section 4).
+	if _, err := ParseJWKS(okp(`"x":"` + testGood + `","D":"x"`)); err != nil {
+		t.Errorf("unknown member D: %v", err)
+	}
+}
+
+func TestParseJWKSRejectsMalformedMembers(t *testing.T) {
+	for name, set := range map[string]string{
+		"keys not an array": `{"keys":{}}`,
+		"key not an object": `{"keys":[1]}`,
+		"key is null":       `{"keys":[null]}`,
+		"x not a string":    string(okp(`"x":1`)),
+		"kid not a string":  `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":1,"x":"` + testGood + `"}]}`,
+		"y not a string":    `{"keys":[{"kty":"EC","crv":"P-256","kid":"k","x":"` + testGood + `","y":1}]}`,
+		"line feed in x":    string(okp(`"x":"` + testGood[:12] + `\n` + testGood[12:] + `"`)),
+		"carriage return":   string(okp(`"x":"` + testGood + `\r\n"`)),
+		"d is empty":        string(okp(`"x":"` + testGood + `","d":""`)),
+		"d is null":         string(okp(`"x":"` + testGood + `","d":null`)),
+		"d is not a string": string(okp(`"x":"` + testGood + `","d":1`)),
+		"d has a value":     string(okp(`"x":"` + testGood + `","d":"` + testGood + `"`)),
+		"no keys member":    `{}`,
+		"keys is null":      `{"keys":null}`,
+		"not an object":     `[]`,
+	} {
+		if _, err := ParseJWKS([]byte(set)); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+}
+
+func TestSmallOrderEd25519KeysAreRejected(t *testing.T) {
+	input := []byte("any message")
+	for _, encoded := range []string{
+		"0100000000000000000000000000000000000000000000000000000000000000",
+		"0100000000000000000000000000000000000000000000000000000000000080",
+		"ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+		"ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+		"0000000000000000000000000000000000000000000000000000000000000000",
+		"0000000000000000000000000000000000000000000000000000000000000080",
+		"26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+		"26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+		"c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+		"c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+	} {
+		key, err := hex.DecodeString(encoded)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ParseJWKS(okp(`"x":"` + b64.EncodeToString(key) + `"`)); err == nil {
+			t.Errorf("ParseJWKS accepted %s", encoded)
+		}
+		// Keys built directly, without a key set, are checked as well. R is the identity,
+		// S = 0: for the identity this verifies for every message.
+		sig := append(bytes.Clone(key[:0:0]), make([]byte, ed25519.SignatureSize)...)
+		sig[0] = 1
+		if verifyInput(AlgEdDSA, ed25519.PublicKey(key), input, sig) {
+			t.Errorf("verifyInput accepted the key %s", encoded)
+		}
+	}
+	// The aliases with y >= p, built directly.
+	for _, encoded := range []string{
+		"eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f", // y = p + 1, the identity
+		"edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f", // y = p, order 4
+	} {
+		key, err := hex.DecodeString(encoded)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sig := make([]byte, ed25519.SignatureSize)
+		sig[0] = 1
+		if verifyInput(AlgEdDSA, ed25519.PublicKey(key), input, sig) {
+			t.Errorf("verifyInput accepted the alias %s", encoded)
+		}
+	}
+	if verifyInput(AlgEdDSA, ed25519.PublicKey(make([]byte, 31)), input, make([]byte, ed25519.SignatureSize)) {
+		t.Error("verifyInput accepted a key of the wrong length")
+	}
+}
+
+func TestSmallOrderIdentityWouldVerifyWithoutTheCheck(t *testing.T) {
+	// Guards the test above: the signature it uses does verify in the standard library.
+	key, _ := hex.DecodeString("0100000000000000000000000000000000000000000000000000000000000000")
+	sig := make([]byte, ed25519.SignatureSize)
+	sig[0] = 1
+	if !ed25519.Verify(ed25519.PublicKey(key), []byte("any message"), sig) {
+		t.Fatal("the standard library no longer accepts this signature; the check may be obsolete")
+	}
+}
+
+func TestSmallOrderKeyIsRejectedForDetachedSignatures(t *testing.T) {
+	// The path of an audit checkpoint, with keys built without a key set.
+	key, err := hex.DecodeString("0100000000000000000000000000000000000000000000000000000000000000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	head := b64.EncodeToString([]byte(`{"alg":"EdDSA","kid":"k"}`))
+	sig := make([]byte, ed25519.SignatureSize)
+	sig[0] = 1
+	detached := head + ".." + b64.EncodeToString(sig)
+	if _, err := VerifyDetached(detached, []byte("any payload"), Keys{"k": ed25519.PublicKey(key)}); !errors.Is(err, ErrSignature) {
+		t.Errorf("VerifyDetached = %v, want ErrSignature", err)
+	}
+}
+
+func TestMarshalJWKSRefusesWhatParseJWKSRefuses(t *testing.T) {
+	weak, err := hex.DecodeString("0100000000000000000000000000000000000000000000000000000000000000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var none *ecdsa.PublicKey
+	for name, key := range map[string]crypto.PublicKey{
+		"small order":  ed25519.PublicKey(weak),
+		"wrong length": ed25519.PublicKey(make([]byte, 31)),
+		"nil P-256":    none,
+	} {
+		if _, err := MarshalJWKS(Keys{"k": key}); !errors.Is(err, ErrKey) {
+			t.Errorf("%s: MarshalJWKS = %v, want ErrKey", name, err)
+		}
 	}
 }

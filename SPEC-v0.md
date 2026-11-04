@@ -1014,6 +1014,19 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
   p = 2^255 − 19), because libraries differ on what else they accept. `alg` MUST match the
   type of the key `kid` names: `EdDSA` an Ed25519 key, `ES256` a P-256 key. A verifier
   MUST reject everything else, even if the signature would verify.
+- An Ed25519 public key of small order is not a key: with it, a signature verifies for every
+  message of a class, for the identity with `S` = 0 for all of them, so anyone could sign in
+  the name of its holder, and the holder could deny what it signed. A verifier MUST reject
+  it, whichever way it obtained the key. These are the encodings, in hexadecimal: the
+  identity and order 2, each also with the sign bit set although x is 0, then order 4 and
+  order 8:
+  - `0100000000000000000000000000000000000000000000000000000000000000`, `0100000000000000000000000000000000000000000000000000000000000080`
+  - `ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f`, `ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff`
+  - `0000000000000000000000000000000000000000000000000000000000000000`, `0000000000000000000000000000000000000000000000000000000000000080`
+  - `26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05`,
+    `26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85`
+  - `c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a`,
+    `c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa`
 - Keys that sign mandates MUST NOT be used to sign checkpoints (Section 9.5), and vice
   versa.
 
@@ -1042,7 +1055,11 @@ key that was compromised may have signed it.
 How a verifier comes to trust the keys of an issuer is outside this specification
 (configuration, pairing, a JWK Set under the issuer's URL, …). Keys are exchanged as JWK or
 JWK Set (RFC 7517): `{"kty":"OKP","crv":"Ed25519","x":…}` or
-`{"kty":"EC","crv":"P-256","x":…,"y":…}`, each with a `kid`. An issuer that becomes
+`{"kty":"EC","crv":"P-256","x":…,"y":…}`, each with a `kid`. The names of the members are
+case-sensitive: `X` is not `x`, but an unknown member, and unknown members are ignored (RFC
+7517 section 4). `x` and `y` are base64url without padding and without any other character.
+A key with a member `d`, whatever its value, is a private key and is rejected (RFC 8037
+section 2). An issuer that becomes
 trusted or stops being trusted, and every key of an issuer that is added or removed, is
 recorded with `issuer.changed` (Section 9.2): which mandates a verifier accepts depends on
 it.
@@ -1565,7 +1582,9 @@ an `error`, so that a former member name (such as `area`) is never evaluated as 
 absent. For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
 cases of that operation then count as not passed for their class. Any other `error` is a
 failed case. A `time` that is not RFC 3339 by its grammar, such as an offset of `+24:00`, a comma
-before the fraction or a one-digit hour, is not readable.
+before the fraction or a one-digit hour, is not readable. `verify_signed` with a key set in which a
+key cannot be used answers `{"valid": false}`; `verify_audit` answers with an `error`, because it
+cannot report on the log.
 
 Every request can carry `id`, the identifier of the case, for diagnostics.
 
@@ -2168,6 +2187,16 @@ behavior of the people in a household and MUST be protected like the devices the
   10.2). The reference harness and its checkpoint signing accepted offsets such as `+24:00`.
 - New conformance cases `a221` to `a228`, `c243` to `c251`, `d53`, `i164` to `i175`, which also
   cover bidirectional controls and separators in displayed text, field by field.
+- Security (GHSA-grm8-w7m9-fxj9), Section 7.1: an Ed25519 public key of small order is
+  rejected, because with it a signature verifies for every message of a class; the member
+  names of a JWK and a JWK Set are case-sensitive, `x` and `y` allow no other character, and
+  a member `d` with any value is a private key. One such key makes the whole key set unusable.
+  Section 10.2: `verify_signed` with such a key set answers `{"valid": false}`. This can change
+  an outcome: a signed mandate or a checkpoint verified with a key of small order stops
+  verifying. That is the purpose, since anyone could
+  have produced those signatures. A key that combines a normal point with one of small order
+  stays accepted: only its holder can sign with it, so nothing can be forged. New conformance
+  cases `g25` to `g35`; checkpoints are covered by a test of the reference code.
 
 ### v0.1.0 (2026-11-02)
 

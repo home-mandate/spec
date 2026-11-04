@@ -157,7 +157,6 @@ func TestRequestsWithMissingOrBrokenMembers(t *testing.T) {
 		"select without subject":     {Op: harness.OpSelect, Request: eval},
 		"succession without offered": {Op: harness.OpSuccession, Stored: example(t)},
 		"succession, stored invalid": {Op: harness.OpSuccession, Stored: text("{}"), Offered: example(t)},
-		"verify_signed without keys": {Op: harness.OpVerifySigned, JWS: "a.b.c"},
 		"verify_audit, broken keys":  {Op: harness.OpVerifyAudit, Keys: []byte(`{"keys":[]}`)},
 		"entry_digest without entry": {Op: harness.OpEntryDigest},
 	} {
@@ -297,6 +296,21 @@ func TestSelectAnswersAnInexpressibleRequestAfterTheSelection(t *testing.T) {
 		}
 		if got.Decision != "deny" || got.Reason != w.reason || selected != w.selected || (w.selected != "") != (got.MandateDigest != "") {
 			t.Errorf("request %d: %s %s selected=%q digest=%q, want %s selected=%q", i+1, got.Decision, got.Reason, selected, got.MandateDigest, w.reason, w.selected)
+		}
+	}
+}
+
+func TestVerifySignedWithAKeySetThatCannotBeUsedIsInvalid(t *testing.T) {
+	for name, keys := range map[string][]byte{
+		"no keys":       nil,
+		"empty":         []byte(`{"keys":[]}`),
+		"private key":   []byte(`{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","x":"AA","d":""}]}`),
+		"upper case":    []byte(`{"KEYS":[]}`),
+		"not an object": []byte(`[]`),
+	} {
+		resp := harness.Answer(harness.Request{Op: harness.OpVerifySigned, JWS: "a.b.c", Keys: keys})
+		if resp.Error != "" || resp.Valid == nil || *resp.Valid {
+			t.Errorf("%s: response %+v, want valid false", name, resp)
 		}
 	}
 }

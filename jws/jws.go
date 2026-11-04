@@ -16,6 +16,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -164,7 +165,7 @@ func signInput(alg string, signer any, input []byte) ([]byte, error) {
 func verifyInput(alg string, key crypto.PublicKey, input, sig []byte) bool {
 	switch k := key.(type) {
 	case ed25519.PublicKey:
-		return alg == AlgEdDSA && len(sig) == ed25519.SignatureSize && ed25519.Verify(k, input, sig)
+		return alg == AlgEdDSA && len(sig) == ed25519.SignatureSize && usableEd25519(k) && ed25519.Verify(k, input, sig)
 	case *ecdsa.PublicKey:
 		if alg != AlgES256 || len(sig) != 2*p256Bytes {
 			return false
@@ -271,7 +272,6 @@ type jwk struct {
 	Kid string `json:"kid"`
 	X   string `json:"x"`
 	Y   string `json:"y,omitempty"`
-	D   string `json:"d,omitempty"`
 }
 
 type jwks struct {
@@ -281,26 +281,38 @@ type jwks struct {
 // ParseJWKS reads public keys from a JWK Set. Every key needs a kid; private keys and
 // key types other than Ed25519 and P-256 are rejected.
 func ParseJWKS(data []byte) (Keys, error) {
-	var set jwks
 	// A key set is no format of the specification; what it was accepted with stays accepted.
 	if err := ijson.CheckRecorded(data); err != nil {
 		return nil, fmt.Errorf("%w: JWK Set: %w", ErrMalformed, err)
 	}
+	// encoding/json matches member names without regard to case; the members are read
+	// by their exact names instead, so that X is not read as x.
+	var set map[string]json.RawMessage
 	if err := json.Unmarshal(data, &set); err != nil {
 		return nil, fmt.Errorf("%w: JWK Set: %w", ErrMalformed, err)
 	}
-	if len(set.Keys) == 0 {
+	var list []map[string]json.RawMessage
+	if members, ok := set["keys"]; ok {
+		if err := json.Unmarshal(members, &list); err != nil {
+			return nil, fmt.Errorf("%w: JWK Set: %w", ErrMalformed, err)
+		}
+	}
+	if len(list) == 0 {
 		return nil, fmt.Errorf("%w: JWK Set without keys", ErrMalformed)
 	}
-	keys := make(Keys, len(set.Keys))
-	for _, k := range set.Keys {
+	keys := make(Keys, len(list))
+	for _, members := range list {
+		k, err := readJWK(members)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrKey, err)
+		}
 		if !kidPattern.MatchString(k.Kid) {
 			return nil, fmt.Errorf("%w: key ID %q", ErrKey, k.Kid)
 		}
 		if _, dup := keys[k.Kid]; dup {
 			return nil, fmt.Errorf("%w: duplicate key ID %q", ErrKey, k.Kid)
 		}
-		if k.D != "" {
+		if _, private := members["d"]; private {
 			return nil, fmt.Errorf("%w: key %q is a private key", ErrKey, k.Kid)
 		}
 		key, err := publicKey(k)
@@ -312,8 +324,22 @@ func ParseJWKS(data []byte) (Keys, error) {
 	return keys, nil
 }
 
+// readJWK reads the members of a key by their exact names. A member that is absent stays
+// empty and every other member is ignored (RFC 7517 section 4).
+func readJWK(members map[string]json.RawMessage) (jwk, error) {
+	var k jwk
+	for name, field := range map[string]*string{"kty": &k.Kty, "crv": &k.Crv, "kid": &k.Kid, "x": &k.X, "y": &k.Y} {
+		if raw, ok := members[name]; ok {
+			if err := json.Unmarshal(raw, field); err != nil {
+				return jwk{}, fmt.Errorf("member %s: %w", name, err)
+			}
+		}
+	}
+	return k, nil
+}
+
 func publicKey(k jwk) (crypto.PublicKey, error) {
-	x, err := b64.DecodeString(k.X)
+	x, err := decodeSegment(k.X)
 	if err != nil {
 		return nil, err
 	}
@@ -325,9 +351,12 @@ func publicKey(k jwk) (crypto.PublicKey, error) {
 		if !canonicalEd25519(x) {
 			return nil, errors.New("not a canonical encoding")
 		}
+		if smallOrderEd25519[[ed25519.PublicKeySize]byte(x)] {
+			return nil, errors.New("a point of small order")
+		}
 		return ed25519.PublicKey(x), nil
 	case k.Kty == "EC" && k.Crv == "P-256":
-		y, err := b64.DecodeString(k.Y)
+		y, err := decodeSegment(k.Y)
 		if err != nil {
 			return nil, err
 		}
@@ -340,6 +369,39 @@ func publicKey(k jwk) (crypto.PublicKey, error) {
 		return ecdsa.ParseUncompressedPublicKey(elliptic.P256(), point)
 	}
 	return nil, fmt.Errorf("key type %q with curve %q", k.Kty, k.Crv)
+}
+
+// smallOrderEd25519 holds the encodings of the points of small order (SPEC-v0 section 7.1):
+// the eight points P with [8]P = identity, and the two whose x is 0 with the sign bit set.
+// With such a key, a signature verifies for every message of a class, S = 0 for the
+// identity for all of them, so anyone could sign in the name of its holder.
+var smallOrderEd25519 = func() map[[ed25519.PublicKeySize]byte]bool {
+	set := make(map[[ed25519.PublicKeySize]byte]bool)
+	for _, encoded := range []string{
+		"0100000000000000000000000000000000000000000000000000000000000000",
+		"0100000000000000000000000000000000000000000000000000000000000080",
+		"ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+		"ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+		"0000000000000000000000000000000000000000000000000000000000000000",
+		"0000000000000000000000000000000000000000000000000000000000000080",
+		"26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+		"26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+		"c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+		"c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+	} {
+		key, err := hex.DecodeString(encoded)
+		if err != nil {
+			panic(err)
+		}
+		set[[ed25519.PublicKeySize]byte(key)] = true
+	}
+	return set
+}()
+
+// usableEd25519 checks a key at the moment of verification, because Keys can be built
+// without ParseJWKS: the standard library accepts non-canonical keys and those of small order.
+func usableEd25519(key ed25519.PublicKey) bool {
+	return len(key) == ed25519.PublicKeySize && canonicalEd25519(key) && !smallOrderEd25519[[ed25519.PublicKeySize]byte(key)]
 }
 
 // canonicalEd25519 reports whether a 32-byte point encoding has y < p: the little-endian
@@ -359,8 +421,14 @@ func MarshalJWKS(keys Keys) ([]byte, error) {
 	for kid, key := range keys {
 		switch k := key.(type) {
 		case ed25519.PublicKey:
+			if !usableEd25519(k) {
+				return nil, fmt.Errorf("%w: key %q", ErrKey, kid)
+			}
 			set.Keys = append(set.Keys, jwk{Kty: "OKP", Crv: "Ed25519", Kid: kid, X: b64.EncodeToString(k)})
 		case *ecdsa.PublicKey:
+			if k == nil {
+				return nil, fmt.Errorf("%w: key %q", ErrKey, kid)
+			}
 			point, err := k.Bytes()
 			if err != nil || len(point) != 1+2*p256Bytes {
 				return nil, fmt.Errorf("%w: key %q", ErrKey, kid)

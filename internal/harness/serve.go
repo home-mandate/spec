@@ -225,9 +225,10 @@ func succession(req Request) Response {
 }
 
 func verifySigned(req Request) Response {
+	// A key set with a key that cannot be used verifies nothing (SPEC-v0 section 10.2).
 	keys, err := jws.ParseJWKS(req.Keys)
 	if err != nil {
-		return Response{Error: "keys: " + err.Error()}
+		return Response{Valid: ptr(false)}
 	}
 	m, err := evaluator.ParseSigned(req.JWS, evaluator.Issuers{req.Issuer: keys})
 	return Response{Valid: ptr(err == nil), Digest: m.Digest()}
