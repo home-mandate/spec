@@ -2162,6 +2162,15 @@ behavior of the people in a household and MUST be protected like the devices the
 
 ### Unreleased
 
+Nothing yet.
+
+### v0.1.1 (2026-11-04)
+
+Corrections and a security fix. The `type` of every format stays the same. Three things can
+change an outcome, each named below: a noncharacter is no longer accepted in a new document,
+a leap second in an audit entry stops verifying in the reference verifier, and a signature
+under an Ed25519 key of small order stops verifying.
+
 - Correction `noncharacters` (Section 14, a new kind of change, and `data/corrections-v0.json`):
   RFC 7493 forbids noncharacters in member names and string values, and Section 3.1 item 1
   refers to it, but the list in that item did not name them and the reference implementation

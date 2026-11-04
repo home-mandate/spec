@@ -9,7 +9,7 @@ Vendor-neutral specification for **mandates of software agents in the household*
 AI agent may do on behalf of a household, with the decisions allow, ask and
 deny, plus test tools with which any implementation demonstrates its conformance.
 
-Status: v0.1.0 released, formats frozen (Section 14). The reference evaluator is the Go code in this repository; the first
+Status: v0.1.1 released, formats frozen since v0.1.0 (Section 14). The reference evaluator is the Go code in this repository; the first
 product that implements the specification is Home-Mandate for Home Assistant.
 
 ## Contents
