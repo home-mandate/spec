@@ -5898,6 +5898,219 @@
       "why": "a surrogate pair is legal, the example of RFC 7493 section 2.1 (SPEC-v0 sections 3.1 item 1 and 9.1)",
       "expected": "valid",
       "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2200001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.\\ud800\\udead\"},\"action\":\"turn_on\"},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":1,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a221",
+      "why": "a leap second in recorded_at (SPEC-v0 sections 3.1 item 0 and 9.1)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "invalid_request",
+            "rule_id": null
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2160001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2016-12-31T23:59:60Z",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "light.kitchen"
+            },
+            "action": "turn_on"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "mandate"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a222",
+      "why": "a leap second in request.time (SPEC-v0 sections 3.1 item 0 and 9.1)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "invalid_request",
+            "rule_id": null
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2160001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2016-12-31T23:59:60Z",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "light.kitchen"
+            },
+            "action": "turn_on"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "mandate"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a223",
+      "why": "a leap second in approval.at (SPEC-v0 sections 3.1 item 0 and 9.1)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "approval": {
+            "outcome": "approved",
+            "by": "user-1",
+            "at": "2016-12-31T23:59:60Z"
+          },
+          "evaluation": {
+            "decision": "ask",
+            "reason": "rule",
+            "rule_id": "r-locks",
+            "approval_timeout": "PT2M"
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2050001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "lock.haustuer",
+              "category": "lock",
+              "areas": [
+                "flur"
+              ]
+            },
+            "action": "unlock"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "audit",
+            "error": "log_unwritable"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a224",
+      "why": "a seq slightly above 1 is no integer, however close: broken_at is 0, never rounded to 1 (SPEC-v0 section 9.4)",
+      "expected": "invalid",
+      "broken_at": 0,
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2160001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.kitchen\"},\"action\":\"turn_on\"},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":1.00000000000000000001,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a225",
+      "why": "a seq slightly below 1 is no integer, however close: broken_at is 0, never rounded to 1 (SPEC-v0 section 9.4)",
+      "expected": "invalid",
+      "broken_at": 0,
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2160001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.kitchen\"},\"action\":\"turn_on\"},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":0.99999999999999999999,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a226",
+      "why": "a zero is zero whatever its exponent, also beyond the range of a machine integer (SPEC-v0 sections 3.2 and 9.4)",
+      "expected": "valid",
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2160001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.kitchen\"},\"action\":\"turn_on\",\"parameters\":{\"position\":0e99999999999999999999}},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":1,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a227",
+      "why": "a bidirectional control in approval.by, a displayed text (SPEC-v0 sections 3.1 item 8 and 9.1)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "approval": {
+            "outcome": "approved",
+            "by": "a\u202eb",
+            "at": "2026-10-01T09:30:31+02:00"
+          },
+          "evaluation": {
+            "decision": "ask",
+            "reason": "rule",
+            "rule_id": "r-locks",
+            "approval_timeout": "PT2M"
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2050001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "lock.haustuer",
+              "category": "lock",
+              "areas": [
+                "flur"
+              ]
+            },
+            "action": "unlock"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "audit",
+            "error": "log_unwritable"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a228",
+      "why": "a seq of -2^63 is no readable seq, even at the very edge of a machine integer: broken_at is 0 (SPEC-v0 section 9.4)",
+      "expected": "invalid",
+      "broken_at": 0,
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2160001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.kitchen\"},\"action\":\"turn_on\"},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":-9223372036854775808,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
     }
   ]
 }

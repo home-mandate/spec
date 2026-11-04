@@ -13,8 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
-	"strconv"
+	"math/big"
 	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -104,7 +103,7 @@ func decode(entry []byte) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrMalformed, err)
 	}
-	return v, nil
+	return ijson.ZeroNumbers(v), nil
 }
 
 func digestOf(v any) (string, error) {
@@ -365,11 +364,12 @@ func intField(obj map[string]any, key string) int64 {
 	if !ok {
 		return 0
 	}
-	f, err := strconv.ParseFloat(n.String(), 64)
-	if err != nil || f != math.Trunc(f) || math.Abs(f) >= maxExactInteger {
+	// Exactly, not through floating point: 1.00000000000000000001 is no integer.
+	r, ok := new(big.Rat).SetString(n.String())
+	if !ok || !r.IsInt() || r.Num().CmpAbs(big.NewInt(maxExactInteger)) >= 0 {
 		return 0
 	}
-	return int64(f)
+	return r.Num().Int64()
 }
 
 func valid(entries int) Result { return Result{Valid: true, Index: -1, Entries: entries} }

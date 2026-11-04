@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"io/fs"
 	"testing"
-	"time"
 
 	"github.com/home-mandate/spec"
 	"github.com/home-mandate/spec/evaluator"
+	"github.com/home-mandate/spec/internal/rfc3339"
 )
 
 // mandateSource is the common shape conformance files use to refer to a mandate.
@@ -90,9 +90,13 @@ func TestConformanceCases(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Parse: %v", err)
 			}
-			at, err := time.Parse(time.RFC3339, c.Time)
+			at, err := rfc3339.Parse(c.Time)
 			if err != nil {
-				t.Fatalf("case time: %v", err)
+				// A PEP cannot pass such a request on; the result is fixed (SPEC-v0 section 10.2).
+				if c.Expected != "deny" || c.Reason != "invalid_request" {
+					t.Fatalf("case with a time that is no timestamp expects (%s, %s)", c.Expected, c.Reason)
+				}
+				return
 			}
 			parameters, expressible := parameterValues(c.Parameters)
 			if !expressible {
