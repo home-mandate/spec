@@ -43,8 +43,9 @@ func NewStored(document []byte, status MandateStatus) Stored {
 		return s
 	}
 	// A document that is not I-JSON cannot be attributed reliably (which of two equal
-	// keys counts?); it then counts for every agent and principal.
-	if ijson.Check(document) != nil {
+	// keys counts?); it then counts for every agent and principal. A correction does not
+	// widen this: such a document is attributed as before (SPEC-v0 section 14).
+	if ijson.CheckRecorded(document) != nil {
 		return s
 	}
 	var top map[string]json.RawMessage

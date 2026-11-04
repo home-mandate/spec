@@ -26,6 +26,7 @@ product that implements the specification is Home-Mandate for Home Assistant.
 | `schema/mandate-v0.schema.json` | JSON Schema of the mandate (Draft 2020-12) | Apache 2.0 |
 | `schema/audit-v0.schema.json` | JSON Schema of an audit log entry (Draft 2020-12) | Apache 2.0 |
 | `data/forbidden-codepoints-v0.json` | Code points not permitted in text displayed to humans (SPEC-v0 section 3.1 item 8), derived from Unicode 17.0.0 | Apache 2.0 |
+| `data/corrections-v0.json` | Deviations a verifier keeps accepting in existing audit logs (SPEC-v0 section 14) | Apache 2.0 |
 | `examples/` | Example mandates | Apache 2.0 |
 | `conformance/cases-v0.json` | Conformance cases | Apache 2.0 |
 | `conformance/selection-v0.json` | Cases for the selection of the mandate among several stored ones | Apache 2.0 |

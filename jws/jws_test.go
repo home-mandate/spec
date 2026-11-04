@@ -3,6 +3,7 @@
 package jws
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
@@ -10,6 +11,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 )
@@ -307,5 +309,16 @@ func TestParseJWKSRejectsNonCanonicalEd25519Key(t *testing.T) {
 	canonical := `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","x":"` + rfc8037Public + `"}]}`
 	if _, err := ParseJWKS([]byte(canonical)); err != nil {
 		t.Fatalf("canonical key: %v", err)
+	}
+}
+
+func TestParseJWKSKeepsAcceptingNoncharactersInUnknownMembers(t *testing.T) {
+	data, err := os.ReadFile("../conformance/keys/test-keys.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	marked := bytes.Replace(data, []byte(`{`), []byte(`{"comment":"￿",`), 1)
+	if _, err := ParseJWKS(marked); err != nil {
+		t.Errorf("ParseJWKS = %v", err)
 	}
 }

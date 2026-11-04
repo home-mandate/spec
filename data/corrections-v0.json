@@ -1,0 +1,15 @@
+{
+  "description": "Corrections of the Home-Mandate Specification v0 (SPEC-v0 section 14): deviations that implementations accepted although a rule forbade them. New documents follow the rule; a verifier keeps accepting the deviation in audit entries of the named formats, and the outcome of the verification does not change. The list is normative. Implementations build it in from the tag they conform to and do not fetch it at runtime. The next major of a format drops its corrections.",
+  "corrections": [
+    {
+      "id": "noncharacters",
+      "since": "v0.1.1",
+      "rule": "SPEC-v0 section 3.1 item 1, RFC 7493 section 2.1",
+      "formats": ["https://home-mandate.org/audit/v0"],
+      "tolerated": "Noncharacters (U+FDD0 to U+FDEF and the last two code points of every plane) in string values and member names of an audit entry, directly encoded or escaped. Lone surrogates and every other rule of I-JSON stay in force.",
+      "attribution": "A stored document that deviates only in this way is invalid, and is attributed to the agent and principal it names (SPEC-v0 section 4.3).",
+      "cases": ["a213", "a214"],
+      "selection_cases": ["s29"]
+    }
+  ]
+}

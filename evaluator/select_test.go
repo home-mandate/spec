@@ -135,9 +135,31 @@ func TestInvalidStoredDocumentIsNeverSilentlyIgnored(t *testing.T) {
 			t.Errorf("%s: got (%s, %s), want deny", name, got.Decision, got.Reason)
 		}
 	}
+	// A correction does not widen this: a noncharacter leaves a document attributed as before.
+	for name, doc := range map[string]string{
+		"value": `{"principal":"household:t","agent":{"client_id":"x:other"},"note":"\uffff"}`,
+		"raw":   "{\"principal\":\"household:t\",\"agent\":{\"client_id\":\"x:other\"},\"note\":\"\ufdd0\"}",
+	} {
+		stored := []evaluator.Stored{evaluator.NewStored([]byte(doc), evaluator.StatusActive), evaluator.NewStored(good, evaluator.StatusActive)}
+		_, got := evaluator.SelectAndEvaluate(stored, "hm-client:test-0001", "household:t", request("light", "flur", "turn_on"))
+		if got.Decision != evaluator.Allow {
+			t.Errorf("noncharacter in %s: got (%s, %s), want allow", name, got.Decision, got.Reason)
+		}
+	}
 	// A readable invalid document of another agent does not concern this one.
 	other := `{"principal":"household:t","agent":{"client_id":"x:other"}}`
 	stored := []evaluator.Stored{evaluator.NewStored([]byte(other), evaluator.StatusActive), evaluator.NewStored(good, evaluator.StatusActive)}
 	_, got := evaluator.SelectAndEvaluate(stored, "hm-client:test-0001", "household:t", request("light", "flur", "turn_on"))
 	assertDecision(t, got, evaluator.Allow, evaluator.ReasonRule, "r-1")
+}
+
+func TestCanonicalIsStrictAboutNoncharacters(t *testing.T) {
+	for _, doc := range []string{`{"x":"￿"}`, "{\"x\":\"﷐\"}", `{"￿":1}`} {
+		if _, err := evaluator.Canonical([]byte(doc)); err == nil {
+			t.Errorf("Canonical(%s): no error", doc)
+		}
+	}
+	if _, err := evaluator.Canonical([]byte(`{"x":"�"}`)); err != nil {
+		t.Errorf("Canonical of a neighbour: %v", err)
+	}
 }

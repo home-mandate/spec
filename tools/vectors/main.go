@@ -128,7 +128,7 @@ func runChain(stdin io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("read entries: %w", err)
 	}
-	if err := ijson.Check(input); err != nil {
+	if err := ijson.CheckRecorded(input); err != nil {
 		return fmt.Errorf("entries are not I-JSON: %w", err)
 	}
 	var entries []map[string]json.RawMessage
