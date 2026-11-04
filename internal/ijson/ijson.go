@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package ijson checks the I-JSON rules (RFC 7493) that encoding/json and the schema
-// validator do not: valid UTF-8, no lone surrogates, no duplicate keys, exactly one value,
-// bounded nesting.
+// validator do not: valid UTF-8, no lone surrogates, no noncharacters, no duplicate keys,
+// exactly one value, bounded nesting.
 package ijson
 
 import (
@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -23,8 +24,19 @@ const maxNestingDepth = 32
 
 // Check checks what the schema validator and encoding/json do not
 // (SPEC-v0 section 3.1 item 1): exactly one JSON value, valid UTF-8, no lone
-// surrogates, no duplicate keys, bounded depth.
+// surrogates, no noncharacters, no duplicate keys, bounded depth.
 func Check(data []byte) error {
+	if err := CheckRecorded(data); err != nil {
+		return err
+	}
+	return checkNoncharacters(data)
+}
+
+// CheckRecorded is Check for what was written before the rule was enforced: it tolerates
+// the deviations listed in data/corrections-v0.json (SPEC-v0 section 14, Correction) and
+// nothing else. Only audit verification and the attribution of a stored document use it,
+// and the reading of a key set, which is no format of the specification.
+func CheckRecorded(data []byte) error {
 	if !utf8.Valid(data) {
 		return fmt.Errorf("%w: invalid UTF-8", ErrMalformed)
 	}
@@ -104,6 +116,26 @@ func applyToken(stack []jsonFrame, tok json.Token) ([]jsonFrame, error) {
 		stack = append(stack, frame)
 	}
 	return stack, nil
+}
+
+// checkNoncharacters rejects noncharacters in member names and string values, directly
+// encoded or escaped: the decoder hands them over as characters. It runs after checkTokens,
+// so that an error of the decoder can only be the end of the input.
+func checkNoncharacters(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return nil
+		}
+		if s, ok := tok.(string); ok && strings.IndexFunc(s, isNoncharacter) >= 0 {
+			return fmt.Errorf("%w: noncharacter in a string", ErrMalformed)
+		}
+	}
+}
+
+func isNoncharacter(r rune) bool {
+	return (r >= 0xFDD0 && r <= 0xFDEF) || r&0xFFFE == 0xFFFE
 }
 
 // checkSurrogates rejects escape sequences for lone UTF-16 surrogates. encoding/json

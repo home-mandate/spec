@@ -5774,6 +5774,130 @@
           "type": "https://home-mandate.org/audit/v0"
         }
       ]
+    },
+    {
+      "id": "a213",
+      "why": "correction noncharacters: an existing log with a noncharacter in a request value stays valid and the chain continues behind it; a new entry may not contain one (SPEC-v0 sections 3.1 item 1, 9.1 and 14)",
+      "expected": "valid",
+      "entry_digests": [
+        "sha256:71898054a14788ddf9e7531229106363e9d4edc5bc30ada7e4c861e9056905a8",
+        "sha256:c39412a81457a3a9a926f31eec46e3e0d781e013d32687f0ed6996b013145553"
+      ],
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "invalid_request",
+            "rule_id": null
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2130001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "light.\uffff"
+            },
+            "action": "turn_on"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "mandate"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "invalid_request",
+            "rule_id": null
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2130002",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": "sha256:71898054a14788ddf9e7531229106363e9d4edc5bc30ada7e4c861e9056905a8",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:01.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "light.kitchen"
+            },
+            "action": "turn_on"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "mandate"
+          },
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a214",
+      "why": "correction noncharacters: the same as escapes in the exchange format, one of them a surrogate pair (SPEC-v0 sections 3.1 item 1 and 14)",
+      "expected": "valid",
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2140001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.\\ufdd0\\ud83f\\udfff\"},\"action\":\"turn_on\"},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":1,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a215",
+      "why": "no correction covers a lone surrogate: the entry is not I-JSON (SPEC-v0 sections 3.1 item 1, 9.4 and 14)",
+      "expected": "invalid",
+      "broken_at": 0,
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2150001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.\\ud800\"},\"action\":\"turn_on\"},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":1,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a216",
+      "why": "no correction covers a duplicate key: the entry is not I-JSON (SPEC-v0 sections 3.1 item 1, 9.4 and 14)",
+      "expected": "invalid",
+      "broken_at": 0,
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2160001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.kitchen\"},\"action\":\"turn_on\"},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":1,\"seq\":1,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a217",
+      "why": "two members with the same name, one spelled with an escape: a duplicate after the escape is processed (RFC 7493 section 2.3, SPEC-v0 sections 3.1 item 1 and 9.4)",
+      "expected": "invalid",
+      "broken_at": 0,
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2170001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.kitchen\"},\"action\":\"turn_on\"},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":1,\"\\u0073eq\":1,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a218",
+      "why": "lone low surrogate: the entry is not I-JSON (SPEC-v0 sections 3.1 item 1 and 9.4)",
+      "expected": "invalid",
+      "broken_at": 0,
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2180001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.\\udc00\"},\"action\":\"turn_on\"},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":1,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a219",
+      "why": "a pair in the wrong order is two lone surrogates: the entry is not I-JSON (SPEC-v0 sections 3.1 item 1 and 9.4)",
+      "expected": "invalid",
+      "broken_at": 0,
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2190001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.\\ude00\\ud83d\"},\"action\":\"turn_on\"},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":1,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
+    },
+    {
+      "id": "a220",
+      "why": "a surrogate pair is legal, the example of RFC 7493 section 2.1 (SPEC-v0 sections 3.1 item 1 and 9.1)",
+      "expected": "valid",
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"deny\",\"reason\":\"invalid_request\",\"rule_id\":null},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000a2200001\",\"mandate\":{\"id\":\"m-voice-assistant\",\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-10-01T09:31:00.005+02:00\",\"request\":{\"time\":\"2026-10-01T09:30:00+02:00\",\"timezone\":\"Europe/Berlin\",\"resource\":{\"entity_id\":\"light.\\ud800\\udead\"},\"action\":\"turn_on\"},\"result\":{\"status\":\"denied\",\"denied_by\":\"mandate\"},\"seq\":1,\"type\":\"https://home-mandate.org/audit/v0\"}\n"
     }
   ]
 }

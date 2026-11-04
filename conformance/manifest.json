@@ -3,8 +3,8 @@
   "files": [
     {
       "path": "conformance/audit-v0.json",
-      "sha256": "3cecb3a1549958aa3c250999ba7506d59b865e3692a9fb758a698422d55b7c6c",
-      "cases": 212
+      "sha256": "c0be345c618b3ed37bca4117fd75a9a5beb41c82446a258cf56edffd051c8616",
+      "cases": 220
     },
     {
       "path": "conformance/cases-v0.json",
@@ -13,13 +13,13 @@
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "1d96ff3fd7aa1a3e91bde6a2c1456199fa9f7e1ca42ec0089d6a947968f012da",
-      "cases": 50
+      "sha256": "63f11fc915e6f5bb02b1f923408fc16cbff070e6b899ee57411e967ee62daaaf",
+      "cases": 51
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "c0e3b839d04209dd40eacea38774c03e1c56b227aaefe9c3c14bf77a1b472ed1",
-      "cases": 157
+      "sha256": "4d082146d1668cac50ed50316ed5cdcb515264c43095991f46a814a3f4ceaa87",
+      "cases": 163
     },
     {
       "path": "conformance/keys/test-keys.json",
@@ -115,18 +115,22 @@
     },
     {
       "path": "conformance/selection-v0.json",
-      "sha256": "855b28445a25df7203b7b22ed07b094ba412b54428596af4d6f0f8e3e3d246cc",
-      "cases": 28
+      "sha256": "c63ce631f2dd364c3f4a14dc1f29b174151ff6bdea2340feeaf746a62c5842c9",
+      "cases": 29
     },
     {
       "path": "conformance/signed-v0.json",
-      "sha256": "af6bbbcec1dbc850fa48ca321695c6fe87b796c933cd1b09905d56b0fce1ca91",
-      "cases": 23
+      "sha256": "65cb0314063c5efc8929de7e0871ba3ab3869feeb7f6139cbd8aa6acdb5ff7f6",
+      "cases": 24
     },
     {
       "path": "conformance/succession-v0.json",
       "sha256": "fa238e39a66f0d372aa226565f330a6b0a84fc3bed34cc2228e9e1b9432873fd",
       "cases": 23
+    },
+    {
+      "path": "data/corrections-v0.json",
+      "sha256": "cd56d148e97ddc7a88972b5f1b0509081c50652d258fc8f669d16e0a97161bff"
     },
     {
       "path": "data/forbidden-codepoints-v0.json",
@@ -146,7 +150,7 @@
     },
     {
       "path": "schema/audit-v0.schema.json",
-      "sha256": "e980041b3c93631675be00293f036ef8e88dd7fef1d3b6d95b15a2760728287d"
+      "sha256": "2fd998ee428effc75d2f0dc00076b4ab2b325ba061beea06256a8c9ab59f50cd"
     },
     {
       "path": "schema/mandate-v0.schema.json",

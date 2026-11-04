@@ -121,3 +121,53 @@ func TestCheck(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckRejectsNoncharacters(t *testing.T) {
+	u := `\` + "u"
+	for name, data := range map[string]string{
+		"first of the block":     `"` + u + `fdd0"`,
+		"last of the block":      `"` + u + `fdef"`,
+		"end of plane 0":         `"` + u + `fffe"`,
+		"last of plane 0":        `"` + u + `ffff"`,
+		"end of plane 1, a pair": `"` + u + "d83f" + u + `dffe"`,
+		"end of plane 16":        `"` + u + "dbff" + u + `dfff"`,
+		"raw UTF-8":              "\"a￿b\"",
+		"raw in plane 1":         "\"\U0001ffff\"",
+		"in a member name":       `{"` + u + `ffff":1}`,
+		"raw in a member name":   "{\"﷐\":1}",
+		"nested":                 `{"a":[{"b":"` + u + `ffff"}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := Check([]byte(data)); !errors.Is(err, ErrMalformed) {
+				t.Errorf("Check = %v, want ErrMalformed", err)
+			}
+			if err := CheckRecorded([]byte(data)); err != nil {
+				t.Errorf("CheckRecorded = %v, want nil", err)
+			}
+		})
+	}
+}
+
+func TestCheckAcceptsNeighboursOfNoncharacters(t *testing.T) {
+	u := `\` + "u"
+	for _, data := range []string{
+		`"` + u + `fdcf"`, `"` + u + `fdf0"`, `"` + u + `fffd"`,
+		`"` + u + "d83f" + u + `dffd"`, `"` + u + "d840" + u + `dc00"`,
+		"\"﷏ﷰ�\U0001fffd\U00020000\"", `{"a":"` + u + `0041","b":1,"c":null}`,
+	} {
+		if err := Check([]byte(data)); err != nil {
+			t.Errorf("Check(%s) = %v", data, err)
+		}
+	}
+}
+
+func TestCheckRecordedKeepsEveryOtherRule(t *testing.T) {
+	u := `\` + "u"
+	for _, data := range []string{
+		`"` + u + `d800"`, `{"a":1,"a":2}`, `{} {}`, `{"a":1`, ``, "\"\xff\"", strings.Repeat("[", 33) + strings.Repeat("]", 33),
+	} {
+		if err := CheckRecorded([]byte(data)); !errors.Is(err, ErrMalformed) {
+			t.Errorf("CheckRecorded(%q) = %v, want ErrMalformed", data, err)
+		}
+	}
+}

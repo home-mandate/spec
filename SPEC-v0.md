@@ -161,7 +161,9 @@ A mandate is valid if it conforms to the schema **and** additionally:
    (`:60`), more than 9 fractional digits, the year `0000` and the offset `-00:00`.
    Timestamps are compared as points in time with nanosecond precision;
 1. it is I-JSON as defined in RFC 7493: valid UTF-8, no lone surrogates (e.g. a
-   standalone `\ud800`), no JSON object with a duplicate key, exactly one JSON value;
+   standalone `\ud800`), no noncharacters (U+FDD0 to U+FDEF and the last two code points of
+   every plane) in a member name or string value, encoded directly or as an escape, no JSON
+   object with a duplicate key, exactly one JSON value;
 2. all rule `id`s within the mandate are distinct;
 3. for every `time_window`, start and end are distinct;
 4. every action of a rule is `"*"` or belongs to the vocabulary:
@@ -585,7 +587,9 @@ in the schema, is `deny` with `invalid_request` before any mandate is selected, 
    A stored document that is not a valid mandate (Section 3.1) is a candidate as well: for
    the agent and principal it names in `agent.client_id` and `principal`, read without
    further validation, or, if these cannot be read (the document is not I-JSON or lacks
-   them), for every agent and principal, so that it is never ignored silently.
+   them), for every agent and principal, so that it is never ignored silently. A noncharacter
+   alone does not stop the attribution: the document is invalid and counts for the agent and
+   principal it names (correction `noncharacters`, Section 14).
 2. No candidate → `deny` with `no_mandate`; but if revoked documents are stored for the
    agent and principal (attributed as in step 1), `deny` with `revoked`. A revoked mandate
    is never evaluated; the result names it (`mandate_digest`, and `selected` in the test
@@ -1228,11 +1232,12 @@ Depending on the event, the following are added:
 
 `request` records the input to the evaluation as the PEP determined it, also when the
 evaluation found it invalid (`invalid_request`). Identifiers in it are therefore limited only
-in length and number, not in their characters; Section 3.4 applies to mandates and to valid
-requests. Input that the log cannot record (a longer identifier, more than 16 areas or areas
-that repeat, more than 16 parameters, a parameter name outside
-`^[a-z][a-z0-9_]{0,63}$`, a parameter value that is neither an integer nor a string of the
-form of Section 4.5) is not a request: the PEP rejects it at its interface before any
+in length and number, and in their characters only by I-JSON (Section 3.1 item 1); Section 3.4
+applies to mandates and to valid requests. Input that the log cannot record (a longer
+identifier, more than 16 areas or areas that repeat, more than 16 parameters, a parameter name
+outside `^[a-z][a-z0-9_]{0,63}$`, a parameter value that is neither an integer nor a string of
+the form of Section 4.5, a value that is not I-JSON, such as a lone surrogate or a
+noncharacter) is not a request: the PEP rejects it at its interface before any
 evaluation (with MCP, for example, as invalid parameters), and records no `decision` entry
 for it (Section 9.2). The `invalid_request` results of Section 4 for the same input exist
 so that an evaluator fails closed if such input reaches it anyway.
@@ -1405,6 +1410,10 @@ An audit log is **valid** if, in file order:
    `up_to_seq` = `seq` − 1 and `last_digest` = `prev` of the first entry is present;
 3. every subsequent entry has the `seq` of its predecessor plus 1 and its `prev` is the
    predecessor's digest.
+
+A new entry MUST be I-JSON (Section 3.1 item 1). An entry that is not I-JSON violates
+condition 1, except for a deviation listed as a correction (Section 14), which a verifier
+accepts in an existing log.
 
 If an audit log is invalid, verification reports `broken_at`, determined condition by
 condition in the order given:
@@ -2057,6 +2066,19 @@ behavior of the people in a household and MUST be protected like the devices the
   or a different outcome of the verification of an audit log (Sections 9.4, 9.5). A change
   that only makes documents valid that were invalid before, such as a new optional member
   or a new audit event, is compatible; it is listed in the Changelog and keeps the `type`.
+- **Correction.** Implementations can turn out to have been more lenient than a rule. The
+  rule is then enforced without making an unaltered log invalid, and the deviation is listed
+  in `data/corrections-v0.json`. From that release on, an implementation MUST NOT write an
+  entry with the deviation, and a verifier MUST keep accepting it in entries of the format
+  the correction names: the outcome of the verification of an existing log does not change.
+  Implementations that were lenient already need no change to read such a log. Only a
+  deviation that all implementations read and hash alike can be a correction, and each names
+  conformance cases. The list is normative; implementations take it from the tag they conform
+  to and do not fetch it at runtime, because a verdict must not depend on a remote file. A
+  correction covers audit entries, the record of the past, and does not make a mandate
+  valid: a mandate grants rights now. Where Section 4.3 names a correction, it only keeps
+  the attribution of a stored document as it was. The next major of a format drops its
+  corrections.
 - **Mixed data.** Once a newer major of a format exists, data of both majors exist side by
   side:
   - An implementation that supports a newer major MUST still read the documents of the
@@ -2118,7 +2140,18 @@ behavior of the people in a household and MUST be protected like the devices the
 
 ### Unreleased
 
-Nothing yet.
+- Correction `noncharacters` (Section 14, a new kind of change, and `data/corrections-v0.json`):
+  RFC 7493 forbids noncharacters in member names and string values, and Section 3.1 item 1
+  refers to it, but the list in that item did not name them and the reference implementation
+  accepted them. Item 1 now names them, and Section 9.1 names input that is not I-JSON among
+  what the log cannot record. A new entry MUST NOT contain one. A verifier keeps accepting
+  them in existing audit logs, so that no unaltered log becomes invalid; the outcome of the
+  verification does not change. A stored document with a noncharacter is attributed as
+  before (Section 4.3). No valid mandate changes: the free-form strings of a mandate are
+  displayed text, which excludes noncharacters already, or printable ASCII. New conformance
+  cases `a213` to `a220`, `i158` to `i163`, `g24`, `s29`, `d52`; beyond the correction, they
+  cover duplicate names after escapes, every form of a lone surrogate, the legal pair and the
+  number examples of RFC 7493.
 
 ### v0.1.0 (2026-11-02)
 

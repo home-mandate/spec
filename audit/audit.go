@@ -80,12 +80,25 @@ func Digest(entry []byte) (string, error) {
 	return digestOf(v)
 }
 
-func decode(entry []byte) (any, error) {
+// CheckNew checks that an entry may be written: the rules for a new entry are stricter than
+// what Verify accepts in an existing log (SPEC-v0 section 14, Correction).
+func CheckNew(entry []byte) error {
+	return checkEntry(entry, ijson.Check)
+}
+
+func checkEntry(entry []byte, check func([]byte) error) error {
 	if len(entry) > MaxEntryBytes {
-		return nil, fmt.Errorf("%w: %d bytes, limit %d", ErrMalformed, len(entry), MaxEntryBytes)
+		return fmt.Errorf("%w: %d bytes, limit %d", ErrMalformed, len(entry), MaxEntryBytes)
 	}
-	if err := ijson.Check(entry); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrMalformed, err)
+	if err := check(entry); err != nil {
+		return fmt.Errorf("%w: %w", ErrMalformed, err)
+	}
+	return nil
+}
+
+func decode(entry []byte) (any, error) {
+	if err := checkEntry(entry, ijson.CheckRecorded); err != nil {
+		return nil, err
 	}
 	v, err := jsonschema.UnmarshalJSON(bytes.NewReader(entry))
 	if err != nil {

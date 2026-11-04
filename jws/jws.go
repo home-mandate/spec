@@ -282,7 +282,8 @@ type jwks struct {
 // key types other than Ed25519 and P-256 are rejected.
 func ParseJWKS(data []byte) (Keys, error) {
 	var set jwks
-	if err := ijson.Check(data); err != nil {
+	// A key set is no format of the specification; what it was accepted with stays accepted.
+	if err := ijson.CheckRecorded(data); err != nil {
 		return nil, fmt.Errorf("%w: JWK Set: %w", ErrMalformed, err)
 	}
 	if err := json.Unmarshal(data, &set); err != nil {

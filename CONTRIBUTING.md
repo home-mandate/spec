@@ -37,7 +37,9 @@ platform. Changes are judged by that goal first.
 - Since `v0.1.0`, an incompatible change requires a new major version of the format
   (Section 14 of the specification): a document that was valid stays valid and is
   evaluated the same way. Compatible changes, such as a new optional member, go into the
-  Changelog under "Unreleased" with what they mean for older implementations.
+  Changelog under "Unreleased" with what they mean for older implementations. Where
+  implementations were more lenient than a rule, a correction (Section 14) enforces the rule
+  without making an unaltered audit log invalid.
 - Security problems: see `SECURITY.md`, not a public issue.
 
 ## Licenses
