@@ -14,6 +14,7 @@ import (
 
 	"github.com/home-mandate/spec/audit"
 	"github.com/home-mandate/spec/evaluator"
+	"github.com/home-mandate/spec/internal/rfc3339"
 	"github.com/home-mandate/spec/jws"
 )
 
@@ -98,7 +99,7 @@ func missing(what string) Response { return Response{Error: "missing " + what} }
 // in time that is no RFC 3339 timestamp or a parameter that is neither an integer nor a
 // string.
 func evaluation(e Evaluation) (evaluator.Request, bool) {
-	at, err := time.Parse(time.RFC3339, e.Time)
+	at, err := rfc3339.Parse(e.Time)
 	if err != nil {
 		return evaluator.Request{}, false
 	}
@@ -183,7 +184,7 @@ func inexpressible(stored []evaluator.Stored, req Request) Response {
 		return invalid
 	}
 	var selected *evaluator.Mandate
-	if at, err := time.Parse(time.RFC3339, req.Request.Time); err == nil {
+	if at, err := rfc3339.Parse(req.Request.Time); err == nil {
 		var r evaluator.Result
 		if selected, r = evaluator.SelectAndEvaluate(stored, req.Subject.ClientID, req.Subject.Principal, evaluator.Request{Time: at}); selected == nil {
 			return result(r)

@@ -118,6 +118,32 @@ func applyToken(stack []jsonFrame, tok json.Token) ([]jsonFrame, error) {
 	return stack, nil
 }
 
+// ZeroNumbers returns the decoded value with every zero written as 0, whatever its
+// exponent: numbers count by their value (SPEC-v0 section 3.2), but the schema validator
+// gives up on an exponent beyond its range. The input stays unchanged.
+func ZeroNumbers(v any) any {
+	switch value := v.(type) {
+	case json.Number:
+		mantissa, _, _ := strings.Cut(strings.ToLower(value.String()), "e")
+		if strings.Trim(mantissa, "-0.") == "" {
+			return json.Number("0")
+		}
+	case []any:
+		list := make([]any, len(value))
+		for i, item := range value {
+			list[i] = ZeroNumbers(item)
+		}
+		return list
+	case map[string]any:
+		object := make(map[string]any, len(value))
+		for name, member := range value {
+			object[name] = ZeroNumbers(member)
+		}
+		return object
+	}
+	return v
+}
+
 // checkNoncharacters rejects noncharacters in member names and string values, directly
 // encoded or escaped: the decoder hands them over as characters. It runs after checkTokens,
 // so that an error of the decoder can only be the end of the input.

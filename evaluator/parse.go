@@ -57,6 +57,7 @@ func Parse(data []byte) (*Mandate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrMalformed, err)
 	}
+	instance = ijson.ZeroNumbers(instance)
 	compiled, err := mandateSchema()
 	if err != nil {
 		return nil, fmt.Errorf("evaluator: load schema: %w", err)

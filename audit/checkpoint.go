@@ -8,8 +8,8 @@ import (
 	"io"
 	"regexp"
 	"strconv"
-	"time"
 
+	"github.com/home-mandate/spec/internal/rfc3339"
 	"github.com/home-mandate/spec/jcs"
 	"github.com/home-mandate/spec/jws"
 )
@@ -59,7 +59,7 @@ func SignCheckpoint(logID string, seq int64, digest, at, kid string, signer any)
 	if seq < 1 || !digestPattern.MatchString(digest) {
 		return "", fmt.Errorf("audit: checkpoint needs a seq of at least 1 and a digest")
 	}
-	if _, err := time.Parse(time.RFC3339Nano, at); err != nil {
+	if _, err := rfc3339.Parse(at); err != nil {
 		return "", fmt.Errorf("audit: checkpoint time %q is not an RFC 3339 timestamp", at)
 	}
 	payload, err := checkpointPayload(logID, seq, digest, at)

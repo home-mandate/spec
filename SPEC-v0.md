@@ -1204,7 +1204,7 @@ Each entry is a JSON object with `type: "https://home-mandate.org/audit/v0"` and
 |---|---|
 | `id` | UUIDv7 (RFC 9562) |
 | `seq` | sequential number in the audit log, starting at 1, without gaps. Read by its value: `1`, `1.0` and `1e0` are the same number; writers SHOULD use the plain form |
-| `recorded_at` | point in time of the entry (RFC 3339) |
+| `recorded_at` | point in time of the entry (RFC 3339, as in Section 3.1 item 0: no leap second, like every point in time in an entry) |
 | `event` | event type (Section 9.2) |
 | `principal` | principal |
 | `prev` | digest of the previous entry (Section 9.4); `null` for the first entry |
@@ -1564,7 +1564,10 @@ A request with a member that this section does not define is malformed and is an
 an `error`, so that a former member name (such as `area`) is never evaluated as if it were
 absent. For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
 cases of that operation then count as not passed for their class. Any other `error` is a
-failed case. Every request can carry `id`, the identifier of the case, for diagnostics.
+failed case. A `time` that is not RFC 3339 by its grammar, such as an offset of `+24:00`, a comma
+before the fraction or a one-digit hour, is not readable.
+
+Every request can carry `id`, the identifier of the case, for diagnostics.
 
 ```
 → {"op":"evaluate","id":"c02","mandate":"{…}","request":{"resource":{"entity_id":"lock.front_door","category":"lock","areas":["hallway","ground_floor"]},"action":"unlock","time":"2026-10-12T19:00:00+02:00"}}
@@ -2152,6 +2155,19 @@ behavior of the people in a household and MUST be protected like the devices the
   cases `a213` to `a220`, `i158` to `i163`, `g24`, `s29`, `d52`; beyond the correction, they
   cover duplicate names after escapes, every form of a lone surrogate, the legal pair and the
   number examples of RFC 7493.
+- Audit entries: a leap second in `recorded_at`, `request.time` or `approval.at` is invalid, as
+  Section 3.1 item 0 says and the schema's description already referred to. The pattern in
+  both schemas now excludes it. The reference verifier accepted it; spec-ts did not. This is
+  not a correction (Section 14), because implementations did not read it alike, so a log with
+  such an entry stops verifying in the reference verifier. No writer I know of produces one.
+- A `seq` that is no integer, however close, gives `broken_at` 0 (Section 9.4); the reference
+  verifier read it through floating point. A zero is zero whatever its exponent (Section 3.2),
+  also beyond the range of a machine integer: such documents become valid in the reference
+  implementation, as Section 14 allows.
+- Test interface: a `time` that does not fit the grammar of RFC 3339 is not readable (Section
+  10.2). The reference harness and its checkpoint signing accepted offsets such as `+24:00`.
+- New conformance cases `a221` to `a228`, `c243` to `c251`, `d53`, `i164` to `i175`, which also
+  cover bidirectional controls and separators in displayed text, field by field.
 
 ### v0.1.0 (2026-11-02)
 
