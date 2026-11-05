@@ -1,0 +1,117 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Release
+
+# A tag vX.Y.Z, vX.Y.Z-alpha.N or vX.Y.Z-rc.N publishes a GitHub release with the conformance
+# report of that commit (conformance-report.yml).
+#
+# Guards: only admins may create tags and tags are immutable (repository rulesets). The tag
+# must point to a commit on main, for a patch on release/X.Y (.github/scripts/release-base.sh),
+# that came from a pull request into that branch whose checks all passed, a version without a
+# suffix must have its entry in the changelog of SPEC-v0.md, and the release must not exist.
+# The Go module proxy serves a tag on its own: these guards keep a wrong tag from becoming a
+# release, not from existing, which is why they come with the tag ruleset.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Check the tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read # the pull request the commit came from
+      checks: read # its checks
+    outputs:
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the branches' history, to check where the tag points
+          persist-credentials: false
+
+      - name: Tag, branch and version
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          base=$(bash .github/scripts/release-base.sh "$TAG" "$GITHUB_SHA")
+          prerelease=false
+          if [[ "$TAG" == *-* ]]; then
+            prerelease=true
+          elif ! grep -qE "^### ${TAG//./\\.}( |$)" SPEC-v0.md; then
+            echo "::error::SPEC-v0.md has no changelog entry for $TAG"; exit 1
+          fi
+          { echo "base=$base"; echo "prerelease=$prerelease"; } >> "$GITHUB_OUTPUT"
+
+      # The branches take squash-merged pull requests; their checks ran on the pull request's
+      # head.
+      - name: The pull request's checks passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ steps.version.outputs.base }}
+        run: |
+          set -euo pipefail
+          heads=$(gh pr list --repo "$GITHUB_REPOSITORY" --base "$BASE" --state merged --limit 200 \
+            --json headRefOid,mergeCommit \
+            --jq "[.[] | select(.mergeCommit.oid == \"$GITHUB_SHA\") | .headRefOid] | unique | .[]")
+          if [ "$(printf '%s\n' "$heads" | grep -c .)" != 1 ]; then
+            echo "::error::$GITHUB_SHA did not come from exactly one merged pull request into $BASE"; exit 1
+          fi
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/commits/$heads/check-runs?per_page=100" \
+            --jq '.check_runs[] | "\(.status)|\(.conclusion)|\(.name)"')
+          printf '%s\n' "$runs"
+          for required in "Go (" "Fuzz ("; do
+            grep -qF "|$required" <<< "$runs" || { echo "::error::check '$required' did not run"; exit 1; }
+          done
+          if grep -vE '^completed\|(success|skipped|neutral)\|' <<< "$runs"; then
+            echo "::error::not every check of the pull request passed"; exit 1
+          fi
+
+      - name: Not released yet
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::error::release $TAG exists already"; exit 1
+          fi
+
+  release:
+    name: Create the release
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write # the release
+    steps:
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          flags=()
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --generate-notes "${flags[@]}"
+
+  conformance-report:
+    name: Conformance report
+    needs: release
+    permissions:
+      contents: write # the release asset
+      id-token: write # the attestation's signing certificate
+      attestations: write
+    uses: ./.github/workflows/conformance-report.yml
+    with:
+      tag: ${{ github.ref_name }}
