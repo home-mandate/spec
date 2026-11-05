@@ -9,7 +9,7 @@ name: CI
 # night and fuzzes twice a month. Mutation tests run before releases.
 on:
   push:
-    branches-ignore: [main]
+    branches-ignore: [main, "release/[0-9]+.[0-9]+"]
   workflow_dispatch:
 
 permissions:
