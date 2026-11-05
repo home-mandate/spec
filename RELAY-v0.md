@@ -892,9 +892,8 @@ An operator MUST NOT
 
 ### 7.3 Protection levels
 
-An operator MUST offer both protection levels to every installation, and refuses an own-domain name
-only for the reasons in Section 6.4. Against abuse it blocks the installation (Section 7.6). This
-specification does not regulate prices.
+An operator MUST offer both protection levels to every installation. Against abuse it blocks the
+installation (Section 7.6).
 
 ### 7.4 Monitoring by the operator
 
