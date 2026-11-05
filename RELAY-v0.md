@@ -283,7 +283,9 @@ while the gateway is not paired with any operator. The gateway
    installation key, within the code's validity, like the first one, with a tunnel certificate
    for the new request, as long as that installation still has that installation key and was
    neither unpaired nor replaced, and is not blocked; otherwise it answers `unpaired`, or `blocked`
-   for a blocked installation. After the code's validity it
+   for a blocked installation. A gateway that gets `blocked` here has no installation URL: it
+   is not paired, tells the household that a pairing may exist and is blocked, and may repeat the
+   request until it gets another answer. After the code's validity the operator
    answers `pairing-refused`. The gateway then tells the household that a pairing may have been
    created: after a code for a new installation, the household removes the stray installation
    in the portal; after a code for an existing installation, it creates a new such code instead,
@@ -378,7 +380,7 @@ A POST-as-GET on the installation URL returns `200` with the installation
 | `own_domain` | the registered own-domain name with its `name`, `token` and `status` (Section 6.4), if any |
 | `replacement_pending_until` | while a code for this existing installation is pending: the end of its waiting time (Section 5.2) |
 
-While remote access is on, a gateway MUST read its installation at least every 12 hours; it SHOULD
+While it is paired, a gateway MUST read its installation at least every 12 hours; it SHOULD
 read it with every renewal,
 and otherwise reads it at most once an hour,
 except while an ACME account change is pending (as in Section 5.6), before a CAA alarm
@@ -493,19 +495,22 @@ and every later change, MUST be confirmed by the household:
   replaces it, and a report of the pair in force withdraws it, each with a notification of the
   household), and notifies the household;
 - the portal shows the pending `acme_account` and `caa_identity` next to the pair in force; the
-  household compares them with the account URI its gateway shows (Section 5.2), and the
+  household compares them with the pair its gateway shows, which is that of its latest report
+  (a gateway MUST show it, also while it is pending), and the
   confirmation applies to exactly the pending pair; a pair whose `caa_identity` is no longer in
-  `acme_cas` can no longer be confirmed and is discarded, and the household is told;
+  `acme_cas` can no longer be confirmed and is discarded, and the household is told; a pair
+  cannot be confirmed while the installation is `blocked`;
 - after the confirmation the operator puts the pair in force and publishes its CAA record, and
   the installation shows the new pair once that record is served by all authoritative name
-  servers, within 120 seconds; the gateway sees the change when it reads its installation, which it does every five
+  servers, within 120 seconds, or else the portal says that the change has not taken effect yet; the gateway sees the change when it reads its installation, which it does every five
   minutes for the first day a change is pending and every hour after that;
 - the household can reject the pending pair in the portal, and a pending pair that nobody
   confirms expires after 7 days; either way the pair in force stays, and the gateway, which still
   sees the old pair after 7 days, tells its administrator that the change was not confirmed.
 
 A gateway MUST keep the key of an account until another pair is in force and the CAA record of its
-own-domain name, if any, no longer names that account, or until the pairing ends. When a change
+own-domain name, if any, no longer names that account, and the key of a reported account until
+that report has ended, or in either case until the pairing ends. When a change
 was not confirmed, it goes on using the account in force. If it has no account in force because its
 report was not confirmed or it supports no listed CA (Section 6.6), or if it no longer holds the
 key of the account in force, it cannot obtain a server certificate: it keeps telling its administrator so, and reports again only
@@ -561,7 +566,8 @@ when the block is lifted.
 
 **Without the operator.** A gateway MUST let its local administrator turn remote access off at
 any time without contacting the operator: it then closes the tunnel and stops renewing; its keys
-are kept until the household unpairs. The offline time (Section 5.5) runs meanwhile.
+are kept until the household unpairs. The offline time (Section 5.5) runs meanwhile. Reading its
+installation (Section 5.3) and the monitoring of Section 6.7 go on as long as it is paired.
 
 A gateway MUST also let its local administrator **end the pairing locally** at any time, for an
 operator that no longer answers or no longer knows the installation. The gateway then closes the
@@ -756,7 +762,9 @@ only CAs that meet both conditions. The gateway shows `acme_cas` at pairing and 
 that list; if it supports none of them, it does not pair. When an operator removes a CA from
 `acme_cas`, existing CAA records stay until the gateway changes its account. The gateway tells its
 administrator that its CA is no longer allowed and SHOULD move to a listed CA, reporting the new
-account as Section 5.6 describes; if it supports no listed CA, it keeps its account, if it has one, and says so. `relay/cas.md` lists, informatively,
+account as Section 5.6 describes; if it supports no listed CA, it keeps its account, if it has one, and says so. A gateway that knows
+that its CA no longer meets the conditions stops obtaining certificates from it and tells its
+administrator. `relay/cas.md` lists, informatively,
 CAs that meet both conditions according to public sources.
 
 ### 6.7 Certificate Transparency monitoring
@@ -767,14 +775,15 @@ public name if one of its names matches it, including a wildcard that covers it 
 `*.<name_domain>`); a search by the exact name alone does not meet this rule. The gateway recognises the
 certificates it obtained itself, and their precertificates, by the public key of its current server
 key, and by the public key of an earlier server key only if the certificate was logged before that
-key was replaced, going by the timestamp of its signed certificate timestamp.
+key was replaced, going by the timestamp of its log entry.
 Every certificate for a public name that the gateway did not obtain itself and that was valid at any
 time since the pairing raises an alarm to its local administrator
 with the issuer, the names and the validity of that certificate; one that has expired is reported
 as a past exposure. The administrator MAY acknowledge a certificate
 (for example the household's own wildcard certificate for its zone), which ends the alarm for that
-certificate only. When no query of Certificate Transparency, or no query of the CAA records below, has succeeded for
-24 hours, the gateway shows that monitoring is not possible.
+certificate only. When no query of Certificate Transparency or of the CAA records below has succeeded for 24 hours, or
+no read of its installation for 12 hours, the gateway tells its administrator that monitoring is
+not possible.
 
 With the same frequency, the gateway queries, through the resolvers of Section 6.5, the CAA
 records of its standard name and of the apex of the name domain, and raises an alarm when the set
@@ -912,7 +921,7 @@ counts) and how long it may keep it.
 - Follow-ups for Sections 5 and 6 (#44): spelling-rule violations are `malformed`, response
   timeout and fixed enrollment host, stray installations after a lost pairing response, failed
   response checks do not unpair, notification-channel changes before a replacement code, the
-  replacing gateway revokes foreign certificates and asks for a new own-domain CAA record, CSR
+  gateway revokes foreign certificates after a pairing and asks for a new own-domain CAA record, CSR
   algorithms and the checks a gateway makes on its tunnel certificate, rejecting and expiring a
   pending ACME account, which CAA properties count as a deviation, earlier server keys in CT
   monitoring, relay address changes advised only once visible at the standard name, rules for
