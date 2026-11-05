@@ -5,7 +5,9 @@ package relay_test
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -169,5 +171,49 @@ func TestPlannedRelayAddressesAreAccepted(t *testing.T) {
 	doc["relay_addresses_planned"] = map[string]any{"addresses": []any{"192.0.2.11", "2001:db8::11"}, "from": "2026-12-01T00:00:00Z"}
 	if err := compileMetadataSchema(t).Validate(doc); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func atOrBelow(host, domain string) bool {
+	return host == domain || strings.HasSuffix(host, "."+domain)
+}
+
+func TestAtOrBelow(t *testing.T) {
+	cases := []struct {
+		host, domain string
+		want         bool
+	}{
+		{"homes.example.net", "homes.example.net", true},
+		{"a.homes.example.net", "homes.example.net", true},
+		{"xhomes.example.net", "homes.example.net", false},
+		{"example.net", "homes.example.net", false},
+	}
+	for _, c := range cases {
+		if got := atOrBelow(c.host, c.domain); got != c.want {
+			t.Errorf("atOrBelow(%q, %q) = %v, want %v", c.host, c.domain, got, c.want)
+		}
+	}
+}
+
+// Section 7.1: the example keeps the name domain apart from everything else of the operator.
+func TestExampleKeepsTheNameDomainApart(t *testing.T) {
+	doc := loadExample(t)
+	nameDomain := doc["name_domain"].(string)
+	operatorDomain := doc["operator_domain"].(string)
+	if atOrBelow(nameDomain, operatorDomain) || atOrBelow(operatorDomain, nameDomain) {
+		t.Errorf("name domain %q and operator domain %q overlap", nameDomain, operatorDomain)
+	}
+	hosts := []string{doc["relay"].(map[string]any)["host"].(string)}
+	for _, member := range []string{"enrollment", "portal"} {
+		u, err := url.Parse(doc[member].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		hosts = append(hosts, u.Hostname())
+	}
+	for _, host := range hosts {
+		if atOrBelow(host, nameDomain) {
+			t.Errorf("host %q is in the name domain %q", host, nameDomain)
+		}
 	}
 }

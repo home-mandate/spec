@@ -853,12 +853,124 @@ backup key and announces the complete new set.
 
 ## 7. Operator obligations
 
-*To be specified:* name domain separate from the portal and the operator domain, so that a
-gateway cannot set cookies for the portal (until the name domain is on the Public Suffix List,
-gateways use only `__Host-` cookies); CAA for the
-name domain (Section 6.3); Certificate Transparency monitoring of the name domain; both protection levels; minimal metadata and
-their retention; denylists; offline backup keys for the relay (Section 6.8); rate limits of the public CA and the Public Suffix List;
-conformance tests.
+A conforming operator follows Sections 3, 5 and 6 and this section. This section does not repeat
+their rules. Every rule here has to be one that any operator can meet with standard tools.
+
+### 7.1 Domains
+
+The name domain serves nothing but homes. It MUST NOT be in the same registered domain (as the
+Public Suffix List defines it) as the operator domain, the portal, the enrollment endpoint or the
+relay host, because a page under a public name is under the control of a gateway and could
+otherwise set cookies for those hosts or count as the same site.
+
+An operator SHOULD have its name domain entered on the Public Suffix List once it meets the
+conditions of that list. The list takes no entries whose only purpose is to get around the limits
+of a CA, and it usually declines small projects; an operator that does not qualify still conforms.
+Because a gateway cannot rely on such an entry, it MUST set cookies only with the prefix `__Host-`
+and MUST NOT rely on `SameSite` against other names in the name domain, whether or not the name
+domain is on the list.
+
+The operator SHOULD sign the name domain with DNSSEC, and SHOULD publish both IPv4 and IPv6
+addresses in `relay_addresses`, because agents and their networks may support only one of them.
+
+### 7.2 What an operator does not do
+
+An operator MUST NOT
+
+- terminate the TLS connection of an agent, or read or change the bytes that the relay passes on;
+- obtain a public certificate for a name at or below the name domain, or let anyone else do so
+  except the gateway of the installation that holds the name (Sections 5.6, 6.3);
+- ask a household for a key of its gateway, or for anything that a mandate or an approval
+  depends on.
+
+### 7.3 Protection levels
+
+An operator MUST offer both protection levels to every installation. It refuses an own-domain name
+only for the reasons in Section 6.4 and as a measure under Section 7.6. This specification does not
+regulate prices.
+
+### 7.4 Monitoring by the operator
+
+An operator SHOULD monitor Certificate Transparency for its whole name domain, as a second net that
+does not replace the monitoring in the gateway (Section 6.7). Only the gateway can tell its own
+certificates. The operator can tell a wildcard certificate, a certificate from a CA that is not in
+`acme_cas` and a certificate for a name that no installation holds; it looks into these and tells
+the households concerned.
+
+### 7.5 Connection data
+
+**Connection data** are the records an operator keeps about connections: the home ID, the server
+name, the address of the agent or the gateway, the time and the number of bytes of a connection,
+and the source address of an issuance (Section 5.5). An operator MUST NOT keep anything else about
+a connection. In particular it MUST NOT record the bytes that it passes on.
+
+An operator MUST delete connection data after at most 30 days, and it is RECOMMENDED to delete them
+after 7 days. It MAY keep them longer only where a law requires it, and names that law in its
+privacy policy (`privacy_policy`), which states the periods it actually applies. A record without
+the home ID, the server name and any address is not connection data.
+
+An operator MUST use connection data only to run and secure the service, to act against abuse and
+to bill. It MUST NOT sell them, use them for advertising or build a profile of a household from
+them. DNS queries to its name servers, if it records them, count as connection data.
+
+### 7.6 Denylists and abuse
+
+The relay MUST hold a denylist of tunnel certificates as in Section 5.7, and keeps each entry until
+the certificate has expired. A home ID stays reserved (Section 5.2).
+
+An operator acts against abuse on the basis of connection data and reports. It MUST NOT require
+access to the content of a connection for this. When it blocks an installation (Section 5.7), it
+MUST tell the household the reason, unless a law forbids that, and how to object.
+
+### 7.7 Keys and services
+
+- **Backup keys of the relay.** An operator MUST keep the private keys of `relay_backup_pins` offline,
+  on no system that is connected to a network, and MUST test the recovery of Section 6.8 before it
+  pairs its first gateway and at least once a year.
+- **Tunnel CA.** The relay MUST NOT hold the private key of the CA. The operator SHOULD keep that key and
+  the credentials for the name domain in a service of its own, apart from the portal, so that a
+  compromised portal can issue nothing.
+- **Enrollment host.** The host of the enrollment endpoint is fixed at pairing (Section 5.1). An
+  operator that has to move it can do so only through a new pairing of every installation, so it
+  chooses a host that it can keep.
+- **Notifications.** An operator MUST hold at least one working notification channel for every
+  household with an installation.
+
+### 7.8 Limits of the CA
+
+A public CA limits the certificates per registered domain; without an entry on the Public Suffix
+List, that limit counts for all homes of an operator together. Let's Encrypt, for example, allowed
+50 new certificates per registered domain in 7 days when this was written (checked 2026-11-05); renewals
+coordinated by ACME Renewal Information are exempt. An operator SHOULD limit new pairings to what its
+CAs allow, so that one party cannot use up the limit for everyone, SHOULD ask its CAs for a higher
+limit in good time, and tells a household in the portal when a pairing has to wait. A gateway that a CA
+limits retries with exponential backoff and shows the household that it is waiting.
+
+### 7.9 Incidents and the end of a service
+
+An operator MUST notify the households concerned, without undue delay and at most 72 hours after it
+learned of it, when the tunnel CA, a relay key, the enrollment service or the DNS of the name domain
+was compromised, and say what the household should do.
+
+An operator MUST announce the end of its service at least 90 days ahead on all channels, unless
+events beyond its control prevent this, and then as early as it can. Standard names cannot move to
+another operator, so agents have to connect again under a new address (a new OAuth issuer).
+Until the announced day it keeps running the relay, the enrollment endpoint and the DNS of the name
+domain. After that it MUST keep the name domain registered for at least one year, with the CAA records
+of Section 6.3 at the apex and no address records, so that nobody else can obtain a name that agents may
+still use.
+
+### 7.10 What can be checked from outside (informative)
+
+Section 8 turns the rules that can be checked into cases. The others remain a statement of the
+operator, and a household should know the difference:
+
+| Can be checked from outside | Only the operator's statement |
+|---|---|
+| separate domains and hosts (7.1), DNSSEC, addresses, CAA and TTL (6.3) | what it monitors (7.4) |
+| both protection levels in the metadata; an own-domain name can be registered (7.3) | connection data, their periods and their use (7.5) |
+| publicly logged certificates for a name (7.2) | access to the relay's bytes (7.2), offline keys and tests (7.7) |
+| behaviour of the enrollment endpoint (5) | reasons for a block (7.6), notifications (7.9) |
 
 ## 8. Conformance
 
@@ -867,7 +979,8 @@ metadata document is `relay/schema/metadata-v0.schema.json`.
 
 ## 9. Security considerations
 
-The rows below cover pairing and issuance (Section 5) and names and certificates (Section 6);
+The rows below cover pairing and issuance (Section 5), names and certificates (Section 6) and
+what an operator owes (Section 7);
 the tunnel (Section 4) adds its rows when it is specified. Throughout, two facts limit what an
 attacker on the relay side gains. An agent verifies the **server certificate** of the public
 name, whose key exists only in the gateway. And a public CA that follows RFC 8657 issues a
@@ -888,22 +1001,58 @@ this specification; what an operator itself could do is in the rows below and in
 | **Steals the installation key and the ACME account key** (a compromised gateway) | – | Everything the gateway can do, until the household unpairs |
 | **Steals a tunnel key** | Tunnel certificates live at most 24 hours; a new key at every renewal; denylist (Sections 5.4, 5.7) | Taking the tunnel over for at most the rest of that certificate's life |
 | **Takes over the household's account at the operator** | Unpairing and pairing codes stay with the account; codes for an existing installation and changes of the ACME account need a fresh authentication or the household's confirmation and are announced (Sections 5.2, 5.6) | The attacker can end remote access, and can move the standard name as in the row above, announced and with a waiting time |
-| **Compromises the operator's tunnel CA** | Name constraint on the operator's trust domain; short lifetimes (Section 5.4) | Tunnel certificates for every home of that operator: denial of service and metadata, not content |
+| **Compromises the operator's tunnel CA** | Name constraint on the operator's trust domain; short lifetimes (Section 5.4); the operator tells the households (Section 7.9) | Tunnel certificates for every home of that operator: denial of service and metadata, not content |
 | **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm, and the gateway checks the CAA records of its standard name and of the apex every hour (Sections 6.6, 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm; an operator that deliberately deceives, with a CA that does not log and CAA answers for the CA that differ from those the gateway sees, reads unnoticed as long as agents do not require proof of logging (Section 6.2). Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
 | **Another household claims an own-domain name** | Only a verified name is held and routed, and only the installation whose TXT token is in the name's zone can verify it; an unverified registration lapses after 7 days and blocks nobody (Section 6.4) | – |
 | **Obtains a misissued WebPKI certificate for the operator domain** and serves forged metadata | After pairing, pins change only over a tunnel authenticated with a stored pin (Section 6.8) | After pairing, forged relay addresses alone do not move an own-domain name: the gateway advises a change only when the A and AAAA records of its standard name show the new addresses (Section 6.4). A gateway that pairs while the attacker serves the metadata pairs with the attacker, which then acts as its operator: at level Standard it can read until the gateway's Certificate Transparency alarm (as for an operator that wants to read); an own-domain name stays protected by the household's CAA record |
 | **Forges DNS answers to the gateway** | DNSSEC, or two independent resolvers (Section 6.5); the CA validates independently | A wrong protection level shown in the gateway, a missed CAA alarm, or advice on relay addresses that is suppressed or delayed; issuance is not affected |
 | **Loses or leaks the relay key** (operator) | Backup pins of offline keys; new pins only over a pinned tunnel; over an active key the backup pins cannot change, and only a backup key can replace the whole set (Section 6.8) | With a leaked active key and a position on the path: denial of service and tunnel metadata until the operator connects with a backup key. With every pinned key lost, the local administrator must take new pins after a warning |
+| **Another gateway in the same name domain** (a home of the same operator, in the household's browser) | The name domain is apart from the portal and the operator domain; gateways use only `__Host-` cookies and do not rely on `SameSite` (Section 7.1) | Without an entry on the Public Suffix List, a page of another home can still count as the same site for what a gateway does not protect otherwise |
+| **Takes over a name domain that was given up** | The operator keeps it registered for a year after the end of its service, with CAA records that permit no issuance (Section 7.9) | After that year, agents that still use a name of that domain can reach whoever holds it, if that party obtains a certificate |
+| **Exhausts the CA's limit** with many pairings | Limits on new pairings (Section 7.8); renewals coordinated by ACME Renewal Information are usually exempt | New pairings wait; existing homes go on |
 | **Operator that tries to change what the household allows** | No message carries mandates, approver keys or issuer keys; a gateway accepts none (Section 5.7) | – |
 
 ## 10. Privacy considerations
 
-*To be specified:* what an operator learns (home ID, server name, agent address, time, byte
-counts) and how long it may keep it.
+A relay does not see the content of a connection, nor which agent connects, what it asks for, what
+it may do or what a household approves. That all stays inside TLS and in the home. What an operator
+does learn:
+
+| Data | Comes from | What it reveals |
+|---|---|---|
+| Account of the household, its notification channels | the portal | links a person to a home ID; the operator knows this link for every home |
+| Home ID, server name | routing of each connection | which home is reached; an own-domain name also names the household |
+| Address of the agent, time, number of bytes | each connection | when agents act in the home and how much, and from which network |
+| Address of the gateway | the tunnel and enrollment requests | the home's internet connection and when it is online |
+| ACME account, issuances | Section 5 | when the gateway changes its certificates or accounts |
+| Own-domain name | Section 6.4 | a name of the household's choice |
+| Queries to its name servers | DNS | which resolvers ask for a public name, and when |
+
+The rules for this data are in Section 7.5; only the operator's statement backs them (Section 7.10).
+
+Others learn something too:
+
+- **Everybody:** every public name stands permanently in Certificate Transparency logs. A standard
+  name is random and reveals nothing by itself, but an own-domain name can reveal the household, and
+  the level Own domain therefore trades some privacy for protection against the operator. Every
+  server name is also visible on the network, because the relay routes by it and this version does not use
+  Encrypted Client Hello.
+- **The CA:** the gateway's ACME account and its names.
+- **The Certificate Transparency service and the resolvers that a gateway chooses:** the public
+  name, the address of the home and how often it asks.
+
+A household that wants less of this runs its gateway without a relay.
 
 ## Changelog
 
 ### Unreleased
+
+- Section 7 specified: separate domains, Public Suffix List where an operator qualifies, `__Host-`
+  cookies, what an operator does not do, both protection levels for every installation, monitoring
+  of the name domain, connection data limited to a closed list and at most 30 days, abuse measures
+  without access to content, offline backup keys with tested recovery, limits of the CA, incidents
+  and the end of a service, and what can be checked from outside.
+- Section 10 specified: what an operator and others learn.
 
 - Skeleton: goal, terminology, operator metadata with schema and example, outline of pairing
   and issuance.
