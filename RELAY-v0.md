@@ -2,7 +2,7 @@
 
 # Home-Mandate Relay Specification v0 (Draft)
 
-Status: **Skeleton of a working draft. Not part of `v0.1.0` of the Home-Mandate
+Status: **Working draft. Not part of `v0.1.0` of the Home-Mandate
 Specification**; the freeze of Section 14 of SPEC-v0 does not cover this document, its schema
 or its examples. Sections marked *To be specified* hold the agreed outline only.
 License of this document: CC BY 4.0 (`LICENSE-docs`). Schema and examples: Apache 2.0
@@ -353,7 +353,9 @@ tells the household that the CAA record of that name has to change (Section 6.5)
 revoke the unexpired server certificates for its names that it finds in Certificate Transparency,
 did not obtain itself and the administrator has not acknowledged, where it can obtain
 authorizations for every name in the certificate (RFC 8555 Section 7.6); for an own-domain name
-that is possible only after the household changed the CAA record.
+that is possible only after the household changed the CAA record. It does so once it has obtained
+its first own server certificate for the name, and searches once more 24 hours later, because a
+certificate can reach the logs with a delay.
 
 ### 5.3 Installation
 
@@ -484,12 +486,19 @@ and every later change, MUST be confirmed by the household:
 - the portal shows the pending `acme_account` and `caa_identity` next to the pair in force; the
   household compares them with the account URI its gateway shows (Section 5.2), and the
   confirmation applies to exactly the pending pair;
-- after the confirmation the operator puts the pair in force and publishes its CAA record; the
-  gateway sees the change when it reads its installation, which it does every five minutes for
-  the first day a change is pending and every hour after that;
+- after the confirmation the operator puts the pair in force and publishes its CAA record, and
+  the installation shows the new pair once that record is served by all authoritative name
+  servers; the gateway sees the change when it reads its installation, which it does every five
+  minutes for the first day a change is pending and every hour after that;
 - the household can reject the pending pair in the portal, and a pending pair that nobody
   confirms expires after 7 days; either way the pair in force stays, and the gateway, which still
   sees the old pair after 7 days, tells its administrator that the change was not confirmed.
+
+A gateway MUST keep the key of the account in force until a new pair is in force or the pairing
+ends. When a change was not confirmed, it goes on using that account. A gateway that has no account
+in force, or no longer holds its key, cannot obtain a server certificate: it keeps telling its
+administrator so, and reports a new account only when the administrator asks for it, so that the
+household is not notified again and again.
 
 A gateway MUST alarm its local administrator when an `acme_account` or `caa_identity` is in force
 that the gateway never reported: then another party has reported an account for its standard name.
@@ -628,7 +637,8 @@ report fetches the metadata again and, if its CA is no longer listed, chooses a 
 reports the new account as Section 5.6 describes. When the installation is unpaired, the record at
 the name is removed and the record at the apex applies again. The operator MUST NOT publish at or
 below a standard name any other record that a CA uses for validation (TXT outside
-`_acme-challenge`, CNAME, DNAME, NS).
+`_acme-challenge`, CNAME, DNAME, NS). The CAA records at a standard name have a TTL of at most
+3600 seconds.
 
 ### 6.4 Own-domain names
 
@@ -760,6 +770,11 @@ Tags are compared without regard to case, as in RFC 8659 Section 4.1. A missing 
 property, including an empty answer, is a difference; other properties, such as `iodef`, are
 ignored.
 
+Resolvers can still hold the previous record after a new pair took effect. For one hour after the
+gateway first learns of a new pair in force, from the answer to its report or from its
+installation, it does not raise this alarm for exactly the record that was prescribed before that
+pair. That record names the gateway's earlier account or permits no issuance.
+
 ### 6.8 Pinning the relay
 
 The gateway accepts a relay only if the SubjectPublicKeyInfo of the relay's certificate matches
@@ -870,4 +885,6 @@ counts) and how long it may keep it.
   algorithms and the checks a gateway makes on its tunnel certificate, rejecting and expiring a
   pending ACME account, which CAA properties count as a deviation, earlier server keys in CT
   monitoring, relay address changes advised only once visible at the standard name, rules for
-  announced pin sets and the lead time of a key rotation.
+  announced pin sets and the lead time of a key rotation, what a gateway does after an
+  unconfirmed ACME account change, no CAA alarm for the previous record in the hour after a
+  change (TTL of at most 3600 seconds), when a replacing gateway revokes.
