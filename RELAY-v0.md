@@ -538,8 +538,8 @@ hour.
 ### 5.7 Unpairing, blocking and the gateway's state
 
 **Unpairing** ends an installation for good. It starts in the portal (the household, or the
-deletion of its account), at the operator for a stray new installation (Section 5.2), or in the
-gateway: a `{"status": "unpaired"}` update (Section 5.3),
+deletion of its account), at the operator for a stray new installation (Section 5.2) or after the
+announced day of an end of service or a move of the name domain (Section 7.9), or in the gateway: a `{"status": "unpaired"}` update (Section 5.3),
 answered with `200` and the installation with the status `unpaired`. The operator then
 
 - answers every further request of the installation with `unpaired`;
@@ -864,7 +864,9 @@ The name domain serves nothing but homes. It MUST NOT be in the same registered 
 Public Suffix List defines it) as the operator domain, the portal, the enrollment endpoint, the
 relay host or any other site of the operator that uses cookies, because a page under a public name
 is under the control of a gateway and could otherwise set cookies for those hosts or count as the
-same site.
+same site. The registered domain is determined as if the name domain had no entry of its own on that
+list, so that an entry does not let the portal sit at the parent of the name domain and send its
+cookies to every home.
 
 An operator SHOULD have its name domain entered on the Public Suffix List once it meets the
 conditions of that list. The list takes no entries whose only purpose is to get around the limits
@@ -900,8 +902,8 @@ installation (Section 7.6).
 An operator SHOULD monitor Certificate Transparency for its whole name domain, as a second net that
 does not replace the monitoring in the gateway (Section 6.7). Only the gateway can tell its own
 certificates. The operator can tell a wildcard certificate, a certificate from a CA that was not in
-`acme_cas` when it was issued and is not the CA of the account in force, and a certificate issued for a name while no installation held it; it
-looks into these and tells the households concerned.
+`acme_cas` when it was issued and is not the CA of the account in force, and a certificate for a standard name whose home ID was not assigned, or was
+unpaired, when the certificate was issued; it looks into these and tells the households concerned.
 
 ### 7.5 Data of households
 
@@ -922,11 +924,15 @@ its source address for as long as this section allows (Section 5.5).
 **Account data** are the household's account and notification channels, billing records and reports
 of abuse. **Installation data** are the link between account and home ID, the ACME account, the
 own-domain name, and the installation keys and public keys of tunnel certificates (or their digests)
-that Sections 5.4 and 5.5 compare against. An operator MUST delete, within 60 days and with its backups,
-account data after the household deleted its account, and installation data after the installation
-was unpaired by anybody, both after the end of its service, and also what the household or gateway
-has replaced or removed, except what Sections 5.2, 5.4 and 5.5 still need while the installation
-exists. Exceptions are the same as for connection data: a law, or an open case. The reserved home ID
+that Sections 5.4 and 5.5 compare against. An operator MUST delete, within 60 days and with its backups:
+
+- account data after the household deleted its account;
+- installation data after the installation was unpaired by anybody;
+- both after the end of its service;
+- what the household or gateway has replaced or removed, except what Sections 5.2, 5.4 and 5.5 still
+  need while the installation exists.
+
+Exceptions are the same as for connection data: a law, or an open case. The reserved home ID
 and what Section 5.7 needs to answer `unpaired` stay, without a link to a person.
 
 An operator MUST use all of this only to run and secure the service, to act against abuse, to bill and as a
@@ -953,7 +959,7 @@ MUST tell the household the reason, unless a law forbids that, and how to object
   first time, after adding a key, and at least once a year. A key used outside such a test has been online
   and is replaced afterwards. When a key fails, is lost or leaks, the operator MUST tell the households
   concerned, replace the pin through another backup key if it has one, remove the key from
-  `relay_backup_pins`, and accept new installations only once the keys listed there have passed a
+  `relay_backup_pins`, adding a new key in the same step if it was the only one, and accept new installations only once the keys listed there have passed a
   test. Without another backup key the gateways go on with the old pin and have no recovery from a lost
   active key except new pins taken by the administrator (Section 6.8).
 - **Tunnel CA.** The servers that relay connections MUST NOT hold the private key of the CA. The
@@ -994,7 +1000,9 @@ Until the announced day it keeps running the relay, the portal, the metadata, th
 and the DNS of the name domain, and after that day it unpairs the installations that remain, as far as
 it still can. An operator that moves to another name domain gives the same notice. It publishes the new
 `name_domain` for new pairings; an existing installation keeps its standard name in the old domain
-(Section 3) until it is paired anew, and during the move the operator creates no code for an
+(Section 3) until it is paired anew. Until the announced day the operator keeps serving the old name
+domain as Section 6.3 requires, and after that day it unpairs the installations that remain in it, as
+at the end of a service. During the move the operator creates no code for an
 existing installation there, because such a pairing would not pass the check of Section 5.2.
 
 An operator that gives up a name domain, from the last announced day at the latest, MUST keep control of it,
@@ -1048,9 +1056,9 @@ this specification; what an operator itself could do is in the rows below and in
 | **Another household claims an own-domain name** | Only a verified name is held and routed, and only the installation whose TXT token is in the name's zone can verify it; an unverified registration lapses after 7 days and blocks nobody (Section 6.4) | – |
 | **Obtains a misissued WebPKI certificate for the operator domain** and serves forged metadata | After pairing, pins change only over a tunnel authenticated with a stored pin (Section 6.8) | After pairing, forged relay addresses alone do not move an own-domain name: the gateway advises a change only when the A and AAAA records of its standard name show the new addresses (Section 6.4). A gateway that pairs while the attacker serves the metadata pairs with the attacker, which then acts as its operator: at level Standard it can read until the gateway's Certificate Transparency alarm (as for an operator that wants to read); an own-domain name stays protected by the household's CAA record |
 | **Forges DNS answers to the gateway** | DNSSEC, or two independent resolvers (Section 6.5); the CA validates independently | A wrong protection level shown in the gateway, a missed CAA alarm, or advice on relay addresses that is suppressed or delayed; issuance is not affected |
-| **Loses or leaks the relay key** (operator; a backup key as in Section 7.7) | Backup pins of offline keys; new pins only over a pinned tunnel; over an active key the backup pins cannot change, and only a backup key can replace the whole set (Section 6.8) | With a leaked active key and a position on the path: denial of service and tunnel metadata until the operator connects with a backup key. With every pinned key lost, the local administrator must take new pins after a warning |
+| **Loses or leaks the relay key** (operator; a backup key as in Section 7.7) | Backup pins of offline keys; new pins only over a pinned tunnel; over an active key the backup pins cannot change, and only a backup key can replace the whole set (Section 6.8) | With a leaked active key and a position on the path: denial of service and tunnel metadata until the operator connects with a backup key. With a leaked backup key and a position on the path, the attacker can replace every pin, the operator's other backup pins included, and the operator loses the gateways it reaches until their administrators take new pins (still no content). With every pinned key lost, the local administrator must take new pins after a warning |
 | **Another gateway in the same name domain** (a home of the same operator, in the household's browser) | The name domain is apart from the operator's other sites; gateways use only `__Host-` cookies, ignore others, and protect changes with `Origin` or a token (Section 7.1) | Without an entry on the Public Suffix List, a page of another home counts as the same site and can set cookies for the name domain; too many of them can make a browser's requests fail |
-| **Compromises the portal** | CA key and DNS credentials SHOULD be kept apart from it (Section 7.7); households are told (Section 7.9) | With them apart, the attacker can confirm foreign accounts and create codes, also without waiting times or notifications if those run in the portal, and then complete agents' TLS for standard names until the Certificate Transparency alarm; it also gets the households' data. Without them apart, it can also change CAA records and issue tunnel certificates directly. An own-domain name stays protected by the household's CAA record |
+| **Compromises the portal** | CA key and DNS credentials SHOULD be kept apart from it (Section 7.7); households are told (Section 7.9) | With them apart, the attacker can confirm foreign accounts and create codes, also without waiting times or notifications if those run in the portal, and then complete agents' TLS for standard names until the Certificate Transparency alarm. A code for an existing installation, redeemed by the attacker's gateway, unpairs the household's gateway, which then stops monitoring: the household sees only that remote access has ended. It also gets the households' data. Without them apart, it can also change CAA records and issue tunnel certificates directly. An own-domain name stays protected by the household's CAA record |
 | **Takes over a name domain that was given up** | The operator keeps control of it for a year, without records that permit issuance (Section 7.9) | After that year, or if the operator fails, agents that still use a name of that domain can reach whoever holds it, if that party obtains a certificate |
 | **Exhausts the CA's limit** with many pairings or through its own ACME accounts | Limits on new pairings per account and in total (Section 7.8); renewals coordinated by ACME Renewal Information are usually exempt | New pairings wait, and so does a gateway that needs a new certificate after a replacement or a lost key; a party with many accounts can still use up the limit |
 | **Operator that tries to change what the household allows** | No message carries mandates, approver keys or issuer keys; a gateway accepts none (Section 5.7) | – |
@@ -1068,7 +1076,7 @@ What an operator learns:
 | Data | Comes from | What it reveals |
 |---|---|---|
 | Account of the household, notification channels, billing | the portal | links a person to a home ID; the operator knows this link for every home |
-| Address of a household's browser | the portal | where its people are when they use the portal |
+| Address of a household's browser | the portal, and connections to a public name, such as an approval or authorization at the gateway | where its people are when they use the portal or reach their gateway from outside |
 | Home ID, server name | routing of each connection | which home is reached; an own-domain name also names the household |
 | Address of the agent, ClientHello, time, number of bytes | each connection | when agents act in the home and how much, from which network, and with which software |
 | Address of the gateway | the tunnel and enrollment requests | the home's internet connection and when it is online |
@@ -1104,7 +1112,6 @@ A household that wants less of this runs its gateway without a relay.
   without access to content, offline backup keys with tested recovery, limits of the CA, incidents
   and the end of a service, and what can be checked from outside.
 - Section 10 specified: what an operator and others learn.
-
 - Skeleton: goal, terminology, operator metadata with schema and example, outline of pairing
   and issuance.
 - Section 6 specified: standard and own-domain names, protection levels, CAA at the apex and at
