@@ -2,7 +2,7 @@
 
 # Home-Mandate Relay Specification v0 (Draft)
 
-Status: **Skeleton of a working draft. Not part of `v0.1.0` of the Home-Mandate
+Status: **Working draft. Not part of `v0.1.0` of the Home-Mandate
 Specification**; the freeze of Section 14 of SPEC-v0 does not cover this document, its schema
 or its examples. Sections marked *To be specified* hold the agreed outline only.
 License of this document: CC BY 4.0 (`LICENSE-docs`). Schema and examples: Apache 2.0
@@ -153,7 +153,8 @@ specification is released, the schema can still change under the same `type`.
 
 Before it completes a pairing, the gateway MUST show the household the operator domain, the
 protection levels, `acme_cas` and `max_offline_days`. A change of the document applies to an existing
-pairing from its next issuance on (Section 5.5); the gateway MUST tell the household when
+pairing from its next issuance on (Section 5.5), except the host of `enrollment`, which stays as
+fixed at pairing (Section 5.1), and the gateway tells the household when it differs; the gateway MUST tell the household when
 `max_offline_days`, `protection_levels` or the relay addresses changed. Changes of the pins do
 not change stored pins (Section 6.8); relay addresses change as in Section 6.4.
 
@@ -213,11 +214,16 @@ The operator processes a request in this order; a request that fails a step has 
 3. with `kid`: the installation it names (none: `bad-signature`; unpaired or replaced:
    `unpaired`), and the URL MUST be `key_change`, the installation URL of that installation or
    a URL in it (`malformed`); one installation can never act on another;
-4. the signature with that key (`bad-signature`); from here on the nonce is used up, whatever
-   happens next; then the nonce (`bad-nonce`) and `url` (`malformed`);
+4. the spelling rules (`malformed`), then the signature with that key (`bad-signature`); from
+   here on the nonce is used up, whatever happens next; then the nonce (`bad-nonce`) and `url`
+   (`malformed`);
 5. the state of the installation (Sections 5.5 and 5.7); past `max_offline_days`, `offline-too-long`
    takes precedence over `blocked`;
 6. the payload (`malformed`, or the error of the operation).
+
+Some responses wait for DNS (Section 5.6); a gateway allows at least 150 seconds for a response.
+The host of `enrollment` is fixed at pairing: a later change of `enrollment` in the metadata does
+not apply to existing installations.
 
 An installation URL MUST contain at least 128 random bits, so that whether an installation
 exists cannot be learnt by guessing (step 3 answers before the signature is checked).
@@ -230,18 +236,18 @@ know in every response.
 
 | Error | Status | Meaning | Gateway |
 |---|---|---|---|
-| `malformed` | 400 | the request does not match this section or the schema | reports a defect, does not repeat the request |
+| `malformed` | 400 | the request does not match this section or the schema | reports a defect, does not repeat the request (except as in Section 6.3) |
 | `bad-nonce` | 400 | nonce unknown, used or expired | repeats once with the fresh nonce |
 | `bad-signature` | 401 | a signature does not verify, or `kid` names no installation | except during a key change (Section 5.5): ends the pairing locally as on `offline-too-long` and tells the household (Section 5.7) |
 | `pairing-refused` | 403 | the pairing code is wrong, expired, used, not yet usable or not for this operator; the operator does not say which | asks for a new code |
-| `confirmation-required` | 403 | the change needs the household's confirmation in the portal (Section 5.6) | tells the household and reads its installation until the change is in force |
+| `confirmation-required` | 403 | the change needs the household's confirmation in the portal (Section 5.6) | tells the household and reads its installation as in Section 5.6 |
 | `offline-too-long` | 403 | the installation was without a valid tunnel certificate longer than `max_offline_days` (Section 5.5) | ends the pairing locally (Section 5.7) |
 | `blocked` | 403 | the operator blocked the installation (Section 5.7) | Section 5.7 |
 | `bad-csr` | 400 | the certificate request breaks Section 5.4 | creates a new tunnel key and request |
 | `name-unavailable` | 409 | another installation holds the own-domain name (Section 6.4) | tells the household |
 | `key-conflict` | 409 | the installation key of a pairing or the new key of a key change is already in use (Sections 5.2, 5.5) | creates a new key and repeats the request |
 | `unpaired` | 410 | the installation was unpaired or replaced (Sections 5.2, 5.7) | ends the pairing locally (Section 5.7) |
-| `rate-limited` | 429 | too many requests; the response carries `Retry-After` | waits at least that long, or as on `server-internal` without the header |
+| `rate-limited` | 429 | too many requests; the response carries `Retry-After` | waits at least that long, or as on `server-internal` without the header, except before a CAA alarm (Section 6.7) |
 | `server-internal` | 500 | anything else | retries with exponential backoff |
 
 ### 5.2 Pairing
@@ -276,7 +282,16 @@ while the gateway is not paired with any operator. The gateway
    tunnel key; the operator MUST answer a pairing request whose code was redeemed by the same
    installation key, within the code's validity, like the first one, with a tunnel certificate
    for the new request, as long as that installation still has that installation key and was
-   neither unpaired nor replaced; otherwise it answers `unpaired`.
+   neither unpaired nor replaced, and is not blocked; otherwise it answers `unpaired`, or `blocked`
+   for a blocked installation. A gateway that gets `blocked` here has no installation URL: it
+   is not paired, tells the household that a pairing may exist and is blocked, and may repeat the
+   request until it gets another answer. After the code's validity the operator
+   answers `pairing-refused`. The gateway then tells the household that a pairing may have been
+   created: after a code for a new installation, the household removes the stray installation
+   in the portal; after a code for an existing installation, it creates a new such code instead,
+   because unpairing would lose the standard name. An operator MAY unpair a new installation
+   (not a replacing one) from which no request arrived for 24 hours after its pairing, and
+   notifies the household.
 
 **At the operator.** The operator processes the request (Section 5.1), redeems the code, checks
 the certificate request, refuses an installation key that another installation already uses
@@ -288,15 +303,17 @@ the certificate request, refuses an installation key that another installation a
 - the standard name `<home ID>.<name_domain>`;
 - the first tunnel certificate (Section 5.4).
 
-From the creation of the installation until the first report of the gateway's ACME account
+From the creation of the installation until an ACME account of the gateway is in force
 (Section 5.6), the operator MUST publish for the standard name a CAA record that permits no
 issuance at all (`0 issue ";"`, RFC 8659). It answers `201 Created` with the installation URL,
 as an absolute URL, in `Location` and a body (`$defs/pair_response`) with the installation
 (Section 5.3) and the tunnel certificate. The gateway MUST check that the standard name is the
 home ID followed by `.` and the `name_domain` of the metadata, and that the certificate matches
-Section 5.4 and its own tunnel key; if a check fails, it MUST NOT use the pairing, sends the
-unpairing request, ends the pairing locally (Section 5.7) and tells the household that the
-operator does not conform. The
+Section 5.4 and its own tunnel key; if a check fails, it MUST NOT use the pairing, ends it
+locally without sending the unpairing request (so that a code for an existing installation does
+not destroy the standard name), and tells the household that the operator does not conform; the
+household then unpairs a new installation in the portal, or creates a new code for an existing
+one. The
 operator MUST notify the household of every new installation and show it in the portal. Right
 after pairing, the gateway creates its ACME account and reports it (Section 5.6), and shows the
 household the account URI, so that the household can compare it with what the portal shows.
@@ -312,13 +329,16 @@ such a code keeps the home ID, the standard name and the own-domain registration
 the installation: it gets a
 new installation URL, the old installation URL answers `unpaired`, the
 operator denies their tunnel certificates and closes their connections, and the reported ACME
-account is cleared, so that the new gateway reports its own (Section 5.6), with the CAA record
+account and any pending report are cleared, so that the new gateway reports its own (Section 5.6), with the CAA record
 that permits no issuance in force until then. The operator MUST NOT create such a code for a
 `blocked` installation, and cancels a pending one when it blocks the installation. Because whoever
 controls the household's account can thereby move the standard name to another gateway, the
 operator MUST
 
 - require a fresh authentication of the person before it creates such a code;
+- refuse to create such a code within 72 hours after a notification channel of the household was
+  added, changed or removed, notify the previous channels of every such change, and cancel a
+  pending such code on every such change, and tell the household that it did;
 - notify the household on all its channels when the code is created;
 - make the code usable only after a waiting time of at least 24 hours, during which the
   household can cancel it in the portal and through the notification; after the waiting time
@@ -327,10 +347,22 @@ operator MUST
 - show the end of the waiting time in the installation (`replacement_pending_until`,
   Section 5.3) until the code is used, cancelled or expired.
 
-A gateway that still holds its keys and reads `replacement_pending_until` SHOULD warn its local
+A gateway that still holds its keys and reads `replacement_pending_until` MUST warn its local
 administrator that the installation is about to be replaced, and point to the portal, where the
 household can cancel the code. A running gateway that is to be replaced is suspicious: the
 replacement exists for gateways that lost their keys.
+
+A gateway does not learn from the pairing response whether it replaced an installation, so the
+following holds after every pairing and has no effect on a new name. If the installation has an
+own-domain name whose CAA record names another account, the gateway tells the household that this
+record has to change (Section 6.5). The gateway SHOULD
+revoke the unexpired server certificates for its names that it finds in Certificate Transparency,
+did not obtain itself and the administrator has not acknowledged, where it can obtain
+authorizations for every name in the certificate (RFC 8555 Section 7.6); for an own-domain name
+that is possible only after the household changed the CAA record, and needs the administrator's
+consent, because the household may have obtained that certificate itself. It does so once it has
+obtained its first own server certificate for the name, and searches once more 24 hours later,
+because a certificate can reach the logs with a delay.
 
 ### 5.3 Installation
 
@@ -348,10 +380,14 @@ A POST-as-GET on the installation URL returns `200` with the installation
 | `own_domain` | the registered own-domain name with its `name`, `token` and `status` (Section 6.4), if any |
 | `replacement_pending_until` | while a code for this existing installation is pending: the end of its waiting time (Section 5.2) |
 
-A gateway SHOULD read its installation with every renewal, and otherwise at most once an hour,
-except while an ACME account change is pending (every five minutes, Section 5.6) and while it
+While it is paired, a gateway MUST read its installation at least every 12 hours; it SHOULD
+read it with every renewal,
+and otherwise reads it at most once an hour,
+except while an ACME account change is pending (as in Section 5.6), before a CAA alarm
+(Section 6.7) and while it
 recovers a key change (Section 5.5); it shows the status to the household. With every renewal,
-and at most once a day, it also fetches the metadata again (Section 3).
+and otherwise at most once a day, it also fetches the metadata again (Section 3), besides the
+fetches that Sections 6.3 and 6.4 require.
 
 A `POST` to the installation URL with a payload (`$defs/installation_update`) changes it and is
 answered with `200` and the installation: `{"acme_account": …, "caa_identity": …}` reports the
@@ -366,7 +402,8 @@ tunnel certificate and is answered with `200`; the pairing request carries the s
 refuse it with `bad-csr` unless
 
 - its signature verifies with the public key it contains;
-- the key is ECDSA P-256 or Ed25519 (an operator MUST accept both);
+- the key is ECDSA P-256 or Ed25519, and the request is signed with ECDSA with SHA-256 or with
+  Ed25519, respectively (an operator MUST accept both);
 - the key differs from the installation key and from the key of every tunnel certificate the
   operator issued to this installation before.
 
@@ -374,7 +411,8 @@ Everything else in the request (subject, extensions, requested names) is ignored
 CA issues a certificate that
 
 - contains exactly one subject alternative name, the URI
-  `spiffe://<trust_domain>/home/<home ID>/gateway`, and an empty subject;
+  `spiffe://<trust_domain>/home/<home ID>/gateway`, in a critical extension, and an empty
+  subject;
 - has a `notAfter` at most 24 hours after its `notBefore`, which is no earlier than 5 minutes
   before issuance;
 - has `cA=false`, key usage `digitalSignature` only (critical), and extended key usage
@@ -383,15 +421,18 @@ CA issues a certificate that
 - contains no other information about the household.
 
 The CA that issues tunnel certificates MUST carry a name constraint (RFC 5280 Section
-4.2.1.10) that permits only URIs whose host is `trust_domain`, and MUST NOT issue anything but
-tunnel certificates.
+4.2.1.10) whose permitted subtree of type URI is the host `trust_domain`. Such a constraint does
+not restrict other name types, so the CA MUST NOT issue anything but tunnel certificates.
 
 The response (`$defs/certificate_response`) holds `chain`, the issued certificate followed by the
 certificates of the CA that issued it, each in DER and base64url without padding, and
-`not_after`, the expiry of the issued certificate (RFC 3339, UTC, whole seconds, `Z`); at most four certificates.
-The gateway needs none of the CA certificates to trust the relay (Section 6.8). A gateway MUST NOT
-use a certificate that breaks this section; it tells the household that the operator does not
-conform and retries later.
+`not_after`, the expiry of the issued certificate (RFC 3339, UTC, whole seconds, `Z`); at most four
+certificates, and a chain with the issued certificate alone conforms. The gateway needs none of
+the CA certificates to trust the relay (Section 6.8). The gateway checks what it can see: the
+public key is its own tunnel key, the subject alternative name is exactly its SPIFFE ID in a
+critical extension, the subject is empty, `notAfter` is in the future, `cA=false`, the key usage and extended key usages are as above, `notAfter` is at
+most 24 hours after `notBefore` and equals `not_after`. It MUST NOT use a certificate that fails a
+check; it tells the household that the operator does not conform and retries later.
 
 ### 5.5 Renewal, re-issuance and key change
 
@@ -418,7 +459,7 @@ example to six per day).
 (`$defs/key_change_request`): a JWS in compact serialization, signed with the new key, whose
 protected header has exactly `alg`, `jwk` (the new key) and `url` (the URL of `key_change`)
 (`$defs/key_change_header`) and whose payload is `{"installation": …, "old_key": …}`
-(`$defs/key_change`); the spelling rules of Section 5.1 apply to it as well. The operator
+(`$defs/key_change`); the spelling rules of Section 5.1 apply to it as well (`malformed`). The operator
 checks the inner signature (`bad-signature`), that `url`
 matches and `installation` is the `kid` of the outer request and `old_key` its key
 (`malformed`), and that the new key is neither the key of another installation nor the key of
@@ -426,7 +467,8 @@ one of this installation's tunnel certificates (`key-conflict`). It then replace
 answers `200` with the installation, and MUST notify the household. The gateway keeps the old key
 until a request signed with the new key succeeded; if it does not know whether a key change took
 effect (the response was lost), it reads its installation with the new key, and on
-`bad-signature` with the old one. While a key change is in flight or being recovered, the gateway
+`bad-signature` with the old one; if both get `bad-signature`, it tries both once more after a
+minute and only then ends the pairing locally as on `offline-too-long` (Section 5.7). While a key change is in flight or being recovered, the gateway
 sends no other request, and a `bad-signature` on the key change request itself does not end the
 pairing.
 
@@ -445,23 +487,39 @@ pairing (or after a replacement, Section 5.2) takes effect at once if it arrives
 hour of the pairing (or the replacement); it replaces the CAA record that permits no issuance and
 is answered with `200` once the new record is served by all authoritative name servers, within
 120 seconds, or else with `server-internal`, while the account stays in force. A report of the
-account already in force is answered alike and is not a change. A first report after that hour,
+pair already in force is answered alike and is not a change. A first report after that hour,
 and every later change, MUST be confirmed by the household:
 
 - the operator answers `confirmation-required`, keeps the account already in force (or the CAA
   record that permits no issuance), stores the newly reported pair as pending (a later report
-  replaces it), and notifies the household;
+  replaces it, and a report of the pair in force withdraws it, each with a notification of the
+  household), and notifies the household;
 - the portal shows the pending `acme_account` and `caa_identity` next to the pair in force; the
-  household compares them with the account URI its gateway shows (Section 5.2), and the
-  confirmation applies to exactly the pending pair;
-- after the confirmation the operator puts the pair in force and publishes its CAA record; the
-  gateway sees the change when it reads its installation, which it does every five minutes
-  while a change is pending.
+  household compares them with the pair its gateway shows, which is that of its latest report
+  (a gateway MUST show it, also while it is pending), and the
+  confirmation applies to exactly the pending pair; a pair whose `caa_identity` is no longer in
+  `acme_cas` can no longer be confirmed and is discarded, and the household is told; a pair
+  cannot be confirmed while the installation is `blocked`;
+- after the confirmation the operator puts the pair in force and publishes its CAA record, and
+  the installation shows the new pair once that record is served by all authoritative name
+  servers, within 120 seconds, or else the portal says that the change has not taken effect yet; the gateway sees the change when it reads its installation, which it does every five
+  minutes for the first day a change is pending and every hour after that;
+- the household can reject the pending pair in the portal, and a pending pair that nobody
+  confirms expires after 7 days; either way the pair in force stays, and the gateway, which still
+  sees the old pair after 7 days, tells its administrator that the change was not confirmed.
+
+A gateway MUST keep the key of an account until another pair is in force and the CAA record of its
+own-domain name, if any, no longer names that account, and the key of a reported account until
+that report has ended, or in either case until the pairing ends. When a change
+was not confirmed, it goes on using the account in force. If it has no account in force because its
+report was not confirmed or it supports no listed CA (Section 6.6), or if it no longer holds the
+key of the account in force, it cannot obtain a server certificate: it keeps telling its administrator so, and reports again only
+when the administrator asks for it, so that the household is not notified again and again.
 
 A gateway MUST alarm its local administrator when an `acme_account` or `caa_identity` is in force
 that the gateway never reported: then another party has reported an account for its standard name.
 When its first report arrives after the hour and is answered with `confirmation-required`, the
-gateway asks the household to confirm in the portal instead.
+gateway also asks the household to confirm in the portal.
 
 **Challenge.** A `POST` to `acme_challenge` with `{"values": […]}`
 (`$defs/acme_challenge_request`) makes the operator publish exactly these values as TXT records
@@ -478,7 +536,8 @@ hour.
 ### 5.7 Unpairing, blocking and the gateway's state
 
 **Unpairing** ends an installation for good. It starts in the portal (the household, or the
-deletion of its account) or in the gateway: a `{"status": "unpaired"}` update (Section 5.3),
+deletion of its account), at the operator for a stray new installation (Section 5.2), or in the
+gateway: a `{"status": "unpaired"}` update (Section 5.3),
 answered with `200` and the installation with the status `unpaired`. The operator then
 
 - answers every further request of the installation with `unpaired`;
@@ -487,7 +546,7 @@ answered with `200` and the installation with the status `unpaired`. The operato
 - removes every DNS record of the standard name, including challenge and CAA records, so that
   the CAA record at the apex of the name domain applies again (Section 6.3), and releases its
   own-domain name (Section 6.4);
-- keeps the home ID reserved (Section 5.2).
+- cancels any pending code for this installation, and keeps the home ID reserved (Section 5.2).
 
 **Ending the pairing locally.** A gateway that unpairs or receives `unpaired` MUST close the
 tunnel, delete its installation key and tunnel key, revoke its server certificate and deactivate
@@ -507,7 +566,8 @@ when the block is lifted.
 
 **Without the operator.** A gateway MUST let its local administrator turn remote access off at
 any time without contacting the operator: it then closes the tunnel and stops renewing; its keys
-are kept until the household unpairs. The offline time (Section 5.5) runs meanwhile.
+are kept until the household unpairs. The offline time (Section 5.5) runs meanwhile. Reading its
+installation (Section 5.3) and the monitoring of Section 6.7 go on as long as it is paired.
 
 A gateway MUST also let its local administrator **end the pairing locally** at any time, for an
 operator that no longer answers or no longer knows the installation. The gateway then closes the
@@ -554,7 +614,8 @@ only with proof that it was logged, so CAs log nearly all certificates, but a CA
 without logging it, and agents usually do not require that proof. At the level Standard the CAA
 records of the name domain therefore allow only CAs that log every certificate (Section 6.6), and
 the gateway checks them every hour (Section 6.7). This binds an operator that keeps to this
-specification and reveals one that changes its records openly. It does not bind an operator that
+specification and reveals one that changes its records for longer than the gateway's check
+interval, the re-check of Section 6.7 and the TTL of the records. It does not bind an operator that
 deliberately deceives: it runs the authoritative name servers of the name domain and can give a
 CA's validation another CAA answer than the gateway's queries, and then obtain a certificate from
 a CA that does not log it. Against such an operator the level Standard gives no protection; the
@@ -574,24 +635,28 @@ MCP nor OAuth defines such a binding today.
 
 ### 6.3 Standard names
 
-The operator MUST publish at the apex of the name domain exactly the CAA records `0 issue ";"` and
-`0 issuewild ";"`, so that no name in the name domain can obtain a certificate unless a record at
+The operator MUST publish at the apex of the name domain the CAA records `0 issue ";"` and
+`0 issuewild ";"` and no other `issue` or `issuewild` record (`iodef` records are allowed), so that no name in the name domain can obtain a certificate unless a record at
 the name allows it, and no wildcard certificate for the name domain can be obtained at all. For each
 installation it publishes at the standard name A and AAAA records with the `relay_addresses`
 (from the `from` of a planned set on, with the planned addresses), and
-the CAA records of Section 5.6: `0 issue ";"` until
-the first account report, then exactly one record
+the CAA records of Section 5.6: `0 issue ";"` while no account is in force, then exactly one
+record
 
 ```
 <standard name> CAA 0 issue "<caa_identity>; accounturi=<acme_account>; validationmethods=dns-01"
 ```
 
-and no `issuewild` record that permits anything. The `caa_identity` is one of the `acme_cas` of
-the metadata (Section 3); the operator refuses an account report with any other one
-(`malformed`). When the installation is unpaired, the record at
+and no `issuewild` record that permits anything; an `issuewild ";"` and `iodef` records are
+allowed. A reported `caa_identity` MUST be one of the `acme_cas` in force at the time of the
+report, unless the report repeats the pair already in force; the operator refuses any other one
+(`malformed`). A gateway that gets `malformed` for its
+report fetches the metadata again and, if its CA is no longer listed, chooses a listed CA and
+reports the new account as Section 5.6 describes. When the installation is unpaired, the record at
 the name is removed and the record at the apex applies again. The operator MUST NOT publish at or
 below a standard name any other record that a CA uses for validation (TXT outside
-`_acme-challenge`, CNAME, DNAME, NS).
+`_acme-challenge`, CNAME, DNAME, NS). The A, AAAA and CAA records at a standard name and the CAA records
+at the apex MUST have a TTL of at most 3600 seconds.
 
 ### 6.4 Own-domain names
 
@@ -643,12 +708,18 @@ is `verified`; it MUST NOT publish any record for the name, and publishes challe
 only at `_acme-challenge.<standard name>`. A change of `relay_addresses` is announced in the
 metadata at least 30 days ahead (`relay_addresses_planned`, Section 3), and the relay MUST accept
 agent connections at both sets of addresses from the first appearance of the planned set until at
-least 7 days after its `from`. The gateway tells the household which records to change, and
-says how much time remains until `from`. At `from`, the operator moves the planned addresses into
-`relay_addresses`. The gateway MUST check that the addresses in force (from `from` on, the planned
-ones) equal the A and AAAA records of its standard name before it advises the household to change
-any record, and
-SHOULD check the A and AAAA records of its own-domain name, telling the household about any
+least 30 days after its `from`. At `from`, the operator moves the planned addresses into
+`relay_addresses` and into the A and AAAA records of the standard names. The gateway announces the
+coming change to the household, but advises it to change its records only once the A and AAAA
+records of its standard name show the new addresses, so that forged metadata alone cannot move an
+own-domain name. It MUST check, through the resolvers of Section 6.5, that the addresses in force
+equal the A and AAAA records of its standard name before it advises any change; if they differ on
+two checks an hour apart, after fetching the metadata again, it advises nothing yet, tells its
+administrator, checks again at least once a day, and gives the advice as soon as they are equal.
+Its announcement and its advice name the last day on which the relay is sure to accept the old
+addresses, 30 days after the `from` that it stored. A gateway that saw no announcement and stored
+no `from` advises the change as soon as this check passes and says that the old addresses can stop working at any time.
+It SHOULD check the A and AAAA records of its own-domain name, telling the household about any
 difference.
 
 **Help for the household.** The portal SHOULD show the records with their values and check them
@@ -689,8 +760,11 @@ and reports that CA's issuer domain name as `caa_identity`. An operator lists in
 its metadata (Section 3) the CAs it allows in the CAA records of its standard names; it MUST list
 only CAs that meet both conditions. The gateway shows `acme_cas` at pairing and uses a CA from
 that list; if it supports none of them, it does not pair. When an operator removes a CA from
-`acme_cas`, existing CAA records stay until the gateway changes its account (Section 5.6); the
-gateway tells its administrator that its CA is no longer allowed. `relay/cas.md` lists, informatively,
+`acme_cas`, existing CAA records stay until the gateway changes its account. The gateway tells its
+administrator that its CA is no longer allowed and SHOULD move to a listed CA, reporting the new
+account as Section 5.6 describes; if it supports no listed CA, it keeps its account, if it has one, and says so. A gateway that knows
+that its CA no longer meets the conditions stops obtaining certificates from it and tells its
+administrator. `relay/cas.md` lists, informatively,
 CAs that meet both conditions according to public sources.
 
 ### 6.7 Certificate Transparency monitoring
@@ -699,18 +773,47 @@ A gateway MUST monitor Certificate Transparency for each of its public names, at
 levels, at least once an hour, through any service or log it chooses. A certificate counts for a
 public name if one of its names matches it, including a wildcard that covers it (such as
 `*.<name_domain>`); a search by the exact name alone does not meet this rule. The gateway recognises the
-certificates it obtained itself, and their precertificates, by the public key of its server key.
-Every certificate for a public name that the gateway did not obtain itself raises an alarm to its local administrator
-with the issuer, the names and the validity of that certificate. The administrator MAY acknowledge a certificate
+certificates it obtained itself, and their precertificates, by the public key of its current server
+key, and by the public key of an earlier server key only if the certificate was logged before that
+key was replaced, going by the timestamp of its log entry.
+Every certificate for a public name that the gateway did not obtain itself and that was valid at any
+time since the pairing raises an alarm to its local administrator
+with the issuer, the names and the validity of that certificate; one that has expired is reported
+as a past exposure. The administrator MAY acknowledge a certificate
 (for example the household's own wildcard certificate for its zone), which ends the alarm for that
-certificate only. When no query has succeeded for 24 hours, the gateway shows that monitoring is
-not possible.
+certificate only. The gateway tells its administrator that monitoring is not possible when, for 24 hours, no query
+of Certificate Transparency has succeeded, or no query of the CAA records below, or no read of its
+installation; each of these counts on its own.
 
 With the same frequency, the gateway queries, through the resolvers of Section 6.5, the CAA
-records of its standard name and of the apex of the name domain, and raises an alarm when either
-is anything other than Section 6.3 prescribes: at the standard name the record for the account in
-force that the gateway reported (or, before its first account report, `0 issue ";"`; an empty
-answer counts as different), at the apex exactly `0 issue ";"` and `0 issuewild ";"`.
+records of its standard name and of the apex of the name domain, and raises an alarm when the set
+of `issue` and `issuewild` properties of either differs from what Section 6.3 prescribes:
+
+- at the standard name exactly the `issue` record for the account in force that the gateway
+  reported (or, while no account is in force, `0 issue ";"`), and optionally `issuewild ";"`;
+- at the apex exactly `issue ";"` and `issuewild ";"`.
+
+Tags are compared without regard to case, as in RFC 8659 Section 4.1. A missing prescribed
+property, including an empty answer, is a difference; other properties, such as `iodef`, are
+ignored.
+
+The record of a confirmed change can reach the resolvers before the gateway has read the pair. On
+a difference, the gateway therefore reads its installation again and, if the records still differ
+from what the pair then known prescribes, repeats both steps once after five minutes, and raises
+the alarm if the records still differ. This read never delays the alarm: it is limited to
+150 seconds, the gateway does not wait for a `Retry-After`, and after a failed
+read, or one it cannot send during a key-change recovery (Section 5.5), it compares with the last
+pair it knows. The gateway compares the answer of each resolver on its own, so resolvers that
+disagree count as a difference unless every answer is what is prescribed or excused below.
+
+A gateway starts these checks of its standard name one hour after a pairing, because resolvers can
+still hold the record of a replaced gateway, which it does not know.
+
+Resolvers can also still hold the previous record after a new pair took effect. For one hour after the
+gateway first learns of a new pair in force, from the answer to its report or from its
+installation, it does not raise this alarm for exactly the record that was prescribed before that
+pair, if the gateway itself reported the earlier pair or none was in force. That record names the
+gateway's earlier account or permits no issuance.
 
 ### 6.8 Pinning the relay
 
@@ -725,7 +828,8 @@ or leaked active key. Together there are at most eight.
   from the metadata (Section 3) that it fetched under the WebPKI.
 - Afterwards it takes new pins **only from the relay over a tunnel connection that was
   authenticated with a stored pin** (a control message of the tunnel protocol, Section 4), and
-  only under these rules; a set that breaks them is ignored and the stored set kept:
+  only under these rules; a set that breaks them (also one with a pin in both kinds or more than
+  eight pins) is ignored and the stored set kept:
   - over a connection authenticated with an **active** pin, the relay may replace the active
     pins (at least one), and the backup pins MUST stay exactly as stored;
   - over a connection authenticated with a **backup** pin, the relay may replace both kinds (at
@@ -739,7 +843,11 @@ or leaked active key. Together there are at most eight.
   Only the administrator can then take the pins of the current metadata, after a warning that a
   relay without a known key may be an attacker. There is no silent trust on first use.
 
-An operator rotates an active key by announcing the new active pins before it uses the new key.
+An operator rotates an active key by announcing the new active pins (together with the current
+ones) at least one day longer before it uses the new key than the largest `max_offline_days` in
+force for any of its installations. A gateway that was offline longer, or whose installation was
+blocked meanwhile, may have missed the announcement and then needs its administrator to take new
+pins as above.
 To recover from a lost or leaked active key, or to replace a backup key, it connects with a
 backup key and announces the complete new set.
 
@@ -772,7 +880,7 @@ this specification; what an operator itself could do is in the rows below and in
 |---|---|---|
 | **Guesses a pairing code** | 80 random bits, valid for at most 10 minutes (24 hours for a code for an existing installation, after its waiting time), single use, limited attempts, one answer for all failures (Section 5.2) | – |
 | **Intercepts or is shown a pairing code** for a new installation before the household uses it | The code is bound to the household's account, not to a gateway; the operator notifies the household of every new installation (Section 5.2) | The attacker's gateway is paired to the household's account until the household notices and unpairs it. It gets a new standard name and does not receive the household's agents |
-| **Intercepts or is shown a pairing code for an existing installation** | Created only after a fresh authentication, announced on all channels, usable only after at least 24 hours in which the household can cancel it; a gateway that still runs warns its administrator during that time (Section 5.2) | A household that ignores the announcement loses its standard name to the attacker's gateway, which then receives the household's agents and can complete their TLS for the standard name; an own-domain name stays bound to the old ACME account by the household's CAA record until the household changes it. The replaced gateway learns it (`unpaired`) and tells the household; the new server certificate appears in Certificate Transparency (Section 6.7) |
+| **Intercepts or is shown a pairing code for an existing installation** | Created only after a fresh authentication and not within 72 hours after a change of notification channels, announced on all channels, usable only after at least 24 hours in which the household can cancel it; a gateway that still runs warns its administrator during that time (Section 5.2) | A household that ignores the announcement loses its standard name to the attacker's gateway, which then receives the household's agents and can complete their TLS for the standard name; an own-domain name stays bound to the old ACME account by the household's CAA record until the household changes it. The replaced gateway learns it (`unpaired`) and tells the household; the new server certificate appears in Certificate Transparency (Section 6.7) |
 | **Lures a household to a malicious operator** (a pairing string of the attacker) | Pairing only by the local administrator, after the gateway showed the operator domain and its parameters (Section 5.2) | A household that confirms anyway uses that operator, with the protection Section 6.2 gives against operators |
 | **Replays a request** | Single-use nonces and the signed `url` (Section 5.1) | – |
 | **Another installation's key** (any paired gateway, also one paired to the attacker's own account) | The URL of a request must belong to the installation of its key (Section 5.1); installation URLs carry 128 random bits | – |
@@ -783,8 +891,8 @@ this specification; what an operator itself could do is in the rows below and in
 | **Compromises the operator's tunnel CA** | Name constraint on the operator's trust domain; short lifetimes (Section 5.4) | Tunnel certificates for every home of that operator: denial of service and metadata, not content |
 | **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm, and the gateway checks the CAA records of its standard name and of the apex every hour (Sections 6.6, 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm; an operator that deliberately deceives, with a CA that does not log and CAA answers for the CA that differ from those the gateway sees, reads unnoticed as long as agents do not require proof of logging (Section 6.2). Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
 | **Another household claims an own-domain name** | Only a verified name is held and routed, and only the installation whose TXT token is in the name's zone can verify it; an unverified registration lapses after 7 days and blocks nobody (Section 6.4) | – |
-| **Obtains a misissued WebPKI certificate for the operator domain** and serves forged metadata | After pairing, pins change only over a tunnel authenticated with a stored pin (Section 6.8) | After pairing, forged relay addresses can lead a household with an own-domain name to point it at the attacker: denial of service and connection metadata, not content (the gateway compares the addresses with the A and AAAA records of its standard name, Section 6.4). A gateway that pairs while the attacker serves the metadata pairs with the attacker, which then acts as its operator: at level Standard it can read until the gateway's Certificate Transparency alarm (as for an operator that wants to read); an own-domain name stays protected by the household's CAA record |
-| **Forges DNS answers to the gateway** | DNSSEC, or two independent resolvers (Section 6.5); the CA validates independently | A wrong protection level shown in the gateway, or a missed CAA alarm; issuance is not affected |
+| **Obtains a misissued WebPKI certificate for the operator domain** and serves forged metadata | After pairing, pins change only over a tunnel authenticated with a stored pin (Section 6.8) | After pairing, forged relay addresses alone do not move an own-domain name: the gateway advises a change only when the A and AAAA records of its standard name show the new addresses (Section 6.4). A gateway that pairs while the attacker serves the metadata pairs with the attacker, which then acts as its operator: at level Standard it can read until the gateway's Certificate Transparency alarm (as for an operator that wants to read); an own-domain name stays protected by the household's CAA record |
+| **Forges DNS answers to the gateway** | DNSSEC, or two independent resolvers (Section 6.5); the CA validates independently | A wrong protection level shown in the gateway, a missed CAA alarm, or advice on relay addresses that is suppressed or delayed; issuance is not affected |
 | **Loses or leaks the relay key** (operator) | Backup pins of offline keys; new pins only over a pinned tunnel; over an active key the backup pins cannot change, and only a backup key can replace the whole set (Section 6.8) | With a leaked active key and a position on the path: denial of service and tunnel metadata until the operator connects with a backup key. With every pinned key lost, the local administrator must take new pins after a warning |
 | **Operator that tries to change what the household allows** | No message carries mandates, approver keys or issuer keys; a gateway accepts none (Section 5.7) | – |
 
@@ -810,3 +918,15 @@ counts) and how long it may keep it.
   gateway's ACME account, unpairing and blocking;
   schema `relay/schema/enrollment-v0.schema.json` with examples. Security considerations for
   Section 5.
+- Follow-ups for Sections 5 and 6 (#44): spelling-rule violations are `malformed`, response
+  timeout and fixed enrollment host, stray installations after a lost pairing response, failed
+  response checks do not unpair, notification-channel changes before a replacement code, the
+  gateway revokes foreign certificates after a pairing and asks for a new own-domain CAA record, CSR
+  algorithms and the checks a gateway makes on its tunnel certificate, rejecting and expiring a
+  pending ACME account, which CAA properties count as a deviation, earlier server keys in CT
+  monitoring, relay address changes advised only once visible at the standard name, rules for
+  announced pin sets and the lead time of a key rotation, what a gateway does after an
+  unconfirmed ACME account change, no CAA alarm for the previous record in the hour after a
+  change (TTL of at most 3600 seconds), when a gateway revokes after a pairing, a read of the
+  installation at least every 12 hours, a warning before a replacement that a running gateway
+  MUST give, past exposures reported by Certificate Transparency monitoring.
