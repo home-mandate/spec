@@ -21,4 +21,4 @@ A CA is listed when, as far as public sources show,
 
 To propose a CA, open an issue with public sources for both conditions. A CA is removed when a
 source shows that it no longer meets one of them; operators then remove it from `acme_cas`, and
-gateways move to another listed CA as RELAY-v0 Section 6.6 describes.
+gateways move to another CA in `acme_cas` as RELAY-v0 Section 6.6 describes.
