@@ -781,9 +781,9 @@ time since the pairing raises an alarm to its local administrator
 with the issuer, the names and the validity of that certificate; one that has expired is reported
 as a past exposure. The administrator MAY acknowledge a certificate
 (for example the household's own wildcard certificate for its zone), which ends the alarm for that
-certificate only. When no query of Certificate Transparency or of the CAA records below has succeeded for 24 hours, or
-no read of its installation for 12 hours, the gateway tells its administrator that monitoring is
-not possible.
+certificate only. The gateway tells its administrator that monitoring is not possible when, for 24 hours, no query
+of Certificate Transparency has succeeded, or no query of the CAA records below, or no read of its
+installation; each of these counts on its own.
 
 With the same frequency, the gateway queries, through the resolvers of Section 6.5, the CAA
 records of its standard name and of the apex of the name domain, and raises an alarm when the set
