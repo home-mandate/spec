@@ -247,7 +247,7 @@ know in every response.
 | `name-unavailable` | 409 | another installation holds the own-domain name (Section 6.4) | tells the household |
 | `key-conflict` | 409 | the installation key of a pairing or the new key of a key change is already in use (Sections 5.2, 5.5) | creates a new key and repeats the request |
 | `unpaired` | 410 | the installation was unpaired or replaced (Sections 5.2, 5.7) | ends the pairing locally (Section 5.7) |
-| `rate-limited` | 429 | too many requests; the response carries `Retry-After` | waits at least that long, or as on `server-internal` without the header |
+| `rate-limited` | 429 | too many requests; the response carries `Retry-After` | waits at least that long, or as on `server-internal` without the header, except before a CAA alarm (Section 6.7) |
 | `server-internal` | 500 | anything else | retries with exponential backoff |
 
 ### 5.2 Pairing
@@ -282,7 +282,8 @@ while the gateway is not paired with any operator. The gateway
    tunnel key; the operator MUST answer a pairing request whose code was redeemed by the same
    installation key, within the code's validity, like the first one, with a tunnel certificate
    for the new request, as long as that installation still has that installation key and was
-   neither unpaired nor replaced; otherwise it answers `unpaired`. After the code's validity it
+   neither unpaired nor replaced, and is not blocked; otherwise it answers `unpaired`, or `blocked`
+   for a blocked installation. After the code's validity it
    answers `pairing-refused`. The gateway then tells the household that a pairing may have been
    created: after a code for a new installation, the household removes the stray installation
    in the portal; after a code for an existing installation, it creates a new such code instead,
@@ -484,7 +485,7 @@ pairing (or after a replacement, Section 5.2) takes effect at once if it arrives
 hour of the pairing (or the replacement); it replaces the CAA record that permits no issuance and
 is answered with `200` once the new record is served by all authoritative name servers, within
 120 seconds, or else with `server-internal`, while the account stays in force. A report of the
-account already in force is answered alike and is not a change. A first report after that hour,
+pair already in force is answered alike and is not a change. A first report after that hour,
 and every later change, MUST be confirmed by the household:
 
 - the operator answers `confirmation-required`, keeps the account already in force (or the CAA
@@ -506,14 +507,14 @@ and every later change, MUST be confirmed by the household:
 A gateway MUST keep the key of an account until another pair is in force and the CAA record of its
 own-domain name, if any, no longer names that account, or until the pairing ends. When a change
 was not confirmed, it goes on using the account in force. If it has no account in force because its
-report was not confirmed or it supports no listed CA (Section 6.3), or if it no longer holds the
+report was not confirmed or it supports no listed CA (Section 6.6), or if it no longer holds the
 key of the account in force, it cannot obtain a server certificate: it keeps telling its administrator so, and reports again only
 when the administrator asks for it, so that the household is not notified again and again.
 
 A gateway MUST alarm its local administrator when an `acme_account` or `caa_identity` is in force
 that the gateway never reported: then another party has reported an account for its standard name.
 When its first report arrives after the hour and is answered with `confirmation-required`, the
-gateway asks the household to confirm in the portal instead.
+gateway also asks the household to confirm in the portal.
 
 **Challenge.** A `POST` to `acme_challenge` with `{"values": […]}`
 (`$defs/acme_challenge_request`) makes the operator publish exactly these values as TXT records
@@ -540,7 +541,7 @@ answered with `200` and the installation with the status `unpaired`. The operato
 - removes every DNS record of the standard name, including challenge and CAA records, so that
   the CAA record at the apex of the name domain applies again (Section 6.3), and releases its
   own-domain name (Section 6.4);
-- keeps the home ID reserved (Section 5.2).
+- cancels any pending code for this installation, and keeps the home ID reserved (Section 5.2).
 
 **Ending the pairing locally.** A gateway that unpairs or receives `unpaired` MUST close the
 tunnel, delete its installation key and tunnel key, revoke its server certificate and deactivate
@@ -648,8 +649,8 @@ report fetches the metadata again and, if its CA is no longer listed, chooses a 
 reports the new account as Section 5.6 describes. When the installation is unpaired, the record at
 the name is removed and the record at the apex applies again. The operator MUST NOT publish at or
 below a standard name any other record that a CA uses for validation (TXT outside
-`_acme-challenge`, CNAME, DNAME, NS). The A, AAAA and CAA records at a standard name MUST have a TTL of
-at most 3600 seconds.
+`_acme-challenge`, CNAME, DNAME, NS). The A, AAAA and CAA records at a standard name and the CAA records
+at the apex MUST have a TTL of at most 3600 seconds.
 
 ### 6.4 Own-domain names
 
@@ -711,7 +712,7 @@ two checks an hour apart, after fetching the metadata again, it advises nothing 
 administrator, checks again at least once a day, and gives the advice as soon as they are equal.
 Its announcement and its advice name the last day on which the relay is sure to accept the old
 addresses, 30 days after the `from` that it stored. A gateway that saw no announcement and stored
-no `from` advises the change at once and says that the old addresses can stop working at any time.
+no `from` advises the change as soon as this check passes and says that the old addresses can stop working at any time.
 It SHOULD check the A and AAAA records of its own-domain name, telling the household about any
 difference.
 
@@ -765,8 +766,8 @@ levels, at least once an hour, through any service or log it chooses. A certific
 public name if one of its names matches it, including a wildcard that covers it (such as
 `*.<name_domain>`); a search by the exact name alone does not meet this rule. The gateway recognises the
 certificates it obtained itself, and their precertificates, by the public key of its current server
-key, and by the public key of an earlier server key only if the certificate was issued before that
-key was replaced.
+key, and by the public key of an earlier server key only if the certificate was logged before that
+key was replaced, going by the timestamp of its signed certificate timestamp.
 Every certificate for a public name that the gateway did not obtain itself and that was valid at any
 time since the pairing raises an alarm to its local administrator
 with the issuer, the names and the validity of that certificate; one that has expired is reported
@@ -792,7 +793,9 @@ a difference, the gateway therefore reads its installation again and, if the rec
 from what the pair then known prescribes, repeats both steps once after five minutes, and raises
 the alarm if the records still differ. This read never delays the alarm: it is limited to
 150 seconds, the gateway does not wait for a `Retry-After`, and after a failed
-read it compares with the last pair it knows. Resolvers that disagree count as a difference.
+read, or one it cannot send during a key-change recovery (Section 5.5), it compares with the last
+pair it knows. The gateway compares the answer of each resolver on its own, so resolvers that
+disagree count as a difference unless every answer is what is prescribed or excused below.
 
 A gateway starts these checks of its standard name one hour after a pairing, because resolvers can
 still hold the record of a replaced gateway, which it does not know.
@@ -800,7 +803,8 @@ still hold the record of a replaced gateway, which it does not know.
 Resolvers can also still hold the previous record after a new pair took effect. For one hour after the
 gateway first learns of a new pair in force, from the answer to its report or from its
 installation, it does not raise this alarm for exactly the record that was prescribed before that
-pair. That record names the gateway's earlier account or permits no issuance.
+pair, if the gateway itself reported the earlier pair or none was in force. That record names the
+gateway's earlier account or permits no issuance.
 
 ### 6.8 Pinning the relay
 
