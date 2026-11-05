@@ -195,7 +195,8 @@ func TestAtOrBelow(t *testing.T) {
 	}
 }
 
-// Section 7.1: the example keeps the name domain apart from everything else of the operator.
+// Section 7.1 asks for separate registered domains. Without the Public Suffix List, this test checks
+// only that no host of the example is at or below the name domain, and that the two domains do not overlap.
 func TestExampleKeepsTheNameDomainApart(t *testing.T) {
 	doc := loadExample(t)
 	nameDomain := doc["name_domain"].(string)
