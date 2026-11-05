@@ -452,7 +452,7 @@ issuance on. A gateway MAY apply a shorter limit of its own; it then behaves as 
 `offline-too-long` (Section 5.7).
 
 The operator MUST show the household each issuance in the portal, with its time and, for as long
-as Section 7.5 allows, its source address,
+as it keeps it under Section 7.5, its source address,
 MUST notify the household of a re-issuance, and SHOULD limit issuances per installation (for
 example to six per day).
 
@@ -919,8 +919,8 @@ after 7 days. It MAY keep more or keep them longer where a law requires it, whic
 privacy policy (`privacy_policy`), or, limited to the records concerned, until an open case of abuse,
 an objection (Section 7.6) or an incident (Section 7.9) has ended. Its privacy policy MUST state the
 periods it applies. The time of each issuance is not bound by these periods: the operator keeps it,
-and shows it, as long as the installation exists; its source address only as long as this section
-allows (Section 5.5).
+and shows it, as long as the installation exists; its source address only as long as it keeps it under
+this section (Section 5.5).
 
 **Account data** are the household's account and notification channels, billing records and reports
 of abuse. **Installation data** are the link between account and home ID, the ACME account, the
@@ -953,7 +953,8 @@ MUST tell the household the reason, unless a law forbids that, and how to object
 ### 7.7 Keys and services
 
 - **Backup keys of the relay.** An operator SHOULD hold at least two backup keys, and MUST keep every
-  backup key it holds and that a paired gateway may still have pinned offline. It uses them only for a
+  backup key it holds and that a paired gateway may still have pinned offline; a key used for a recovery or a replacement stays online only until the
+  gateways it serves have connected or reached `max_offline_days`. It uses them only for a
   recovery or to replace a backup key (Section 6.8), and for a test of this, which runs on a system that
   has no other connection than the one to a gateway kept for this test, and that is not paired
   with a household. It MUST test each key in `relay_backup_pins` before it pairs a gateway of any household for the
@@ -1011,7 +1012,7 @@ existing installation there, because such a pairing would not pass the check of 
 An operator that gives up a name domain, from the last announced day at the latest, MUST keep control of it,
 of the registration above it and of the operator domain for at least one year, with the CAA records of
 Section 6.3 at the apex and no other record below the name domain except the delegation and address
-records of its own name servers, so that nobody else can obtain a name
+records of its own name servers and the DNSSEC records that belong to them, so that nobody else can obtain a name
 that agents may still use. It SHOULD pay for that time in advance when it announces the end.
 
 ### 7.10 What can be checked from outside (informative)
