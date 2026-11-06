@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -172,5 +173,22 @@ func TestCertificateGeneratorRefusesKeysOfTheWrongType(t *testing.T) {
 	}
 	if _, _, err := issue("x", leafSpec{key: "missing"}, relaySigners{"missing": "not a key"}, nil); err == nil {
 		t.Error("issue accepted a key that cannot sign")
+	}
+}
+
+func TestCSRHelpersRefuseUnsupportedKeys(t *testing.T) {
+	if _, err := compressedCSR("not a key"); err == nil {
+		t.Error("compressedCSR accepted a key that is not P-256")
+	}
+	signers, err := loadSigners("../..", "relay/conformance/keys/test-keys.private.json", []string{"relay-tunnel"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := makeCSR(&x509.CertificateRequest{}, signers["relay-tunnel"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resign(der, oidEd25519, "not a key"); err == nil {
+		t.Error("resign accepted a key it cannot use")
 	}
 }

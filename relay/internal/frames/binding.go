@@ -59,6 +59,11 @@ func Bind(state RelayState, conn Connection, first []byte) Binding {
 	if conn.NotBefore.Before(state.ControlNotBefore) {
 		return Binding{}
 	}
+	// A data-bind longer than 32 bytes: the relay may read the 36 bytes of a data-bind,
+	// and with them a token, before it refuses the frame.
+	if len(first) >= headerSize+TokenSize && first[0] == 0 && first[1] == typeDataBind && int(first[2])<<8|int(first[3]) > TokenSize {
+		return Binding{}
+	}
 	token, err := DataBind(first)
 	if errors.Is(err, ErrCase) {
 		return Binding{Determined: true, CaseError: err}

@@ -252,7 +252,11 @@ func TestJWSCaseKeysAreTestKeys(t *testing.T) {
 	for _, raw := range set.Keys {
 		// relay-p384 and relay-rsa are outside the JWS profile; they only make requests that
 		// are refused (csr-v0.json).
-		if bytes.Contains(raw, []byte(`"P-384"`)) || bytes.Contains(raw, []byte(`"RSA"`)) {
+		var kind struct{ Kty, Crv string }
+		if err := json.Unmarshal(raw, &kind); err != nil {
+			t.Fatal(err)
+		}
+		if kind.Kty == "RSA" || kind.Crv == "P-384" {
 			continue
 		}
 		key, err := jws.ParseJWK(stripKid(t, raw))

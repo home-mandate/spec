@@ -236,7 +236,7 @@ type control struct {
 	hello       Message
 	acked       bool
 	closed      bool
-	drained     map[string]bool // by the side that sent drain
+	drained     map[string]bool   // by the side that sent drain
 	outstanding map[string]string // unanswered ping value by sender
 	pins        map[int64]bool    // sequences of the pins the relay sent
 }
@@ -266,6 +266,7 @@ func (s *control) next(f Frame) (Message, error) {
 	case !known:
 		return nil, fmt.Errorf("%w: type %#04x", ErrFrame, typ)
 	case k.data:
+		// e68 also fails on its payload; the rule matters once a data type has no payload.
 		return nil, fmt.Errorf("%w: %s on a control connection", ErrFrame, k.name)
 	case k.from != "" && k.from != f.From:
 		return nil, fmt.Errorf("%w: %s from the %s", ErrFrame, k.name, f.From)

@@ -3,22 +3,22 @@
   "files": [
     {
       "path": "relay/conformance/binding-v0.json",
-      "sha256": "7cd2bfd4e538611d24b10f40d6fa9ace020c246d6568068d1c44f7b90cf956c1",
+      "sha256": "7c2f126f63eab2aa13b2d3d49bbefc01e572382c24bab3fbad42f6426984e1f3",
       "cases": 16
     },
     {
       "path": "relay/conformance/certificate-v0.json",
-      "sha256": "cd03d9a091529f68af0282cdd184cef3210056e7a2e337f94c3c1749a777eef0",
-      "cases": 36
+      "sha256": "740fc8095b236a98e22329ad24661d43aaf4130dd10d87a21221994c7ad9f811",
+      "cases": 38
     },
     {
       "path": "relay/conformance/csr-v0.json",
-      "sha256": "c0ffcede354cdf6be2efcf6e140daf4ddfffa9122c6e2299809fc38b126348b7",
-      "cases": 18
+      "sha256": "f879c5600f492079020d712052dc35c9f6e4c215cbba9d73fc55bbef71f224b7",
+      "cases": 19
     },
     {
       "path": "relay/conformance/frames-v0.json",
-      "sha256": "a33ce9089a6ce86313c540d6676c18627e9dcf346c70885b08595ada8e6687ab",
+      "sha256": "84cdbd1726b1a710495ad068700ede01cb5207149092c0386f91a101a84ecb9b",
       "cases": 89
     },
     {
@@ -73,8 +73,8 @@
     },
     {
       "path": "relay/conformance/tls-v0.json",
-      "sha256": "8c7a6ee687744525dfa97e616a9af12459eb500a5441e30b1215b7af5c5512c6",
-      "cases": 13
+      "sha256": "0f7a4bcb72b3244e9fdf426373d4bec5ea56260d21bf1cab737c8646fd06fd04",
+      "cases": 14
     },
     {
       "path": "relay/examples/acme-challenge-request.json",

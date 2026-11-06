@@ -3,9 +3,11 @@
 package main
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -34,11 +36,12 @@ const relayCertificateDescription = "Tunnel certificates of the Relay Specificat
 	"(when the request was sent), received_at (when the response arrived), earlier_not_before (the latest notBefore of the tunnel certificates issued to the installation before, " +
 	"or null), and whether the certificate is valid. Valid: one to four certificates; the issued one has the tunnel key; " +
 	"its subject alternative name extension is critical and is byte for byte one URI, spiffe://<trust_domain>/home/<home_id>/gateway; " +
-	"its subject is empty; notAfter equals not_after, is after requested_at and at most 24 hours after notBefore; notBefore is no earlier " +
+	"its subject is empty; notAfter equals not_after, is after notBefore and received_at and at most 24 hours after notBefore; notBefore is no earlier " +
 	"than 5 minutes before requested_at, no later than received_at and later than earlier_not_before (issuance lies between the two times, " +
 	"so a notBefore outside these bounds breaks the rule of 5 minutes before issuance or of no later than issuance); cA=false (also without a basic constraints extension); " +
 	"key usage digitalSignature alone and critical; extended key usage serverAuth and clientAuth and no other. Where the chain holds " +
 	"a second certificate, it issued the first and carries a name constraint whose permitted URI subtree is trust_domain alone. " +
+	"Valid means that the certificate meets section 5.4 as the live test checks it; a gateway has to refuse only what fails the checks section 5.4 lists for it. " +
 	"Whether the serial number has 64 random bits cannot be seen in one certificate. The keys are test keys; their private parts are " +
 	"in relay/conformance/keys/test-keys.private.json. Generated with go run ./tools/vectors relay-certificate."
 
@@ -299,7 +302,73 @@ func relayCSRSpecs(signers relaySigners) ([]relayCSRSpec, error) {
 		{id: "c16", installation: inst, earlier: old, build: func() ([]byte, error) { return make([]byte, 60), nil }, expected: "bad-csr", why: "60 zero bytes: not DER"},
 		{id: "c17", installation: inst, earlier: old, build: plain("relay-rsa"), expected: "bad-csr", why: "RSA key of 2048 bits, signed with RSA with SHA-256"},
 		{id: "c18", installation: inst, earlier: old, build: func() ([]byte, error) { return makeCSR(&x509.CertificateRequest{}, smallOrderSigner{}) }, expected: "bad-csr", why: "Ed25519 key of small order (the neutral point), with a signature that verifies without any private key (Section 5.1)"},
+		{id: "c19", installation: "relay-p256", build: func() ([]byte, error) { return compressedCSR(signers["relay-p256"]) }, expected: "bad-csr", why: "the installation key as a compressed P-256 point: a key compared by its encoding would pass as another one"},
 	}, nil
+}
+
+// compressedCSR is a request with the key as a compressed P-256 point, signed by that key.
+func compressedCSR(signer any) ([]byte, error) {
+	key, ok := signer.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, errors.New("not a P-256 key")
+	}
+	der, err := makeCSR(&x509.CertificateRequest{}, key)
+	if err != nil {
+		return nil, err
+	}
+	uncompressed, err := key.PublicKey.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	compressed := elliptic.MarshalCompressed(elliptic.P256(), key.X, key.Y)
+	tbs, err := x509.ParseCertificateRequest(der)
+	if err != nil {
+		return nil, err
+	}
+	// The key shrinks by 32 bytes, so the TBS is rebuilt rather than patched.
+	var info struct {
+		Raw       asn1.RawContent
+		Version   int
+		Subject   asn1.RawValue
+		PublicKey struct {
+			Raw       asn1.RawContent
+			Algorithm pkix.AlgorithmIdentifier
+			PublicKey asn1.BitString
+		}
+		Attributes asn1.RawValue `asn1:"tag:0"`
+	}
+	if _, err := asn1.Unmarshal(tbs.RawTBSCertificateRequest, &info); err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(info.PublicKey.PublicKey.Bytes, uncompressed) {
+		return nil, errors.New("unexpected key encoding")
+	}
+	spki, err := asn1.Marshal(struct {
+		Algorithm pkix.AlgorithmIdentifier
+		PublicKey asn1.BitString
+	}{info.PublicKey.Algorithm, asn1.BitString{Bytes: compressed, BitLength: 8 * len(compressed)}})
+	if err != nil {
+		return nil, err
+	}
+	newTBS, err := asn1.Marshal(struct {
+		Version    int
+		Subject    asn1.RawValue
+		PublicKey  asn1.RawValue
+		Attributes asn1.RawValue
+	}{info.Version, info.Subject, asn1.RawValue{FullBytes: spki}, info.Attributes})
+	if err != nil {
+		return nil, err
+	}
+	digest := sha256.Sum256(newTBS)
+	sig, err := key.Sign(nil, digest[:], crypto.SHA256)
+	if err != nil {
+		return nil, err
+	}
+	return asn1.Marshal(struct {
+		TBS asn1.RawValue
+		Alg pkix.AlgorithmIdentifier
+		Sig asn1.BitString
+	}{asn1.RawValue{FullBytes: newTBS}, pkix.AlgorithmIdentifier{Algorithm: oidECDSASHA256}, asn1.BitString{Bytes: sig, BitLength: 8 * len(sig)}})
 }
 
 // smallOrderSigner has the neutral point as its Ed25519 key. R = neutral point and S = 0
@@ -482,7 +551,7 @@ func relayCertSpecs() ([]relayCertSpec, error) {
 		{id: "t01", expected: "valid", why: "Ed25519 tunnel key, with the issuing CA in the chain"},
 		{id: "t02", leaf: leafSpec{key: "relay-tunnel-p256"}, tunnelKey: "relay-tunnel-p256", chain: alone, noEarlier: true, expected: "valid", why: "P-256 tunnel key, the issued certificate alone; the first tunnel certificate of the installation"},
 		{id: "t03", leaf: leafSpec{edit: edit(func(c *x509.Certificate) { c.BasicConstraintsValid = false })}, expected: "valid", why: "no basic constraints extension: cA=false"},
-		{id: "t04", leaf: leafSpec{notBefore: relayAt.Add(-maxTunnelBackdate)}, expected: "valid", why: "notBefore exactly 5 minutes before the request"},
+		{id: "t04", leaf: leafSpec{notBefore: relayAt.Add(-maxTunnelBackdate)}, expected: "valid", why: "notBefore exactly 5 minutes before the request: not provably earlier than 5 minutes before issuance"},
 		{id: "t05", leaf: leafSpec{lifetime: maxTunnelLifetime + time.Second}, expected: "invalid", why: "notAfter 24 hours and 1 second after notBefore"},
 		{id: "t06", leaf: leafSpec{notBefore: relayAt.Add(-maxTunnelBackdate - time.Second)}, expected: "invalid", why: "notBefore 5 minutes and 1 second before the request"},
 		{id: "t07", earlier: &nb, expected: "invalid", why: "notBefore equal to that of an earlier tunnel certificate, not later"},
@@ -517,10 +586,14 @@ func relayCertSpecs() ([]relayCertSpec, error) {
 		{id: "t32", chain: func(leaf, _ []byte) [][]byte { return [][]byte{append(append([]byte{}, leaf...), 0x00)} }, expected: "invalid", why: "a byte after the issued certificate"},
 		{id: "t33", leaf: leafSpec{notBefore: relayAt.Add(2 * time.Hour), lifetime: -time.Hour}, expected: "invalid", why: "notAfter before notBefore"},
 		{id: "t34", leaf: leafSpec{notBefore: relayAt.Add(time.Hour)}, expected: "invalid", why: "notBefore one hour after the request: later than issuance"},
-		{id: "t35", leaf: leafSpec{notBefore: relayReceived}, expected: "valid", why: "notBefore when the response arrived: no later than issuance"},
+		{id: "t35", leaf: leafSpec{notBefore: relayReceived}, expected: "valid", why: "notBefore when the response arrived: not provably later than issuance"},
 		{id: "t36", leaf: leafSpec{edit: edit(func(c *x509.Certificate) {
 			c.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
 		})}, expected: "valid", why: "extended key usage in another order and with clientAuth twice: still serverAuth and clientAuth and no other"},
+		{id: "t37", leaf: leafSpec{lifetime: time.Minute + time.Second}, expected: "invalid", why: "notAfter after the request but before the response arrived: expired on arrival"},
+		{id: "t38", leaf: leafSpec{edit: edit(func(c *x509.Certificate) {
+			c.ExtraExtensions = append(c.ExtraExtensions, pkix.Extension{Id: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 99999, 1}, Critical: true, Value: []byte{0x05, 0x00}})
+		})}, expected: "invalid", why: "an unknown critical extension, which no relay accepts"},
 	}, nil
 }
 
@@ -569,7 +642,7 @@ func buildCertificateCase(s relayCertSpec, signers relaySigners, signing *x509.C
 	return relayCertificateCase{
 		ID: s.id, Chain: encoded, NotAfter: notAfter.Add(s.notAfter).Format(time.RFC3339), TunnelKey: json.RawMessage(key),
 		TrustDomain: relayTrustDomain, HomeID: relayHomeID, RequestedAt: relayAt.Format(time.RFC3339),
-		ReceivedAt: relayReceived.Format(time.RFC3339),
+		ReceivedAt:       relayReceived.Format(time.RFC3339),
 		EarlierNotBefore: earlier, Expected: s.expected, Why: s.why,
 	}, nil
 }

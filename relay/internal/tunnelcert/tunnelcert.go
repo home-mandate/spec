@@ -136,6 +136,10 @@ func CheckIssued(chain [][]byte, want Expected) error {
 		certs = append(certs, c)
 	}
 	leaf := certs[0]
+	// No relay accepts a certificate with a critical extension it does not know.
+	if len(leaf.UnhandledCriticalExtensions) > 0 {
+		return fmt.Errorf("%w: unknown critical extension %v", ErrInvalid, leaf.UnhandledCriticalExtensions[0])
+	}
 	for _, rule := range []func(*x509.Certificate, Expected) error{checkKey, checkSAN, checkTimes, checkUsage} {
 		if err := rule(leaf, want); err != nil {
 			return fmt.Errorf("%w: %w", ErrInvalid, err)
@@ -201,7 +205,7 @@ func checkTimes(c *x509.Certificate, want Expected) error {
 		return errors.New("notAfter is not after notBefore")
 	case !c.NotAfter.Equal(want.NotAfter):
 		return fmt.Errorf("notAfter %s is not not_after %s", c.NotAfter, want.NotAfter)
-	case !c.NotAfter.After(want.RequestedAt):
+	case !c.NotAfter.After(want.ReceivedAt):
 		return errors.New("notAfter is not in the future")
 	case c.NotAfter.Sub(c.NotBefore) > MaxLifetime:
 		return errors.New("notAfter is more than 24 hours after notBefore")

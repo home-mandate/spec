@@ -18,6 +18,7 @@ import (
 	"io"
 	"math/big"
 	"net"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -309,6 +310,9 @@ func probe(t *testing.T, addr string, cfg *tls.Config) string {
 	if errors.Is(err, errLocal) {
 		return err.Error()
 	}
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return "no answer"
+	}
 	if err != nil {
 		// The relay refused: an alert, or a closed connection.
 		var alert tls.AlertError
@@ -327,6 +331,9 @@ func probe(t *testing.T, addr string, cfg *tls.Config) string {
 		return "refused"
 	}
 	frame, err := readFrame(conn)
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return "no answer"
+	}
 	if err != nil {
 		return "refused"
 	}
