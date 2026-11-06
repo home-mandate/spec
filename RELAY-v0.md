@@ -337,8 +337,9 @@ receiver treats an unknown code like 7.
 The relay sends `stream-open` only after `hello-ack`, never above `max streams`, no faster than its
 own limit of new data connections for the installation (Section 4.8), closing surplus agent
 connections instead, and not after a
-`drain` in either direction. A `stream-open` that arrives after the gateway's own `drain` (it may have
-crossed it) is no error; the gateway answers it with `stream-close` `refused`. After a `drain` of the relay, the gateway opens a new control
+`drain` in either direction. A `stream-open` that arrives after the gateway's own `drain` (it may
+have crossed it) is no error; the gateway answers it with `stream-close` `refused`. After a `drain`
+of the relay, the gateway opens a new control
 connection, which the relay accepts on an instance that is not draining, or else answers with `error`
 `internal`, after which the gateway connects again as in Section 4.9; the relay closes the drained
 connection at the end of the grace time at the latest. After a `drain` of the gateway, the relay closes new agent
@@ -755,8 +756,8 @@ refuse it with `bad-csr` unless
 
 - its signature verifies with the public key it contains;
 - the key is ECDSA P-256 (an uncompressed point) or Ed25519, and a key in the sense of
-  Section 5.1, and the request is
-  signed with ECDSA with SHA-256 or with Ed25519, respectively (an operator MUST accept both);
+  Section 5.1, and the request is signed with ECDSA with SHA-256 or with Ed25519, respectively
+  (an operator MUST accept both);
 - the key differs from the installation key and from the key of every tunnel certificate the
   operator issued to this installation before.
 
@@ -1434,17 +1435,18 @@ first added as a case.
 ### 8.3 Live test
 
 The test tool `relay-conformance` (in `cmd/`) plays a gateway and an agent against a live operator.
-With up to two pairing codes of the test account (Section 8.4) it pairs a test installation with keys it
-generates for this run, sends the requests of the cases with their deliberate defects and compares
-the errors, also requests of one installation at the URLs of another, checks the tunnel certificates
-it is issued and the records in the operator's DNS, registers an own-domain name in a zone of the
-tester, opens the tunnel with the parameters of the cases, sends frames with their defects and
-presents tokens that the relay must refuse, connects as an agent to the standard name and to the own-domain name, and
-finally unpairs and checks that the installation, its certificates and its records are gone. It
-reports an ACME account URI at a CA of `acme_cas` that belongs to no account, so the CAA record of
-the test permits nobody and the test obtains no server certificate. It honours `Retry-After` and
-spaces its attempts, so that the limits of an operator do not fail it. A run creates at most two
-installations and unpairs every one it created before it ends, also when a check fails.
+With up to two pairing codes of the test account (Section 8.4) it pairs a test installation with
+keys it generates for this run, sends the requests of the cases with their deliberate defects and
+compares the errors, also requests of one installation at the URLs of another, checks the tunnel
+certificates it is issued and the records in the operator's DNS, registers an own-domain name in a
+zone of the tester, opens the tunnel with the parameters of the cases, sends frames with their
+defects and presents tokens that the relay must refuse, connects as an agent to the standard name
+and to the own-domain name, and finally unpairs and checks that the installation, its certificates
+and its records are gone. It reports an ACME account URI at a CA of `acme_cas` that belongs to no
+account, so the CAA record of the test permits nobody and the test obtains no server certificate. It
+honours `Retry-After` and spaces its attempts, so that the limits of an operator do not fail it. A
+run creates at most two installations and unpairs every one it created before it ends, also when a
+check fails.
 
 ### 8.4 Access for testing
 
@@ -1549,12 +1551,12 @@ A household that wants less of this runs its gateway without a relay.
 
 - Section 8: cases for certificate signing requests, issued tunnel certificates, frames of the
   control connection, the binding of data connections and TLS of tunnel connections. Section 5.4:
-  the key of a request is a key in the sense of Section 5.1, a P-256 point uncompressed; the `notBefore` of a tunnel
-  certificate is no later than issuance and before its `notAfter`; a tunnel certificate without a
-  basic constraints extension has `cA=false`, and its extended key usage holds `serverAuth` and
-  `clientAuth` and no other usage. Section 4.2: a relay selects `X25519MLKEM768` also when a
-  ClientHello lists other groups. Section 4.4: a `stream-open` that arrives after the gateway's `drain`
-  is refused with `stream-close`, not treated as an error.
+  the key of a request is a key in the sense of Section 5.1, a P-256 point uncompressed; the
+  `notBefore` of a tunnel certificate is no later than issuance and before its `notAfter`; a
+  tunnel certificate without a basic constraints extension has `cA=false`, and its extended key
+  usage holds `serverAuth` and `clientAuth` and no other usage. Section 4.2: a relay selects
+  `X25519MLKEM768` also when a ClientHello lists other groups. Section 4.4: a `stream-open` that
+  arrives after the gateway's `drain` is refused with `stream-close`, not treated as an error.
 - Section 8 specified: conformance classes of operators (`metadata`, `enrollment`, `dns`, `relay`),
   machine-readable cases in `relay/conformance/` with their own manifest, a live test of an operator
   with `relay-conformance`, and a test account that an operator claiming conformance gives for
