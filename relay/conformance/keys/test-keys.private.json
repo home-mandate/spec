@@ -1,0 +1,9 @@
+{
+  "description": "TEST KEYS of the Relay Specification conformance cases. The private parts are public; never use these keys for anything else.",
+  "keys": [
+    {"kty": "OKP", "crv": "Ed25519", "kid": "relay-installation", "x": "QMQDHKmzZhQ2JlpUIrLB0NqxQJjbuLg8lp8IF7kimZQ", "d": "kqp3TCBdBF47A_Rn-K_uOqQ0l49q27SgqgfbaVI4Ns4"},
+    {"kty": "OKP", "crv": "Ed25519", "kid": "relay-other", "x": "Yc5SVUhlz-9mPXB3xx_qz6WRpt4BSKNF3b4jKtw-a3k", "d": "yadyRQVO5Mk5ahEA_kvzyiZj1T1ub98KcoL2PbEm3uo"},
+    {"kty": "OKP", "crv": "Ed25519", "kid": "relay-new", "x": "0gzaPqZweMX35jcwk0GzCqJ_RyNjncmDklxARCMXRgA", "d": "p7_aTVVmXEX-06etlTq-z-tbSlQtbHAbFEplzc4ly-8"},
+    {"kty": "EC", "crv": "P-256", "kid": "relay-p256", "x": "M2oFcR06MwvtjGoAqZoQJAiNaKGKlCKvn5AUCC9fnAs", "y": "Al7Ik8QJLPNRGAD7jJuDnlxeRBUfcntI__t3d1LNDzw", "d": "otB2I83PfgHyFsSn1qD8z7KayuO7yx9t6GfqyDu0suo"}
+  ]
+}

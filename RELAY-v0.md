@@ -3,8 +3,8 @@
 # Home-Mandate Relay Specification v0 (Draft)
 
 Status: **Working draft. Not part of `v0.1.0` of the Home-Mandate
-Specification**; the freeze of Section 14 of SPEC-v0 does not cover this document, its schema
-or its examples. Sections marked *To be specified* hold the agreed outline only.
+Specification**; the freeze of Section 14 of SPEC-v0 does not cover this document, its schemas,
+its examples or its conformance cases.
 License of this document: CC BY 4.0 (`LICENSE-docs`). Schema and examples: Apache 2.0
 (`LICENSE`).
 
@@ -28,6 +28,7 @@ a household can trust a relay it does not control:
 | Pairing and issuance (Section 5) | how a gateway is paired with an operator, obtains and renews its certificates, and is unpaired |
 | Names and certificates (Section 6) | public names, protection levels, Certificate Transparency monitoring, pinning of the relay |
 | Operator obligations (Section 7) | what a conforming operator MUST do and MUST NOT do |
+| Conformance (Section 8) | how the conformance of an operator is tested, and the access for testing it gives |
 
 The specification builds on existing standards:
 
@@ -137,13 +138,13 @@ specification is released, the schema can still change under the same `type`.
 |---|---|
 | `type` | `https://home-mandate.org/relay-metadata/v0` |
 | `operator_domain` | MUST equal the host from which the document was fetched |
-| `name_domain` | domain of the public names at the protection level Standard; MUST NOT be the operator domain |
+| `name_domain` | domain of the public names at the protection level Standard; MUST NOT be the operator domain; neither it nor the operator domain or the host of `enrollment`, `portal`, `privacy_policy` or `relay` may be at or below the other (Section 7.1 asks for more) |
 | `trust_domain` | SPIFFE trust domain of the tunnel certificates |
 | `enrollment` | HTTPS URL of the enrollment directory (Section 5.1); its host MUST be the operator domain or a subdomain of it |
 | `relay` | `host` and `port` where gateways open their tunnel connections |
-| `relay_addresses` | the IPv4 and/or IPv6 addresses (IPv6 in the form of RFC 5952) where agents reach the relay on port 443; standard and own-domain names point there (Sections 6.3, 6.4) |
+| `relay_addresses` | the IPv4 and/or IPv6 addresses (IPv6 in the form of RFC 5952 without the mixed notation; IPv4-mapped addresses are not allowed) where agents reach the relay on port 443; standard and own-domain names point there (Sections 6.3, 6.4) |
 | `relay_addresses_planned` | optional: `addresses` that replace `relay_addresses` `from` a time at least 30 days after it first appears (Section 6.4) |
-| `relay_pins` | SHA-256 digests (base64url) of the SubjectPublicKeyInfo of the keys the relay uses; the gateway pins them at pairing as active pins (Section 6.8) |
+| `relay_pins` | SHA-256 digests (canonical base64url, 43 characters) of the SubjectPublicKeyInfo of the keys the relay uses; the gateway pins them at pairing as active pins (Section 6.8) |
 | `relay_backup_pins` | the same for the operator's offline backup keys, pinned as backup pins; no pin may appear in both lists (Section 6.8) |
 | `acme_cas` | issuer domain names (`caa_identity`) of the CAs the operator allows in the CAA records of its standard names; only CAs that log every certificate and enforce RFC 8657 (Section 6.6) |
 | `max_offline_days` | how long an installation can be without a valid tunnel certificate before only a new pairing helps; 7 to 90, RECOMMENDED 30 (Section 5.5) |
@@ -545,26 +546,28 @@ content type `application/jose` whose body is a JWS (RFC 7515) in compact serial
   `jwk` is the public installation key and appears only in a pairing request (Section 5.2);
   every other request carries `kid`, the installation URL (Section 5.3). Any other header
   member, and a `jwk` with a private part, make the request invalid.
-- The spelling rules of SPEC-v0 Section 7.1 apply: base64url without padding, case-sensitive
-  member names, and for ES256 only the lower `s`. Headers and payloads are I-JSON (RFC 7493): a
-  member name that occurs twice makes the request invalid.
+- The spelling rules of SPEC-v0 Section 7.1 apply: base64url without padding in its only canonical
+  form, case-sensitive member names, and for ES256 only the lower `s`. Headers and payloads are
+  I-JSON (RFC 7493): a member name that occurs twice makes the request invalid.
 - The payload is a JSON object of the type the URL expects, or empty for a read ("POST-as-GET",
   RFC 8555 Section 6.3). Request objects are closed: an operator MUST reject a request with a
   member the schema does not list.
 
 The operator processes a request in this order; a request that fails a step has no effect:
 
-1. the header against `$defs/protected_header` (`malformed`);
+1. the spelling rules and the header against `$defs/protected_header`, including a `nonce` that is
+   not base64url of at least 16 bytes, and with `jwk`, `alg` matching that key (`malformed`);
 2. with `jwk`, the URL MUST be `pair`; with `kid`, it MUST NOT be `pair` (`malformed`);
 3. with `kid`: the installation it names (none: `bad-signature`; unpaired or replaced:
    `unpaired`), and the URL MUST be `key_change`, the installation URL of that installation or
    a URL in it (`malformed`); one installation can never act on another;
-4. the spelling rules (`malformed`), then the signature with that key (`bad-signature`); from
+4. `alg` matching the key of the installation (`malformed`), then the signature with that key
+   (`bad-signature`); from
    here on the nonce is used up, whatever happens next; then the nonce (`bad-nonce`) and `url`
    (`malformed`);
 5. the state of the installation (Sections 5.5 and 5.7); past `max_offline_days`, `offline-too-long`
    takes precedence over `blocked`;
-6. the payload (`malformed`, or the error of the operation).
+6. the payload against the schema of the operation (`malformed`, or the error of the operation).
 
 Some responses wait for DNS (Section 5.6); a gateway allows at least 150 seconds for a response.
 The host of `enrollment` is fixed at pairing: a later change of `enrollment` in the metadata does
@@ -1375,8 +1378,68 @@ operator, and a household should know the difference:
 
 ## 8. Conformance
 
-*To be specified.* Every normative rule that can be checked from outside (for operators, see Section 7.10) gets a machine-readable case; the schema of the
-metadata document is `relay/schema/metadata-v0.schema.json`.
+An operator is conforming when a test shows it, not when it says so. The rules that can be checked
+from outside (Section 7.10) are turned into machine-readable cases, and a test tool checks a live
+operator against them, as SPEC-v0 Section 8 does for implementations of the specification. The
+conformance of gateways to this specification gets classes of its own once gateways implement it;
+this version defines the classes of operators.
+
+### 8.1 Conformance classes
+
+| Class | What is checked | Sections |
+|---|---|---|
+| `metadata` | the metadata document and how it is served | 3 |
+| `enrollment` | directory, nonces, requests with their errors and the order of their checks, pairing, the installation, tunnel certificates, ACME support and unpairing | 5 |
+| `dns` | the records of the name domain and of a standard name: CAA at the apex and at the name, A and AAAA, challenge records, TTL, and their removal on unpairing | 5.6, 5.7, 6.3 |
+| `relay` | the tunnel: TLS parameters, frames, the control connection, tokens and data connections, routing of an agent connection by its server name, the PROXY header, `pins`, and the denylist after unpairing | 4 |
+
+An operator **conforms** to this version if it passes all four classes. A claim of conformance
+names the version (the tag of the repository of this specification), the operator domain, the
+classes, the manifest of the cases (`relay/conformance/manifest.json`, by its SHA-256) and the date
+of the test. The report of the test tool contains all of these and can be published. A test shows
+the state of the operator at that date; Section 8.4 lets it be repeated at any time.
+
+What only the operator can state, such as the data it keeps, its offline keys and its
+notifications, is not part of a class (Section 7.10).
+
+### 8.2 Cases
+
+The cases are in `relay/conformance/`, each file with a JSON Schema in `relay/conformance/schema/`,
+and `relay/conformance/manifest.json` lists every file with its SHA-256 and number of cases. Test
+keys are in `relay/conformance/keys/`; their private parts are public and MUST NOT be used for
+anything but tests.
+
+| File | Cases |
+|---|---|
+| `metadata-v0.json` | metadata documents with the host they were fetched from, and whether a gateway accepts them (Section 3) |
+| `jws-v0.json` | signed requests and key changes, and whether they verify, are malformed or have a bad signature (Sections 5.1, 5.5) |
+
+The collection grows with every version; every defect found in an operator or in this text is
+first added as a case.
+
+### 8.3 Live test
+
+The test tool `relay-conformance` (in `cmd/`) plays a gateway and an agent against a live operator.
+With a pairing code of the test account (Section 8.4) it pairs a test installation, sends the
+requests of the cases with their deliberate defects and compares the errors, checks the tunnel
+certificates it is issued and the records in the operator's DNS, opens the tunnel, connects to the
+standard name as an agent, and finally unpairs and checks that the installation, its certificates
+and its records are gone. It reports an ACME account that need not exist at the CA, so the test
+obtains no server certificate. A run creates at most two installations and unpairs every one it
+created before it ends, also when a check fails.
+
+### 8.4 Access for testing
+
+An operator that claims conformance MUST, for as long as it claims it,
+
+- give whoever tests its conformance an account in its portal (the **test account**) from which the
+  tester can create pairing codes at any time, and the notifications of that account;
+- handle the installations of the test account like any other: the same metadata, endpoints,
+  relay, CAs, name domain and limits, without telling tests apart from real use;
+- allow test runs as in Section 8.3 at least once a month.
+
+The operator MAY limit test runs to that rate, and blocks the test account against abuse like any
+other account (Section 7.6).
 
 ## 9. Security considerations
 
@@ -1463,6 +1526,10 @@ A household that wants less of this runs its gateway without a relay.
 
 ### Unreleased
 
+- Section 8 specified: conformance classes of operators (`metadata`, `enrollment`, `dns`, `relay`),
+  machine-readable cases in `relay/conformance/` with their own manifest, a live test of an operator
+  with `relay-conformance`, and a test account that an operator claiming conformance gives for
+  repeated tests.
 - Section 4 specified: the tunnel protocol, with the parameters of the operator from the
   metadata, the gateway's tunnel certificate and the relay authenticated by its pins alone, TLS 1.3
   with the hybrid group `X25519MLKEM768` only, frames and message types, control connection with

@@ -2,7 +2,8 @@
 
 // Command vectors maintains the conformance files of the specification:
 //
-//	vectors manifest [-check]   write or check conformance/manifest.json
+//	vectors manifest [-check]   write or check conformance/manifest.json and
+//	                            relay/conformance/manifest.json
 //	vectors digest <mandate>    print the digest of a mandate (SPEC-v0 section 3.2)
 //	vectors chain < entries     link a JSON array of audit entries by prev and print them
 //	                            with their digests (SPEC-v0 section 9.4)
@@ -13,6 +14,8 @@
 //	                            test key (SPEC-v0 section 9.5)
 //	vectors sign [-raw] <keys> <kid> <file>
 //	                            print a signed mandate (SPEC-v0 section 7), signed with a test key
+//	vectors relay-jws <keys>    print relay/conformance/jws-v0.json, the requests of the Relay
+//	                            Specification (RELAY-v0 sections 5.1, 5.5), signed with test keys
 //
 // Run it from the repository root: go run ./tools/vectors <command>.
 package main
@@ -58,6 +61,8 @@ func run(args []string, dir string, stdin io.Reader, stdout io.Writer) error {
 		return runCheckpoint(args[1:], dir, stdout)
 	case "sign":
 		return runSign(args[1:], dir, stdout)
+	case "relay-jws":
+		return runRelayJWS(args[1:], dir, stdout)
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }
@@ -69,12 +74,25 @@ func runManifest(args []string, dir string, stdout io.Writer) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	built, err := manifest.Build(os.DirFS(dir))
+	for _, layout := range []manifest.Layout{manifest.Specification, manifest.Relay} {
+		// A tree without the conformance files of a layout has no manifest of it.
+		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(layout.CaseDir))); err != nil {
+			continue
+		}
+		if err := manifestFor(layout, dir, *check, stdout); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func manifestFor(layout manifest.Layout, dir string, check bool, stdout io.Writer) error {
+	built, err := layout.Build(os.DirFS(dir))
 	if err != nil {
 		return err
 	}
-	target := filepath.Join(dir, filepath.FromSlash(manifest.Path))
-	if !*check {
+	target := filepath.Join(dir, filepath.FromSlash(layout.Path))
+	if !check {
 		data, err := manifest.Encode(built)
 		if err != nil {
 			return err
@@ -82,7 +100,7 @@ func runManifest(args []string, dir string, stdout io.Writer) error {
 		if err := os.WriteFile(target, data, 0o644); err != nil {
 			return fmt.Errorf("write manifest: %w", err)
 		}
-		_, err = fmt.Fprintf(stdout, "%s: %d files\n", manifest.Path, len(built.Files))
+		_, err = fmt.Fprintf(stdout, "%s: %d files\n", layout.Path, len(built.Files))
 		return err
 	}
 	data, err := os.ReadFile(target)
@@ -94,7 +112,7 @@ func runManifest(args []string, dir string, stdout io.Writer) error {
 		return err
 	}
 	if diff := manifest.Diff(built, stored); len(diff) > 0 {
-		return fmt.Errorf("%s is out of date: %v", manifest.Path, diff)
+		return fmt.Errorf("%s is out of date: %v", layout.Path, diff)
 	}
 	return nil
 }
