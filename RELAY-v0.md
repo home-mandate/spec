@@ -923,17 +923,19 @@ that Sections 5.4 and 5.5 compare against.
 specification sets no periods. An operator MUST define how long it keeps each of these kinds of
 data, and when it deletes them after an account was deleted, an installation was unpaired, the
 service ended, or the household or gateway replaced or removed something. It MUST state these
-periods in its privacy policy (`privacy_policy`) before the first pairing of a household. Each
-period is a fixed length or ends with a defined event, not "as long as needed". An operator MUST
-keep data no longer than it needs them for the uses below, or than a law requires. It MUST apply
-the periods it states, also to its backups, and MUST tell households before a longer period
-applies to them. Connection data are only needed for a short time to run and secure the service,
-so an operator SHOULD choose a period of days, not months, for them.
+periods in its privacy policy (`privacy_policy`) before it creates the first account. Each period
+is a fixed length or ends with a defined event, not "as long as needed". An operator MUST NOT keep
+data longer than the uses below need, except as the next paragraph allows. It MUST apply the
+periods it states, also to its backups. Before a longer stated period applies, it MUST tell the
+households in good time for them to delete their account or unpair, and the longer period applies
+only to data collected after that notice. Connection data are only needed for a short time to run
+and secure the service, so an operator SHOULD keep them only as briefly as that allows.
 
-Beyond its stated periods, an operator MAY keep only the records concerned, and only until an open
-case of abuse, an objection (Section 7.6) or an incident (Section 7.9) has ended. It always keeps
-what Sections 5.2, 5.4 and 5.5 still need while the installation exists, including the time of each
-issuance, which it also shows. The reserved home ID and what Section 5.7 needs to answer `unpaired`
+Beyond its stated periods, an operator MAY keep only the records concerned, and only as long as a
+law or an order of an authority requires it, or until an open case of abuse, an objection
+(Section 7.6) or an incident (Section 7.9) has ended. It always keeps what Sections 5.2, 5.4 and
+5.5 still need while the installation exists, including the time of each issuance, which it also
+shows; the source address of an issuance is connection data. The reserved home ID and what Section 5.7 needs to answer `unpaired`
 stay, without a link to a person.
 
 An operator MUST use all of this only to run and secure the service, to act against abuse, to bill and as a
@@ -1023,7 +1025,7 @@ operator, and a household should know the difference:
 | Can be checked from outside | Only the operator's statement |
 |---|---|
 | separate domains and hosts (7.1), DNSSEC, addresses, CAA and TTL (6.3) | what it monitors (7.4) |
-| both protection levels in the metadata; an own-domain name can be registered (7.3); the periods stated in the privacy policy (7.5) | data, keeping to the periods, and their use (7.5) |
+| both protection levels in the metadata; an own-domain name can be registered (7.3); that the privacy policy states periods, checked by a person (7.5) | data, keeping to the periods, and their use (7.5) |
 | publicly logged certificates for a name (7.2) | access to the relay's bytes (7.2), offline keys and tests (7.7) |
 | behaviour of the enrollment endpoint (5) | reasons for a block (7.6), notifications (7.7, 7.9) |
 
