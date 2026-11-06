@@ -914,27 +914,27 @@ number of bytes, the result, and the serial number of a tunnel certificate. It M
 that it passes on, and of the ClientHello only the server name. DNS queries to its name servers,
 if it records them, count as connection data.
 
-An operator MUST delete connection data after at most 30 days, and it is RECOMMENDED to delete them
-after 7 days. It MAY keep more or keep them longer where a law requires it, which it names in its
-privacy policy (`privacy_policy`), or, limited to the records concerned, until an open case of abuse,
-an objection (Section 7.6) or an incident (Section 7.9) has ended. Its privacy policy MUST state the
-periods it applies. The time of each issuance is not bound by these periods: the operator keeps it,
-and shows it, as long as the installation exists; its source address only as long as it keeps it under
-this section (Section 5.5).
-
 **Account data** are the household's account and notification channels, billing records and reports
 of abuse. **Installation data** are the link between account and home ID, the ACME account, the
 own-domain name, and the installation keys and public keys of tunnel certificates (or their digests)
-that Sections 5.4 and 5.5 compare against. An operator MUST delete, within 60 days and with its backups:
+that Sections 5.4 and 5.5 compare against.
 
-- account data after the household deleted its account;
-- installation data after the installation was unpaired by anybody;
-- both after the end of its service;
-- what the household or gateway has replaced or removed, except what Sections 5.2, 5.4 and 5.5 still
-  need while the installation exists.
+**Retention.** The laws that apply to an operator differ from country to country, so this
+specification sets no periods. An operator MUST define how long it keeps each of these kinds of
+data, and when it deletes them after an account was deleted, an installation was unpaired, the
+service ended, or the household or gateway replaced or removed something. It MUST state these
+periods in its privacy policy (`privacy_policy`) before the first pairing of a household. Each
+period is a fixed length or ends with a defined event, not "as long as needed". An operator MUST
+keep data no longer than it needs them for the uses below, or than a law requires. It MUST apply
+the periods it states, also to its backups, and MUST tell households before a longer period
+applies to them. Connection data are only needed for a short time to run and secure the service,
+so an operator SHOULD choose a period of days, not months, for them.
 
-Exceptions are the same as for connection data: a law, or an open case. The reserved home ID
-and what Section 5.7 needs to answer `unpaired` stay, without a link to a person.
+Beyond its stated periods, an operator MAY keep only the records concerned, and only until an open
+case of abuse, an objection (Section 7.6) or an incident (Section 7.9) has ended. It always keeps
+what Sections 5.2, 5.4 and 5.5 still need while the installation exists, including the time of each
+issuance, which it also shows. The reserved home ID and what Section 5.7 needs to answer `unpaired`
+stay, without a link to a person.
 
 An operator MUST use all of this only to run and secure the service, to act against abuse, to bill and as a
 law requires. It MUST NOT sell them, use them for advertising or build a profile of a household
@@ -1023,7 +1023,7 @@ operator, and a household should know the difference:
 | Can be checked from outside | Only the operator's statement |
 |---|---|
 | separate domains and hosts (7.1), DNSSEC, addresses, CAA and TTL (6.3) | what it monitors (7.4) |
-| both protection levels in the metadata; an own-domain name can be registered (7.3) | data, their periods and their use (7.5) |
+| both protection levels in the metadata; an own-domain name can be registered (7.3); the periods stated in the privacy policy (7.5) | data, keeping to the periods, and their use (7.5) |
 | publicly logged certificates for a name (7.2) | access to the relay's bytes (7.2), offline keys and tests (7.7) |
 | behaviour of the enrollment endpoint (5) | reasons for a block (7.6), notifications (7.7, 7.9) |
 
@@ -1113,7 +1113,7 @@ A household that wants less of this runs its gateway without a relay.
 
 - Section 7 specified: separate domains, Public Suffix List where an operator qualifies, `__Host-`
   cookies, what an operator does not do, both protection levels for every installation, monitoring
-  of the name domain, connection data limited to a closed list and at most 30 days, abuse measures
+  of the name domain, connection data limited to a closed list, retention periods that the operator sets and publishes, abuse measures
   without access to content, offline backup keys with tested recovery, limits of the CA, incidents
   and the end of a service, and what can be checked from outside.
 - Section 10 specified: what an operator and others learn.
