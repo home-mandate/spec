@@ -14,9 +14,14 @@ import (
 
 // conformanceSchemas maps every conformance file of the Relay Specification to its schema.
 var conformanceSchemas = map[string]string{
-	"conformance/jws-v0.json":      "conformance/schema/jws-v0.schema.json",
-	"conformance/metadata-v0.json": "conformance/schema/metadata-v0.schema.json",
-	"conformance/manifest.json":    "conformance/schema/manifest.schema.json",
+	"conformance/binding-v0.json":     "conformance/schema/binding-v0.schema.json",
+	"conformance/certificate-v0.json": "conformance/schema/certificate-v0.schema.json",
+	"conformance/csr-v0.json":         "conformance/schema/csr-v0.schema.json",
+	"conformance/frames-v0.json":      "conformance/schema/frames-v0.schema.json",
+	"conformance/jws-v0.json":         "conformance/schema/jws-v0.schema.json",
+	"conformance/metadata-v0.json":    "conformance/schema/metadata-v0.schema.json",
+	"conformance/tls-v0.json":         "conformance/schema/tls-v0.schema.json",
+	"conformance/manifest.json":       "conformance/schema/manifest.schema.json",
 }
 
 func TestRelayManifestIsUpToDate(t *testing.T) {
@@ -55,7 +60,10 @@ func TestRelayConformanceFilesMatchTheirSchemas(t *testing.T) {
 }
 
 func TestRelayConformanceCaseIDsAreUnique(t *testing.T) {
-	for _, file := range []string{"conformance/jws-v0.json", "conformance/metadata-v0.json"} {
+	for file := range conformanceSchemas {
+		if file == "conformance/manifest.json" {
+			continue
+		}
 		data, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)

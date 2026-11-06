@@ -4,6 +4,12 @@
     {"kty": "OKP", "crv": "Ed25519", "kid": "relay-installation", "x": "QMQDHKmzZhQ2JlpUIrLB0NqxQJjbuLg8lp8IF7kimZQ"},
     {"kty": "OKP", "crv": "Ed25519", "kid": "relay-other", "x": "Yc5SVUhlz-9mPXB3xx_qz6WRpt4BSKNF3b4jKtw-a3k"},
     {"kty": "OKP", "crv": "Ed25519", "kid": "relay-new", "x": "0gzaPqZweMX35jcwk0GzCqJ_RyNjncmDklxARCMXRgA"},
-    {"kty": "EC", "crv": "P-256", "kid": "relay-p256", "x": "M2oFcR06MwvtjGoAqZoQJAiNaKGKlCKvn5AUCC9fnAs", "y": "Al7Ik8QJLPNRGAD7jJuDnlxeRBUfcntI__t3d1LNDzw"}
+    {"kty": "EC", "crv": "P-256", "kid": "relay-p256", "x": "M2oFcR06MwvtjGoAqZoQJAiNaKGKlCKvn5AUCC9fnAs", "y": "Al7Ik8QJLPNRGAD7jJuDnlxeRBUfcntI__t3d1LNDzw"},
+    {"kty": "OKP", "crv": "Ed25519", "kid": "relay-tunnel", "x": "RaG0Gv6SBwrLl8rQOVjErKk7FKVSWY5Td9IABw78WSE"},
+    {"kty": "OKP", "crv": "Ed25519", "kid": "relay-tunnel-old", "x": "y2CJgnTkOcQ3kbpHXCINyTm1VADoW0S8r2f6I-LECKg"},
+    {"kty": "OKP", "crv": "Ed25519", "kid": "relay-tunnel-ca", "x": "3AMP70m6i_DgZQHsH0MHUWOH-F3zA9nb2hAGe8vvTGU"},
+    {"kty": "EC", "crv": "P-256", "kid": "relay-tunnel-p256", "x": "u4QhwodK5mDqVqUpvdieBqLrvBUJPSFt1FTcQczk9nY", "y": "2S1x-hrqMro0r2uAC7YIUivj1fDM7IcfxDbDboUPDzY"},
+    {"kty": "EC", "crv": "P-384", "kid": "relay-p384", "x": "p00_L79X6YTUo1hxFcn5h0jF4W9yIDyG4c38d8ts7boYtroMhy5qCbA54furX2Ws", "y": "Q9rxWch8px1zj0cl35Zi97MRXtEB5037eEa0ixHeEx8FHO-2ula-s6mdUoWYtoPE"},
+    {"kty": "RSA", "kid": "relay-rsa", "n": "yQdxTgsrao-0dGkq81sSsSeb29lDKUAUDkNavgoCNN4dwL9yg5gx7dIAWbEgVtkuLbNsuY4d4Il6ZKcB1VDsabtmYffhc-ABfA79dcsNk-gAC8cld0OBVcxjdv8Z_DAgTduq9BKmilywFS6WlFF4GV34x-DjTXnrtYDLudOkRCPXAVNMF16pfqV4GvdPE9wKRVT5HDop1j5Eq4ETk7DOzvqBhPAjTKcGJT0GAwaGjq5F15W_lucXrk-B9EA30pN_7XBoktZzkp3jBZ4XxFwiGXgIIucS8AEXUHVr56PklWs3WomTnKvLD5ZNn1WCz4Kad7MJaCaXtKSqBtje3sOzvQ", "e": "AQAB"}
   ]
 }

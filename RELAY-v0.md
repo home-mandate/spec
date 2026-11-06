@@ -230,8 +230,8 @@ control connection is its **pin of the connection**, active or backup, which Sec
 
 - TCP, then TLS 1.3 (RFC 8446) and nothing older. The gateway sends `relay.host` as its server name.
 - The only key exchange group is `X25519MLKEM768`. Neither side offers or accepts any other group,
-  so a peer that cannot use it does not connect. The gateway SHOULD send a key share for it in its
-  first ClientHello.
+  so a peer that cannot use it does not connect; a relay selects it also when a ClientHello lists
+  other groups besides it. The gateway SHOULD send a key share for it in its first ClientHello.
 - The keys of the relay and of the gateway are ECDSA P-256 or Ed25519, with the signature schemes
   `ecdsa_secp256r1_sha256` and `ed25519`. Both sides MUST support both.
 - The relay requires a client certificate on every connection. Neither side uses session
@@ -337,7 +337,9 @@ receiver treats an unknown code like 7.
 The relay sends `stream-open` only after `hello-ack`, never above `max streams`, no faster than its
 own limit of new data connections for the installation (Section 4.8), closing surplus agent
 connections instead, and not after a
-`drain` in either direction. After a `drain` of the relay, the gateway opens a new control
+`drain` in either direction. A `stream-open` that arrives after the gateway's own `drain` (it may
+have crossed it) is no error; the gateway answers it with `stream-close` `refused`. After a `drain`
+of the relay, the gateway opens a new control
 connection, which the relay accepts on an instance that is not draining, or else answers with `error`
 `internal`, after which the gateway connects again as in Section 4.9; the relay closes the drained
 connection at the end of the grace time at the latest. After a `drain` of the gateway, the relay closes new agent
@@ -753,8 +755,9 @@ tunnel certificate and is answered with `200`; the pairing request carries the s
 refuse it with `bad-csr` unless
 
 - its signature verifies with the public key it contains;
-- the key is ECDSA P-256 or Ed25519, and the request is signed with ECDSA with SHA-256 or with
-  Ed25519, respectively (an operator MUST accept both);
+- the key is ECDSA P-256 (an uncompressed point) or Ed25519, and a key in the sense of
+  Section 5.1, and the request is signed with ECDSA with SHA-256 or with Ed25519, respectively
+  (an operator MUST accept both);
 - the key differs from the installation key and from the key of every tunnel certificate the
   operator issued to this installation before.
 
@@ -764,11 +767,14 @@ CA issues a certificate that
 - contains exactly one subject alternative name, the URI
   `spiffe://<trust_domain>/home/<home ID>/gateway`, in a critical extension, and an empty
   subject;
-- has a `notAfter` at most 24 hours after its `notBefore`, which is no earlier than 5 minutes
-  before issuance and later than the `notBefore` of every earlier tunnel certificate of the
-  installation (Section 4.4);
-- has `cA=false`, key usage `digitalSignature` only (critical), and extended key usage
-  `serverAuth` and `clientAuth`, as X.509-SVID recommends;
+- has a `notAfter` later than its `notBefore` and at most 24 hours after it; the `notBefore` is no
+  earlier than 5 minutes before issuance, no later than issuance, and later than the `notBefore` of
+  every earlier tunnel certificate of the installation (Section 4.4), so an operator delays an
+  issuance that would get the same `notBefore` as the previous one, or answers it with
+  `rate-limited`;
+- has `cA=false` (as has a certificate without a basic constraints extension), key usage
+  `digitalSignature` only (critical), and extended key usage with `serverAuth` and `clientAuth`,
+  the usages X.509-SVID recommends, and no other usage (a usage listed twice is still one);
 - has a serial number with at least 64 random bits;
 - contains no other information about the household.
 
@@ -1417,6 +1423,11 @@ the cases offline: they MUST NOT be used with a live operator.
 |---|---|
 | `metadata-v0.json` | metadata documents with the host they were fetched from, and whether a gateway accepts them (Section 3) |
 | `jws-v0.json` | signed requests and key changes, and whether they verify, are malformed or have a bad signature (Sections 5.1, 5.5) |
+| `csr-v0.json` | certificate signing requests with the installation key and the keys of earlier tunnel certificates, and whether the operator accepts them or refuses them with `bad-csr` (Section 5.4) |
+| `certificate-v0.json` | issued tunnel certificates with their chain and what the gateway asked for, and whether they meet Section 5.4 |
+| `frames-v0.json` | frames of a control connection in hex, with the messages they decode to or the first frame that its receiver treats as an error (Sections 4.3, 4.4, 4.7) |
+| `binding-v0.json` | the first bytes of a data connection and the tokens the relay knows, whether the relay binds the connection or closes it without an answer, and which tokens are consumed (Section 4.5) |
+| `tls-v0.json` | TLS parameters and certificates of a tunnel connection, and whether the relay accepts or refuses it (Sections 4.1, 4.2) |
 
 The collection grows with every version; every defect found in an operator or in this text is
 first added as a case.
@@ -1424,16 +1435,18 @@ first added as a case.
 ### 8.3 Live test
 
 The test tool `relay-conformance` (in `cmd/`) plays a gateway and an agent against a live operator.
-With up to two pairing codes of the test account (Section 8.4) it pairs a test installation with keys it
-generates for this run, sends the requests of the cases with their deliberate defects and compares
-the errors, also requests of one installation at the URLs of another, checks the tunnel certificates
-it is issued and the records in the operator's DNS, registers an own-domain name in a zone of the
-tester, opens the tunnel, connects as an agent to the standard name and to the own-domain name, and
-finally unpairs and checks that the installation, its certificates and its records are gone. It
-reports an ACME account URI at a CA of `acme_cas` that belongs to no account, so the CAA record of
-the test permits nobody and the test obtains no server certificate. It honours `Retry-After` and
-spaces its attempts, so that the limits of an operator do not fail it. A run creates at most two
-installations and unpairs every one it created before it ends, also when a check fails.
+With up to two pairing codes of the test account (Section 8.4) it pairs a test installation with
+keys it generates for this run, sends the requests of the cases with their deliberate defects and
+compares the errors, also requests of one installation at the URLs of another, checks the tunnel
+certificates it is issued and the records in the operator's DNS, registers an own-domain name in a
+zone of the tester, opens the tunnel with the parameters of the cases, sends frames with their
+defects and presents tokens that the relay must refuse, connects as an agent to the standard name
+and to the own-domain name, and finally unpairs and checks that the installation, its certificates
+and its records are gone. It reports an ACME account URI at a CA of `acme_cas` that belongs to no
+account, so the CAA record of the test permits nobody and the test obtains no server certificate. It
+honours `Retry-After` and spaces its attempts, so that the limits of an operator do not fail it. A
+run creates at most two installations and unpairs every one it created before it ends, also when a
+check fails.
 
 ### 8.4 Access for testing
 
@@ -1536,6 +1549,14 @@ A household that wants less of this runs its gateway without a relay.
 
 ### Unreleased
 
+- Section 8: cases for certificate signing requests, issued tunnel certificates, frames of the
+  control connection, the binding of data connections and TLS of tunnel connections. Section 5.4:
+  the key of a request is a key in the sense of Section 5.1, a P-256 point uncompressed; the
+  `notBefore` of a tunnel certificate is no later than issuance and before its `notAfter`; a
+  tunnel certificate without a basic constraints extension has `cA=false`, and its extended key
+  usage holds `serverAuth` and `clientAuth` and no other usage. Section 4.2: a relay selects
+  `X25519MLKEM768` also when a ClientHello lists other groups. Section 4.4: a `stream-open` that
+  arrives after the gateway's `drain` is refused with `stream-close`, not treated as an error.
 - Section 8 specified: conformance classes of operators (`metadata`, `enrollment`, `dns`, `relay`),
   machine-readable cases in `relay/conformance/` with their own manifest, a live test of an operator
   with `relay-conformance`, and a test account that an operator claiming conformance gives for

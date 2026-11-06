@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -88,5 +89,106 @@ func TestManifestWritesAndChecksTheRelayManifest(t *testing.T) {
 	}
 	if _, err := runTool(t, dir, "", "manifest", "-check"); err == nil {
 		t.Error("manifest -check passed although a relay file changed")
+	}
+}
+
+// TestRelayCertificateFilesAreUpToDate: the stored CSR and certificate cases are those the
+// generator writes, byte for byte.
+func TestRelayCertificateFilesAreUpToDate(t *testing.T) {
+	for command, file := range map[string]string{"relay-csr": "csr-v0.json", "relay-certificate": "certificate-v0.json"} {
+		out, err := runTool(t, "../..", "", command, "relay/conformance/keys/test-keys.private.json")
+		if err != nil {
+			t.Fatalf("%s: %v", command, err)
+		}
+		stored, err := os.ReadFile("../../relay/conformance/" + file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out != string(stored) {
+			t.Errorf("relay/conformance/%s is not what the generator writes; run: go run ./tools/vectors %s relay/conformance/keys/test-keys.private.json > relay/conformance/%s", file, command, file)
+		}
+	}
+}
+
+func TestRelayCertificateCommandsRejectBadArguments(t *testing.T) {
+	for _, command := range []string{"relay-csr", "relay-certificate"} {
+		for _, args := range [][]string{{command}, {command, "nope.json"}, {command, "conformance/keys/test-keys.private.json"}} {
+			if _, err := runTool(t, "../..", "", args...); err == nil {
+				t.Errorf("run(%v) succeeded", args)
+			}
+		}
+	}
+	if _, err := relayCSRCases(relaySigners{}); err == nil {
+		t.Error("relayCSRCases accepted no keys")
+	}
+	if _, err := relayCertificateCases(relaySigners{}); err == nil {
+		t.Error("relayCertificateCases accepted no keys")
+	}
+	if _, err := resign([]byte{0x30, 0x00}, oidEd25519, nil); err == nil {
+		t.Error("resign accepted a request that is not one")
+	}
+	for _, der := range [][]byte{{0x30}, {0x30, 0x82, 0x01, 0x00}} {
+		if _, err := longFormLength(der); err == nil {
+			t.Errorf("longFormLength(%x) succeeded", der)
+		}
+	}
+	if got, err := longFormLength([]byte{0x30, 0x81, 0x80}); err != nil || len(got) != 4 {
+		t.Errorf("longFormLength of a one-byte long form = %x, %v", got, err)
+	}
+}
+
+func TestPrivateKeyRefusesBrokenRSAKeys(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "keys.json")
+	for name, key := range map[string]string{
+		"member missing": `{"kty":"RSA","kid":"k","d":"AQ","n":"AQ","e":"AQAB","p":"AQ"}`,
+		"not a key":      `{"kty":"RSA","kid":"k","d":"AQ","n":"AQ","e":"AQAB","p":"Aw","q":"BQ"}`,
+		"not base64url":  `{"kty":"RSA","kid":"k","d":"AQ","n":"A*","e":"AQAB","p":"Aw","q":"BQ"}`,
+	} {
+		if err := os.WriteFile(path, []byte(`{"keys":[`+key+`]}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := privateKey(path, "k"); err == nil {
+			t.Errorf("%s: privateKey accepted it", name)
+		}
+	}
+}
+
+func TestCertificateGeneratorRefusesKeysOfTheWrongType(t *testing.T) {
+	signers, err := loadSigners("../..", "relay/conformance/keys/test-keys.private.json", relayCertKids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signers["relay-tunnel-ca"] = signers["relay-tunnel-p256"]
+	if _, err := relayCertificateCases(signers); err == nil {
+		t.Error("a P-256 CA key was accepted")
+	}
+	signers, err = loadSigners("../..", "relay/conformance/keys/test-keys.private.json", relayCSRKids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signers["relay-tunnel"] = signers["relay-tunnel-p256"]
+	if _, err := relayCSRCases(signers); err == nil {
+		t.Error("a P-256 key as relay-tunnel was accepted")
+	}
+	if _, _, err := issue("x", leafSpec{key: "missing"}, relaySigners{"missing": "not a key"}, nil); err == nil {
+		t.Error("issue accepted a key that cannot sign")
+	}
+}
+
+func TestCSRHelpersRefuseUnsupportedKeys(t *testing.T) {
+	if _, err := compressedCSR("not a key"); err == nil {
+		t.Error("compressedCSR accepted a key that is not P-256")
+	}
+	signers, err := loadSigners("../..", "relay/conformance/keys/test-keys.private.json", []string{"relay-tunnel"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := makeCSR(&x509.CertificateRequest{}, signers["relay-tunnel"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resign(der, oidEd25519, "not a key"); err == nil {
+		t.Error("resign accepted a key it cannot use")
 	}
 }
