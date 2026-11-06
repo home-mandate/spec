@@ -288,7 +288,8 @@ starts with `hello-ack`.
 
 If the ranges have no version in common, the relay sends `error` `unsupported-version`. The gateway
 closes the connection if the selected version is not in its range or a capability was not in its
-`hello`. This section defines version 1. A relay SHOULD keep supporting the previous version for a
+`hello`. A data connection uses the version of
+the installation's control connection. This section defines version 1. A relay SHOULD keep supporting the previous version for a
 while once a new one exists.
 
 **Heartbeat.** Each side sends `ping` (a random u64) once per heartbeat interval and has at most one
@@ -312,7 +313,9 @@ Error codes: 1 `unsupported-version`, 2 `malformed`, 3 `unknown-type`, 4 `limit-
 5 `unauthorized`, 6 `timeout`, 7 `internal`, 8 `superseded`, 9 `protocol`, 10 `session-exists`. A
 receiver treats an unknown code like 7.
 
-The relay sends `stream-open` only after `hello-ack`, never above `max streams`, and not after a
+The relay sends `stream-open` only after `hello-ack`, never above `max streams`, no faster than its
+own limit of new data connections for the installation (Section 4.8), closing surplus agent
+connections instead, and not after a
 `drain` in either direction. After a `drain` of the relay, the gateway opens a new control
 connection, which the relay accepts on an instance that is not draining, or else answers with `error`
 `internal`, after which the gateway connects again as in Section 4.9; the relay closes the drained
@@ -325,8 +328,8 @@ is its own matter. A new control connection of an installation that already has 
 existing one only if the existing one missed its heartbeat, was drained by either side, or has a
 certificate with an earlier `notBefore` than the new one. Otherwise the relay sends `error`
 `session-exists` on the new connection and closes it. When it replaces a connection, it sends
-`error` `superseded` on the old one, closes it, and voids its tokens and warm data connections;
-bound data connections end with their stream. This clears a connection left open by a change of
+`error` `superseded` on the old one, closes it, voids the tokens sent on it and closes unbound data
+connections as in Section 4.5; bound data connections end with their stream. This clears a connection left open by a change of
 network, but a second holder of an older certificate cannot push out the gateway. The gateway
 connects anew with each renewed certificate (Section 5.5), which replaces its old control
 connection, and from then on binds only with data connections of the new certificate. A gateway
@@ -368,8 +371,8 @@ A gateway presents each token at most once. It MAY try up to three times to open
 for one `stream-open` while the token has not yet been sent, and otherwise answers with
 `stream-close` `refused`. A binding **failed** when the relay closed the data connection, or no PROXY
 header arrived within 5 seconds after `data-bind`, unless the gateway received a `stream-close` for
-that token before or up to one heartbeat interval after the failure; an agent that gives up early
-thus causes no backoff. After a failed binding, the gateway waits before its next data connection: 1 second
+that token; the gateway backs off at once and ends that backoff when such a `stream-close` arrives
+within one heartbeat interval, so an agent that gives up early causes no backoff. After a failed binding, the gateway waits before its next data connection: 1 second
 after the first failure, doubling up to 30 seconds while failures continue, adding random jitter of
 up to one half, until a binding succeeds. A `stream-close` voids only a token of the installation of the
 control connection it arrives on.
@@ -382,7 +385,10 @@ nothing within 30 seconds. The gateway SHOULD replace a warm
 connection after 25 seconds, and closes it before it opens the replacement. Once the first byte of `data-bind` has arrived, the rest follows within
 5 seconds.
 
-**End of a stream.** Either side closes with a normal TCP close, and a half close is passed on. The
+**End of a stream.** On a data connection, the end of one direction is a TLS `close_notify` (RFC 8446
+Section 6.1) followed by a TCP half close. The relay passes the end of each direction on: a half close
+of the agent as `close_notify` towards the gateway, and a `close_notify` of the gateway as a half close
+towards the agent. A connection that ends without `close_notify` ends the stream as an error. The
 relay MAY close a stream without a byte in either direction for an idle time of its choice, which
 SHOULD be at least 10 minutes. The control connection is not involved in the end of a stream, and
 the loss of the control connection does not end bound data connections.
@@ -466,8 +472,9 @@ that connecting often from elsewhere cannot lock the gateway out. A peer above a
 - Whatever this section does not allow is an error. On a control connection the receiver sends
   `error` where it can, and closes; there is no recovery from a framing error. Only an unknown
   optional frame is skipped.
-- When the control connection of an installation is lost, the relay voids its tokens and warm data
-  connections and closes its new agent connections as in Section 4.5.
+- When the control connection of an installation is lost, the relay voids its tokens, closes the
+  unbound data connections of the installation and closes its new agent connections as in
+  Section 4.5.
 - The gateway keeps working locally without the tunnel. It connects again with backoff: 1 second
   after the first failure, doubling up to 60 seconds, adding random jitter of up to one half, reset
   once a control connection has stayed open for 60 seconds; after `session-exists` it waits likewise.
@@ -1360,7 +1367,7 @@ this specification; what an operator itself could do is in the rows below and in
 | **Sits on the path between gateway and relay** | TLS 1.3 with mutual authentication; the gateway accepts the relay only by a stored pin (Sections 4.1, 6.8) | Denial of service; the server names and timing that the network shows anyway |
 | **Records the tunnel to decrypt it later** with a quantum computer | The only key exchange group is the hybrid `X25519MLKEM768` (Section 4.2); the agents' bytes are inside their own TLS connections to the gateway | What the agents' own TLS connections leave open |
 | **Downgrades the tunnel** | TLS 1.3 only and a single group; the version and capabilities are chosen inside the authenticated connection, and the gateway rejects any it did not offer (Sections 4.2, 4.4) | – |
-| **Floods the relay** with connections, frames or slow handshakes | Frames bounded from their header; deadlines for every read and write; limits per source, installation and connection, checked before memory is allocated (Sections 4.3, 4.4, 4.8) | Denial of service within the operator's limits, also aimed at one home by holding its `max streams` |
+| **Floods the relay** with connections, frames or slow handshakes | Frames bounded from their header; deadlines for every read and write; limits per source, installation and connection, checked before memory is allocated (Sections 4.3, 4.4, 4.8) | Denial of service within the operator's limits, also aimed at one home by holding its `max streams`, and for gateways that share an address with the attacker, such as behind carrier-grade NAT |
 | **Forges the address of an agent** | The gateway takes the PROXY header only on data connections it opened and bound itself, in one strict form, refuses local and private sources, and never uses the address for trust (Section 4.6) | A compromised relay can forge addresses; they affect limits and logs, not authorization |
 | **Guesses a pairing code** | 80 random bits, valid for at most 10 minutes (24 hours for a code for an existing installation, after its waiting time), single use, limited attempts, one answer for all failures (Section 5.2) | – |
 | **Intercepts or is shown a pairing code** for a new installation before the household uses it | The code is bound to the household's account, not to a gateway; the operator notifies the household of every new installation (Section 5.2) | The attacker's gateway is paired to the household's account until the household notices and unpairs it. It gets a new standard name and does not receive the household's agents |
@@ -1370,7 +1377,7 @@ this specification; what an operator itself could do is in the rows below and in
 | **Another installation's key** (any paired gateway, also one paired to the attacker's own account) | The URL of a request must belong to the installation of its key (Section 5.1); installation URLs carry 128 random bits | – |
 | **Steals the installation key** | Tunnel certificates and ACME challenge records, but no server certificate: the CAA record binds issuance to the gateway's ACME account, and changing the account needs the household's confirmation (Section 5.6). Every issuance is shown in the portal, re-issuances and key changes are notified; a key that nobody uses for `max_offline_days` can only read the installation; unpairing ends it (Sections 5.5, 5.7) | Until the household unpairs, the attacker can take the tunnel over and deny service, learn when agents connect, lock the gateway out with a key change, remove or replace the own-domain registration (the household is notified), and unpair the installation, which loses the standard name for good. A CA that ignores RFC 8657 would issue to the attacker; gateways use only CAs that enforce it (Section 6.6). A thief who acts within the hour after a pairing or replacement, before the gateway reports its account, can report an own account first; the gateway then alarms its administrator, and the portal shows the foreign account in force (Section 5.6) |
 | **Steals the installation key and the ACME account key** (a compromised gateway) | – | Everything the gateway can do, until the household unpairs |
-| **Steals a tunnel key** | Tunnel certificates live at most 24 hours; a new key at every renewal; denylist (Sections 5.4, 5.7). A new control connection replaces a healthy one only with a later `notBefore`; a data connection with an older certificate than the control connection is closed; connects are limited per certificate serial and source; a gateway that is pushed out renews early (Sections 4.4, 4.5, 4.8) | Taking the tunnel over until the gateway renews, at most for the rest of that certificate's life |
+| **Steals a tunnel key** | Tunnel certificates live at most 24 hours; a new key at every renewal; denylist (Sections 5.4, 5.7). A new control connection replaces a healthy one only with a later `notBefore`; an unbound data connection with an older certificate than the control connection is closed; connects are limited per certificate serial and source; a gateway that is pushed out renews early (Sections 4.4, 4.5, 4.8) | Taking the tunnel over until the gateway renews, at most for the rest of that certificate's life |
 | **Takes over the household's account at the operator** | Unpairing and pairing codes stay with the account; codes for an existing installation and changes of the ACME account need a fresh authentication or the household's confirmation and are announced (Sections 5.2, 5.6) | The attacker can end remote access, and can move the standard name as in the row above, announced and with a waiting time |
 | **Compromises the operator's tunnel CA** | Name constraint on the operator's trust domain; short lifetimes (Section 5.4); the operator tells the households (Section 7.9) | Tunnel certificates for every home of that operator: denial of service and metadata, not content |
 | **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm, and the gateway checks the CAA records of its standard name and of the apex every hour (Sections 6.6, 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm; an operator that deliberately deceives, with a CA that does not log and CAA answers for the CA that differ from those the gateway sees, reads unnoticed as long as agents do not require proof of logging (Section 6.2). Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
