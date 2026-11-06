@@ -908,40 +908,26 @@ unpaired, when the certificate was issued; it looks into these and tells the hou
 ### 7.5 Data of households
 
 **Connection data** are records of connections and requests that can be linked to a household, an
-installation or an address, also through a pseudonym. An operator MAY keep only these: the home ID,
-the server name, the address and port of the agent, the gateway or another requester, the time, the
-number of bytes, the result, and the serial number of a tunnel certificate. It MUST NOT record the bytes
-that it passes on, and of the ClientHello only the server name. DNS queries to its name servers,
-if it records them, count as connection data.
+installation or an address, also through a pseudonym, such as the home ID, the server name, the
+address and port of the agent, the gateway or another requester, the time, the number of bytes, the
+result, and the serial number of a tunnel certificate. DNS queries to its name servers, if it
+records them, count as connection data. An operator MUST NOT record the bytes that it passes on, and
+of the ClientHello only the server name (Section 7.2).
 
 **Account data** are the household's account and notification channels, billing records and reports
 of abuse. **Installation data** are the link between account and home ID, the ACME account, the
-own-domain name, and the installation keys and public keys of tunnel certificates (or their digests)
-that Sections 5.4 and 5.5 compare against.
+own-domain name, and the installation keys and public keys of tunnel certificates (or their digests).
 
-**Retention.** The laws that apply to an operator differ from country to country, so this
-specification sets no periods. An operator MUST define how long it keeps each of these kinds of
-data, and when it deletes them after an account was deleted, an installation was unpaired, the
-service ended, or the household or gateway replaced or removed something. It MUST state these
-periods in its privacy policy (`privacy_policy`) before it creates the first account. Each period
-is a fixed length or ends with a defined event, not "as long as needed"; for connection data it
-MUST be a fixed length that does not depend on the account or the installation. Connection data
-are only needed for a short time to run and secure the service, so an operator SHOULD keep them
-only as briefly as that allows. Where a law requires the operator, as a rule and not only for single
-records, to keep data longer or more of them than this section allows, it MAY do so, and names that
-law in its privacy policy together with what it keeps and for how long; these count as stated
-periods.
+**Retention.** Which data an operator keeps and for how long is set by the law of its jurisdiction,
+which differs from country to country; this specification sets no periods. An operator MUST keep
+data only as that law allows, and MUST state in its privacy policy (`privacy_policy`), or link to
+from there, which data it keeps and for how long, before it creates the first account. Each period
+is a fixed length, counted from the collection or from a stated event such as the deletion of an
+account; "as long as needed" is not a period. When the periods or the data it keeps change, also
+because a law changed, the operator MUST tell the households within 30 days.
 
-An operator MUST NOT keep data longer than the uses below need, except as the next paragraph
-allows, and MUST apply the periods it states, also to its backups. Any change that can keep data
-longer is a new period: the operator MUST announce it on all its channels early enough for
-households to delete their account or unpair before it applies, and it applies only to data
-collected after that announcement.
-
-Beyond its stated periods, an operator MAY keep only the records concerned, and only as long as an
-order of an authority requires it, or until an open case of abuse, an objection (Section 7.6) or an
-incident (Section 7.9) has ended. It always keeps what this specification still needs while the
-account or installation exists, including the time of each issuance, which it also shows; the
+Whatever its periods, an operator keeps what this specification still needs while the account or
+installation exists, including the time of each issuance, which it also shows (Section 5.5); the
 source address of an issuance is connection data. The reserved home ID and what Section 5.7 needs
 to answer `unpaired` stay, without a link to a person.
 
@@ -1122,8 +1108,8 @@ A household that wants less of this runs its gateway without a relay.
 
 - Section 7 specified: separate domains, Public Suffix List where an operator qualifies, `__Host-`
   cookies, what an operator does not do, both protection levels for every installation, monitoring
-  of the name domain, connection data limited to a closed list,
-  retention periods that the operator sets and publishes, abuse measures
+  of the name domain, retention within the law of the operator's jurisdiction,
+  with data and periods published and changes told within 30 days, abuse measures
   without access to content, offline backup keys with tested recovery, limits of the CA, incidents
   and the end of a service, and what can be checked from outside.
 - Section 10 specified: what an operator and others learn.
