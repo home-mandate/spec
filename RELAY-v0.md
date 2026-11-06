@@ -314,14 +314,15 @@ receiver treats an unknown code like 7.
 
 The relay sends `stream-open` only after `hello-ack`, never above `max streams`, and not after a
 `drain` in either direction. After a `drain` of the relay, the gateway opens a new control
-connection, which the relay accepts on an instance that is not draining; it closes the drained
+connection, which the relay accepts on an instance that is not draining, or else answers with `error`
+`internal`, after which the gateway connects again as in Section 4.9; the relay closes the drained
 connection at the end of the grace time at the latest. After a `drain` of the gateway, the relay closes new agent
 connections for it as in Section 4.5.
 
 **One control connection per installation.** The relay is one logical service: an installation has
 at most one control connection, across all instances of the relay. How the operator achieves this
 is its own matter. A new control connection of an installation that already has one replaces the
-existing one only if the existing one missed its heartbeat, was drained by the relay, or has a
+existing one only if the existing one missed its heartbeat, was drained by either side, or has a
 certificate with an earlier `notBefore` than the new one. Otherwise the relay sends `error`
 `session-exists` on the new connection and closes it. When it replaces a connection, it sends
 `error` `superseded` on the old one, closes it, and voids its tokens and warm data connections;
@@ -329,7 +330,7 @@ bound data connections end with their stream. This clears a connection left open
 network, but a second holder of an older certificate cannot push out the gateway. The gateway
 connects anew with each renewed certificate (Section 5.5), which replaces its old control
 connection, and from then on binds only with data connections of the new certificate. A gateway
-that keeps getting `session-exists` for three heartbeat intervals, or gets
+that keeps getting `session-exists` for six minutes, or gets
 `superseded` without having connected anew, SHOULD tell its local administrator and renew its tunnel
 certificate early, because another party may hold its current one.
 
@@ -369,8 +370,8 @@ for one `stream-open` while the token has not yet been sent, and otherwise answe
 header arrived within 5 seconds after `data-bind`, unless the gateway received a `stream-close` for
 that token before or up to one heartbeat interval after the failure; an agent that gives up early
 thus causes no backoff. After a failed binding, the gateway waits before its next data connection: 1 second
-after the first failure, doubling up to 30 seconds while failures continue, with random jitter of up
-to one half, until a binding succeeds. A `stream-close` voids only a token of the installation of the
+after the first failure, doubling up to 30 seconds while failures continue, adding random jitter of
+up to one half, until a binding succeeds. A `stream-close` voids only a token of the installation of the
 control connection it arrives on.
 
 **Warm data connections.** A warm data connection has completed its TLS handshake and has not yet
@@ -378,7 +379,7 @@ sent `data-bind`. The gateway keeps at most `pool size` of them ready, besides t
 `stream-open`. The relay closes an unbound data connection that would make the unbound data
 connections of the installation more than `pool size` plus its unredeemed tokens, and any that sends
 nothing within 30 seconds. The gateway SHOULD replace a warm
-connection after 25 seconds. Once the first byte of `data-bind` has arrived, the rest follows within
+connection after 25 seconds, and closes it before it opens the replacement. Once the first byte of `data-bind` has arrived, the rest follows within
 5 seconds.
 
 **End of a stream.** Either side closes with a normal TCP close, and a half close is passed on. The
@@ -452,7 +453,7 @@ values:
 | new control connections per certificate serial and source address (IPv6 by /64) | 6 per minute |
 | new connections, control and data, per source address (IPv6 by /64) before the TLS handshake completes | 20 per second (burst 40), at most 64 unfinished handshakes |
 | new data connections per installation | 20 per second (burst 40) |
-| frames per second per control connection, ignored frames included | 20 (burst 40) |
+| frames per second per control connection, ignored frames included, not counting `pong`, `pins-ack` and `stream-close` that answer frames of the relay | 20 (burst 40) |
 | unredeemed tokens per installation, and in total | 16, and 65536 |
 | `max streams`, `pool size` | 64, 4 |
 
@@ -468,7 +469,7 @@ that connecting often from elsewhere cannot lock the gateway out. A peer above a
 - When the control connection of an installation is lost, the relay voids its tokens and warm data
   connections and closes its new agent connections as in Section 4.5.
 - The gateway keeps working locally without the tunnel. It connects again with backoff: 1 second
-  after the first failure, doubling up to 60 seconds, with random jitter of up to one half, reset
+  after the first failure, doubling up to 60 seconds, adding random jitter of up to one half, reset
   once a control connection has stayed open for 60 seconds; after `session-exists` it waits likewise.
   Each control connection uses new tokens.
 - A gateway whose handshakes the relay keeps refusing MAY read its installation (Section 5.3) to
@@ -722,7 +723,8 @@ CA issues a certificate that
   `spiffe://<trust_domain>/home/<home ID>/gateway`, in a critical extension, and an empty
   subject;
 - has a `notAfter` at most 24 hours after its `notBefore`, which is no earlier than 5 minutes
-  before issuance;
+  before issuance and later than the `notBefore` of every earlier tunnel certificate of the
+  installation (Section 4.4);
 - has `cA=false`, key usage `digitalSignature` only (critical), and extended key usage
   `serverAuth` and `clientAuth`, as X.509-SVID recommends;
 - has a serial number with at least 64 random bits;
@@ -1160,7 +1162,9 @@ blocked meanwhile, may have missed the announcement and then needs its administr
 pins as above.
 To recover from a lost or leaked active key, or to replace a backup key, its relay presents a
 backup key and announces the complete new set (Section 4.7). A relay chooses its certificate before
-it knows the gateway, so during a recovery it presents the backup key to every gateway that connects.
+it knows the gateway, so during a recovery it presents the backup key to every gateway that connects,
+and every set it announces meanwhile lists that key among the active pins, so that the gateways it
+recovered keep accepting it; the operator later rotates it out as an active key.
 
 ## 7. Operator obligations
 
@@ -1356,7 +1360,7 @@ this specification; what an operator itself could do is in the rows below and in
 | **Sits on the path between gateway and relay** | TLS 1.3 with mutual authentication; the gateway accepts the relay only by a stored pin (Sections 4.1, 6.8) | Denial of service; the server names and timing that the network shows anyway |
 | **Records the tunnel to decrypt it later** with a quantum computer | The only key exchange group is the hybrid `X25519MLKEM768` (Section 4.2); the agents' bytes are inside their own TLS connections to the gateway | What the agents' own TLS connections leave open |
 | **Downgrades the tunnel** | TLS 1.3 only and a single group; the version and capabilities are chosen inside the authenticated connection, and the gateway rejects any it did not offer (Sections 4.2, 4.4) | – |
-| **Floods the relay** with connections, frames or slow handshakes | Frames bounded from their header; deadlines for every read and write; limits per source, installation and connection, checked before memory is allocated (Sections 4.3, 4.4, 4.8) | Denial of service within the operator's limits |
+| **Floods the relay** with connections, frames or slow handshakes | Frames bounded from their header; deadlines for every read and write; limits per source, installation and connection, checked before memory is allocated (Sections 4.3, 4.4, 4.8) | Denial of service within the operator's limits, also aimed at one home by holding its `max streams` |
 | **Forges the address of an agent** | The gateway takes the PROXY header only on data connections it opened and bound itself, in one strict form, refuses local and private sources, and never uses the address for trust (Section 4.6) | A compromised relay can forge addresses; they affect limits and logs, not authorization |
 | **Guesses a pairing code** | 80 random bits, valid for at most 10 minutes (24 hours for a code for an existing installation, after its waiting time), single use, limited attempts, one answer for all failures (Section 5.2) | – |
 | **Intercepts or is shown a pairing code** for a new installation before the household uses it | The code is bound to the household's account, not to a gateway; the operator notifies the household of every new installation (Section 5.2) | The attacker's gateway is paired to the household's account until the household notices and unpairs it. It gets a new standard name and does not receive the household's agents |
