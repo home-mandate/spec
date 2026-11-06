@@ -161,14 +161,307 @@ not change stored pins (Section 6.8); relay addresses change as in Section 6.4.
 
 ## 4. Tunnel protocol
 
-*To be specified.* The starting point is the Home-Mandate tunnel protocol v1
-(`docs/tunnel-protocol-v1.md` in `github.com/home-mandate/relay`): one control connection and
-one mutually authenticated connection per agent connection. This section will take it over with
-the name domain and the trust domain as parameters of the operator (Section 3) and the tunnel
-certificate of Section 5.4, and add the control message with which the relay announces new pins
-(Section 6.8); the CA that issues tunnel certificates belongs to the operator and is not
-published. Until this section is specified, no interoperability between independent
-gateways and operators is claimed.
+The gateway connects outbound to the relay at `relay.host` and `relay.port` of the metadata
+(Section 3). It keeps one **control connection** for signals and opens one **data connection** for
+each agent connection. The relay copies the bytes of an agent connection into its data connection
+without terminating them. Each agent connection is thus a TCP and TLS connection of its own, limited
+and closed on its own; the tunnel does not multiplex. The Go package `tunnel` in
+`github.com/home-mandate/relay` implements this section; it is informative, and where it differs,
+this section applies.
+
+```mermaid
+sequenceDiagram
+  participant G as Gateway
+  participant R as Relay
+  participant A as Agent
+  G->>R: control connection: TLS 1.3, hello
+  R-->>G: hello-ack
+  A->>R: TCP, ClientHello with server name
+  R->>G: stream-open (token)
+  G->>R: data connection: TLS 1.3, data-bind (token)
+  R->>G: PROXY v2 header, then the agent's bytes
+  Note over G,A: TLS of the agent ends in the gateway
+```
+
+### 4.1 Identities
+
+**Gateway.** The gateway authenticates every connection, control and data, with its tunnel
+certificate (Section 5.4). The relay accepts a certificate only if it chains to the operator's
+tunnel CA, is valid now, carries the extended key usage `clientAuth`, and its subject alternative
+name extension holds exactly one entry, a URI equal byte for byte to
+`spiffe://<trust_domain>/home/<home ID>/gateway`, with a home ID of the form of Section 2. The
+relay compares the raw bytes of the extension, not a parsed URI, because parsers normalize case and
+drop an empty query or fragment. The **installation** of a connection is the one of that home ID; it
+is never taken from a message.
+
+The relay MUST check its denylist (Section 7.6) at every handshake, refuses the tunnel certificates
+of an installation that is unpaired or blocked (Section 5.7), and MUST close the open connections of
+a certificate when it adds the certificate to the denylist. It closes a control connection when the
+`notAfter` of its certificate passes, and a data connection at most 60 seconds later.
+
+**Relay.** The gateway authenticates the relay only by its pins (Section 6.8), on every control and
+data connection. It accepts the relay's certificate if the SHA-256 digest of its
+SubjectPublicKeyInfo is a stored pin, and refuses it otherwise; it checks neither a chain, nor the
+validity period, nor a name, so the certificate MAY be self-signed. The pin that matched on a
+control connection is its **pin of the connection**, active or backup, which Section 4.7 uses.
+
+### 4.2 Transport
+
+- TCP, then TLS 1.3 (RFC 8446) and nothing older. The gateway sends `relay.host` as its server name.
+- The only key exchange group is `X25519MLKEM768`. Neither side offers or accepts any other group,
+  so a peer that cannot use it does not connect. The gateway SHOULD send a key share for it in its
+  first ClientHello.
+- The keys of the relay and of the gateway are ECDSA P-256 or Ed25519, with the signature schemes
+  `ecdsa_secp256r1_sha256` and `ed25519`. Both sides MUST support both.
+- The relay requires a client certificate on every connection. Neither side uses session
+  resumption, pre-shared keys, 0-RTT or post-handshake authentication, so that a certificate cannot
+  be used again after it expired or was denied.
+- Both connection kinds use the ALPN protocol `hm-tunnel/1`; a handshake without it fails. Before it
+  reads the first frame, each side checks TLS 1.3, the ALPN protocol and the identity of its peer
+  (Section 4.1). The first frame tells the kinds apart: `hello` opens a control connection,
+  `data-bind` a data connection.
+- `relay.port` is the operator's choice. The relay MAY serve tunnel connections and agent
+  connections on the same port and tell them apart by the server name `relay.host`.
+
+### 4.3 Frames
+
+Control messages and the single `data-bind` of a data connection are frames. Integers are big
+endian.
+
+```
++-------------+-----------------------+----------------------+
+| type (u16)  | payload length (u16)  | payload (length)     |
++-------------+-----------------------+----------------------+
+```
+
+- A payload is at most 1024 bytes. A receiver checks the header before it reads the payload, and
+  closes the connection on a larger length, without reading or allocating anything for it.
+- Every message has exactly one valid encoding. Trailing bytes, a value out of range and a field
+  that breaks its rule are errors.
+- Type `0x0000` is invalid. Types `0x0001` to `0x00FF` are **core** messages of this section; an
+  unassigned one is an error. Types `0x0100` to `0x7FFF` are **extensions**, each defined together
+  with a capability (Section 4.4); a receiver rejects one as an error unless its capability was
+  negotiated on this connection. Version 1 defines no capability. Types `0x8000` to `0xFFFF` are
+  **optional**: a receiver ignores an unknown one, and none of them may change state or carry
+  anything that security depends on. An optional frame before `hello-ack` is an error.
+- A known type from the wrong sender or on the wrong kind of connection is an error.
+- The layout of a core message never changes within a version; a new layout needs a new version.
+
+| Type | Name | Sender | Connection |
+|---|---|---|---|
+| `0x0001` | `hello` | gateway | control |
+| `0x0002` | `hello-ack` | relay | control |
+| `0x0003` | `ping` | either | control |
+| `0x0004` | `pong` | either | control |
+| `0x0010` | `stream-open` | relay | control |
+| `0x0011` | `stream-close` | either | control |
+| `0x0012` | `error` | either | control |
+| `0x0013` | `drain` | either | control |
+| `0x0014` | `pins` | relay | control |
+| `0x0015` | `pins-ack` | gateway | control |
+| `0x0020` | `data-bind` | gateway | data, as the first and only frame |
+
+Strings are a length byte followed by that many printable ASCII bytes (`0x20` to `0x7E`).
+
+### 4.4 Control connection
+
+**Handshake.** The gateway sends `hello` within 5 seconds after the TLS handshake; the relay sends
+nothing before it. The relay answers with `hello-ack` within 5 seconds, or with `error`; a gateway
+that gets neither within 10 seconds closes the connection. Before `hello-ack` only `hello`,
+`hello-ack`, `ping`, `pong` and `error` are valid, and a second `hello` or `hello-ack` is an error.
+
+| `hello` | Encoding | Rule |
+|---|---|---|
+| min version, max version | u8, u8 | 1 ≤ min ≤ max |
+| gateway software | string | 1 to 64 bytes; informative, never used for a decision |
+| capabilities | u8 count, then count × u16 | at most 16, non-zero, strictly ascending |
+
+| `hello-ack` | Encoding | Rule |
+|---|---|---|
+| version | u8 | the highest version in both ranges |
+| relay software | string | 1 to 64 bytes; informative |
+| heartbeat interval | u16 seconds | 5 to 120 |
+| pool size | u8 | 0 to 16: how many warm data connections the gateway keeps (Section 4.5) |
+| max streams | u16 | 1 to 256: the most simultaneous agent connections of this installation |
+| capabilities | as in `hello` | those offered in `hello` that the relay supports |
+
+If the ranges have no version in common, the relay sends `error` `unsupported-version`. The gateway
+closes the connection if the selected version is not in its range or a capability was not in its
+`hello`. This section defines version 1. A relay SHOULD keep supporting the previous version for a
+while once a new one exists.
+
+**Heartbeat.** Each side sends `ping` (a random u64) once per heartbeat interval and has at most one
+unanswered; the peer answers at once with `pong` and the same value. A side that receives no
+matching `pong` within one interval sends `error` `timeout` and closes; that peer has **missed its
+heartbeat**. A `pong` without a `ping`, with another value or a second time is an error. Every read
+has a deadline. Three intervals without any frame from the peer, or more than 5 seconds for the rest
+of a frame after its first byte, end the connection, and so does a write that does not complete
+within 5 seconds.
+
+**Signals.**
+
+| Message | Payload | Meaning |
+|---|---|---|
+| `stream-open` | token (32 bytes), validity (u16 milliseconds, 1 to 10000) | an agent connection waits; the gateway binds a data connection with this token within the validity (Section 4.5) |
+| `stream-close` | token (32 bytes), reason (u8: 1 agent gone, 2 refused, 3 timeout, 4 internal) | from the relay, it withdraws a token; from the gateway, it refuses one. The token is void. An unknown token is ignored |
+| `error` | code (u16, non-zero), text (string of 0 to 128 bytes) | fatal: the sender closes after writing it, the receiver on reading it. The text is for logs and never holds a token, a certificate or data of the peer |
+| `drain` | reason (u8: 1 shutdown, 2 restart, 3 overload), grace (u16 seconds, at most 600) | the sender starts no new streams; open data connections may finish within the grace time |
+
+Error codes: 1 `unsupported-version`, 2 `malformed`, 3 `unknown-type`, 4 `limit-exceeded`,
+5 `unauthorized`, 6 `timeout`, 7 `internal`, 8 `superseded`, 9 `protocol`, 10 `session-exists`. A
+receiver treats an unknown code like 7.
+
+The relay sends `stream-open` only after `hello-ack`, never above `max streams`, and not after a
+`drain` in either direction. After a `drain` of the relay, the gateway opens a new control
+connection, which MAY lead to another instance of the relay; the relay closes the drained connection
+at the end of the grace time at the latest. After a `drain` of the gateway, the relay closes new agent
+connections for it as in Section 4.5.
+
+**One control connection per installation.** The relay is one logical service: an installation has
+at most one control connection, across all instances of the relay. How the operator achieves this
+is its own matter. A new control connection of an installation that already has one replaces the
+existing one only if the existing one missed its heartbeat, was drained by the relay, or has a
+certificate with an earlier `notBefore` than the new one. Otherwise the relay sends `error`
+`session-exists` on the new connection and closes it. When it replaces a connection, it sends
+`error` `superseded` on the old one, closes it, and voids its tokens and warm data connections;
+bound data connections end with their stream. This clears a connection left open by a change of
+network, but a second holder of an older certificate cannot push out the gateway. The gateway
+connects anew with each renewed certificate (Section 5.5), which replaces its old control
+connection.
+
+### 4.5 Agent connections and data connections
+
+**Routing.** Agents connect to the relay over TCP at `relay_addresses`, port 443. The relay reads
+the server name from the ClientHello without terminating TLS. It MUST accept a ClientHello of up to
+16384 bytes, also across several TLS records, and MAY close a connection whose ClientHello is larger
+or has not arrived within 10 seconds. It compares the server name without regard to case with the
+standard names and the verified own-domain names (Section 6.4). It closes a connection without a
+server name, for an unknown name, for an installation without a control connection, with status
+`paused` or above its `max streams`, without completing a TLS handshake (it MAY send a TLS alert
+first). This version passes only TCP; it carries no QUIC.
+
+**Binding.** For an agent connection, the relay generates a **token** of 32 random bytes, bound to
+the installation and valid for at most 10 seconds, and sends `stream-open`. The gateway takes a warm
+data connection or opens a new one and sends `data-bind` with the token, and nothing before it. The
+relay reads at most the 36 bytes of that frame, checks the limits of the installation (Section 4.8),
+and then redeems the token against the installation of the data connection's own certificate. A
+token is used once: its first presentation consumes it, whether it succeeds or not, and a token of
+another installation is consumed without binding. On success the relay writes the PROXY header
+(Section 4.6) and from then on copies the bytes in both directions unchanged, the bytes it read from
+the agent's ClientHello first.
+
+The relay closes a data connection **without any answer** if its first frame is not a well-formed
+`data-bind`, if the token is unknown, used, withdrawn, expired or of another installation, or if a
+limit is reached, so that a closed connection does not tell which tokens exist. It closes the agent
+connection whose token became void without a binding. Neither side records a token, and the relay
+SHOULD store only a digest of it.
+
+A gateway presents each token at most once. It MAY try up to three times to open a data connection
+for one `stream-open` while the token has not yet been sent, and otherwise answers with
+`stream-close` `refused`. After a failed binding, it waits before its next data connection: 1 second
+after the first failure, doubling up to 30 seconds while failures continue, with random jitter of up
+to one half, until a binding succeeds. A `stream-close` voids only a token of the installation of the
+control connection it arrives on.
+
+**Warm data connections.** A warm data connection has completed its TLS handshake and has not yet
+sent `data-bind`. The gateway keeps at most `pool size` of them; the relay closes any above that,
+and any warm connection that sends nothing within 30 seconds. The gateway SHOULD replace a warm
+connection after 25 seconds. Once the first byte of `data-bind` has arrived, the rest follows within
+5 seconds.
+
+**End of a stream.** Either side closes with a normal TCP close, and a half close is passed on. The
+relay MAY close a stream without a byte in either direction for an idle time of its choice, which
+SHOULD be at least 10 minutes. The control connection is not involved in the end of a stream, and
+the loss of the control connection does not end bound data connections.
+
+### 4.6 Address of the agent
+
+As the first bytes towards the gateway on every bound data connection, the relay writes a PROXY
+protocol version 2 header with the address and port of the agent. Only this form is valid:
+
+| Offset | Size | Value |
+|---|---|---|
+| 0 | 12 | `0D 0A 0D 0A 00 0D 0A 51 55 49 54 0A` |
+| 12 | 1 | `0x21`: version 2, command `PROXY` |
+| 13 | 1 | `0x11` TCP over IPv4, or `0x21` TCP over IPv6 |
+| 14 | 2 | 12 for IPv4, 36 for IPv6; there are no TLVs |
+| 16 | 12 or 36 | source address, destination address, source port, destination port |
+
+Both addresses have the same family, and an IPv4 address is never written as an IPv4-mapped IPv6
+address. The source is the agent; the destination is `192.0.2.1:443` or `[2001:db8::1]:443`, so that
+the header reveals nothing about the relay, and the gateway ignores it. Neither port is 0. The
+gateway reads exactly the 16 fixed bytes and the announced block, and closes the connection on
+anything else, or on a source that is unspecified, loopback, private (RFC 1918, `fc00::/7`),
+link-local, multicast, broadcast or in `0.0.0.0/8`.
+
+The relay MUST write the address from which the agent's connection reached the operator. An operator
+MAY run load balancers in front of the relay; how they pass that address to the relay is the
+operator's matter, but the relay MUST NOT take it from anything an agent can send, such as a PROXY
+header from outside.
+
+The gateway accepts this header only on data connections that it opened itself and bound with its
+own token, and on no other listener. It uses the address of the agent for limits and logs, and MUST
+NOT use it for any decision about trust or locality, such as treating a request as coming from the
+local network.
+
+### 4.7 New pins
+
+The relay announces new pins (Section 6.8) with `pins` on a control connection after `hello-ack`,
+and the gateway answers with `pins-ack`, so that the operator knows which gateways have the new pins
+before it rotates a key.
+
+| Message | Payload |
+|---|---|
+| `pins` | sequence (u32), number of active pins (u8), number of backup pins (u8), then the active and then the backup pins, 32 bytes each (the SHA-256 digest itself, not base64url), each kind in strictly ascending byte order |
+| `pins-ack` | sequence (u32) of the `pins` it answers, result (u8: 1 stored, 2 ignored) |
+
+A `pins` that breaks this encoding is an error. The gateway applies the rules of Section 6.8 with
+the pin of the connection (Section 4.1): a set that breaks them is ignored, and the stored set
+stays. Otherwise the gateway stores the set, durably and as a whole, before it answers `stored`; a
+set equal to the stored one is also answered `stored`. The gateway answers within one heartbeat
+interval. The relay has at most one `pins` unanswered and MAY send the set again on a later
+connection.
+
+### 4.8 Limits
+
+Values that the other side has to keep to are rules of this section: the frame size (Section 4.3),
+the ranges of `hello-ack` and the time limits of Sections 4.4 and 4.5, the token validity and the
+backoff of the gateway. Every receiver checks a limit before it allocates memory for what it
+bounds.
+
+Beyond these, the relay MUST limit what it spends on any source, installation and connection. It
+chooses the values itself, so that a gateway that follows this section never reaches them, and
+SHOULD raise an alarm in its monitoring when a limit of control connections is reached. RECOMMENDED
+values:
+
+| Limit | RECOMMENDED |
+|---|---|
+| new control connections per certificate serial and source address (IPv6 by /64) | 6 per minute |
+| new connections, control and data, per source address (IPv6 by /64) before the TLS handshake completes | 20 per second (burst 40), at most 64 unfinished handshakes |
+| new data connections per installation | 20 per second (burst 40) |
+| frames per second per control connection, ignored frames included | 20 (burst 40) |
+| unredeemed tokens per installation, and in total | 16, and 65536 |
+| `max streams`, `pool size` | 64, 4 |
+
+The relay counts control connections per certificate serial and source, not per installation, so
+that connecting often from elsewhere cannot lock the gateway out. A peer above a limit gets `error`
+`limit-exceeded` on a control connection, and a close without answer on any other connection.
+
+### 4.9 Errors
+
+- Whatever this section does not allow is an error. On a control connection the receiver sends
+  `error` where it can, and closes; there is no recovery from a framing error. Only an unknown
+  optional frame is skipped.
+- When the control connection of an installation is lost, the relay voids its tokens and warm data
+  connections and closes its new agent connections as in Section 4.5.
+- The gateway keeps working locally without the tunnel. It connects again with backoff: 1 second
+  after the first failure, doubling up to 60 seconds, with random jitter of up to one half, reset
+  once a control connection has stayed open for 60 seconds; after `session-exists` it waits likewise.
+  Each control connection uses new tokens.
+- A gateway whose handshakes the relay keeps refusing MAY read its installation (Section 5.3) to
+  learn whether it was blocked or unpaired. When no stored pin matches, it does not connect, and
+  Section 6.8 applies.
+- An agent sees only a closed connection; no detail leaves the tunnel.
 
 ## 5. Pairing and issuance
 
@@ -440,7 +733,7 @@ check; it tells the household that the operator does not conform and retries lat
 A gateway SHOULD ask for a new tunnel certificate when two thirds of the validity of the current
 one have passed, always with a new tunnel key, and SHOULD retry with exponential backoff. It
 uses the new certificate for new connections and MUST reconnect with it before the old one
-expires (tunnel protocol, Section 4).
+expires (Section 4.4).
 
 A request after the current certificate expired is a **re-issuance**. It is authenticated by
 the installation key alone. The **offline time** of an installation is the time since the expiry
@@ -544,7 +837,7 @@ answered with `200` and the installation with the status `unpaired`. The operato
 
 - answers every further request of the installation with `unpaired`;
 - adds the serial numbers of all unexpired tunnel certificates of the installation to the
-  relay's denylist and closes their connections (tunnel protocol, Section 4);
+  relay's denylist and closes their connections (Section 4.1);
 - removes every DNS record of the standard name, including challenge and CAA records, so that
   the CAA record at the apex of the name domain applies again (Section 6.3), and releases its
   own-domain name (Section 6.4);
@@ -592,7 +885,8 @@ use; that name is the gateway's OAuth issuer. Changing it gives a new issuer, an
 connected again. The gateway keeps its standard name in either case.
 
 Both names reach the gateway through the same relay: agents connect to port 443 of the relay,
-which passes the connection to the installation whose name is in the TLS server name indication.
+which passes the connection to the installation whose name is in the TLS server name indication
+(Section 4.5).
 The relay passes a connection for an own-domain name only while that name is verified
 (Section 6.4).
 
@@ -829,7 +1123,7 @@ lost or leaked active key or to replace a backup key, and to test this. Together
 - At pairing, the gateway stores `relay_pins` as active and `relay_backup_pins` as backup pins,
   from the metadata (Section 3) that it fetched under the WebPKI.
 - Afterwards it takes new pins **only from the relay over a tunnel connection that was
-  authenticated with a stored pin** (a control message of the tunnel protocol, Section 4), and
+  authenticated with a stored pin** (the message `pins`, Section 4.7), and
   only under these rules; a set that breaks them (also one with a pin in both kinds or more than
   eight pins) is ignored and the stored set kept:
   - over a connection authenticated with an **active** pin, the relay may replace the active
@@ -1031,9 +1325,8 @@ metadata document is `relay/schema/metadata-v0.schema.json`.
 
 ## 9. Security considerations
 
-The rows below cover pairing and issuance (Section 5), names and certificates (Section 6) and
-what an operator owes (Section 7);
-the tunnel (Section 4) adds its rows when it is specified. Throughout, two facts limit what an
+The rows below cover the tunnel (Section 4), pairing and issuance (Section 5), names and
+certificates (Section 6) and what an operator owes (Section 7). Throughout, two facts limit what an
 attacker on the relay side gains. An agent verifies the **server certificate** of the public
 name, whose key exists only in the gateway. And a public CA that follows RFC 8657 issues a
 certificate for the name only to the ACME account in its CAA record, which is the gateway's own
@@ -1043,6 +1336,13 @@ this specification; what an operator itself could do is in the rows below and in
 
 | Attacker | What the specification does | What remains |
 |---|---|---|
+| **A gateway claims to be another home** | The installation of every connection comes only from the single URI of the verified tunnel certificate, compared byte for byte; no message carries an installation (Section 4.1) | – |
+| **Guesses, replays or steals a stream token** | 256 random bits, valid for at most 10 seconds, used once, bound to the installation of the redeeming certificate, never recorded; a token of another home is consumed without binding; a failed binding is closed without an answer (Section 4.5) | – |
+| **Sits on the path between gateway and relay** | TLS 1.3 with mutual authentication; the gateway accepts the relay only by a stored pin (Sections 4.1, 6.8) | Denial of service; the server names and timing that the network shows anyway |
+| **Records the tunnel to decrypt it later** with a quantum computer | The only key exchange group is the hybrid `X25519MLKEM768` (Section 4.2); the agents' bytes are inside their own TLS connections to the gateway | What the agents' own TLS connections leave open |
+| **Downgrades the tunnel** | TLS 1.3 only and a single group; the version and capabilities are chosen inside the authenticated connection, and the gateway rejects any it did not offer (Sections 4.2, 4.4) | – |
+| **Floods the relay** with connections, frames or slow handshakes | Frames bounded from their header; deadlines for every read and write; limits per source, installation and connection, checked before memory is allocated (Sections 4.3, 4.4, 4.8) | Denial of service within the operator's limits |
+| **Forges the address of an agent** | The gateway takes the PROXY header only on data connections it opened and bound itself, in one strict form, refuses local and private sources, and never uses the address for trust (Section 4.6) | A compromised relay can forge addresses; they affect limits and logs, not authorization |
 | **Guesses a pairing code** | 80 random bits, valid for at most 10 minutes (24 hours for a code for an existing installation, after its waiting time), single use, limited attempts, one answer for all failures (Section 5.2) | – |
 | **Intercepts or is shown a pairing code** for a new installation before the household uses it | The code is bound to the household's account, not to a gateway; the operator notifies the household of every new installation (Section 5.2) | The attacker's gateway is paired to the household's account until the household notices and unpairs it. It gets a new standard name and does not receive the household's agents |
 | **Intercepts or is shown a pairing code for an existing installation** | Created only after a fresh authentication and not within 72 hours after a change of notification channels, announced on all channels, usable only after at least 24 hours in which the household can cancel it; a gateway that still runs warns its administrator during that time (Section 5.2) | A household that ignores the announcement loses its standard name to the attacker's gateway, which then receives the household's agents and can complete their TLS for the standard name; an own-domain name stays bound to the old ACME account by the household's CAA record until the household changes it. The replaced gateway learns it (`unpaired`) and tells the household; the new server certificate appears in Certificate Transparency (Section 6.7) |
@@ -1051,7 +1351,7 @@ this specification; what an operator itself could do is in the rows below and in
 | **Another installation's key** (any paired gateway, also one paired to the attacker's own account) | The URL of a request must belong to the installation of its key (Section 5.1); installation URLs carry 128 random bits | – |
 | **Steals the installation key** | Tunnel certificates and ACME challenge records, but no server certificate: the CAA record binds issuance to the gateway's ACME account, and changing the account needs the household's confirmation (Section 5.6). Every issuance is shown in the portal, re-issuances and key changes are notified; a key that nobody uses for `max_offline_days` can only read the installation; unpairing ends it (Sections 5.5, 5.7) | Until the household unpairs, the attacker can take the tunnel over and deny service, learn when agents connect, lock the gateway out with a key change, remove or replace the own-domain registration (the household is notified), and unpair the installation, which loses the standard name for good. A CA that ignores RFC 8657 would issue to the attacker; gateways use only CAs that enforce it (Section 6.6). A thief who acts within the hour after a pairing or replacement, before the gateway reports its account, can report an own account first; the gateway then alarms its administrator, and the portal shows the foreign account in force (Section 5.6) |
 | **Steals the installation key and the ACME account key** (a compromised gateway) | – | Everything the gateway can do, until the household unpairs |
-| **Steals a tunnel key** | Tunnel certificates live at most 24 hours; a new key at every renewal; denylist (Sections 5.4, 5.7) | Taking the tunnel over for at most the rest of that certificate's life |
+| **Steals a tunnel key** | Tunnel certificates live at most 24 hours; a new key at every renewal; denylist (Sections 5.4, 5.7). A new control connection replaces a healthy one only with a later `notBefore`, and connects are limited per certificate serial and source (Sections 4.4, 4.8) | Taking the tunnel over for at most the rest of that certificate's life, while the gateway misses its heartbeat or before it renews |
 | **Takes over the household's account at the operator** | Unpairing and pairing codes stay with the account; codes for an existing installation and changes of the ACME account need a fresh authentication or the household's confirmation and are announced (Sections 5.2, 5.6) | The attacker can end remote access, and can move the standard name as in the row above, announced and with a waiting time |
 | **Compromises the operator's tunnel CA** | Name constraint on the operator's trust domain; short lifetimes (Section 5.4); the operator tells the households (Section 7.9) | Tunnel certificates for every home of that operator: denial of service and metadata, not content |
 | **Operator that wants to read** agents' traffic | Standard: the operator could obtain a certificate through its own zone, but the gateway's Certificate Transparency monitoring raises an alarm, and the gateway checks the CAA records of its standard name and of the apex every hour (Sections 6.6, 6.7). Own domain: the CAA record of the household binds issuance to the gateway's account (Sections 6.2, 6.4) | Standard: reading until the household reacts to the alarm; an operator that deliberately deceives, with a CA that does not log and CAA answers for the CA that differ from those the gateway sees, reads unnoticed as long as agents do not require proof of logging (Section 6.2). Own domain: a household whose DNS the operator runs, a CA that ignores RFC 8657, a compromised CA |
@@ -1063,7 +1363,7 @@ this specification; what an operator itself could do is in the rows below and in
 | **Compromises the portal** | CA key and DNS credentials SHOULD be kept apart from it (Section 7.7); households are told (Section 7.9) | With them apart, the attacker can confirm foreign accounts and create codes, also without waiting times or notifications if those run in the portal, and then complete agents' TLS for standard names until the Certificate Transparency alarm of a gateway that is still paired. A code for an existing installation, redeemed by the attacker's gateway, unpairs the household's gateway, which then stops monitoring: the household sees only that remote access has ended. It also gets the households' data. Without them apart, it can also change CAA records and issue tunnel certificates directly. An own-domain name stays protected by the household's CAA record |
 | **Takes over a name domain that was given up** | The operator keeps control of it for a year, without records that permit issuance (Section 7.9) | After that year, or if the operator fails, agents that still use a name of that domain can reach whoever holds it, if that party obtains a certificate |
 | **Exhausts the CA's limit** with many pairings or through its own ACME accounts | Limits on new pairings per account and in total (Section 7.8); renewals coordinated by ACME Renewal Information are usually exempt | New pairings wait, and so does a gateway that needs a new certificate after a replacement or a lost key; a party with many accounts can still use up the limit |
-| **Operator that tries to change what the household allows** | No message carries mandates, approver keys or issuer keys; a gateway accepts none (Section 5.7) | – |
+| **Operator that tries to change what the household allows** | No message of Sections 4 and 5 carries mandates, approver keys or issuer keys; optional frames carry nothing that security depends on; a gateway accepts none (Sections 4.3, 5.7) | – |
 
 ## 10. Privacy considerations
 
@@ -1081,7 +1381,7 @@ What an operator learns:
 | Address of a household's browser | the portal, and connections to a public name, such as an approval or authorization at the gateway | where its people are when they use the portal or reach their gateway from outside |
 | Home ID, server name | routing of each connection | which home is reached; an own-domain name also names the household |
 | Address of the agent, ClientHello, time, number of bytes | each connection | when agents act in the home and how much, from which network, and with which software |
-| Address of the gateway | the tunnel and enrollment requests | the home's internet connection and when it is online |
+| Address and software of the gateway | the tunnel (Section 4.4) and enrollment requests | the home's internet connection, when it is online, and which gateway software it runs |
 | ACME account, issuances | Section 5 | when the gateway changes its certificates or accounts, and over the life of the installation when it was online |
 | Own-domain name | Section 6.4 | a name of the household's choice |
 | Queries to its name servers | DNS | which resolvers ask for a public name, and when |
@@ -1108,6 +1408,13 @@ A household that wants less of this runs its gateway without a relay.
 
 ### Unreleased
 
+- Section 4 specified: the tunnel protocol, with the parameters of the operator from the
+  metadata, the gateway's tunnel certificate and the relay authenticated by its pins alone, TLS 1.3
+  with the hybrid group `X25519MLKEM768` only, frames and message types, control connection with
+  heartbeat and one connection per installation across all instances of the relay, data connections
+  bound by single-use tokens, PROXY v2 with the agent's address also behind load balancers, the
+  messages `pins` and `pins-ack`, limits that the other side has to keep to and RECOMMENDED limits
+  of the relay, and errors. Security considerations for the tunnel.
 - Section 7 specified: separate domains, Public Suffix List where an operator qualifies, `__Host-`
   cookies, what an operator does not do, both protection levels for every installation, monitoring
   of the name domain, retention within the law of the operator's jurisdiction,
