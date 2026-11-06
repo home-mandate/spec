@@ -581,6 +581,9 @@ func keyAlg(key crypto.PublicKey) (string, bool) {
 }
 
 func sameKey(a, b crypto.PublicKey) bool {
+	if e, ok := a.(*ecdsa.PublicKey); ok && e == nil {
+		return false
+	}
 	k, ok := a.(interface{ Equal(crypto.PublicKey) bool })
 	return ok && k.Equal(b)
 }

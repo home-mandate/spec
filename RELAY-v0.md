@@ -138,7 +138,7 @@ specification is released, the schema can still change under the same `type`.
 |---|---|
 | `type` | `https://home-mandate.org/relay-metadata/v0` |
 | `operator_domain` | MUST equal the host from which the document was fetched |
-| `name_domain` | domain of the public names at the protection level Standard; MUST NOT be the operator domain; neither it nor the operator domain or the host of `enrollment`, `portal`, `privacy_policy` or `relay` may be at or below the other (Section 7.1 asks for more) |
+| `name_domain` | domain of the public names at the protection level Standard; MUST NOT be the operator domain; for each of the operator domain and the hosts of `enrollment`, `portal`, `privacy_policy` and `relay`, neither it nor `name_domain` may be at or below the other (Section 7.1 asks for more) |
 | `trust_domain` | SPIFFE trust domain of the tunnel certificates |
 | `enrollment` | HTTPS URL of the enrollment directory (Section 5.1); its host MUST be the operator domain or a subdomain of it |
 | `relay` | `host` and `port` where gateways open their tunnel connections |
@@ -1424,7 +1424,7 @@ first added as a case.
 ### 8.3 Live test
 
 The test tool `relay-conformance` (in `cmd/`) plays a gateway and an agent against a live operator.
-With a pairing code of the test account (Section 8.4) it pairs a test installation with keys it
+With up to two pairing codes of the test account (Section 8.4) it pairs a test installation with keys it
 generates for this run, sends the requests of the cases with their deliberate defects and compares
 the errors, also requests of one installation at the URLs of another, checks the tunnel certificates
 it is issued and the records in the operator's DNS, registers an own-domain name in a zone of the
@@ -1448,7 +1448,7 @@ An operator that claims conformance MUST, for as long as it claims it,
 - allow test runs as in Section 8.3 at least once a month, and after a failed run one more run
   within that month.
 
-A block of the test account, or a refused run within that rate, ends the claim of conformance until
+A block of the test account or of one of its installations, or a refused run within that rate, ends the claim of conformance until
 a run passes.
 
 ## 9. Security considerations

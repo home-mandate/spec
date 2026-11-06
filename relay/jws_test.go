@@ -167,9 +167,10 @@ func TestJWSHeadersAgreeWithTheSchema(t *testing.T) {
 	}
 }
 
-// jwsDefectsAfterSignature are the malformed cases whose defect RELAY-v0 checks after the
-// signature (section 5.1 steps 4 and 6, the payload and url of section 5.5). Their
-// signature has to verify; every other malformed case fails before the signature check.
+// jwsDefectsAfterSignature are the malformed cases that are signed correctly: r06 and k04
+// fail after the signature (the url, RELAY-v0 sections 5.1 step 4 and 5.5), r44 and k11
+// before it (a payload that is not an object, section 5.1 step 1 and the inner header
+// check of section 5.5). Every other malformed case has a signature that does not verify.
 var jwsDefectsAfterSignature = []string{"r06", "r44", "k04", "k11"}
 
 // TestJWSCaseSignatures checks the signatures of the cases with the standard library alone:
