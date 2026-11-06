@@ -908,33 +908,30 @@ unpaired, when the certificate was issued; it looks into these and tells the hou
 ### 7.5 Data of households
 
 **Connection data** are records of connections and requests that can be linked to a household, an
-installation or an address, also through a pseudonym. An operator MAY keep only these: the home ID,
-the server name, the address and port of the agent, the gateway or another requester, the time, the
-number of bytes, the result, and the serial number of a tunnel certificate. It MUST NOT record the bytes
-that it passes on, and of the ClientHello only the server name. DNS queries to its name servers,
-if it records them, count as connection data.
-
-An operator MUST delete connection data after at most 30 days, and it is RECOMMENDED to delete them
-after 7 days. It MAY keep more or keep them longer where a law requires it, which it names in its
-privacy policy (`privacy_policy`), or, limited to the records concerned, until an open case of abuse,
-an objection (Section 7.6) or an incident (Section 7.9) has ended. Its privacy policy MUST state the
-periods it applies. The time of each issuance is not bound by these periods: the operator keeps it,
-and shows it, as long as the installation exists; its source address only as long as it keeps it under
-this section (Section 5.5).
+installation or an address, also through a pseudonym, such as the home ID, the server name, the
+address and port of the agent, the gateway or another requester, the time, the number of bytes, the
+result, and the serial number of a tunnel certificate. DNS queries to its name servers, if it
+records them, count as connection data. An operator MUST NOT record the bytes that it passes on, and
+of the ClientHello only the server name (Section 7.2).
 
 **Account data** are the household's account and notification channels, billing records and reports
 of abuse. **Installation data** are the link between account and home ID, the ACME account, the
-own-domain name, and the installation keys and public keys of tunnel certificates (or their digests)
-that Sections 5.4 and 5.5 compare against. An operator MUST delete, within 60 days and with its backups:
+own-domain name, and the installation keys and public keys of tunnel certificates (or their digests).
 
-- account data after the household deleted its account;
-- installation data after the installation was unpaired by anybody;
-- both after the end of its service;
-- what the household or gateway has replaced or removed, except what Sections 5.2, 5.4 and 5.5 still
-  need while the installation exists.
+**Retention.** Which data an operator keeps and for how long is set by the law of its jurisdiction,
+which differs from country to country; this specification sets no periods. An operator MUST keep
+data only as that law allows, and MUST state, in its privacy policy (`privacy_policy`) or in a
+document linked from it, which data it keeps and for how long, before it creates the first account.
+Except for what the next paragraph keeps, each period is a fixed length, counted from the collection or from a stated event such as the deletion of an
+account; "as long as needed" is not a period. When the periods or the data it keeps change, also
+because a law changed, the operator MUST tell the households concerned within 30 days after the
+change.
 
-Exceptions are the same as for connection data: a law, or an open case. The reserved home ID
-and what Section 5.7 needs to answer `unpaired` stay, without a link to a person.
+Whatever its periods, an operator keeps what this specification requires, for as long as it
+requires it: what Sections 5.2, 5.4 and 5.5 need while the installation exists, including the time
+of each issuance, which it also shows (Section 5.5); the denylist entries until they end
+(Section 7.6); and, without a link to a person, the reserved home ID and what Section 5.7 needs to
+answer `unpaired`. The source address of an issuance is connection data.
 
 An operator MUST use all of this only to run and secure the service, to act against abuse, to bill and as a
 law requires. It MUST NOT sell them, use them for advertising or build a profile of a household
@@ -1089,7 +1086,7 @@ What an operator learns:
 | Own-domain name | Section 6.4 | a name of the household's choice |
 | Queries to its name servers | DNS | which resolvers ask for a public name, and when |
 
-Section 7.5 limits what an operator keeps and how it uses it; only the operator's statement backs
+Section 7.5 makes an operator publish what it keeps and limits how it uses it; only the operator's statement backs
 these limits (Section 7.10).
 
 Others learn something too:
@@ -1113,7 +1110,8 @@ A household that wants less of this runs its gateway without a relay.
 
 - Section 7 specified: separate domains, Public Suffix List where an operator qualifies, `__Host-`
   cookies, what an operator does not do, both protection levels for every installation, monitoring
-  of the name domain, connection data limited to a closed list and at most 30 days, abuse measures
+  of the name domain, retention within the law of the operator's jurisdiction,
+  with data and periods published and changes told within 30 days, abuse measures
   without access to content, offline backup keys with tested recovery, limits of the CA, incidents
   and the end of a service, and what can be checked from outside.
 - Section 10 specified: what an operator and others learn.
