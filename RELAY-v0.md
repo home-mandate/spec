@@ -174,8 +174,10 @@ of each direction and the difference between a clean and an abrupt end, Section 
 detects a failed instance is its own matter. A data connection may reach another instance than the
 control connection, and the gateway MUST NOT assume otherwise; it SHOULD open its data connections
 to the address that its control connection uses. The rules on tokens, the denylist and the single
-control connection hold for the logical relay; a delay with which its instances learn of a change is
-harmless where it only delays a refusal.
+control connection hold for the logical relay: a token is consumed, and a control connection
+replaced, for all instances at once, and every instance refuses a certificate, and closes its
+connections, within 60 seconds after it is added to the denylist. A delay with which instances learn
+of a change is harmless only for the limits of Section 4.8 and the pool of Section 4.5.
 
 *Deployment (informative):* load balancers in front of the relay pass TCP through; whatever ends the
 TLS of tunnel connections is part of the relay and follows Sections 4.1 and 4.2, which generic
@@ -341,7 +343,8 @@ connection at the end of the grace time at the latest. After a `drain` of the ga
 connections for it as in Section 4.5.
 
 **One control connection per installation.** An installation has at most one control connection,
-across all instances of the relay. A control connection on an instance that failed counts as lost.
+across all instances of the relay. A control connection on an instance that failed counts as lost, at the latest two heartbeat
+intervals after its last frame.
 A new control connection of an installation that already has one replaces the
 existing one only if the existing one missed its heartbeat, was drained by either side, or has a
 certificate with an earlier `notBefore` than the new one. Otherwise the relay sends `error`
@@ -402,8 +405,9 @@ connections of the installation more than `pool size` plus its unredeemed tokens
 small surplus for the delay with which its instances learn of closed connections. It closes a warm
 connection that has sent nothing for three heartbeat intervals. The gateway SHOULD replace a warm
 connection after two heartbeat intervals, and closes it before it opens the replacement; a warm
-connection that the relay closed before `data-bind` it replaces only after the backoff of a failed
-binding. A warm connection carries no token until it binds, and its certificate is checked as on
+connection that the relay closed before `data-bind` it replaces only after 1 second, doubling up to
+30 seconds while such closes continue, which does not delay data connections for a `stream-open`.
+Both sides use the heartbeat interval of the installation's current control connection. A warm connection carries no token until it binds, and its certificate is checked as on
 every connection (Section 4.1), so its lifetime only serves to notice connections that died
 silently. Once the first byte of `data-bind` has arrived, the rest follows within
 5 seconds.
@@ -484,7 +488,7 @@ values:
 | new connections, control and data, per source address (IPv6 by /64) before the TLS handshake completes | 20 per second (burst 40), at most 64 unfinished handshakes |
 | new data connections per installation | 20 per second (burst 40) |
 | frames per second per control connection, ignored frames included, not counting `pong`, `pins-ack` and `stream-close` that answer frames of the relay | 20 (burst 40) |
-| unredeemed tokens per installation, and per instance | 16, and 65536 |
+| unredeemed tokens per installation (per instance where enforced per instance), and per instance | 16, and 65536 |
 | `max streams`, `pool size` | 64, 1; a `pool size` of 0 saves handshakes in large fleets, at the cost of one round trip per agent connection |
 
 The relay counts control connections per certificate serial and source, not per installation, so
@@ -500,10 +504,10 @@ that connecting often from elsewhere cannot lock the gateway out. A peer above a
   unbound data connections of the installation and closes its new agent connections as in
   Section 4.5.
 - The gateway keeps working locally without the tunnel. It connects again with backoff: after the
-  loss of a control connection that had been open, first after a random time between 0 and 10
-  seconds; after a failed attempt, 1 second, doubling up to 60 seconds, adding random jitter of up to
-  one half, reset once a control connection has stayed open for 60 seconds; after `session-exists` it waits likewise.
-  Each control connection uses new tokens.
+  loss of a control connection that had stayed open for 60 seconds, first after a random time
+  between 0 and 10 seconds; otherwise, and after a failed attempt, 1 second, doubling up to 60
+  seconds, adding random jitter of up to one half, reset once a control connection has stayed open
+  for 60 seconds; after `session-exists` it waits likewise. Each control connection uses new tokens.
 - A gateway whose handshakes the relay keeps refusing MAY read its installation (Section 5.3) to
   learn whether it was blocked or unpaired. When no stored pin matches, it refuses that connection,
   tells its local administrator (Section 6.8), and keeps trying with the backoff above, so that a
