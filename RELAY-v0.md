@@ -920,16 +920,18 @@ own-domain name, and the installation keys and public keys of tunnel certificate
 
 **Retention.** Which data an operator keeps and for how long is set by the law of its jurisdiction,
 which differs from country to country; this specification sets no periods. An operator MUST keep
-data only as that law allows, and MUST state in its privacy policy (`privacy_policy`), or link to
-from there, which data it keeps and for how long, before it creates the first account. Each period
-is a fixed length, counted from the collection or from a stated event such as the deletion of an
+data only as that law allows, and MUST state, in its privacy policy (`privacy_policy`) or in a
+document linked from it, which data it keeps and for how long, before it creates the first account.
+Except for what the next paragraph keeps, each period is a fixed length, counted from the collection or from a stated event such as the deletion of an
 account; "as long as needed" is not a period. When the periods or the data it keeps change, also
-because a law changed, the operator MUST tell the households within 30 days.
+because a law changed, the operator MUST tell the households concerned within 30 days after the
+change.
 
-Whatever its periods, an operator keeps what this specification still needs while the account or
-installation exists, including the time of each issuance, which it also shows (Section 5.5); the
-source address of an issuance is connection data. The reserved home ID and what Section 5.7 needs
-to answer `unpaired` stay, without a link to a person.
+Whatever its periods, an operator keeps what this specification requires, for as long as it
+requires it: what Sections 5.2, 5.4 and 5.5 need while the installation exists, including the time
+of each issuance, which it also shows (Section 5.5); the denylist entries until they end
+(Section 7.6); and, without a link to a person, the reserved home ID and what Section 5.7 needs to
+answer `unpaired`. The source address of an issuance is connection data.
 
 An operator MUST use all of this only to run and secure the service, to act against abuse, to bill and as a
 law requires. It MUST NOT sell them, use them for advertising or build a profile of a household
@@ -1084,7 +1086,7 @@ What an operator learns:
 | Own-domain name | Section 6.4 | a name of the household's choice |
 | Queries to its name servers | DNS | which resolvers ask for a public name, and when |
 
-Section 7.5 limits what an operator keeps and how it uses it; only the operator's statement backs
+Section 7.5 makes an operator publish what it keeps and limits how it uses it; only the operator's statement backs
 these limits (Section 7.10).
 
 Others learn something too:
