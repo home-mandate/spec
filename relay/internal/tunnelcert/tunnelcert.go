@@ -18,6 +18,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/home-mandate/spec/jws"
 )
 
 // MaxChain is the largest number of certificates in a certificate response.
@@ -46,6 +48,13 @@ func CheckCSR(der []byte, installation crypto.PublicKey, earlier []crypto.Public
 	}
 	if err := checkCSRAlgorithm(req); err != nil {
 		return nil, err
+	}
+	// The key is a key in the sense of RELAY-v0 section 5.1: no Ed25519 key of small order,
+	// and canonically encoded.
+	if jwk, err := jws.MarshalJWK(req.PublicKey); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrBadCSR, err)
+	} else if _, err := jws.ParseJWK(jwk); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrBadCSR, err)
 	}
 	if err := req.CheckSignature(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrBadCSR, err)
@@ -88,6 +97,9 @@ type Expected struct {
 	// RequestedAt is when the request was sent: notBefore is no earlier than 5 minutes
 	// before it, and notAfter is after it.
 	RequestedAt time.Time
+	// ReceivedAt is when the response arrived: notBefore is no later than it, since it is
+	// no later than issuance.
+	ReceivedAt time.Time
 	// EarlierNotBefore is the latest notBefore of the installation's earlier tunnel
 	// certificates, zero if there are none.
 	EarlierNotBefore time.Time
@@ -185,6 +197,8 @@ func checkSAN(c *x509.Certificate, want Expected) error {
 
 func checkTimes(c *x509.Certificate, want Expected) error {
 	switch {
+	case !c.NotAfter.After(c.NotBefore):
+		return errors.New("notAfter is not after notBefore")
 	case !c.NotAfter.Equal(want.NotAfter):
 		return fmt.Errorf("notAfter %s is not not_after %s", c.NotAfter, want.NotAfter)
 	case !c.NotAfter.After(want.RequestedAt):
@@ -193,6 +207,8 @@ func checkTimes(c *x509.Certificate, want Expected) error {
 		return errors.New("notAfter is more than 24 hours after notBefore")
 	case c.NotBefore.Before(want.RequestedAt.Add(-MaxBackdate)):
 		return errors.New("notBefore is more than 5 minutes before issuance")
+	case c.NotBefore.After(want.ReceivedAt):
+		return errors.New("notBefore is later than issuance")
 	case !want.EarlierNotBefore.IsZero() && !c.NotBefore.After(want.EarlierNotBefore):
 		return errors.New("notBefore is not later than that of an earlier tunnel certificate")
 	}
@@ -212,7 +228,11 @@ func checkUsage(c *x509.Certificate, _ Expected) error {
 	if critical, found := extension(c, oidKU); !found || !critical {
 		return errors.New("key usage is missing or not critical")
 	}
-	if _, found := extension(c, oidEKU); !found || len(c.UnknownExtKeyUsage) > 0 || !slices.Equal(distinct(c.ExtKeyUsage), wantEKU) || len(c.ExtKeyUsage) != len(wantEKU) {
+	if _, found := extension(c, oidEKU); !found {
+		return errors.New("no extended key usage")
+	}
+	// The order does not matter, nor does a usage listed twice.
+	if len(c.UnknownExtKeyUsage) > 0 || !slices.Equal(distinct(c.ExtKeyUsage), wantEKU) {
 		return errors.New("extended key usage is not serverAuth and clientAuth alone")
 	}
 	return nil
@@ -277,7 +297,26 @@ func Presented(chain [][]byte, roots *x509.CertPool, trustDomain string, now tim
 	if _, err := certs[0].Verify(opts); err != nil {
 		return "", fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
+	// Verify lets a certificate without extended key usage, or with anyExtendedKeyUsage,
+	// pass for clientAuth; section 4.1 requires clientAuth itself.
+	if !slices.Contains(certs[0].ExtKeyUsage, x509.ExtKeyUsageClientAuth) || slices.Contains(certs[0].ExtKeyUsage, x509.ExtKeyUsageAny) {
+		return "", fmt.Errorf("%w: extended key usage without clientAuth", ErrInvalid)
+	}
+	if !tunnelKey(certs[0].PublicKey) {
+		return "", fmt.Errorf("%w: key %s is neither P-256 nor Ed25519", ErrInvalid, certs[0].PublicKeyAlgorithm)
+	}
 	return homeIDOf(certs[0], trustDomain)
+}
+
+// tunnelKey reports whether key is ECDSA P-256 or Ed25519 (section 4.2).
+func tunnelKey(key crypto.PublicKey) bool {
+	switch k := key.(type) {
+	case ed25519.PublicKey:
+		return true
+	case *ecdsa.PublicKey:
+		return k.Curve == elliptic.P256()
+	}
+	return false
 }
 
 // homeIDOf reads the home ID from the raw subject alternative name extension.

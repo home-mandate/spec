@@ -32,6 +32,7 @@ type certificateCase struct {
 	TrustDomain      string          `json:"trust_domain"`
 	HomeID           string          `json:"home_id"`
 	RequestedAt      string          `json:"requested_at"`
+	ReceivedAt       string          `json:"received_at"`
 	EarlierNotBefore *string         `json:"earlier_not_before"`
 	Expected         string          `json:"expected"`
 	Why              string          `json:"why"`
@@ -137,7 +138,7 @@ func expectedOf(t *testing.T, c certificateCase) tunnelcert.Expected {
 	}
 	want := tunnelcert.Expected{
 		Key: parseKey(t, c.ID, c.TunnelKey), TrustDomain: c.TrustDomain, HomeID: c.HomeID,
-		NotAfter: at(c.NotAfter), RequestedAt: at(c.RequestedAt),
+		NotAfter: at(c.NotAfter), RequestedAt: at(c.RequestedAt), ReceivedAt: at(c.ReceivedAt),
 	}
 	if c.EarlierNotBefore != nil {
 		want.EarlierNotBefore = at(*c.EarlierNotBefore)

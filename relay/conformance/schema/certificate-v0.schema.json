@@ -26,6 +26,7 @@
           "trust_domain",
           "home_id",
           "requested_at",
+          "received_at",
           "earlier_not_before",
           "expected",
           "why"
@@ -65,6 +66,10 @@
             "pattern": "^[a-z2-7]{26}$"
           },
           "requested_at": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
+          "received_at": {
             "type": "string",
             "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
           },

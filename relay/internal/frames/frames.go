@@ -219,7 +219,7 @@ var kind = map[uint16]struct {
 // receiver applies. It returns the decoded messages and, if a frame is an error, its index;
 // otherwise the index is -1.
 func Control(frames []Frame) ([]Message, int, error) {
-	s := &control{outstanding: map[string]string{}, pins: map[int64]bool{}}
+	s := &control{outstanding: map[string]string{}, pins: map[int64]bool{}, drained: map[string]bool{}}
 	out := make([]Message, 0, len(frames))
 	for i, f := range frames {
 		m, err := s.next(f)
@@ -236,7 +236,7 @@ type control struct {
 	hello       Message
 	acked       bool
 	closed      bool
-	drained     bool
+	drained     map[string]bool // by the side that sent drain
 	outstanding map[string]string // unanswered ping value by sender
 	pins        map[int64]bool    // sequences of the pins the relay sent
 }
@@ -270,7 +270,7 @@ func (s *control) next(f Frame) (Message, error) {
 	case k.from != "" && k.from != f.From:
 		return nil, fmt.Errorf("%w: %s from the %s", ErrFrame, k.name, f.From)
 	}
-	if err := s.phase(typ, k.name); err != nil {
+	if err := s.phase(typ, k.name, f.From); err != nil {
 		return nil, err
 	}
 	r := &reader{b: payload}
@@ -285,8 +285,11 @@ func (s *control) next(f Frame) (Message, error) {
 
 // phase: before hello-ack only hello, hello-ack and error are valid, and each of the first
 // two only once.
-func (s *control) phase(typ uint16, name string) error {
+// The relay sends nothing before hello, not even error.
+func (s *control) phase(typ uint16, name, from string) error {
 	switch {
+	case from == Relay && s.hello == nil:
+		return fmt.Errorf("%w: %s from the relay before hello", ErrFrame, name)
 	case typ == typeHello && s.hello != nil, typ == typeHelloAck && s.acked:
 		return fmt.Errorf("%w: second %s", ErrFrame, name)
 	case typ == typeHello, typ == typeError:
@@ -375,13 +378,15 @@ func (s *control) apply(typ uint16, from string, m Message) error {
 		}
 		delete(s.outstanding, other)
 	case typeStreamOpen:
-		if s.drained {
-			return fmt.Errorf("%w: stream-open after drain", ErrFrame)
+		// A stream-open after the gateway's drain may have crossed it; the gateway refuses
+		// it with stream-close. After the relay's own drain it is an error.
+		if s.drained[Relay] {
+			return fmt.Errorf("%w: stream-open after the relay's drain", ErrFrame)
 		}
 	case typeError:
 		s.closed = true
 	case typeDrain:
-		s.drained = true
+		s.drained[from] = true
 	case typePins:
 		s.pins[m["sequence"].(int64)] = true
 	case typePinsAck:

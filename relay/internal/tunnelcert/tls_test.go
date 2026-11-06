@@ -64,6 +64,9 @@ var (
 // tunnelEnv holds the certificates of the probes and the relay's pin.
 type tunnelEnv struct {
 	roots  *x509.CertPool
+	ca     *x509.Certificate
+	caKey  crypto.Signer
+	wg     sync.WaitGroup
 	certs  map[string]tls.Certificate
 	relay  tls.Certificate
 	pin    [32]byte
@@ -95,6 +98,7 @@ func newTunnelEnv(t *testing.T) *tunnelEnv {
 		t.Fatal(err)
 	}
 	env.roots.AddCert(ca)
+	env.ca, env.caKey = ca, caKey
 	p256, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -119,7 +123,7 @@ func newTunnelEnv(t *testing.T) *tunnelEnv {
 
 // tunnelLeaf issues a tunnel certificate for home, by ca or, without one, self-signed. The
 // key is Ed25519 unless one is given.
-func tunnelLeaf(t *testing.T, home string, ca *x509.Certificate, caKey crypto.Signer, key crypto.Signer) tls.Certificate {
+func tunnelLeaf(t *testing.T, home string, ca *x509.Certificate, caKey crypto.Signer, key crypto.Signer, edits ...func(*x509.Certificate)) tls.Certificate {
 	t.Helper()
 	if key == nil {
 		_, k, err := ed25519.GenerateKey(rand.Reader)
@@ -142,6 +146,9 @@ func tunnelLeaf(t *testing.T, home string, ca *x509.Certificate, caKey crypto.Si
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		ExtraExtensions:       []pkix.Extension{{Id: asn1.ObjectIdentifier{2, 5, 29, 17}, Critical: true, Value: san}},
 		BasicConstraintsValid: true,
+	}
+	for _, edit := range edits {
+		edit(template)
 	}
 	parent, signer := ca, caKey
 	if ca == nil {
@@ -193,13 +200,18 @@ func (env *tunnelEnv) serverConfig() *tls.Config {
 // One configuration serves all connections, as on a real server: with session tickets,
 // a new one per connection would hide resumption behind fresh ticket keys.
 func (env *tunnelEnv) serve(ln net.Listener) {
+	defer env.wg.Done()
 	cfg := env.serverConfig()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			return
 		}
-		go env.handle(tls.Server(conn, cfg))
+		env.wg.Add(1)
+		go func() {
+			defer env.wg.Done()
+			env.handle(tls.Server(conn, cfg))
+		}()
 	}
 }
 
@@ -242,6 +254,9 @@ func readFrame(r io.Reader) ([]byte, error) {
 }
 
 // clientConfig is the configuration of a probe; the relay is authenticated by its pin.
+// errLocal marks a failure on the probe's own side, which is not a refusal by the relay.
+var errLocal = errors.New("probe: local failure")
+
 func (env *tunnelEnv) clientConfig(t *testing.T, p tlsProbe, cache tls.ClientSessionCache) *tls.Config {
 	t.Helper()
 	version, ok := probeVersions[p.Client.Version]
@@ -270,10 +285,10 @@ func (env *tunnelEnv) clientConfig(t *testing.T, p tlsProbe, cache tls.ClientSes
 		InsecureSkipVerify: true, // the relay is authenticated by its pin alone (section 6.8)
 		VerifyConnection: func(s tls.ConnectionState) error {
 			if len(s.PeerCertificates) == 0 {
-				return errors.New("no certificate")
+				return fmt.Errorf("%w: no certificate", errLocal)
 			}
 			if sha256.Sum256(s.PeerCertificates[0].RawSubjectPublicKeyInfo) != env.pin {
-				return errors.New("no stored pin matches")
+				return fmt.Errorf("%w: no stored pin matches", errLocal)
 			}
 			return nil
 		},
@@ -291,8 +306,17 @@ func probe(t *testing.T, addr string, cfg *tls.Config) string {
 	t.Helper()
 	dialer := &net.Dialer{Timeout: probeTimeout}
 	conn, err := tls.DialWithDialer(dialer, "tcp", addr, cfg)
+	if errors.Is(err, errLocal) {
+		return err.Error()
+	}
 	if err != nil {
-		return "refused"
+		// The relay refused: an alert, or a closed connection.
+		var alert tls.AlertError
+		var opErr *net.OpError
+		if errors.As(err, &alert) || errors.As(err, &opErr) || errors.Is(err, io.EOF) {
+			return "refused"
+		}
+		return "local failure: " + err.Error()
 	}
 	defer conn.Close()
 	if err := conn.SetDeadline(time.Now().Add(probeTimeout)); err != nil {
@@ -322,8 +346,12 @@ func runProbes(t *testing.T, env *tunnelEnv) (map[string]string, []tlsProbe) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { ln.Close() })
+	env.wg.Add(1)
 	go env.serve(ln)
+	t.Cleanup(func() {
+		ln.Close()
+		env.wg.Wait()
+	})
 	probes := loadCases[tlsProbe](t, "../../conformance/tls-v0.json")
 	got := map[string]string{}
 	for _, p := range probes {
@@ -377,6 +405,21 @@ func TestPresentedRefusesWhatTheRelayMustRefuse(t *testing.T) {
 		"not DER":     {{0x30, 0x00}},
 	} {
 		if _, err := tunnelcert.Presented(chain, env.roots, tlsTrust, time.Now()); !errors.Is(err, tunnelcert.ErrInvalid) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	p384, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, cert := range map[string]tls.Certificate{
+		"no extended key usage": tunnelLeaf(t, tlsHomeA, env.ca, env.caKey, nil, func(c *x509.Certificate) { c.ExtKeyUsage = nil }),
+		"anyExtendedKeyUsage":   tunnelLeaf(t, tlsHomeA, env.ca, env.caKey, nil, func(c *x509.Certificate) { c.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageAny} }),
+		"clientAuth and any":    tunnelLeaf(t, tlsHomeA, env.ca, env.caKey, nil, func(c *x509.Certificate) { c.ExtKeyUsage = append(c.ExtKeyUsage, x509.ExtKeyUsageAny) }),
+		"serverAuth alone":      tunnelLeaf(t, tlsHomeA, env.ca, env.caKey, nil, func(c *x509.Certificate) { c.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth} }),
+		"P-384 key":             tunnelLeaf(t, tlsHomeA, env.ca, env.caKey, p384),
+	} {
+		if _, err := tunnelcert.Presented(cert.Certificate, env.roots, tlsTrust, time.Now()); !errors.Is(err, tunnelcert.ErrInvalid) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}

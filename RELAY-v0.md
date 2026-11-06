@@ -230,8 +230,8 @@ control connection is its **pin of the connection**, active or backup, which Sec
 
 - TCP, then TLS 1.3 (RFC 8446) and nothing older. The gateway sends `relay.host` as its server name.
 - The only key exchange group is `X25519MLKEM768`. Neither side offers or accepts any other group,
-  so a peer that cannot use it does not connect. The gateway SHOULD send a key share for it in its
-  first ClientHello.
+  so a peer that cannot use it does not connect; a relay selects it also when a ClientHello lists
+  other groups besides it. The gateway SHOULD send a key share for it in its first ClientHello.
 - The keys of the relay and of the gateway are ECDSA P-256 or Ed25519, with the signature schemes
   `ecdsa_secp256r1_sha256` and `ed25519`. Both sides MUST support both.
 - The relay requires a client certificate on every connection. Neither side uses session
@@ -337,7 +337,8 @@ receiver treats an unknown code like 7.
 The relay sends `stream-open` only after `hello-ack`, never above `max streams`, no faster than its
 own limit of new data connections for the installation (Section 4.8), closing surplus agent
 connections instead, and not after a
-`drain` in either direction. After a `drain` of the relay, the gateway opens a new control
+`drain` in either direction. A `stream-open` that crossed the gateway's own `drain` is no error; the
+gateway answers it with `stream-close` `refused`. After a `drain` of the relay, the gateway opens a new control
 connection, which the relay accepts on an instance that is not draining, or else answers with `error`
 `internal`, after which the gateway connects again as in Section 4.9; the relay closes the drained
 connection at the end of the grace time at the latest. After a `drain` of the gateway, the relay closes new agent
@@ -753,8 +754,8 @@ tunnel certificate and is answered with `200`; the pairing request carries the s
 refuse it with `bad-csr` unless
 
 - its signature verifies with the public key it contains;
-- the key is ECDSA P-256 or Ed25519, and the request is signed with ECDSA with SHA-256 or with
-  Ed25519, respectively (an operator MUST accept both);
+- the key is ECDSA P-256 or Ed25519 and a key in the sense of Section 5.1, and the request is
+  signed with ECDSA with SHA-256 or with Ed25519, respectively (an operator MUST accept both);
 - the key differs from the installation key and from the key of every tunnel certificate the
   operator issued to this installation before.
 
@@ -764,12 +765,12 @@ CA issues a certificate that
 - contains exactly one subject alternative name, the URI
   `spiffe://<trust_domain>/home/<home ID>/gateway`, in a critical extension, and an empty
   subject;
-- has a `notAfter` at most 24 hours after its `notBefore`, which is no earlier than 5 minutes
-  before issuance and later than the `notBefore` of every earlier tunnel certificate of the
-  installation (Section 4.4);
+- has a `notAfter` later than its `notBefore` and at most 24 hours after it; the `notBefore` is no
+  earlier than 5 minutes before issuance, no later than issuance, and later than the `notBefore` of
+  every earlier tunnel certificate of the installation (Section 4.4);
 - has `cA=false` (as has a certificate without a basic constraints extension), key usage
-  `digitalSignature` only (critical), and extended key usage `serverAuth` and `clientAuth`, as
-  X.509-SVID recommends, and no other;
+  `digitalSignature` only (critical), and extended key usage with `serverAuth` and `clientAuth`,
+  the usages X.509-SVID recommends, and no other usage;
 - has a serial number with at least 64 random bits;
 - contains no other information about the household.
 
@@ -1545,8 +1546,12 @@ A household that wants less of this runs its gateway without a relay.
 
 - Section 8: cases for certificate signing requests, issued tunnel certificates, frames of the
   control connection, the binding of data connections and TLS of tunnel connections. Section 5.4:
-  a tunnel certificate without a basic constraints extension has `cA=false`, and its extended key
-  usage holds `serverAuth` and `clientAuth` and no other.
+  the key of a request is a key in the sense of Section 5.1; the `notBefore` of a tunnel
+  certificate is no later than issuance and before its `notAfter`; a tunnel certificate without a
+  basic constraints extension has `cA=false`, and its extended key usage holds `serverAuth` and
+  `clientAuth` and no other usage. Section 4.2: a relay selects `X25519MLKEM768` also when a
+  ClientHello lists other groups. Section 4.4: a `stream-open` that crossed the gateway's `drain`
+  is refused with `stream-close`, not treated as an error.
 - Section 8 specified: conformance classes of operators (`metadata`, `enrollment`, `dns`, `relay`),
   machine-readable cases in `relay/conformance/` with their own manifest, a live test of an operator
   with `relay-conformance`, and a test account that an operator claiming conformance gives for

@@ -135,3 +135,42 @@ func TestRelayCertificateCommandsRejectBadArguments(t *testing.T) {
 		t.Errorf("longFormLength of a one-byte long form = %x, %v", got, err)
 	}
 }
+
+func TestPrivateKeyRefusesBrokenRSAKeys(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "keys.json")
+	for name, key := range map[string]string{
+		"member missing": `{"kty":"RSA","kid":"k","d":"AQ","n":"AQ","e":"AQAB","p":"AQ"}`,
+		"not a key":      `{"kty":"RSA","kid":"k","d":"AQ","n":"AQ","e":"AQAB","p":"Aw","q":"BQ"}`,
+		"not base64url":  `{"kty":"RSA","kid":"k","d":"AQ","n":"A*","e":"AQAB","p":"Aw","q":"BQ"}`,
+	} {
+		if err := os.WriteFile(path, []byte(`{"keys":[`+key+`]}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := privateKey(path, "k"); err == nil {
+			t.Errorf("%s: privateKey accepted it", name)
+		}
+	}
+}
+
+func TestCertificateGeneratorRefusesKeysOfTheWrongType(t *testing.T) {
+	signers, err := loadSigners("../..", "relay/conformance/keys/test-keys.private.json", relayCertKids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signers["relay-tunnel-ca"] = signers["relay-tunnel-p256"]
+	if _, err := relayCertificateCases(signers); err == nil {
+		t.Error("a P-256 CA key was accepted")
+	}
+	signers, err = loadSigners("../..", "relay/conformance/keys/test-keys.private.json", relayCSRKids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signers["relay-tunnel"] = signers["relay-tunnel-p256"]
+	if _, err := relayCSRCases(signers); err == nil {
+		t.Error("a P-256 key as relay-tunnel was accepted")
+	}
+	if _, _, err := issue("x", leafSpec{key: "missing"}, relaySigners{"missing": "not a key"}, nil); err == nil {
+		t.Error("issue accepted a key that cannot sign")
+	}
+}

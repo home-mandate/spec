@@ -119,6 +119,9 @@ func TestBindingCasesMatchTheReference(t *testing.T) {
 		}
 		conn := frames.Connection{Installation: c.Connection.Installation, NotBefore: at(c.ID, c.Connection.NotBefore)}
 		got := frames.Bind(state, conn, mustHex(t, c.ID, c.FirstBytes))
+		if got.CaseError != nil {
+			t.Fatalf("%s: not a valid case: %v", c.ID, got.CaseError)
+		}
 		seen[c.Expected] = true
 		if result := map[bool]string{true: "bound", false: "closed"}[got.Bound]; result != c.Expected {
 			t.Errorf("%s (%s): %s, want %s", c.ID, c.Why, result, c.Expected)

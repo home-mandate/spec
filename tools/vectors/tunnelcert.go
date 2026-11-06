@@ -31,11 +31,12 @@ const relayCSRDescription = "Certificate signing requests for tunnel certificate
 const relayCertificateDescription = "Tunnel certificates of the Relay Specification v0 (draft), RELAY-v0.md section 5.4, " +
 	"as the chain of a certificate response. Each case: chain (DER, base64url without padding, the issued certificate first), " +
 	"not_after of the response, the tunnel key of the request, trust_domain and home_id of the installation, requested_at " +
-	"(when the request was sent), earlier_not_before (the latest notBefore of the tunnel certificates issued to the installation before, " +
+	"(when the request was sent), received_at (when the response arrived), earlier_not_before (the latest notBefore of the tunnel certificates issued to the installation before, " +
 	"or null), and whether the certificate is valid. Valid: one to four certificates; the issued one has the tunnel key; " +
 	"its subject alternative name extension is critical and is byte for byte one URI, spiffe://<trust_domain>/home/<home_id>/gateway; " +
 	"its subject is empty; notAfter equals not_after, is after requested_at and at most 24 hours after notBefore; notBefore is no earlier " +
-	"than 5 minutes before requested_at and later than earlier_not_before; cA=false (also without a basic constraints extension); " +
+	"than 5 minutes before requested_at, no later than received_at and later than earlier_not_before (issuance lies between the two times, " +
+	"so a notBefore outside these bounds breaks the rule of 5 minutes before issuance or of no later than issuance); cA=false (also without a basic constraints extension); " +
 	"key usage digitalSignature alone and critical; extended key usage serverAuth and clientAuth and no other. Where the chain holds " +
 	"a second certificate, it issued the first and carries a name constraint whose permitted URI subtree is trust_domain alone. " +
 	"Whether the serial number has 64 random bits cannot be seen in one certificate. The keys are test keys; their private parts are " +
@@ -43,7 +44,7 @@ const relayCertificateDescription = "Tunnel certificates of the Relay Specificat
 
 // relayCSRKids and relayCertKids are the test keys of the cases.
 var (
-	relayCSRKids  = []string{"relay-installation", "relay-other", "relay-p256", "relay-tunnel", "relay-tunnel-old", "relay-tunnel-p256", "relay-p384"}
+	relayCSRKids  = []string{"relay-installation", "relay-other", "relay-p256", "relay-tunnel", "relay-tunnel-old", "relay-tunnel-p256", "relay-p384", "relay-rsa"}
 	relayCertKids = []string{"relay-other", "relay-tunnel", "relay-tunnel-old", "relay-tunnel-p256", "relay-tunnel-ca"}
 )
 
@@ -64,6 +65,8 @@ const (
 var (
 	relayAt      = time.Date(2026, 11, 6, 10, 0, 0, 0, time.UTC)
 	relayEarlier = time.Date(2026, 11, 5, 10, 0, 0, 0, time.UTC)
+	// relayReceived is received_at, when the response arrived.
+	relayReceived = relayAt.Add(2 * time.Second)
 )
 
 // relayCSRCase is a case of relay/conformance/csr-v0.json.
@@ -85,6 +88,7 @@ type relayCertificateCase struct {
 	TrustDomain      string          `json:"trust_domain"`
 	HomeID           string          `json:"home_id"`
 	RequestedAt      string          `json:"requested_at"`
+	ReceivedAt       string          `json:"received_at"`
 	EarlierNotBefore *string         `json:"earlier_not_before"`
 	Expected         string          `json:"expected"`
 	Why              string          `json:"why"`
@@ -256,7 +260,11 @@ func relayCSRSpecs(signers relaySigners) ([]relayCSRSpec, error) {
 		DNSNames: []string{relayHomeID + ".homes.example.net"},
 		URIs:     []*url.URL{requested},
 	}
-	cert, err := selfSigned(signers["relay-tunnel"].(ed25519.PrivateKey))
+	tunnelKey, ok := signers["relay-tunnel"].(ed25519.PrivateKey)
+	if !ok {
+		return nil, errors.New("relay-tunnel is not Ed25519")
+	}
+	cert, err := selfSigned(tunnelKey)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +297,21 @@ func relayCSRSpecs(signers relaySigners) ([]relayCSRSpec, error) {
 		{id: "c14", installation: inst, earlier: old, build: edit(plain("relay-tunnel"), longFormLength), expected: "bad-csr", why: "outer length in long form where the short form suffices: BER, not DER"},
 		{id: "c15", installation: inst, earlier: old, build: func() ([]byte, error) { return cert, nil }, expected: "bad-csr", why: "a certificate, not a request"},
 		{id: "c16", installation: inst, earlier: old, build: func() ([]byte, error) { return make([]byte, 60), nil }, expected: "bad-csr", why: "60 zero bytes: not DER"},
+		{id: "c17", installation: inst, earlier: old, build: plain("relay-rsa"), expected: "bad-csr", why: "RSA key of 2048 bits, signed with RSA with SHA-256"},
+		{id: "c18", installation: inst, earlier: old, build: func() ([]byte, error) { return makeCSR(&x509.CertificateRequest{}, smallOrderSigner{}) }, expected: "bad-csr", why: "Ed25519 key of small order (the neutral point), with a signature that verifies without any private key (Section 5.1)"},
 	}, nil
+}
+
+// smallOrderSigner has the neutral point as its Ed25519 key. R = neutral point and S = 0
+// verify for every message under it, so the signature needs no private key.
+type smallOrderSigner struct{}
+
+func (smallOrderSigner) Public() crypto.PublicKey {
+	return ed25519.PublicKey(append([]byte{0x01}, make([]byte, 31)...))
+}
+
+func (smallOrderSigner) Sign(io.Reader, []byte, crypto.SignerOpts) ([]byte, error) {
+	return append([]byte{0x01}, make([]byte, 63)...), nil
 }
 
 // selfSigned is a certificate for c15.
@@ -356,7 +378,11 @@ func issue(id string, s leafSpec, signers relaySigners, ca *x509.Certificate) ([
 	if key == "" {
 		key = "relay-tunnel"
 	}
-	public := signers[key].(crypto.Signer).Public()
+	signer, ok := signers[key].(crypto.Signer)
+	if !ok {
+		return nil, time.Time{}, fmt.Errorf("key %q cannot sign", key)
+	}
+	public := signer.Public()
 	der, err := x509.CreateCertificate(nil, t, ca, public, signers["relay-tunnel-ca"])
 	return der, t.NotAfter, err
 }
@@ -364,7 +390,10 @@ func issue(id string, s leafSpec, signers relaySigners, ca *x509.Certificate) ([
 // tunnelCA is the self-signed certificate of a tunnel CA with key kid and the permitted URI
 // subtrees.
 func tunnelCA(signers relaySigners, kid string, permitted []string) (*x509.Certificate, []byte, error) {
-	key := signers[kid].(ed25519.PrivateKey)
+	key, ok := signers[kid].(ed25519.PrivateKey)
+	if !ok {
+		return nil, nil, fmt.Errorf("CA key %q is not Ed25519", kid)
+	}
 	serial := sha256.Sum256([]byte(fmt.Sprintf("relay-certificate CA %s %q", kid, permitted)))
 	t := &x509.Certificate{
 		SerialNumber:          new(big.Int).SetBytes(serial[:16]),
@@ -486,6 +515,12 @@ func relayCertSpecs() ([]relayCertSpec, error) {
 		{id: "t30", caPermitted: []string{"other-operator.example"}, expected: "invalid", why: "the CA's permitted URI subtree is another host"},
 		{id: "t31", caPermitted: []string{relayTrustDomain, "other-operator.example"}, expected: "invalid", why: "the CA's permitted URI subtrees include another host"},
 		{id: "t32", chain: func(leaf, _ []byte) [][]byte { return [][]byte{append(append([]byte{}, leaf...), 0x00)} }, expected: "invalid", why: "a byte after the issued certificate"},
+		{id: "t33", leaf: leafSpec{notBefore: relayAt.Add(2 * time.Hour), lifetime: -time.Hour}, expected: "invalid", why: "notAfter before notBefore"},
+		{id: "t34", leaf: leafSpec{notBefore: relayAt.Add(time.Hour)}, expected: "invalid", why: "notBefore one hour after the request: later than issuance"},
+		{id: "t35", leaf: leafSpec{notBefore: relayReceived}, expected: "valid", why: "notBefore when the response arrived: no later than issuance"},
+		{id: "t36", leaf: leafSpec{edit: edit(func(c *x509.Certificate) {
+			c.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
+		})}, expected: "valid", why: "extended key usage in another order and with clientAuth twice: still serverAuth and clientAuth and no other"},
 	}, nil
 }
 
@@ -534,6 +569,7 @@ func buildCertificateCase(s relayCertSpec, signers relaySigners, signing *x509.C
 	return relayCertificateCase{
 		ID: s.id, Chain: encoded, NotAfter: notAfter.Add(s.notAfter).Format(time.RFC3339), TunnelKey: json.RawMessage(key),
 		TrustDomain: relayTrustDomain, HomeID: relayHomeID, RequestedAt: relayAt.Format(time.RFC3339),
+		ReceivedAt: relayReceived.Format(time.RFC3339),
 		EarlierNotBefore: earlier, Expected: s.expected, Why: s.why,
 	}, nil
 }

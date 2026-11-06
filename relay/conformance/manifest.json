@@ -8,18 +8,18 @@
     },
     {
       "path": "relay/conformance/certificate-v0.json",
-      "sha256": "0362a1ea410b1192d214d2f3a3e6f229bbf214a53905afca0f9578807c4121e3",
-      "cases": 32
+      "sha256": "cd03d9a091529f68af0282cdd184cef3210056e7a2e337f94c3c1749a777eef0",
+      "cases": 36
     },
     {
       "path": "relay/conformance/csr-v0.json",
-      "sha256": "bb6d7ebaef42246381704cafa98ac40971f8d40221148f3bc907dcd74eff46cd",
-      "cases": 16
+      "sha256": "c0ffcede354cdf6be2efcf6e140daf4ddfffa9122c6e2299809fc38b126348b7",
+      "cases": 18
     },
     {
       "path": "relay/conformance/frames-v0.json",
-      "sha256": "0e36a664e8cbf59b7d8c46cb86288b517b4428f60c8a6a34f2ea8427e1414370",
-      "cases": 85
+      "sha256": "a33ce9089a6ce86313c540d6676c18627e9dcf346c70885b08595ada8e6687ab",
+      "cases": 89
     },
     {
       "path": "relay/conformance/jws-v0.json",
@@ -28,11 +28,11 @@
     },
     {
       "path": "relay/conformance/keys/test-keys.json",
-      "sha256": "37642c716a803da278d3e06a1ced6401803ad38e8f2be2855588a54a1ff31b48"
+      "sha256": "07d89887761df8e5da513ef74eb8f3e136dd090f6982fe49f64a07d779fce82f"
     },
     {
       "path": "relay/conformance/keys/test-keys.private.json",
-      "sha256": "a90ab4c578bb1c10c91297953aee68761c79e8083096b8f23ffea37f0761f139"
+      "sha256": "b7145fa14ca703d1ec956763608a76ed2421eb4a631e4d18831c3ddfe240759e"
     },
     {
       "path": "relay/conformance/metadata-v0.json",
@@ -41,11 +41,11 @@
     },
     {
       "path": "relay/conformance/schema/binding-v0.schema.json",
-      "sha256": "d2d34ce3ac9dfb74c2995a1eec69ca0079709a2c4354396a7b34cffc5ec8daff"
+      "sha256": "9476df3e532d593e20ae0fd768c9730f39c43edc847c5db8a6053fede6df29ad"
     },
     {
       "path": "relay/conformance/schema/certificate-v0.schema.json",
-      "sha256": "e4a7af50eba4eb8dd74866b19cf9a15fff7deaeb7b3600223e055a79244027d6"
+      "sha256": "72458257b7053a32dcc85f69d6816d98be23cd9b272ae23ebdfddc67ef7969f1"
     },
     {
       "path": "relay/conformance/schema/csr-v0.schema.json",
@@ -73,7 +73,7 @@
     },
     {
       "path": "relay/conformance/tls-v0.json",
-      "sha256": "c460447050d58453c3d825f44a3f6d01ad44aa3d31463673bcbc02b16e17bf83",
+      "sha256": "8c7a6ee687744525dfa97e616a9af12459eb500a5441e30b1215b7af5c5512c6",
       "cases": 13
     },
     {

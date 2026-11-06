@@ -4,6 +4,7 @@ package frames
 
 import (
 	"bytes"
+	"errors"
 	"time"
 )
 
@@ -48,6 +49,9 @@ type Binding struct {
 	// is consumed is up to it.
 	Consumed   [][]byte
 	Determined bool
+	// CaseError is set for first bytes that are no frame a case can hold (ErrCase), so that
+	// a typo in a case is not taken for a refusal.
+	CaseError error
 }
 
 // Bind applies section 4.5 to the first bytes of a data connection.
@@ -56,6 +60,9 @@ func Bind(state RelayState, conn Connection, first []byte) Binding {
 		return Binding{}
 	}
 	token, err := DataBind(first)
+	if errors.Is(err, ErrCase) {
+		return Binding{Determined: true, CaseError: err}
+	}
 	if err != nil {
 		return Binding{Determined: true}
 	}

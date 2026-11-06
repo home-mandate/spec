@@ -117,6 +117,20 @@
           "why": {
             "type": "string"
           }
+        },
+        "if": {
+          "properties": {
+            "expected": {
+              "const": "bound"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "consumed": {
+              "type": "array"
+            }
+          }
         }
       }
     }
