@@ -924,19 +924,26 @@ specification sets no periods. An operator MUST define how long it keeps each of
 data, and when it deletes them after an account was deleted, an installation was unpaired, the
 service ended, or the household or gateway replaced or removed something. It MUST state these
 periods in its privacy policy (`privacy_policy`) before it creates the first account. Each period
-is a fixed length or ends with a defined event, not "as long as needed". An operator MUST NOT keep
-data longer than the uses below need, except as the next paragraph allows. It MUST apply the
-periods it states, also to its backups. Before a longer stated period applies, it MUST tell the
-households in good time for them to delete their account or unpair, and the longer period applies
-only to data collected after that notice. Connection data are only needed for a short time to run
-and secure the service, so an operator SHOULD keep them only as briefly as that allows.
+is a fixed length or ends with a defined event, not "as long as needed"; for connection data it
+MUST be a fixed length that does not depend on the account or the installation. Connection data
+are only needed for a short time to run and secure the service, so an operator SHOULD keep them
+only as briefly as that allows. Where a law requires the operator, as a rule and not only for single
+records, to keep data longer or more of them than this section allows, it MAY do so, and names that
+law in its privacy policy together with what it keeps and for how long; these count as stated
+periods.
 
-Beyond its stated periods, an operator MAY keep only the records concerned, and only as long as a
-law or an order of an authority requires it, or until an open case of abuse, an objection
-(Section 7.6) or an incident (Section 7.9) has ended. It always keeps what Sections 5.2, 5.4 and
-5.5 still need while the installation exists, including the time of each issuance, which it also
-shows; the source address of an issuance is connection data. The reserved home ID and what Section 5.7 needs to answer `unpaired`
-stay, without a link to a person.
+An operator MUST NOT keep data longer than the uses below need, except as the next paragraph
+allows, and MUST apply the periods it states, also to its backups. Any change that can keep data
+longer is a new period: the operator MUST announce it on all its channels early enough for
+households to delete their account or unpair before it applies, and it applies only to data
+collected after that announcement.
+
+Beyond its stated periods, an operator MAY keep only the records concerned, and only as long as an
+order of an authority requires it, or until an open case of abuse, an objection (Section 7.6) or an
+incident (Section 7.9) has ended. It always keeps what this specification still needs while the
+account or installation exists, including the time of each issuance, which it also shows; the
+source address of an issuance is connection data. The reserved home ID and what Section 5.7 needs
+to answer `unpaired` stay, without a link to a person.
 
 An operator MUST use all of this only to run and secure the service, to act against abuse, to bill and as a
 law requires. It MUST NOT sell them, use them for advertising or build a profile of a household
@@ -1025,7 +1032,7 @@ operator, and a household should know the difference:
 | Can be checked from outside | Only the operator's statement |
 |---|---|
 | separate domains and hosts (7.1), DNSSEC, addresses, CAA and TTL (6.3) | what it monitors (7.4) |
-| both protection levels in the metadata; an own-domain name can be registered (7.3); that the privacy policy states periods, checked by a person (7.5) | data, keeping to the periods, and their use (7.5) |
+| both protection levels in the metadata; an own-domain name can be registered (7.3) | data, their periods and their use (7.5) |
 | publicly logged certificates for a name (7.2) | access to the relay's bytes (7.2), offline keys and tests (7.7) |
 | behaviour of the enrollment endpoint (5) | reasons for a block (7.6), notifications (7.7, 7.9) |
 
@@ -1115,7 +1122,8 @@ A household that wants less of this runs its gateway without a relay.
 
 - Section 7 specified: separate domains, Public Suffix List where an operator qualifies, `__Host-`
   cookies, what an operator does not do, both protection levels for every installation, monitoring
-  of the name domain, connection data limited to a closed list, retention periods that the operator sets and publishes, abuse measures
+  of the name domain, connection data limited to a closed list,
+  retention periods that the operator sets and publishes, abuse measures
   without access to content, offline backup keys with tested recovery, limits of the CA, incidents
   and the end of a service, and what can be checked from outside.
 - Section 10 specified: what an operator and others learn.
