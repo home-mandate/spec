@@ -80,6 +80,8 @@ func privateKey(path, kid string) (any, error) {
 			return ed25519.NewKeyFromSeed(d), nil
 		case k.Kty == "EC" && k.Crv == "P-256":
 			return ecdsa.ParseRawPrivateKey(elliptic.P256(), d)
+		case k.Kty == "EC" && k.Crv == "P-384":
+			return ecdsa.ParseRawPrivateKey(elliptic.P384(), d)
 		}
 		return nil, fmt.Errorf("key %q: unsupported type", kid)
 	}

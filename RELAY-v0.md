@@ -767,8 +767,9 @@ CA issues a certificate that
 - has a `notAfter` at most 24 hours after its `notBefore`, which is no earlier than 5 minutes
   before issuance and later than the `notBefore` of every earlier tunnel certificate of the
   installation (Section 4.4);
-- has `cA=false`, key usage `digitalSignature` only (critical), and extended key usage
-  `serverAuth` and `clientAuth`, as X.509-SVID recommends;
+- has `cA=false` (as has a certificate without a basic constraints extension), key usage
+  `digitalSignature` only (critical), and extended key usage `serverAuth` and `clientAuth`, as
+  X.509-SVID recommends, and no other;
 - has a serial number with at least 64 random bits;
 - contains no other information about the household.
 
@@ -1417,6 +1418,11 @@ the cases offline: they MUST NOT be used with a live operator.
 |---|---|
 | `metadata-v0.json` | metadata documents with the host they were fetched from, and whether a gateway accepts them (Section 3) |
 | `jws-v0.json` | signed requests and key changes, and whether they verify, are malformed or have a bad signature (Sections 5.1, 5.5) |
+| `csr-v0.json` | certificate signing requests with the installation key and the keys of earlier tunnel certificates, and whether the operator accepts them or refuses them with `bad-csr` (Section 5.4) |
+| `certificate-v0.json` | issued tunnel certificates with their chain and what the gateway asked for, and whether they meet Section 5.4 |
+| `frames-v0.json` | frames of a control connection in hex, with the messages they decode to or the first frame that its receiver treats as an error (Sections 4.3, 4.4, 4.7) |
+| `binding-v0.json` | the first bytes of a data connection and the tokens the relay knows, whether the relay binds the connection or closes it without an answer, and which tokens are consumed (Section 4.5) |
+| `tls-v0.json` | TLS parameters and certificates of a tunnel connection, and whether the relay accepts or refuses it (Sections 4.1, 4.2) |
 
 The collection grows with every version; every defect found in an operator or in this text is
 first added as a case.
@@ -1428,7 +1434,8 @@ With up to two pairing codes of the test account (Section 8.4) it pairs a test i
 generates for this run, sends the requests of the cases with their deliberate defects and compares
 the errors, also requests of one installation at the URLs of another, checks the tunnel certificates
 it is issued and the records in the operator's DNS, registers an own-domain name in a zone of the
-tester, opens the tunnel, connects as an agent to the standard name and to the own-domain name, and
+tester, opens the tunnel with the parameters of the cases, sends frames with their defects and
+presents tokens that the relay must refuse, connects as an agent to the standard name and to the own-domain name, and
 finally unpairs and checks that the installation, its certificates and its records are gone. It
 reports an ACME account URI at a CA of `acme_cas` that belongs to no account, so the CAA record of
 the test permits nobody and the test obtains no server certificate. It honours `Retry-After` and
@@ -1536,6 +1543,10 @@ A household that wants less of this runs its gateway without a relay.
 
 ### Unreleased
 
+- Section 8: cases for certificate signing requests, issued tunnel certificates, frames of the
+  control connection, the binding of data connections and TLS of tunnel connections. Section 5.4:
+  a tunnel certificate without a basic constraints extension has `cA=false`, and its extended key
+  usage holds `serverAuth` and `clientAuth` and no other.
 - Section 8 specified: conformance classes of operators (`metadata`, `enrollment`, `dns`, `relay`),
   machine-readable cases in `relay/conformance/` with their own manifest, a live test of an operator
   with `relay-conformance`, and a test account that an operator claiming conformance gives for

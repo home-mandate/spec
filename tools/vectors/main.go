@@ -16,6 +16,11 @@
 //	                            print a signed mandate (SPEC-v0 section 7), signed with a test key
 //	vectors relay-jws <keys>    print relay/conformance/jws-v0.json, the requests of the Relay
 //	                            Specification (RELAY-v0 sections 5.1, 5.5), signed with test keys
+//	vectors relay-csr <keys>    print relay/conformance/csr-v0.json, certificate signing requests
+//	                            for tunnel certificates (RELAY-v0 section 5.4)
+//	vectors relay-certificate <keys>
+//	                            print relay/conformance/certificate-v0.json, issued tunnel
+//	                            certificates (RELAY-v0 section 5.4)
 //
 // Run it from the repository root: go run ./tools/vectors <command>.
 package main
@@ -63,6 +68,10 @@ func run(args []string, dir string, stdin io.Reader, stdout io.Writer) error {
 		return runSign(args[1:], dir, stdout)
 	case "relay-jws":
 		return runRelayJWS(args[1:], dir, stdout)
+	case "relay-csr":
+		return runRelayCSR(args[1:], dir, stdout)
+	case "relay-certificate":
+		return runRelayCertificate(args[1:], dir, stdout)
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }

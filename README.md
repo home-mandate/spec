@@ -22,6 +22,11 @@ product that implements the specification is Home-Mandate for Home Assistant.
 | `relay/cas.md` | Informative list of certificate authorities that log every certificate and enforce RFC 8657 | CC BY 4.0 |
 | `relay/conformance/jws-v0.json` | Requests of the Relay Specification (the JWS of RELAY-v0 sections 5.1 and 5.5) with the expected result: valid, malformed or bad-signature | Apache 2.0 |
 | `relay/conformance/metadata-v0.json` | Operator metadata (RELAY-v0 section 3) that a gateway accepts or rejects | Apache 2.0 |
+| `relay/conformance/csr-v0.json` | Certificate signing requests for tunnel certificates (RELAY-v0 section 5.4) that an operator accepts or refuses with `bad-csr` | Apache 2.0 |
+| `relay/conformance/certificate-v0.json` | Issued tunnel certificates (RELAY-v0 section 5.4), valid or invalid | Apache 2.0 |
+| `relay/conformance/frames-v0.json` | Frames of a control connection of the tunnel (RELAY-v0 sections 4.3, 4.4, 4.7), valid or an error | Apache 2.0 |
+| `relay/conformance/binding-v0.json` | First bytes of a data connection (RELAY-v0 section 4.5): bound or closed, and the tokens consumed | Apache 2.0 |
+| `relay/conformance/tls-v0.json` | TLS probes of tunnel connections (RELAY-v0 sections 4.1, 4.2) that the relay accepts or refuses | Apache 2.0 |
 | `relay/conformance/keys/` | Test keys of the relay cases; the private parts are public | Apache 2.0 |
 | `relay/conformance/schema/` | JSON Schemas of the relay conformance files | Apache 2.0 |
 | `relay/conformance/manifest.json` | All machine-readable files of the Relay Specification with SHA-256 and number of cases; `make manifest` rewrites it | Apache 2.0 |
@@ -51,7 +56,7 @@ product that implements the specification is Home-Mandate for Home Assistant.
 | `ratelimit/` | Reference for the rate limit bound of SPEC-v0 section 11.2 | Apache 2.0 |
 | `jcs/` | JSON Canonicalization Scheme (RFC 8785) for the digests of mandates and audit entries | Apache 2.0 |
 | `schema/*.go`, `spec.go` | Go packages that embed the schemas (`schema`) and the schemas, examples and conformance cases (root package), respectively | Apache 2.0 |
-| `tools/vectors/` | Helper for maintaining the conformance files: manifests, mandate digests, chaining audit entries, relay request cases | Apache 2.0 |
+| `tools/vectors/` | Helper for maintaining the conformance files: manifests, mandate digests, chaining audit entries, relay request, CSR and certificate cases | Apache 2.0 |
 | `Makefile` | Checks: `make check` (vet, staticcheck, coverage ≥ 95 %, govulncheck), `make fuzz`, `make mutation` (≥ 90 %) | Apache 2.0 |
 | `cmd/mandate-conformance/` | Test tool: plays the conformance cases against any implementation, over standard input and output or over HTTP (SPEC-v0 section 10) | Apache 2.0 |
 | `cmd/mandate-harness/` | The reference code behind the process binding of the test interface; example for implementers | Apache 2.0 |

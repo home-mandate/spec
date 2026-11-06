@@ -242,9 +242,24 @@ func TestJWSCaseKeysAreTestKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys, err := jws.ParseJWKS(data)
-	if err != nil {
+	var set struct {
+		Keys []json.RawMessage `json:"keys"`
+	}
+	if err := json.Unmarshal(data, &set); err != nil {
 		t.Fatal(err)
+	}
+	var keys []crypto.PublicKey
+	for _, raw := range set.Keys {
+		// relay-p384 is outside the JWS profile; it only makes a request that is refused
+		// (csr-v0.json).
+		if bytes.Contains(raw, []byte(`"P-384"`)) {
+			continue
+		}
+		key, err := jws.ParseJWK(stripKid(t, raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		keys = append(keys, key)
 	}
 	for _, c := range loadJWSCases(t) {
 		if string(c.Key) == "null" {
@@ -262,4 +277,19 @@ func TestJWSCaseKeysAreTestKeys(t *testing.T) {
 			t.Errorf("%s: key is not in conformance/keys/test-keys.json", c.ID)
 		}
 	}
+}
+
+// stripKid removes kid, which a JWK in a request must not carry, from a key of the set.
+func stripKid(t *testing.T, raw json.RawMessage) json.RawMessage {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	delete(m, "kid")
+	out, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }

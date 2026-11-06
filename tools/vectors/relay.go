@@ -79,7 +79,7 @@ func runRelayJWS(args []string, dir string, stdout io.Writer) error {
 }
 
 // writeCases writes a conformance file with one case per line.
-func writeCases(w io.Writer, description string, cases []relayJWSCase) error {
+func writeCases[T any](w io.Writer, description string, cases []T) error {
 	var buf bytes.Buffer
 	desc, err := marshalNoEscape(description)
 	if err != nil {

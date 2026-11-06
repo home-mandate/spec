@@ -90,3 +90,48 @@ func TestManifestWritesAndChecksTheRelayManifest(t *testing.T) {
 		t.Error("manifest -check passed although a relay file changed")
 	}
 }
+
+// TestRelayCertificateFilesAreUpToDate: the stored CSR and certificate cases are those the
+// generator writes, byte for byte.
+func TestRelayCertificateFilesAreUpToDate(t *testing.T) {
+	for command, file := range map[string]string{"relay-csr": "csr-v0.json", "relay-certificate": "certificate-v0.json"} {
+		out, err := runTool(t, "../..", "", command, "relay/conformance/keys/test-keys.private.json")
+		if err != nil {
+			t.Fatalf("%s: %v", command, err)
+		}
+		stored, err := os.ReadFile("../../relay/conformance/" + file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out != string(stored) {
+			t.Errorf("relay/conformance/%s is not what the generator writes; run: go run ./tools/vectors %s relay/conformance/keys/test-keys.private.json > relay/conformance/%s", file, command, file)
+		}
+	}
+}
+
+func TestRelayCertificateCommandsRejectBadArguments(t *testing.T) {
+	for _, command := range []string{"relay-csr", "relay-certificate"} {
+		for _, args := range [][]string{{command}, {command, "nope.json"}, {command, "conformance/keys/test-keys.private.json"}} {
+			if _, err := runTool(t, "../..", "", args...); err == nil {
+				t.Errorf("run(%v) succeeded", args)
+			}
+		}
+	}
+	if _, err := relayCSRCases(relaySigners{}); err == nil {
+		t.Error("relayCSRCases accepted no keys")
+	}
+	if _, err := relayCertificateCases(relaySigners{}); err == nil {
+		t.Error("relayCertificateCases accepted no keys")
+	}
+	if _, err := resign([]byte{0x30, 0x00}, oidEd25519, nil); err == nil {
+		t.Error("resign accepted a request that is not one")
+	}
+	for _, der := range [][]byte{{0x30}, {0x30, 0x82, 0x01, 0x00}} {
+		if _, err := longFormLength(der); err == nil {
+			t.Errorf("longFormLength(%x) succeeded", der)
+		}
+	}
+	if got, err := longFormLength([]byte{0x30, 0x81, 0x80}); err != nil || len(got) != 4 {
+		t.Errorf("longFormLength of a one-byte long form = %x, %v", got, err)
+	}
+}
