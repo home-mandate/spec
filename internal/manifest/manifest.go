@@ -20,10 +20,27 @@ import (
 // Path of the manifest within the repository; the manifest does not list itself.
 const Path = "conformance/manifest.json"
 
-const specVersion = "v0"
+// RelayPath is the path of the manifest of the Relay Specification (RELAY-v0.md, draft),
+// whose files are not part of a release of the specification.
+const RelayPath = "relay/conformance/manifest.json"
 
-// roots are the directories whose JSON files belong to the specification.
-var roots = []string{"conformance", "data", "examples", "schema", "vocabulary"}
+// Layout says which files a manifest lists.
+type Layout struct {
+	// Spec is the value of the member spec.
+	Spec string
+	// Path is where the manifest lies.
+	Path string
+	// Roots are the directories whose JSON files are listed.
+	Roots []string
+	// CaseDir is the directory of the conformance files, whose cases are counted.
+	CaseDir string
+}
+
+// Specification lists the files of the specification (conformance/manifest.json).
+var Specification = Layout{Spec: "v0", Path: Path, Roots: []string{"conformance", "data", "examples", "schema", "vocabulary"}, CaseDir: "conformance"}
+
+// Relay lists the files of the Relay Specification (relay/conformance/manifest.json).
+var Relay = Layout{Spec: "relay-v0", Path: RelayPath, Roots: []string{"relay/conformance", "relay/examples", "relay/schema"}, CaseDir: "relay/conformance"}
 
 // caseKeys are the members that hold the cases of a conformance file.
 var caseKeys = []string{"cases", "logs"}
@@ -41,11 +58,16 @@ type File struct {
 	Cases  int    `json:"cases,omitempty"`
 }
 
+// Build computes the manifest of the specification's files in fsys (Specification.Build).
+func Build(fsys fs.FS) (Manifest, error) {
+	return Specification.Build(fsys)
+}
+
 // Build computes the manifest of the files in fsys, sorted by path. Roots that do not
 // exist are skipped.
-func Build(fsys fs.FS) (Manifest, error) {
-	m := Manifest{Spec: specVersion, Files: []File{}}
-	for _, root := range roots {
+func (l Layout) Build(fsys fs.FS) (Manifest, error) {
+	m := Manifest{Spec: l.Spec, Files: []File{}}
+	for _, root := range l.Roots {
 		if _, err := fs.Stat(fsys, root); err != nil {
 			continue
 		}
@@ -53,10 +75,10 @@ func Build(fsys fs.FS) (Manifest, error) {
 			if err != nil {
 				return err
 			}
-			if d.IsDir() || path.Ext(p) != ".json" || p == Path {
+			if d.IsDir() || path.Ext(p) != ".json" || p == l.Path {
 				return nil
 			}
-			f, err := describe(fsys, p)
+			f, err := l.describe(fsys, p)
 			if err != nil {
 				return err
 			}
@@ -71,14 +93,14 @@ func Build(fsys fs.FS) (Manifest, error) {
 	return m, nil
 }
 
-func describe(fsys fs.FS, p string) (File, error) {
+func (l Layout) describe(fsys fs.FS, p string) (File, error) {
 	data, err := fs.ReadFile(fsys, p)
 	if err != nil {
 		return File{}, err
 	}
 	sum := sha256.Sum256(data)
 	f := File{Path: p, SHA256: hex.EncodeToString(sum[:])}
-	if path.Dir(p) != "conformance" {
+	if path.Dir(p) != l.CaseDir {
 		return f, nil
 	}
 	if f.Cases, err = countCases(data); err != nil {

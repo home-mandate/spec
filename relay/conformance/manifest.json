@@ -1,0 +1,111 @@
+{
+  "spec": "relay-v0",
+  "files": [
+    {
+      "path": "relay/conformance/jws-v0.json",
+      "sha256": "7d00d80a48ebef2a92f348cec479f2cd64fbf3fe077775b66bd32fa8cc73e62e",
+      "cases": 62
+    },
+    {
+      "path": "relay/conformance/keys/test-keys.json",
+      "sha256": "90a8539acc3a068c470d4478322a2bdefacbd446b1587df7143c43cf3fe68c1f"
+    },
+    {
+      "path": "relay/conformance/keys/test-keys.private.json",
+      "sha256": "ee221cc67ebe8b4555b34f58c3a62f44a34e61a5bae7b718a6e0a1e195af10d7"
+    },
+    {
+      "path": "relay/conformance/metadata-v0.json",
+      "sha256": "4951123fbaad9cf86dead49efa22be92e34a0b1e2d18eecfcc1cd2e9176b89d8",
+      "cases": 51
+    },
+    {
+      "path": "relay/conformance/schema/jws-v0.schema.json",
+      "sha256": "d0c169136737cff60b7b22018fa63357cfa017b1d9b12c21ccc686e87f8a937d"
+    },
+    {
+      "path": "relay/conformance/schema/manifest.schema.json",
+      "sha256": "3c3716d8be0565e12ed7629394e911a221a64c3517134bb88cad49d3b6568fde"
+    },
+    {
+      "path": "relay/conformance/schema/metadata-v0.schema.json",
+      "sha256": "7cd7095a7f559426506d13d87afe8ce07d137d70adeb46383c14ae2382be498c"
+    },
+    {
+      "path": "relay/examples/acme-challenge-request.json",
+      "sha256": "30361bbbc0d3aa06643bbb0147e6ece11388ffd02d159397b4b7b8b35ea960b0"
+    },
+    {
+      "path": "relay/examples/certificate-request.json",
+      "sha256": "ac78ade2a90b862f95fd26a7e6d289627984fe6b2711b585d8c5a39ac3468038"
+    },
+    {
+      "path": "relay/examples/certificate-response.json",
+      "sha256": "ef6365d14aa65e4a65e977b40173d9f9218ae1ab9b25bff2b382938838277fbd"
+    },
+    {
+      "path": "relay/examples/directory.json",
+      "sha256": "9a36aeed289ada2d5e95ef6d1eecb3cf6cf8d9bec2f4c17e98cb3beed1fd769f"
+    },
+    {
+      "path": "relay/examples/installation-update-acme.json",
+      "sha256": "a90464511aaa97268440c67fb7649fe55045fa4e2e986f763c2c4c4bdd0881be"
+    },
+    {
+      "path": "relay/examples/installation-update-own-domain.json",
+      "sha256": "aff79a5ac5fe749908a2ca072e5bdcb35d7d52b59fcedb34a812ac19cf892ba4"
+    },
+    {
+      "path": "relay/examples/installation-update-unpair.json",
+      "sha256": "6b0699e53c369f469c1586585199becc2c4f78698350c66f64a0bc25e57a7599"
+    },
+    {
+      "path": "relay/examples/installation.json",
+      "sha256": "b2ddf9bcf19229aca7d83f0f0cd9094069c5d321830bb3e973b03fa5a4460ecf"
+    },
+    {
+      "path": "relay/examples/key-change-header.json",
+      "sha256": "001156c92f4570733681bdaefdd92b77bb9f47a9dc6bcadc1724247963af0de7"
+    },
+    {
+      "path": "relay/examples/key-change-request.json",
+      "sha256": "5c4569407c12e89df59440fa437003b21ce2a719ee5a0a604bbb10602c498a46"
+    },
+    {
+      "path": "relay/examples/key-change.json",
+      "sha256": "963dfebe1c3a721aa22d3d7b9cfd75d2046b70128ff1164eb6e78b19debeaf7b"
+    },
+    {
+      "path": "relay/examples/metadata.json",
+      "sha256": "ab80b647e600de18e85094ead49bc286f2ba97943893315997fefbd77d06c729"
+    },
+    {
+      "path": "relay/examples/pair-request.json",
+      "sha256": "d1deba1e55c413b8651a1c2936ea9290aaad9424a141281d5ebfef7d396e2a54"
+    },
+    {
+      "path": "relay/examples/pair-response.json",
+      "sha256": "b0efa300389808ae51281c6b93be8d470c58d364cbb81b7ac630a9dcf62935f8"
+    },
+    {
+      "path": "relay/examples/problem.json",
+      "sha256": "3992175605f75c51e44602806d2226d3d50268d703a52604dbe78a8c782ebcd6"
+    },
+    {
+      "path": "relay/examples/protected-header-kid.json",
+      "sha256": "e1438503f992878a26949396689304bcd544f4c2bfe884a4a4a5cb18e8c7b49d"
+    },
+    {
+      "path": "relay/examples/protected-header-pair.json",
+      "sha256": "188cca46ec5f30ce751152dd8eef70857f03cf8cf6812ca473efc4ed3b08d303"
+    },
+    {
+      "path": "relay/schema/enrollment-v0.schema.json",
+      "sha256": "358611e5be268fcc4d590c39454030bd3f53e2bd44d9243ca90ca2264f91239f"
+    },
+    {
+      "path": "relay/schema/metadata-v0.schema.json",
+      "sha256": "3702b4d7f96a660761a40e613b2245781913caa0d9b87e5524c30abba48d4081"
+    }
+  ]
+}

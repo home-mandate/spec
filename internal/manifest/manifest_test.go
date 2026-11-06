@@ -102,3 +102,33 @@ func TestDiffReportsChangedMissingAndExtraFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestRelayLayoutListsOnlyRelayFiles(t *testing.T) {
+	fsys := testFS()
+	fsys["relay/conformance/jws-v0.json"] = &fstest.MapFile{Data: []byte(`{"cases":[{},{},{}]}`)}
+	fsys["relay/conformance/keys/test-keys.json"] = &fstest.MapFile{Data: []byte(`{}`)}
+	fsys["relay/conformance/manifest.json"] = &fstest.MapFile{Data: []byte(`stale`)}
+	fsys["relay/schema/metadata-v0.schema.json"] = &fstest.MapFile{Data: []byte(`{}`)}
+	fsys["relay/relay_test.go"] = &fstest.MapFile{Data: []byte(`package relay`)}
+	m, err := manifest.Relay.Build(fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var paths []string
+	for _, f := range m.Files {
+		paths = append(paths, f.Path)
+	}
+	want := "relay/conformance/jws-v0.json relay/conformance/keys/test-keys.json relay/schema/metadata-v0.schema.json"
+	if got := strings.Join(paths, " "); got != want || m.Spec != "relay-v0" || m.Files[0].Cases != 3 || m.Files[1].Cases != 0 {
+		t.Errorf("manifest = %+v\nwant paths %s", m, want)
+	}
+	spec, err := manifest.Build(fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range spec.Files {
+		if strings.HasPrefix(f.Path, "relay/") {
+			t.Errorf("specification manifest lists %s", f.Path)
+		}
+	}
+}

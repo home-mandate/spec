@@ -11,7 +11,7 @@ COVER_MIN      := 95
 EFFICACY_MIN   := 90
 FUZZTIME       ?= 10m
 # package:target
-FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate evaluator:FuzzValue audit:FuzzVerify jws:FuzzVerify internal/harness:FuzzServe
+FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate evaluator:FuzzValue audit:FuzzVerify jws:FuzzVerify jws:FuzzVerifyRequest internal/harness:FuzzServe
 MUTATION_PKGS  := ./evaluator ./audit ./jcs ./jws ./displaytext ./ratelimit
 
 .PHONY: check test cover vet staticcheck vulncheck fuzz mutation manifest
@@ -48,7 +48,8 @@ staticcheck:
 vulncheck:
 	go run $(GOVULNCHECK) ./...
 
-## manifest: rewrite conformance/manifest.json after changing schemas, examples or cases
+## manifest: rewrite conformance/manifest.json and relay/conformance/manifest.json after changing
+## schemas, examples or cases; the tests (make cover) check both
 manifest:
 	go run ./tools/vectors manifest
 

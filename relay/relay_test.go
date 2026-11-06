@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
+
+	"github.com/home-mandate/spec/relay/internal/metadata"
 )
 
 const (
@@ -174,34 +175,13 @@ func TestPlannedRelayAddressesAreAccepted(t *testing.T) {
 	}
 }
 
-func atOrBelow(host, domain string) bool {
-	return host == domain || strings.HasSuffix(host, "."+domain)
-}
-
-func TestAtOrBelow(t *testing.T) {
-	cases := []struct {
-		host, domain string
-		want         bool
-	}{
-		{"homes.example.net", "homes.example.net", true},
-		{"a.homes.example.net", "homes.example.net", true},
-		{"xhomes.example.net", "homes.example.net", false},
-		{"example.net", "homes.example.net", false},
-	}
-	for _, c := range cases {
-		if got := atOrBelow(c.host, c.domain); got != c.want {
-			t.Errorf("atOrBelow(%q, %q) = %v, want %v", c.host, c.domain, got, c.want)
-		}
-	}
-}
-
 // Section 7.1 asks for separate registered domains. Without the Public Suffix List, this test checks
 // only that no host of the example is at or below the name domain, and that the two domains do not overlap.
 func TestExampleKeepsTheNameDomainApart(t *testing.T) {
 	doc := loadExample(t)
 	nameDomain := doc["name_domain"].(string)
 	operatorDomain := doc["operator_domain"].(string)
-	if atOrBelow(nameDomain, operatorDomain) || atOrBelow(operatorDomain, nameDomain) {
+	if metadata.AtOrBelow(nameDomain, operatorDomain) || metadata.AtOrBelow(operatorDomain, nameDomain) {
 		t.Errorf("name domain %q and operator domain %q overlap", nameDomain, operatorDomain)
 	}
 	hosts := []string{doc["relay"].(map[string]any)["host"].(string)}
@@ -213,7 +193,7 @@ func TestExampleKeepsTheNameDomainApart(t *testing.T) {
 		hosts = append(hosts, u.Hostname())
 	}
 	for _, host := range hosts {
-		if atOrBelow(host, nameDomain) {
+		if metadata.AtOrBelow(host, nameDomain) {
 			t.Errorf("host %q is in the name domain %q", host, nameDomain)
 		}
 	}
