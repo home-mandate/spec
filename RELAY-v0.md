@@ -130,7 +130,7 @@ https://<operator-domain>/.well-known/home-mandate-relay
 The document MUST validate against `relay/schema/metadata-v0.schema.json`; an example is
 `relay/examples/metadata.json`. A gateway MUST fetch it over HTTPS with a certificate that is
 valid for the operator domain under the gateway's ordinary trust store, MUST NOT follow
-redirects, and MUST reject a document larger than 16 KiB. The document is closed: a member that
+redirects, and MUST reject a document larger than 16 KiB or that is not I-JSON (RFC 7493). The document is closed: a member that
 the schema does not list makes it invalid. New members come with a new `type`; until this
 specification is released, the schema can still change under the same `type`.
 
@@ -547,7 +547,9 @@ content type `application/jose` whose body is a JWS (RFC 7515) in compact serial
   every other request carries `kid`, the installation URL (Section 5.3). Any other header
   member, and a `jwk` with a private part, make the request invalid.
 - The spelling rules of SPEC-v0 Section 7.1 apply: base64url without padding in its only canonical
-  form, case-sensitive member names, and for ES256 only the lower `s`. Headers and payloads are
+  form, case-sensitive member names, for ES256 only the lower `s`, for EdDSA `S` below the group
+  order and `R` canonically encoded, and keys canonically encoded; an Ed25519 key of small order
+  or a P-256 point that is not on the curve is not a key. Headers and payloads are
   I-JSON (RFC 7493): a member name that occurs twice makes the request invalid.
 - The payload is a JSON object of the type the URL expects, or empty for a read ("POST-as-GET",
   RFC 8555 Section 6.3). Request objects are closed: an operator MUST reject a request with a
@@ -555,8 +557,9 @@ content type `application/jose` whose body is a JWS (RFC 7515) in compact serial
 
 The operator processes a request in this order; a request that fails a step has no effect:
 
-1. the spelling rules and the header against `$defs/protected_header`, including a `nonce` that is
-   not base64url of at least 16 bytes, and with `jwk`, `alg` matching that key (`malformed`);
+1. the spelling rules of the list above, a payload that is neither a JSON object nor empty, and the
+   header against `$defs/protected_header`, including a `nonce` that is not base64url of at least
+   16 bytes, and with `jwk`, `alg` matching that key (`malformed`); whether `alg` matches the key that `kid` names is checked in step 4;
 2. with `jwk`, the URL MUST be `pair`; with `kid`, it MUST NOT be `pair` (`malformed`);
 3. with `kid`: the installation it names (none: `bad-signature`; unpaired or replaced:
    `unpaired`), and the URL MUST be `key_change`, the installation URL of that installation or
@@ -809,10 +812,11 @@ example to six per day).
 (`$defs/key_change_request`): a JWS in compact serialization, signed with the new key, whose
 protected header has exactly `alg`, `jwk` (the new key) and `url` (the URL of `key_change`)
 (`$defs/key_change_header`) and whose payload is `{"installation": …, "old_key": …}`
-(`$defs/key_change`); the spelling rules of Section 5.1 apply to it as well (`malformed`). The operator
-checks the inner signature (`bad-signature`), that `url`
-matches and `installation` is the `kid` of the outer request and `old_key` its key
-(`malformed`), and that the new key is neither the key of another installation nor the key of
+(`$defs/key_change`). The operator checks the inner header against `$defs/key_change_header`, with
+`alg` matching `jwk`, the spelling rules of Section 5.1 and that the inner payload is a JSON object
+(`malformed`), then the inner signature
+(`bad-signature`), then that `url` matches and `installation` is the `kid` of the outer request and
+`old_key` its key (`malformed`), and that the new key is neither the key of another installation nor the key of
 one of this installation's tunnel certificates (`key-conflict`). It then replaces the key,
 answers `200` with the installation, and MUST notify the household. The gateway keeps the old key
 until a request signed with the new key succeeded; if it does not know whether a key change took
@@ -1389,9 +1393,9 @@ this version defines the classes of operators.
 | Class | What is checked | Sections |
 |---|---|---|
 | `metadata` | the metadata document and how it is served | 3 |
-| `enrollment` | directory, nonces, requests with their errors and the order of their checks, pairing, the installation, tunnel certificates, ACME support and unpairing | 5 |
+| `enrollment` | directory, nonces, requests with their errors and the order of their checks, pairing, the installation, tunnel certificates, ACME support, the registration and verification of an own-domain name, and unpairing | 5, 6.4 |
 | `dns` | the records of the name domain and of a standard name: CAA at the apex and at the name, A and AAAA, challenge records, TTL, and their removal on unpairing | 5.6, 5.7, 6.3 |
-| `relay` | the tunnel: TLS parameters, frames, the control connection, tokens and data connections, routing of an agent connection by its server name, the PROXY header, `pins`, and the denylist after unpairing | 4 |
+| `relay` | the tunnel: TLS parameters, frames, the control connection, tokens and data connections, routing of an agent connection by its standard name and by a verified own-domain name, the PROXY header, `pins`, and the denylist after unpairing | 4, 6.1 |
 
 An operator **conforms** to this version if it passes all four classes. A claim of conformance
 names the version (the tag of the repository of this specification), the operator domain, the
@@ -1406,8 +1410,8 @@ notifications, is not part of a class (Section 7.10).
 
 The cases are in `relay/conformance/`, each file with a JSON Schema in `relay/conformance/schema/`,
 and `relay/conformance/manifest.json` lists every file with its SHA-256 and number of cases. Test
-keys are in `relay/conformance/keys/`; their private parts are public and MUST NOT be used for
-anything but tests.
+keys are in `relay/conformance/keys/`; their private parts are public, and they serve only to check
+the cases offline: they MUST NOT be used with a live operator.
 
 | File | Cases |
 |---|---|
@@ -1420,26 +1424,32 @@ first added as a case.
 ### 8.3 Live test
 
 The test tool `relay-conformance` (in `cmd/`) plays a gateway and an agent against a live operator.
-With a pairing code of the test account (Section 8.4) it pairs a test installation, sends the
-requests of the cases with their deliberate defects and compares the errors, checks the tunnel
-certificates it is issued and the records in the operator's DNS, opens the tunnel, connects to the
-standard name as an agent, and finally unpairs and checks that the installation, its certificates
-and its records are gone. It reports an ACME account that need not exist at the CA, so the test
-obtains no server certificate. A run creates at most two installations and unpairs every one it
-created before it ends, also when a check fails.
+With a pairing code of the test account (Section 8.4) it pairs a test installation with keys it
+generates for this run, sends the requests of the cases with their deliberate defects and compares
+the errors, also requests of one installation at the URLs of another, checks the tunnel certificates
+it is issued and the records in the operator's DNS, registers an own-domain name in a zone of the
+tester, opens the tunnel, connects as an agent to the standard name and to the own-domain name, and
+finally unpairs and checks that the installation, its certificates and its records are gone. It
+reports an ACME account URI at a CA of `acme_cas` that belongs to no account, so the CAA record of
+the test permits nobody and the test obtains no server certificate. It honours `Retry-After` and
+spaces its attempts, so that the limits of an operator do not fail it. A run creates at most two
+installations and unpairs every one it created before it ends, also when a check fails.
 
 ### 8.4 Access for testing
 
 An operator that claims conformance MUST, for as long as it claims it,
 
-- give whoever tests its conformance an account in its portal (the **test account**) from which the
-  tester can create pairing codes at any time, and the notifications of that account;
+- let whoever tests its conformance hold an account in its portal (the **test account**) from which
+  the tester can create pairing codes at any time. Where the operator opens accounts to households,
+  the tester opens the test account like any household and need not tell the operator which account
+  it is; otherwise the operator gives one;
 - handle the installations of the test account like any other: the same metadata, endpoints,
   relay, CAs, name domain and limits, without telling tests apart from real use;
-- allow test runs as in Section 8.3 at least once a month.
+- allow test runs as in Section 8.3 at least once a month, and after a failed run one more run
+  within that month.
 
-The operator MAY limit test runs to that rate, and blocks the test account against abuse like any
-other account (Section 7.6).
+A block of the test account, or a refused run within that rate, ends the claim of conformance until
+a run passes.
 
 ## 9. Security considerations
 

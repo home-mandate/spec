@@ -3,8 +3,8 @@
   "files": [
     {
       "path": "relay/conformance/jws-v0.json",
-      "sha256": "1be8998f4520887fd9507d1420b52786c7e520cc81bf79a6bcd5e6bcc6026b9e",
-      "cases": 61
+      "sha256": "7d00d80a48ebef2a92f348cec479f2cd64fbf3fe077775b66bd32fa8cc73e62e",
+      "cases": 62
     },
     {
       "path": "relay/conformance/keys/test-keys.json",
@@ -16,12 +16,12 @@
     },
     {
       "path": "relay/conformance/metadata-v0.json",
-      "sha256": "d70945a704fdbb2927c999e103a27ab9da4b2b1bc7bc1412dc15191cf3926898",
-      "cases": 45
+      "sha256": "4951123fbaad9cf86dead49efa22be92e34a0b1e2d18eecfcc1cd2e9176b89d8",
+      "cases": 51
     },
     {
       "path": "relay/conformance/schema/jws-v0.schema.json",
-      "sha256": "8d933695bcdb2181c5eb66e1b99291dc475ab3403c6188caddb9413d83ded689"
+      "sha256": "d0c169136737cff60b7b22018fa63357cfa017b1d9b12c21ccc686e87f8a937d"
     },
     {
       "path": "relay/conformance/schema/manifest.schema.json",
@@ -105,7 +105,7 @@
     },
     {
       "path": "relay/schema/metadata-v0.schema.json",
-      "sha256": "be66198d4f5ee3adf45b7dc8ff260ea8ef32aa997d48c3aa1b30bc3322fff7be"
+      "sha256": "3702b4d7f96a660761a40e613b2245781913caa0d9b87e5524c30abba48d4081"
     }
   ]
 }

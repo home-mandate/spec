@@ -99,57 +99,59 @@ func TestVerifyRequestDistinguishesMalformedFromBadSignature(t *testing.T) {
 		compact string
 		key     crypto.PublicKey
 		want    error
+		reason  string // a part of the message that names the defect
 	}{
-		"signed by another key":      {rawSign(t, kid(""), testPayload, other), ed.Public(), ErrSignature},
-		"payload changed":            {parts[0] + "." + b64.EncodeToString([]byte(`{"code":"X"}`)) + "." + parts[2], ed.Public(), ErrSignature},
-		"pairing signed by another":  {rawSign(t, pair(`,"jwk":`+edJWK), testPayload, other), nil, ErrSignature},
-		"kid without key":            {good, nil, ErrKey},
-		"key other than jwk":         {rawSign(t, pair(`,"jwk":`+edJWK), testPayload, ed), other.Public(), ErrKey},
-		"unsupported key":            {good, "key", ErrKey},
-		"ES256 for an Ed25519 key":   {rawSign(t, strings.Replace(kid(""), "EdDSA", "ES256", 1), testPayload, ec), ed.Public(), ErrMalformed},
-		"EdDSA for a P-256 key":      {good, ec.Public(), ErrMalformed},
-		"ES256 with an OKP jwk":      {rawSign(t, strings.Replace(pair(`,"jwk":`+edJWK), "EdDSA", "ES256", 1), testPayload, ec), nil, ErrMalformed},
-		"EdDSA with an EC jwk":       {rawSign(t, pair(`,"jwk":`+ecJWK), testPayload, ed), nil, ErrMalformed},
-		"both jwk and kid":           {rawSign(t, kid(`,"jwk":`+edJWK), testPayload, ed), ed.Public(), ErrMalformed},
-		"neither jwk nor kid":        {rawSign(t, pair(""), testPayload, ed), ed.Public(), ErrMalformed},
-		"crit":                       {rawSign(t, kid(`,"crit":["b64"]`), testPayload, ed), ed.Public(), ErrMalformed},
-		"b64":                        {rawSign(t, kid(`,"b64":false`), testPayload, ed), ed.Public(), ErrMalformed},
-		"duplicate member":           {rawSign(t, kid(`,"kid":"`+testInstall+`"`), testPayload, ed), ed.Public(), ErrMalformed},
-		"upper-case member":          {rawSign(t, strings.Replace(kid(""), `"url"`, `"URL"`, 1), testPayload, ed), ed.Public(), ErrMalformed},
-		"jwk with d":                 {rawSign(t, pair(`,"jwk":`+strings.Replace(edJWK, `}`, `,"d":"`+rfc8037Seed+`"}`, 1)), testPayload, ed), nil, ErrMalformed},
-		"jwk with kid":               {rawSign(t, pair(`,"jwk":`+strings.Replace(edJWK, `}`, `,"kid":"k"}`, 1)), testPayload, ed), nil, ErrMalformed},
-		"jwk not an object":          {rawSign(t, pair(`,"jwk":"`+rfc8037Public+`"`), testPayload, ed), nil, ErrMalformed},
-		"jwk without kty":            {rawSign(t, pair(`,"jwk":{"crv":"Ed25519","x":"`+rfc8037Public+`","y":"x"}`), testPayload, ed), nil, ErrMalformed},
-		"jwk crv null":               {rawSign(t, pair(`,"jwk":{"kty":"OKP","crv":null,"x":"`+rfc8037Public+`"}`), testPayload, ed), nil, ErrMalformed},
-		"jwk short x":                {rawSign(t, pair(`,"jwk":{"kty":"OKP","crv":"Ed25519","x":"AQAB"}`), testPayload, ed), nil, ErrMalformed},
-		"jwk RSA":                    {rawSign(t, pair(`,"jwk":{"kty":"RSA","n":"AQAB","e":"AQAB"}`), testPayload, ed), nil, ErrMalformed},
-		"jwk EC without y":           {rawSign(t, strings.Replace(pair(`,"jwk":{"kty":"EC","crv":"P-256","x":"`+rfc8037Public+`"}`), "EdDSA", "ES256", 1), testPayload, ec), nil, ErrMalformed},
-		"jwk small order":            {rawSign(t, pair(`,"jwk":{"kty":"OKP","crv":"Ed25519","x":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}`), testPayload, ed), nil, ErrMalformed},
-		"alg none":                   {rawSign(t, strings.Replace(kid(""), "EdDSA", "none", 1), testPayload, ed), ed.Public(), ErrMalformed},
-		"alg null":                   {rawSign(t, strings.Replace(kid(""), `"EdDSA"`, "null", 1), testPayload, ed), ed.Public(), ErrMalformed},
-		"nonce too short":            {rawSign(t, strings.Replace(kid(""), testNonce, testNonce[:21], 1), testPayload, ed), ed.Public(), ErrMalformed},
-		"nonce not base64url":        {rawSign(t, strings.Replace(kid(""), testNonce, strings.Repeat("+", 22), 1), testPayload, ed), ed.Public(), ErrMalformed},
-		"nonce not canonical":        {rawSign(t, strings.Replace(kid(""), testNonce, testNonce[:21]+"B", 1), testPayload, ed), ed.Public(), ErrMalformed},
-		"nonce too long":             {rawSign(t, strings.Replace(kid(""), testNonce, strings.Repeat("A", 132), 1), testPayload, ed), ed.Public(), ErrMalformed},
-		"nonce a number":             {rawSign(t, strings.Replace(kid(""), `"`+testNonce+`"`, "1", 1), testPayload, ed), ed.Public(), ErrMalformed},
-		"url over http":              {rawSign(t, strings.Replace(kid(""), `"url":"https`, `"url":"http`, 1), testPayload, ed), ed.Public(), ErrMalformed},
-		"kid with query":             {rawSign(t, strings.Replace(kid(""), testInstall+`"`, testInstall+`?a"`, 1), testPayload, ed), ed.Public(), ErrMalformed},
-		"header an array":            {rawSign(t, `[]`, testPayload, ed), ed.Public(), ErrMalformed},
-		"header null":                {rawSign(t, `null`, testPayload, ed), ed.Public(), ErrMalformed},
-		"header duplicate in I-JSON": {rawSign(t, kid(`,"alg":"EdDSA"`), testPayload, ed), ed.Public(), ErrMalformed},
-		"payload not an object":      {rawSign(t, kid(""), `[1]`, ed), ed.Public(), ErrMalformed},
-		"payload null":               {rawSign(t, kid(""), `null`, ed), ed.Public(), ErrMalformed},
-		"payload duplicate member":   {rawSign(t, kid(""), `{"a":1,"a":2}`, ed), ed.Public(), ErrMalformed},
-		"payload padded":             {parts[0] + "." + parts[1] + "=." + parts[2], ed.Public(), ErrMalformed},
-		"header with line feed":      {parts[0][:4] + "\n" + parts[0][4:] + "." + parts[1] + "." + parts[2], ed.Public(), ErrMalformed},
-		"signature not base64url":    {parts[0] + "." + parts[1] + ".!!", ed.Public(), ErrMalformed},
-		"signature short":            {parts[0] + "." + parts[1] + "." + parts[2][:40], ed.Public(), ErrMalformed},
-		"signature empty":            {parts[0] + "." + parts[1] + ".", ed.Public(), ErrMalformed},
-		"two segments":               {parts[0] + "." + parts[1], ed.Public(), ErrMalformed},
+		"signed by another key":      {rawSign(t, kid(""), testPayload, other), ed.Public(), ErrSignature, "signature does not verify"},
+		"payload changed":            {parts[0] + "." + b64.EncodeToString([]byte(`{"code":"X"}`)) + "." + parts[2], ed.Public(), ErrSignature, "signature does not verify"},
+		"pairing signed by another":  {rawSign(t, pair(`,"jwk":`+edJWK), testPayload, other), nil, ErrSignature, "signature does not verify"},
+		"kid without key":            {good, nil, ErrKey, "<nil>"},
+		"key other than jwk":         {rawSign(t, pair(`,"jwk":`+edJWK), testPayload, ed), other.Public(), ErrKey, "key is not the jwk"},
+		"unsupported key":            {good, "key", ErrKey, "string"},
+		"ES256 for an Ed25519 key":   {rawSign(t, strings.Replace(kid(""), "EdDSA", "ES256", 1), testPayload, ec), ed.Public(), ErrMalformed, "algorithm ES256 for a EdDSA key"},
+		"EdDSA for a P-256 key":      {good, ec.Public(), ErrMalformed, "algorithm EdDSA for a ES256 key"},
+		"ES256 with an OKP jwk":      {rawSign(t, strings.Replace(pair(`,"jwk":`+edJWK), "EdDSA", "ES256", 1), testPayload, ec), nil, ErrMalformed, "algorithm ES256 for a EdDSA key"},
+		"EdDSA with an EC jwk":       {rawSign(t, pair(`,"jwk":`+ecJWK), testPayload, ed), nil, ErrMalformed, "algorithm EdDSA for a ES256 key"},
+		"both jwk and kid":           {rawSign(t, kid(`,"jwk":`+edJWK), testPayload, ed), ed.Public(), ErrMalformed, "one of jwk and kid"},
+		"neither jwk nor kid":        {rawSign(t, pair(""), testPayload, ed), ed.Public(), ErrMalformed, "one of jwk and kid"},
+		"crit":                       {rawSign(t, kid(`,"crit":["b64"]`), testPayload, ed), ed.Public(), ErrMalformed, "one of jwk and kid"},
+		"b64":                        {rawSign(t, kid(`,"b64":false`), testPayload, ed), ed.Public(), ErrMalformed, "one of jwk and kid"},
+		"duplicate member":           {rawSign(t, kid(`,"kid":"`+testInstall+`"`), testPayload, ed), ed.Public(), ErrMalformed, `header: malformed JSON: duplicate key "kid"`},
+		"upper-case member":          {rawSign(t, strings.Replace(kid(""), `"url"`, `"URL"`, 1), testPayload, ed), ed.Public(), ErrMalformed, "url must be a string"},
+		"jwk with d":                 {rawSign(t, pair(`,"jwk":`+strings.Replace(edJWK, `}`, `,"d":"`+rfc8037Seed+`"}`, 1)), testPayload, ed), nil, ErrMalformed, "members other than"},
+		"jwk with kid":               {rawSign(t, pair(`,"jwk":`+strings.Replace(edJWK, `}`, `,"kid":"k"}`, 1)), testPayload, ed), nil, ErrMalformed, "members other than"},
+		"jwk not an object":          {rawSign(t, pair(`,"jwk":"`+rfc8037Public+`"`), testPayload, ed), nil, ErrMalformed, "jwk: not a JSON object"},
+		"jwk without kty":            {rawSign(t, pair(`,"jwk":{"crv":"Ed25519","x":"`+rfc8037Public+`","y":"x"}`), testPayload, ed), nil, ErrMalformed, "kty must be a string"},
+		"jwk crv null":               {rawSign(t, pair(`,"jwk":{"kty":"OKP","crv":null,"x":"`+rfc8037Public+`"}`), testPayload, ed), nil, ErrMalformed, "crv must be a string"},
+		"jwk short x":                {rawSign(t, pair(`,"jwk":{"kty":"OKP","crv":"Ed25519","x":"AQAB"}`), testPayload, ed), nil, ErrMalformed, "x is not 32 bytes"},
+		"jwk RSA":                    {rawSign(t, pair(`,"jwk":{"kty":"RSA","n":"AQAB","e":"AQAB"}`), testPayload, ed), nil, ErrMalformed, "crv must be a string"},
+		"jwk EC without y":           {rawSign(t, strings.Replace(pair(`,"jwk":{"kty":"EC","crv":"P-256","x":"`+rfc8037Public+`"}`), "EdDSA", "ES256", 1), testPayload, ec), nil, ErrMalformed, "members other than"},
+		"jwk P-256 off the curve":    {rawSign(t, strings.Replace(pair(`,"jwk":`+offCurve(t, ecJWK)), "EdDSA", "ES256", 1), testPayload, ec), nil, ErrMalformed, "not on curve"},
+		"jwk small order":            {rawSign(t, pair(`,"jwk":{"kty":"OKP","crv":"Ed25519","x":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}`), testPayload, ed), nil, ErrMalformed, "small order"},
+		"alg none":                   {rawSign(t, strings.Replace(kid(""), "EdDSA", "none", 1), testPayload, ed), ed.Public(), ErrMalformed, `algorithm "none"`},
+		"alg null":                   {rawSign(t, strings.Replace(kid(""), `"EdDSA"`, "null", 1), testPayload, ed), ed.Public(), ErrMalformed, "alg must be a string"},
+		"nonce too short":            {rawSign(t, strings.Replace(kid(""), testNonce, testNonce[:21], 1), testPayload, ed), ed.Public(), ErrMalformed, "is not base64url of at least 16 bytes"},
+		"nonce not base64url":        {rawSign(t, strings.Replace(kid(""), testNonce, strings.Repeat("+", 22), 1), testPayload, ed), ed.Public(), ErrMalformed, "is not base64url of at least 16 bytes"},
+		"nonce not canonical":        {rawSign(t, strings.Replace(kid(""), testNonce, testNonce[:21]+"B", 1), testPayload, ed), ed.Public(), ErrMalformed, "is not base64url of at least 16 bytes"},
+		"nonce too long":             {rawSign(t, strings.Replace(kid(""), testNonce, strings.Repeat("A", 132), 1), testPayload, ed), ed.Public(), ErrMalformed, "is not base64url of at least 16 bytes"},
+		"nonce a number":             {rawSign(t, strings.Replace(kid(""), `"`+testNonce+`"`, "1", 1), testPayload, ed), ed.Public(), ErrMalformed, "nonce must be a string"},
+		"url over http":              {rawSign(t, strings.Replace(kid(""), `"url":"https`, `"url":"http`, 1), testPayload, ed), ed.Public(), ErrMalformed, `url "http://`},
+		"kid with query":             {rawSign(t, strings.Replace(kid(""), testInstall+`"`, testInstall+`?a"`, 1), testPayload, ed), ed.Public(), ErrMalformed, `kid "https://`},
+		"header an array":            {rawSign(t, `[]`, testPayload, ed), ed.Public(), ErrMalformed, "header is not a JSON object"},
+		"header null":                {rawSign(t, `null`, testPayload, ed), ed.Public(), ErrMalformed, "header is not a JSON object"},
+		"header duplicate in I-JSON": {rawSign(t, kid(`,"alg":"EdDSA"`), testPayload, ed), ed.Public(), ErrMalformed, `header: malformed JSON: duplicate key "alg"`},
+		"payload not an object":      {rawSign(t, kid(""), `[1]`, ed), ed.Public(), ErrMalformed, "payload is not a JSON object"},
+		"payload null":               {rawSign(t, kid(""), `null`, ed), ed.Public(), ErrMalformed, "payload is not a JSON object"},
+		"payload duplicate member":   {rawSign(t, kid(""), `{"a":1,"a":2}`, ed), ed.Public(), ErrMalformed, `payload: malformed JSON: duplicate key "a"`},
+		"payload padded":             {parts[0] + "." + parts[1] + "=." + parts[2], ed.Public(), ErrMalformed, "payload: illegal base64"},
+		"header with line feed":      {parts[0][:4] + "\n" + parts[0][4:] + "." + parts[1] + "." + parts[2], ed.Public(), ErrMalformed, "header: not canonical base64url"},
+		"signature not base64url":    {parts[0] + "." + parts[1] + ".!!", ed.Public(), ErrMalformed, "signature: illegal base64"},
+		"signature short":            {parts[0] + "." + parts[1] + "." + parts[2][:40], ed.Public(), ErrMalformed, "signature of 30 bytes"},
+		"signature empty":            {parts[0] + "." + parts[1] + ".", ed.Public(), ErrMalformed, "signature of 0 bytes"},
+		"two segments":               {parts[0] + "." + parts[1], ed.Public(), ErrMalformed, "not a compact JWS"},
 	} {
 		_, _, err := VerifyRequest(tt.compact, tt.key)
-		if !errors.Is(err, tt.want) {
-			t.Errorf("%s: err = %v, want %v", name, err, tt.want)
+		if !errors.Is(err, tt.want) || !strings.Contains(err.Error(), tt.reason) {
+			t.Errorf("%s: err = %v, want %v with %q", name, err, tt.want, tt.reason)
 		}
 		for _, other := range []error{ErrMalformed, ErrSignature, ErrKey} {
 			if other != tt.want && errors.Is(err, other) {
@@ -160,21 +162,27 @@ func TestVerifyRequestDistinguishesMalformedFromBadSignature(t *testing.T) {
 }
 
 // TestSignatureSpellingIsMalformed: a signature that breaks the spelling rules is
-// malformed before it is checked (RELAY-v0 section 5.1 step 4), even if a lenient
-// library would accept it.
+// malformed before it is checked (RELAY-v0 section 5.1 step 1), even if a lenient
+// library would accept it. Each fixture verifies before it is changed.
 func TestSignatureSpellingIsMalformed(t *testing.T) {
 	ed, ec := rfcKey(t), ecKey(t)
 	head := `{"alg":"ES256","nonce":"` + testNonce + `","url":"` + testCertURL + `","kid":"` + testInstall + `"}`
 	compact := rawSign(t, head, testPayload, ec)
+	if _, _, err := VerifyRequest(compact, ec.Public()); err != nil {
+		t.Fatalf("ES256 fixture: %v", err)
+	}
 	parts := strings.Split(compact, ".")
 	sig, _ := b64.DecodeString(parts[2])
 	n := elliptic.P256().Params().N
 	high := append(sig[:32:32], new(big.Int).Sub(n, new(big.Int).SetBytes(sig[32:])).FillBytes(make([]byte, 32))...)
-	if _, _, err := VerifyRequest(parts[0]+"."+parts[1]+"."+b64.EncodeToString(high), ec.Public()); !errors.Is(err, ErrMalformed) {
-		t.Errorf("high s: %v, want ErrMalformed", err)
+	if _, _, err := VerifyRequest(parts[0]+"."+parts[1]+"."+b64.EncodeToString(high), ec.Public()); !errors.Is(err, ErrMalformed) || !strings.Contains(err.Error(), "higher s") {
+		t.Errorf("high s: %v, want ErrMalformed for the higher s", err)
 	}
 
 	edCompact := rawSign(t, strings.Replace(head, "ES256", "EdDSA", 1), testPayload, ed)
+	if _, _, err := VerifyRequest(edCompact, ed.Public()); err != nil {
+		t.Fatalf("EdDSA fixture: %v", err)
+	}
 	parts = strings.Split(edCompact, ".")
 	sig, _ = b64.DecodeString(parts[2])
 	// S + L verifies in libraries that reduce S.
@@ -187,13 +195,54 @@ func TestSignatureSpellingIsMalformed(t *testing.T) {
 	for i := range sum {
 		large = append(large, sum[31-i])
 	}
-	if _, _, err := VerifyRequest(parts[0]+"."+parts[1]+"."+b64.EncodeToString(large), ed.Public()); !errors.Is(err, ErrMalformed) {
-		t.Errorf("S >= L: %v, want ErrMalformed", err)
+	if _, _, err := VerifyRequest(parts[0]+"."+parts[1]+"."+b64.EncodeToString(large), ed.Public()); !errors.Is(err, ErrMalformed) || !strings.Contains(err.Error(), "EdDSA signature not canonical") {
+		t.Errorf("S >= L: %v, want ErrMalformed for a non-canonical signature", err)
 	}
 	// R with y = p + 1, not canonical.
 	badR := append([]byte{0xee}, append(bytesOf(0xff, 30), 0x7f)...)
-	if _, _, err := VerifyRequest(parts[0]+"."+parts[1]+"."+b64.EncodeToString(append(badR, sig[32:]...)), ed.Public()); !errors.Is(err, ErrMalformed) {
-		t.Errorf("non-canonical R: %v, want ErrMalformed", err)
+	if _, _, err := VerifyRequest(parts[0]+"."+parts[1]+"."+b64.EncodeToString(append(badR, sig[32:]...)), ed.Public()); !errors.Is(err, ErrMalformed) || !strings.Contains(err.Error(), "EdDSA signature not canonical") {
+		t.Errorf("non-canonical R: %v, want ErrMalformed for a non-canonical signature", err)
+	}
+}
+
+// offCurve returns a P-256 jwk whose y is changed in its lowest bit, so that the point is
+// not on the curve.
+func offCurve(t *testing.T, ecJWK string) string {
+	t.Helper()
+	var k struct{ Kty, Crv, X, Y string }
+	if err := json.Unmarshal([]byte(ecJWK), &k); err != nil {
+		t.Fatal(err)
+	}
+	y, err := b64.DecodeString(k.Y)
+	if err != nil {
+		t.Fatal(err)
+	}
+	y[len(y)-1] ^= 1
+	return `{"kty":"EC","crv":"P-256","x":"` + k.X + `","y":"` + b64.EncodeToString(y) + `"}`
+}
+
+// TestRequestErrorsQuoteOnlyAPrefix: an error quotes at most maxQuotedBytes of a value
+// that the sender chose.
+func TestRequestErrorsQuoteOnlyAPrefix(t *testing.T) {
+	ed := rfcKey(t)
+	long := strings.Repeat("A", maxNonceChars+4)
+	kid := `{"alg":"EdDSA","nonce":"` + testNonce + `","url":"` + testCertURL + `","kid":"` + testInstall + `"}`
+	for name, head := range map[string]string{
+		"nonce": strings.Replace(kid, testNonce, long, 1),
+		"url":   strings.Replace(kid, testCertURL, "http://"+long, 1),
+		"kid":   strings.Replace(kid, `"kid":"`+testInstall, `"kid":"https://`+strings.ToLower(long)+"/", 1),
+		"alg":   strings.Replace(kid, "EdDSA", long, 1),
+	} {
+		_, _, err := VerifyRequest(rawSign(t, head, testPayload, ed), ed.Public())
+		if !errors.Is(err, ErrMalformed) || !strings.Contains(err.Error(), name) || !strings.Contains(err.Error(), "...") {
+			t.Errorf("%s: err = %v, want ErrMalformed naming %s with a cut value", name, err, name)
+		}
+		if strings.Contains(err.Error(), long[:maxQuotedBytes+1]) || strings.Contains(err.Error(), strings.ToLower(long[:maxQuotedBytes+1])) {
+			t.Errorf("%s: err quotes more than %d bytes: %v", name, maxQuotedBytes, err)
+		}
+	}
+	if got := quote("short"); got != `"short"` {
+		t.Errorf("quote(short) = %s", got)
 	}
 }
 
@@ -217,6 +266,7 @@ func TestSignRequestRejects(t *testing.T) {
 	}{
 		"no key":            {ok, testPayload, "key", ErrKey},
 		"P-384":             {ok, testPayload, p384, ErrKey},
+		"short Ed25519 key": {ok, testPayload, ed[:32], ErrKey},
 		"alg of other type": {RequestHeader{Alg: AlgES256, Nonce: testNonce, URL: testCertURL, Kid: testInstall}, testPayload, ed, ErrKey},
 		"jwk of other key":  {RequestHeader{Nonce: testNonce, URL: testPair, JWK: ec.Public()}, testPayload, ed, ErrKey},
 		"both":              {RequestHeader{Nonce: testNonce, URL: testPair, JWK: ed.Public(), Kid: testInstall}, testPayload, ed, ErrMalformed},
@@ -256,39 +306,48 @@ func TestKeyChange(t *testing.T) {
 	for name, tt := range map[string]struct {
 		compact string
 		want    error
+		reason  string
 	}{
-		"signed by the old key": {rawSign(t, head, testKCChange, oldKey), ErrSignature},
-		"with nonce":            {rawSign(t, strings.Replace(head, `{`, `{"nonce":"`+testNonce+`",`, 1), testKCChange, newKey), ErrMalformed},
-		"with kid":              {rawSign(t, strings.Replace(head, `{`, `{"kid":"`+testInstall+`",`, 1), testKCChange, newKey), ErrMalformed},
-		"without jwk":           {rawSign(t, `{"alg":"EdDSA","kid":"`+testInstall+`","url":"`+testKeyURL+`"}`, testKCChange, newKey), ErrMalformed},
-		"without url":           {rawSign(t, `{"alg":"EdDSA","jwk":`+newJWK+`}`, testKCChange, newKey), ErrMalformed},
-		"bad url":               {rawSign(t, strings.Replace(head, "https", "http", 1), testKCChange, newKey), ErrMalformed},
-		"alg ES256":             {rawSign(t, strings.Replace(head, "EdDSA", "ES256", 1), testKCChange, ec), ErrMalformed},
-		"alg missing":           {rawSign(t, `{"jwk":`+newJWK+`,"url":"`+testKeyURL+`","x":1}`, testKCChange, newKey), ErrMalformed},
-		"empty payload":         {rawSign(t, head, "", newKey), ErrMalformed},
-		"payload array":         {rawSign(t, head, "[]", newKey), ErrMalformed},
-		"padded signature":      {good + "=", ErrMalformed},
-		"two segments":          {parts[0] + "." + parts[1], ErrMalformed},
-		"too long":              {parts[0] + "." + strings.Repeat("A", maxKeyChangeBytes) + "." + parts[2], ErrMalformed},
+		"signed by the old key": {rawSign(t, head, testKCChange, oldKey), ErrSignature, "signature does not verify"},
+		"with nonce":            {rawSign(t, strings.Replace(head, `{`, `{"nonce":"`+testNonce+`",`, 1), testKCChange, newKey), ErrMalformed, "exactly alg, jwk and url"},
+		"with kid":              {rawSign(t, strings.Replace(head, `{`, `{"kid":"`+testInstall+`",`, 1), testKCChange, newKey), ErrMalformed, "exactly alg, jwk and url"},
+		"without jwk":           {rawSign(t, `{"alg":"EdDSA","kid":"`+testInstall+`","url":"`+testKeyURL+`"}`, testKCChange, newKey), ErrMalformed, "exactly alg, jwk and url"},
+		"without url":           {rawSign(t, `{"alg":"EdDSA","jwk":`+newJWK+`}`, testKCChange, newKey), ErrMalformed, "exactly alg, jwk and url"},
+		"bad url":               {rawSign(t, strings.Replace(head, "https", "http", 1), testKCChange, newKey), ErrMalformed, `url "http://`},
+		"alg ES256":             {rawSign(t, strings.Replace(head, "EdDSA", "ES256", 1), testKCChange, ec), ErrMalformed, "algorithm ES256 for a EdDSA key"},
+		"alg missing":           {rawSign(t, `{"jwk":`+newJWK+`,"url":"`+testKeyURL+`","x":1}`, testKCChange, newKey), ErrMalformed, "alg must be a string"},
+		"empty payload":         {rawSign(t, head, "", newKey), ErrMalformed, "no payload"},
+		"payload array":         {rawSign(t, head, "[]", newKey), ErrMalformed, "payload is not a JSON object"},
+		"padded signature":      {good + "=", ErrMalformed, "signature: illegal base64"},
+		"two segments":          {parts[0] + "." + parts[1], ErrMalformed, "not a compact JWS"},
+		"too long":              {parts[0] + "." + strings.Repeat("A", maxKeyChangeBytes) + "." + parts[2], ErrMalformed, "larger than"},
 	} {
-		if _, _, err := VerifyKeyChange(tt.compact); !errors.Is(err, tt.want) {
-			t.Errorf("%s: err = %v, want %v", name, err, tt.want)
+		if _, _, err := VerifyKeyChange(tt.compact); !errors.Is(err, tt.want) || !strings.Contains(err.Error(), tt.reason) {
+			t.Errorf("%s: err = %v, want %v with %q", name, err, tt.want, tt.reason)
 		}
 	}
 	for name, tt := range map[string]struct {
 		h       KeyChangeHeader
 		payload string
 		signer  any
+		want    error
 	}{
-		"no key":        {KeyChangeHeader{URL: testKeyURL}, testKCChange, nil},
-		"alg mismatch":  {KeyChangeHeader{Alg: AlgES256, URL: testKeyURL}, testKCChange, newKey},
-		"jwk mismatch":  {KeyChangeHeader{JWK: oldKey.Public(), URL: testKeyURL}, testKCChange, newKey},
-		"bad url":       {KeyChangeHeader{URL: "https://x"}, testKCChange, newKey},
-		"empty payload": {KeyChangeHeader{URL: testKeyURL}, "", newKey},
-		"too long":      {KeyChangeHeader{URL: testKeyURL}, `{"a":"` + strings.Repeat("x", maxKeyChangeBytes) + `"}`, newKey},
+		"no key":            {KeyChangeHeader{URL: testKeyURL}, testKCChange, nil, ErrKey},
+		"short Ed25519 key": {KeyChangeHeader{URL: testKeyURL}, testKCChange, newKey[:63], ErrKey},
+		"alg mismatch":      {KeyChangeHeader{Alg: AlgES256, URL: testKeyURL}, testKCChange, newKey, ErrKey},
+		"jwk mismatch":      {KeyChangeHeader{JWK: oldKey.Public(), URL: testKeyURL}, testKCChange, newKey, ErrKey},
+		"bad url":           {KeyChangeHeader{URL: "https://x"}, testKCChange, newKey, ErrMalformed},
+		"empty payload":     {KeyChangeHeader{URL: testKeyURL}, "", newKey, ErrMalformed},
+		"too long":          {KeyChangeHeader{URL: testKeyURL}, `{"a":"` + strings.Repeat("x", maxKeyChangeBytes) + `"}`, newKey, ErrMalformed},
 	} {
-		if _, err := SignKeyChange([]byte(tt.payload), tt.h, tt.signer); err == nil {
-			t.Errorf("%s: SignKeyChange accepted", name)
+		_, err := SignKeyChange([]byte(tt.payload), tt.h, tt.signer)
+		if !errors.Is(err, tt.want) {
+			t.Errorf("%s: err = %v, want %v", name, err, tt.want)
+		}
+		for _, other := range []error{ErrMalformed, ErrSignature, ErrKey} {
+			if other != tt.want && errors.Is(err, other) {
+				t.Errorf("%s: err = %v is also %v", name, err, other)
+			}
 		}
 	}
 }
@@ -315,19 +374,19 @@ func TestParseJWKAndMarshalJWK(t *testing.T) {
 			t.Errorf("MarshalJWK(%v) = %v, want ErrKey", key, err)
 		}
 	}
-	for name, doc := range map[string]string{
-		"duplicate x": `{"kty":"OKP","crv":"Ed25519","x":"` + rfc8037Public + `","x":"` + rfc8037Public + `"}`,
-		"with kid":    `{"kty":"OKP","crv":"Ed25519","kid":"k","x":"` + rfc8037Public + `"}`,
-		"with d":      `{"kty":"OKP","crv":"Ed25519","x":"` + rfc8037Public + `","d":"` + rfc8037Seed + `"}`,
-		"upper X":     `{"kty":"OKP","crv":"Ed25519","X":"` + rfc8037Public + `"}`,
-		"OKP with y":  `{"kty":"OKP","crv":"Ed25519","x":"` + rfc8037Public + `","y":"` + rfc8037Public + `"}`,
-		"EC short y":  `{"kty":"EC","crv":"P-256","x":"` + rfc8037Public + `","y":"AQAB"}`,
-		"x padded":    `{"kty":"OKP","crv":"Ed25519","x":"` + rfc8037Public[:42] + `="}`,
-		"not JSON":    `nope`,
-		"null":        `null`,
+	for name, tt := range map[string]struct{ doc, reason string }{
+		"duplicate x": {`{"kty":"OKP","crv":"Ed25519","x":"` + rfc8037Public + `","x":"` + rfc8037Public + `"}`, "duplicate key"},
+		"with kid":    {`{"kty":"OKP","crv":"Ed25519","kid":"k","x":"` + rfc8037Public + `"}`, "members other than"},
+		"with d":      {`{"kty":"OKP","crv":"Ed25519","x":"` + rfc8037Public + `","d":"` + rfc8037Seed + `"}`, "members other than"},
+		"upper X":     {`{"kty":"OKP","crv":"Ed25519","X":"` + rfc8037Public + `"}`, "x must be a string"},
+		"OKP with y":  {`{"kty":"OKP","crv":"Ed25519","x":"` + rfc8037Public + `","y":"` + rfc8037Public + `"}`, "members other than"},
+		"EC short y":  {`{"kty":"EC","crv":"P-256","x":"` + rfc8037Public + `","y":"AQAB"}`, "y is not 32 bytes"},
+		"x padded":    {`{"kty":"OKP","crv":"Ed25519","x":"` + rfc8037Public[:42] + `="}`, "illegal base64"},
+		"not JSON":    {`nope`, "malformed JSON"},
+		"null":        {`null`, "not a JSON object"},
 	} {
-		if _, err := ParseJWK([]byte(doc)); !errors.Is(err, ErrKey) {
-			t.Errorf("%s: ParseJWK = %v, want ErrKey", name, err)
+		if _, err := ParseJWK([]byte(tt.doc)); !errors.Is(err, ErrKey) || !strings.Contains(err.Error(), tt.reason) {
+			t.Errorf("%s: ParseJWK = %v, want ErrKey with %q", name, err, tt.reason)
 		}
 	}
 }

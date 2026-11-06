@@ -23,6 +23,7 @@
           "kind",
           "jws",
           "key",
+          "url",
           "expected",
           "why"
         ],

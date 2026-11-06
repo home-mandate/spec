@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"strconv"
 
 	"github.com/home-mandate/spec/internal/ijson"
 )
@@ -54,6 +55,8 @@ const (
 	maxURLChars   = 2048
 	// maxKeyChangeBytes is the bound of $defs/compact_jws of the enrollment schema.
 	maxKeyChangeBytes = 16 << 10
+	// maxQuotedBytes bounds how much of a value from a request an error message quotes.
+	maxQuotedBytes = 64
 )
 
 // httpsURL is $defs/https_url of the metadata schema: a lower-case DNS host, an optional
@@ -103,8 +106,8 @@ func SignRequest(payload []byte, h RequestHeader, signer any) (string, error) {
 }
 
 // ParseRequest checks everything about a request that needs no key: the compact form,
-// the header profile (RELAY-v0 section 5.1 step 1) and the spelling rules (step 4) of all
-// three segments. It does not verify the signature, so that an operator can look up the
+// the header profile and the spelling rules of all three segments (RELAY-v0 section 5.1
+// step 1). It does not verify the signature, so that an operator can look up the
 // installation that kid names first; VerifyRequest does both.
 func ParseRequest(compact string) (RequestHeader, []byte, error) {
 	p, err := parseRequest(compact)
@@ -424,7 +427,7 @@ func readAlg(members map[string]json.RawMessage) (string, error) {
 		return "", err
 	}
 	if alg != AlgEdDSA && alg != AlgES256 {
-		return "", fmt.Errorf("%w: algorithm %q", ErrMalformed, alg)
+		return "", fmt.Errorf("%w: algorithm %s", ErrMalformed, quote(alg))
 	}
 	return alg, nil
 }
@@ -488,16 +491,25 @@ func readStrictJWK(data []byte) (crypto.PublicKey, error) {
 func checkNonce(nonce string) error {
 	decoded, err := decodeSegment(nonce)
 	if err != nil || len(nonce) > maxNonceChars || len(decoded) < minNonceBytes {
-		return fmt.Errorf("%w: nonce %q is not base64url of at least %d bytes", ErrMalformed, nonce, minNonceBytes)
+		return fmt.Errorf("%w: nonce %s is not base64url of at least %d bytes", ErrMalformed, quote(nonce), minNonceBytes)
 	}
 	return nil
 }
 
 func checkURL(name, s string) error {
 	if len(s) > maxURLChars || !httpsURL.MatchString(s) {
-		return fmt.Errorf("%w: %s %q is not an HTTPS URL of the schema", ErrMalformed, name, s)
+		return fmt.Errorf("%w: %s %s is not an HTTPS URL of the schema", ErrMalformed, name, quote(s))
 	}
 	return nil
+}
+
+// quote quotes a value from a request for an error message, at most its first
+// maxQuotedBytes bytes, so that a sender cannot fill logs through the errors.
+func quote(s string) string {
+	if len(s) <= maxQuotedBytes {
+		return strconv.Quote(s)
+	}
+	return strconv.Quote(s[:maxQuotedBytes]) + "..."
 }
 
 // checkPayload: a payload is a JSON object in I-JSON, or empty for a read.
@@ -544,6 +556,9 @@ func checkSignatureForm(alg string, sig []byte) error {
 func signerAlg(signer any) (string, crypto.PublicKey, error) {
 	switch key := signer.(type) {
 	case ed25519.PrivateKey:
+		if len(key) != ed25519.PrivateKeySize {
+			return "", nil, fmt.Errorf("%w: Ed25519 private key of %d bytes", ErrKey, len(key))
+		}
 		return AlgEdDSA, key.Public(), nil
 	case *ecdsa.PrivateKey:
 		if key.Curve != elliptic.P256() {

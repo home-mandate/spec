@@ -3,13 +3,20 @@
 package relay_test
 
 import (
+	"bytes"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/home-mandate/spec/jws"
 )
@@ -74,7 +81,7 @@ func verdict(t *testing.T, c jwsCase) string {
 		return "bad-signature"
 	case err != nil:
 		t.Fatalf("%s: %v", c.ID, err)
-	case c.URL != "" && url != c.URL:
+	case url != c.URL:
 		return "malformed"
 	}
 	return "valid"
@@ -92,26 +99,141 @@ func TestJWSCases(t *testing.T) {
 	}
 }
 
-// TestValidJWSHeadersMatchTheSchema: the header of every valid case is valid against the
-// enrollment schema, so that the jws package and the schema agree.
-func TestValidJWSHeadersMatchTheSchema(t *testing.T) {
+// schemaAcceptedJWSHeaders are the malformed cases whose header is valid against the
+// enrollment schema: their defect is outside the header, or in a rule of the header that
+// the schema cannot express. Every other malformed case has a defect in the shape of its
+// header, which the schema rejects as well.
+var schemaAcceptedJWSHeaders = map[string]string{
+	"r06": "url differs from the URL the request was sent to",
+	"r16": "member twice: the schema sees one",
+	"r17": "defect in the payload",
+	"r23": "alg against the key that kid names",
+	"r24": "alg against the key that kid names",
+	"r29": "jwk of small order",
+	"r30": "x of jwk not canonical",
+	"r32": "nonce not canonical",
+	"r38": "spelling of the header segment",
+	"r39": "spelling of the payload segment",
+	"r40": "spelling of the signature segment",
+	"r41": "spelling of the signature segment",
+	"r42": "spelling of the signature",
+	"r43": "spelling of the signature",
+	"r44": "defect in the payload",
+	"r46": "number of segments",
+	"r48": "jwk not on the curve",
+	"k04": "url differs from the URL of key_change",
+	"k11": "defect in the payload",
+	"k12": "defect in the payload",
+	"k13": "spelling of the signature",
+}
+
+// TestJWSHeadersAgreeWithTheSchema: the header of every valid case, and of every
+// malformed case in schemaAcceptedJWSHeaders, is valid against the enrollment schema; the
+// header of every other malformed case is not, so that the jws package and the schema
+// agree in both directions.
+func TestJWSHeadersAgreeWithTheSchema(t *testing.T) {
 	defs := map[string]string{"request": "protected_header", "key-change": "key_change_header"}
+	schemas := map[string]*jsonschema.Schema{}
+	for kind, def := range defs {
+		schemas[kind] = compileEnrollmentDef(t, def)
+	}
+	seen := map[string]bool{}
 	for _, c := range loadJWSCases(t) {
-		if c.Expected != "valid" {
+		if c.Expected == "bad-signature" {
 			continue
 		}
 		head, err := base64.RawURLEncoding.DecodeString(c.JWS[:strings.Index(c.JWS, ".")])
 		if err != nil {
 			t.Fatalf("%s: %v", c.ID, err)
 		}
-		var doc any
-		if err := json.Unmarshal(head, &doc); err != nil {
+		doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(head))
+		if err != nil {
 			t.Fatalf("%s: %v", c.ID, err)
 		}
-		if err := compileEnrollmentDef(t, defs[c.Kind]).Validate(doc); err != nil {
+		err = schemas[c.Kind].Validate(doc)
+		_, accepted := schemaAcceptedJWSHeaders[c.ID]
+		seen[c.ID] = accepted
+		switch {
+		case (c.Expected == "valid" || accepted) && err != nil:
 			t.Errorf("%s: header violates %s: %v", c.ID, defs[c.Kind], err)
+		case c.Expected == "malformed" && !accepted && err == nil:
+			t.Errorf("%s (%s): header is valid against %s", c.ID, c.Why, defs[c.Kind])
 		}
 	}
+	for id := range schemaAcceptedJWSHeaders {
+		if !seen[id] {
+			t.Errorf("%s in schemaAcceptedJWSHeaders is not a malformed case", id)
+		}
+	}
+}
+
+// jwsDefectsAfterSignature are the malformed cases whose defect RELAY-v0 checks after the
+// signature (section 5.1 steps 4 and 6, the payload and url of section 5.5). Their
+// signature has to verify; every other malformed case fails before the signature check.
+var jwsDefectsAfterSignature = []string{"r06", "r44", "k04", "k11"}
+
+// TestJWSCaseSignatures checks the signatures of the cases with the standard library alone:
+// valid cases and those of jwsDefectsAfterSignature verify, bad-signature cases do not.
+func TestJWSCaseSignatures(t *testing.T) {
+	mustVerify := map[string]bool{}
+	for _, id := range jwsDefectsAfterSignature {
+		mustVerify[id] = true
+	}
+	for _, c := range loadJWSCases(t) {
+		switch {
+		case c.Expected == "valid" || mustVerify[c.ID]:
+			if !rawVerifies(t, c) {
+				t.Errorf("%s (%s): signature does not verify", c.ID, c.Why)
+			}
+			delete(mustVerify, c.ID)
+		case c.Expected == "bad-signature":
+			if rawVerifies(t, c) {
+				t.Errorf("%s (%s): signature verifies", c.ID, c.Why)
+			}
+		}
+	}
+	for id := range mustVerify {
+		t.Errorf("%s in jwsDefectsAfterSignature is not a case", id)
+	}
+}
+
+// rawVerifies verifies the signature of a case over its first two segments as they are,
+// with the key of the case or the jwk of its header, without the spelling rules.
+func rawVerifies(t *testing.T, c jwsCase) bool {
+	t.Helper()
+	parts := strings.Split(c.JWS, ".")
+	if len(parts) != 3 {
+		t.Fatalf("%s: %d segments", c.ID, len(parts))
+	}
+	keyData := []byte(c.Key)
+	if string(c.Key) == "null" {
+		head, err := base64.RawURLEncoding.DecodeString(parts[0])
+		var h struct {
+			JWK json.RawMessage `json:"jwk"`
+		}
+		if err != nil || json.Unmarshal(head, &h) != nil {
+			t.Fatalf("%s: header", c.ID)
+		}
+		keyData = h.JWK
+	}
+	key, err := jws.ParseJWK(keyData)
+	if err != nil {
+		t.Fatalf("%s: key: %v", c.ID, err)
+	}
+	sig, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil || len(sig) != 64 {
+		return false
+	}
+	input := []byte(parts[0] + "." + parts[1])
+	switch k := key.(type) {
+	case ed25519.PublicKey:
+		return ed25519.Verify(k, input, sig)
+	case *ecdsa.PublicKey:
+		digest := sha256.Sum256(input)
+		return ecdsa.Verify(k, digest[:], new(big.Int).SetBytes(sig[:32]), new(big.Int).SetBytes(sig[32:]))
+	}
+	t.Fatalf("%s: key %T", c.ID, key)
+	return false
 }
 
 func TestJWSCaseKeysAreTestKeys(t *testing.T) {

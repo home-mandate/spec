@@ -4,11 +4,12 @@ package main
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/sha256"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -25,8 +26,9 @@ const relayJWSDescription = "Requests of the Relay Specification v0 (draft), REL
 	"Each case: a compact JWS, of kind request (the body of a POST to the enrollment endpoint) or key-change " +
 	"(the inner JWS of a key change); the public key that verifies it, or null when the header carries it as jwk; " +
 	"the URL it was sent to; and the result: valid, malformed or bad-signature (the errors of section 5.1). " +
-	"A case is malformed if its header, its spelling or its url is wrong, also if its signature would verify; " +
-	"bad-signature only if everything else is right. The payloads are only checked for I-JSON and for being " +
+	"A malformed case has an otherwise verifying signature unless its defect comes before the signature check " +
+	"(section 5.1 steps 1 to 3 and the alg check of step 4, or for key changes the inner header and spelling of section 5.5); " +
+	"a bad-signature case has no other defect. The payloads are only checked for I-JSON and for being " +
 	"an object (or, for a request, empty), not against their schema. The keys are test keys; their private " +
 	"parts are in relay/conformance/keys/test-keys.private.json. Generated with go run ./tools/vectors relay-jws."
 
@@ -49,8 +51,6 @@ type relayJWSCase struct {
 	URL      string          `json:"url"`
 	Expected string          `json:"expected"`
 	Why      string          `json:"why"`
-	// ES256 signatures are not deterministic: such a case changes on every run.
-	random bool
 }
 
 // relaySigners are the test keys by kid.
@@ -123,11 +123,18 @@ func rawRelayJWS(head, payload string, signer any) (string, error) {
 	case ed25519.PrivateKey:
 		sig = ed25519.Sign(key, input)
 	case *ecdsa.PrivateKey:
+		// Without a random source, Sign is deterministic (RFC 6979), so that regenerating
+		// the cases does not change them.
 		digest := sha256.Sum256(input)
-		r, s, err := ecdsa.Sign(rand.Reader, key, digest[:])
+		der, err := key.Sign(nil, digest[:], crypto.SHA256)
 		if err != nil {
 			return "", err
 		}
+		var rs struct{ R, S *big.Int }
+		if rest, err := asn1.Unmarshal(der, &rs); err != nil || len(rest) != 0 {
+			return "", fmt.Errorf("ECDSA signature: %v", err)
+		}
+		r, s := rs.R, rs.S
 		n := elliptic.P256().Params().N
 		if s.Cmp(new(big.Int).Rsh(n, 1)) > 0 {
 			s.Sub(n, s)
@@ -225,6 +232,10 @@ func relayJWSCases(signers relaySigners) ([]relayJWSCase, error) {
 	// x of relay-installation with the last character one higher: trailing bits that are not zero.
 	instX := inst[strings.Index(inst, `"x":"`)+5 : len(inst)-2]
 	nonCanonicalX := replace(inst, instX, instX[:42]+string(instX[42]+1))
+	offCurve, err := offCurveJWK(p256)
+	if err != nil {
+		return nil, err
+	}
 	request, keyChange := "request", "key-change"
 	specs := []relayCaseSpec{
 		{id: "r01", kind: request, head: pair("EdDSA", inst), payload: relayPairBody, signer: "relay-installation", url: relayPair, expected: "valid", why: "pairing request, Ed25519 key in jwk"},
@@ -290,6 +301,7 @@ func relayJWSCases(signers relaySigners) ([]relayJWSCase, error) {
 		{id: "r46", kind: request, head: cert, payload: relayCSRBody, signer: "relay-installation", key: "relay-installation", url: relayCertURL, expected: "malformed", why: "two segments",
 			edit: func(c string) string { return c[:strings.LastIndex(c, ".")] }},
 		{id: "r47", kind: request, head: pair("EdDSA", inst), payload: "", signer: "relay-installation", url: relayPair, expected: "valid", why: "pairing request with an empty payload: the payload is checked after the signature (step 6)"},
+		{id: "r48", kind: request, head: pair("ES256", offCurve), payload: relayPairBody, signer: "relay-p256", url: relayPair, expected: "malformed", why: "jwk is not a point on P-256: y of relay-p256 with its lowest bit flipped"},
 
 		{id: "k01", kind: keyChange, head: change("EdDSA", newKey, relayKeyURL), payload: changeBody, signer: "relay-new", url: relayKeyURL, expected: "valid", why: "inner JWS signed with the new Ed25519 key"},
 		{id: "k02", kind: keyChange, head: change("ES256", p256, relayKeyURL), payload: changeBody, signer: "relay-p256", url: relayKeyURL, expected: "valid", why: "inner JWS signed with a new P-256 key"},
@@ -323,10 +335,24 @@ func relayJWSCases(signers relaySigners) ([]relayJWSCase, error) {
 		if s.key != "" {
 			key = json.RawMessage(jwk[s.key])
 		}
-		_, random := signer.(*ecdsa.PrivateKey)
-		cases = append(cases, relayJWSCase{ID: s.id, Kind: s.kind, JWS: compact, Key: key, URL: s.url, Expected: s.expected, Why: s.why, random: random})
+		cases = append(cases, relayJWSCase{ID: s.id, Kind: s.kind, JWS: compact, Key: key, URL: s.url, Expected: s.expected, Why: s.why})
 	}
 	return cases, nil
+}
+
+// offCurveJWK returns a P-256 jwk whose y differs from that of key in its lowest bit: for
+// the same x only y and p - y are on the curve, so the point is not.
+func offCurveJWK(key string) (string, error) {
+	var k struct{ X, Y string }
+	if err := json.Unmarshal([]byte(key), &k); err != nil {
+		return "", err
+	}
+	y, err := relayB64.DecodeString(k.Y)
+	if err != nil || len(y) != 32 {
+		return "", fmt.Errorf("y of %s", key)
+	}
+	y[31] ^= 1
+	return `{"kty":"EC","crv":"P-256","x":"` + k.X + `","y":"` + relayB64.EncodeToString(y) + `"}`, nil
 }
 
 // nonZeroTail returns a base64url character that differs from c only in its lowest bits.

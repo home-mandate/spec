@@ -12,8 +12,8 @@ import (
 	"github.com/home-mandate/spec/internal/manifest"
 )
 
-// TestRelayJWSFileIsUpToDate: the stored cases are those the generator writes. ES256
-// signatures differ from run to run; for those cases everything but the JWS is compared.
+// TestRelayJWSFileIsUpToDate: the stored cases are those the generator writes, byte for
+// byte: ES256 signatures are deterministic (RFC 6979).
 func TestRelayJWSFileIsUpToDate(t *testing.T) {
 	out, err := runTool(t, "../..", "", "relay-jws", "relay/conformance/keys/test-keys.private.json")
 	if err != nil {
@@ -36,36 +36,15 @@ func TestRelayJWSFileIsUpToDate(t *testing.T) {
 	if got.Description != want.Description || len(got.Cases) != len(want.Cases) {
 		t.Fatalf("description or number of cases differ; run: go run ./tools/vectors relay-jws relay/conformance/keys/test-keys.private.json > relay/conformance/jws-v0.json")
 	}
-	es256 := map[string]bool{}
-	generated, err := relayJWSCases(mustRelaySigners(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range generated {
-		es256[c.ID] = c.random
-	}
 	for i, g := range got.Cases {
 		w := want.Cases[i]
-		if es256[g.ID] {
-			g.JWS, w.JWS = "", ""
-		}
 		if g.ID != w.ID || g.Kind != w.Kind || g.JWS != w.JWS || !bytes.Equal(g.Key, w.Key) || g.URL != w.URL || g.Expected != w.Expected || g.Why != w.Why {
 			t.Errorf("case %s differs from the generator", w.ID)
 		}
 	}
-}
-
-func mustRelaySigners(t *testing.T) relaySigners {
-	t.Helper()
-	signers := relaySigners{}
-	for _, kid := range relayKids {
-		key, err := privateKey("../../relay/conformance/keys/test-keys.private.json", kid)
-		if err != nil {
-			t.Fatal(err)
-		}
-		signers[kid] = key
+	if out != string(stored) {
+		t.Error("relay/conformance/jws-v0.json is not byte for byte what the generator writes")
 	}
-	return signers
 }
 
 func TestRelayJWSRejectsBadArguments(t *testing.T) {

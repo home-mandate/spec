@@ -361,7 +361,7 @@ func publicKey(k jwk) (crypto.PublicKey, error) {
 		point := append(append([]byte{4}, x...), y...)
 		return ecdsa.ParseUncompressedPublicKey(elliptic.P256(), point)
 	}
-	return nil, fmt.Errorf("key type %q with curve %q", k.Kty, k.Crv)
+	return nil, fmt.Errorf("key type %s with curve %s", quote(k.Kty), quote(k.Crv))
 }
 
 // smallOrderEd25519 holds the encodings of the points of small order (SPEC-v0 section 7.1):
