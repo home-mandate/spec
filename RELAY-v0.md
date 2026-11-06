@@ -165,7 +165,25 @@ The gateway connects outbound to the relay at `relay.host` and `relay.port` of t
 (Section 3). It keeps one **control connection** for signals and opens one **data connection** for
 each agent connection. The relay copies the bytes of an agent connection into its data connection
 without terminating them. Each agent connection is thus a TCP and TLS connection of its own, limited
-and closed on its own; the tunnel does not multiplex. The Go package `tunnel` in
+and closed on its own; the tunnel does not multiplex.
+
+The rules of this section apply to the relay as one logical service, whatever number of instances,
+load balancers and regions it has. How the operator distributes connections, tokens and state among
+them, how it passes an agent's bytes between its own systems (unchanged, Section 7.2, keeping the end
+of each direction and the difference between a clean and an abrupt end, Section 4.5), and how it
+detects a failed instance is its own matter. A data connection may reach another instance than the
+control connection, and the gateway MUST NOT assume otherwise; it SHOULD open its data connections
+to the address that its control connection uses. The rules on tokens, the denylist and the single
+control connection hold for the logical relay; a delay with which its instances learn of a change is
+harmless where it only delays a refusal.
+
+*Deployment (informative):* load balancers in front of the relay pass TCP through; whatever ends the
+TLS of tunnel connections is part of the relay and follows Sections 4.1 and 4.2, which generic
+TLS-terminating load balancers cannot. All homes share the `relay_addresses`, so several regions are
+served through anycast or a global layer-4 front rather than through DNS answers per region. Idle
+timeouts of load balancers stay above the idle time of streams (Section 4.5). An operator usually
+shares one active key across a fleet or a region, within the eight pins of Section 6.8, and spreads
+its `drain` messages over time. The Go package `tunnel` in
 `github.com/home-mandate/relay` implements this section; it is informative, and where it differs,
 this section applies.
 
@@ -322,9 +340,9 @@ connection, which the relay accepts on an instance that is not draining, or else
 connection at the end of the grace time at the latest. After a `drain` of the gateway, the relay closes new agent
 connections for it as in Section 4.5.
 
-**One control connection per installation.** The relay is one logical service: an installation has
-at most one control connection, across all instances of the relay. How the operator achieves this
-is its own matter. A new control connection of an installation that already has one replaces the
+**One control connection per installation.** An installation has at most one control connection,
+across all instances of the relay. A control connection on an instance that failed counts as lost.
+A new control connection of an installation that already has one replaces the
 existing one only if the existing one missed its heartbeat, was drained by either side, or has a
 certificate with an earlier `notBefore` than the new one. Otherwise the relay sends `error`
 `session-exists` on the new connection and closes it. When it replaces a connection, it sends
@@ -380,9 +398,14 @@ control connection it arrives on.
 **Warm data connections.** A warm data connection has completed its TLS handshake and has not yet
 sent `data-bind`. The gateway keeps at most `pool size` of them ready, besides those it opens for a
 `stream-open`. The relay closes an unbound data connection that would make the unbound data
-connections of the installation more than `pool size` plus its unredeemed tokens, and any that sends
-nothing within 30 seconds. The gateway SHOULD replace a warm
-connection after 25 seconds, and closes it before it opens the replacement. Once the first byte of `data-bind` has arrived, the rest follows within
+connections of the installation more than `pool size` plus its unredeemed tokens, and MAY allow a
+small surplus for the delay with which its instances learn of closed connections. It closes a warm
+connection that has sent nothing for three heartbeat intervals. The gateway SHOULD replace a warm
+connection after two heartbeat intervals, and closes it before it opens the replacement; a warm
+connection that the relay closed before `data-bind` it replaces only after the backoff of a failed
+binding. A warm connection carries no token until it binds, and its certificate is checked as on
+every connection (Section 4.1), so its lifetime only serves to notice connections that died
+silently. Once the first byte of `data-bind` has arrived, the rest follows within
 5 seconds.
 
 **End of a stream.** On a data connection, the end of one direction is a TLS `close_notify` (RFC 8446
@@ -450,7 +473,8 @@ backoff of the gateway. Every receiver checks a limit before it allocates memory
 bounds.
 
 Beyond these, the relay MUST limit what it spends on any source, installation and connection. It
-chooses the values itself, so that a gateway that follows this section never reaches them, and
+chooses the values itself, so that a gateway that follows this section never reaches them, also where
+many gateways share one address, MAY enforce them per instance or approximately, and
 SHOULD raise an alarm in its monitoring when a limit of control connections is reached. RECOMMENDED
 values:
 
@@ -460,8 +484,8 @@ values:
 | new connections, control and data, per source address (IPv6 by /64) before the TLS handshake completes | 20 per second (burst 40), at most 64 unfinished handshakes |
 | new data connections per installation | 20 per second (burst 40) |
 | frames per second per control connection, ignored frames included, not counting `pong`, `pins-ack` and `stream-close` that answer frames of the relay | 20 (burst 40) |
-| unredeemed tokens per installation, and in total | 16, and 65536 |
-| `max streams`, `pool size` | 64, 4 |
+| unredeemed tokens per installation, and per instance | 16, and 65536 |
+| `max streams`, `pool size` | 64, 1; a `pool size` of 0 saves handshakes in large fleets, at the cost of one round trip per agent connection |
 
 The relay counts control connections per certificate serial and source, not per installation, so
 that connecting often from elsewhere cannot lock the gateway out. A peer above a limit gets `error`
@@ -475,9 +499,10 @@ that connecting often from elsewhere cannot lock the gateway out. A peer above a
 - When the control connection of an installation is lost, the relay voids its tokens, closes the
   unbound data connections of the installation and closes its new agent connections as in
   Section 4.5.
-- The gateway keeps working locally without the tunnel. It connects again with backoff: 1 second
-  after the first failure, doubling up to 60 seconds, adding random jitter of up to one half, reset
-  once a control connection has stayed open for 60 seconds; after `session-exists` it waits likewise.
+- The gateway keeps working locally without the tunnel. It connects again with backoff: after the
+  loss of a control connection that had been open, first after a random time between 0 and 10
+  seconds; after a failed attempt, 1 second, doubling up to 60 seconds, adding random jitter of up to
+  one half, reset once a control connection has stayed open for 60 seconds; after `session-exists` it waits likewise.
   Each control connection uses new tokens.
 - A gateway whose handshakes the relay keeps refusing MAY read its installation (Section 5.3) to
   learn whether it was blocked or unpaired. When no stored pin matches, it refuses that connection,
@@ -1437,8 +1462,9 @@ A household that wants less of this runs its gateway without a relay.
 - Section 4 specified: the tunnel protocol, with the parameters of the operator from the
   metadata, the gateway's tunnel certificate and the relay authenticated by its pins alone, TLS 1.3
   with the hybrid group `X25519MLKEM768` only, frames and message types, control connection with
-  heartbeat and one connection per installation across all instances of the relay, data connections
-  bound by single-use tokens, PROXY v2 with the agent's address also behind load balancers, the
+  heartbeat and one connection per installation, the relay as one logical service across instances,
+  load balancers and regions, data connections bound by single-use tokens, warm data connections
+  kept for a few heartbeat intervals, PROXY v2 with the agent's address also behind load balancers, the
   messages `pins` and `pins-ack`, limits that the other side has to keep to and RECOMMENDED limits
   of the relay, and errors. Security considerations for the tunnel.
 - Section 7 specified: separate domains, Public Suffix List where an operator qualifies, `__Host-`
