@@ -15,9 +15,13 @@ A CA is listed when, as far as public sources show,
    only the gateway's ACME account can obtain a certificate, and only through DNS (RELAY-v0
    Sections 5.6, 6.3, 6.4).
 
-| CA | `caa_identity` | Logs every certificate | Enforces `accounturi`, `validationmethods` | Checked |
-|---|---|---|---|---|
-| Let's Encrypt | `letsencrypt.org` | "Let's Encrypt submits all certificates we issue to CT logs." ([CT logs](https://letsencrypt.org/docs/ct-logs/)) | documented in [CAA](https://letsencrypt.org/docs/caa/); checked at every issuance by Boulder ([`va/caa.go`](https://github.com/letsencrypt/boulder/blob/main/va/caa.go)) | 2026-10-20 |
+| CA | `caa_identity` | Account URI prefix | Logs every certificate | Enforces `accounturi`, `validationmethods` | Checked |
+|---|---|---|---|---|---|
+| Let's Encrypt | `letsencrypt.org` | `https://acme-v02.api.letsencrypt.org/acme/acct/` | "Let's Encrypt submits all certificates we issue to CT logs." ([CT logs](https://letsencrypt.org/docs/ct-logs/)) | documented in [CAA](https://letsencrypt.org/docs/caa/); checked at every issuance by Boulder ([`va/caa.go`](https://github.com/letsencrypt/boulder/blob/main/va/caa.go)) | 2026-10-20 |
+
+The account URI prefix is the form of the URI of an ACME account at that CA (RFC 8555 Section
+7.3); the test tool of RELAY-v0 Section 8.3 uses it, with a number that no account has, to report
+an account that belongs to nobody.
 
 To propose a CA, open an issue with public sources for both conditions. A CA is removed when a
 source shows that it no longer meets one of them; operators then remove it from `acme_cas`, and

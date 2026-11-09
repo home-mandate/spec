@@ -142,7 +142,7 @@ specification is released, the schema can still change under the same `type`.
 | `trust_domain` | SPIFFE trust domain of the tunnel certificates |
 | `enrollment` | HTTPS URL of the enrollment directory (Section 5.1); its host MUST be the operator domain or a subdomain of it |
 | `relay` | `host` and `port` where gateways open their tunnel connections |
-| `relay_addresses` | the IPv4 and/or IPv6 addresses (IPv6 in the form of RFC 5952 without the mixed notation; IPv4-mapped addresses are not allowed) where agents reach the relay on port 443; standard and own-domain names point there (Sections 6.3, 6.4) |
+| `relay_addresses` | the IPv4 and/or IPv6 addresses (IPv6 in the form of RFC 5952 without the mixed notation; IPv4-mapped addresses are not allowed) where agents reach the relay on port 443; they MUST be globally reachable unicast addresses, none from a private, loopback, link-local, shared (100.64.0.0/10), documentation or other special-purpose range; standard and own-domain names point there (Sections 6.3, 6.4) |
 | `relay_addresses_planned` | optional: `addresses` that replace `relay_addresses` `from` a time at least 30 days after it first appears (Section 6.4) |
 | `relay_pins` | SHA-256 digests (canonical base64url, 43 characters) of the SubjectPublicKeyInfo of the keys the relay uses; the gateway pins them at pairing as active pins (Section 6.8) |
 | `relay_backup_pins` | the same for the operator's offline backup keys, pinned as backup pins; no pin may appear in both lists (Section 6.8) |
@@ -598,7 +598,7 @@ know in every response.
 | `blocked` | 403 | the operator blocked the installation (Section 5.7) | Section 5.7 |
 | `bad-csr` | 400 | the certificate request breaks Section 5.4 | creates a new tunnel key and request |
 | `name-unavailable` | 409 | another installation holds the own-domain name (Section 6.4) | tells the household |
-| `key-conflict` | 409 | the installation key of a pairing or the new key of a key change is already in use (Sections 5.2, 5.5) | creates a new key and repeats the request |
+| `key-conflict` | 409 | the installation key of a pairing or the new key of a key change is already in use (Sections 5.2, 5.5); a pairing code stays unredeemed | creates a new key and repeats the request |
 | `unpaired` | 410 | the installation was unpaired or replaced (Sections 5.2, 5.7) | ends the pairing locally (Section 5.7) |
 | `rate-limited` | 429 | too many requests; the response carries `Retry-After` | waits at least that long, or as on `server-internal` without the header, except before a CAA alarm (Section 6.7) |
 | `server-internal` | 500 | anything else | retries with exponential backoff |
@@ -646,9 +646,15 @@ while the gateway is not paired with any operator. The gateway
    (not a replacing one) from which no request arrived for 24 hours after its pairing, and
    notifies the household.
 
-**At the operator.** The operator processes the request (Section 5.1), redeems the code, checks
-the certificate request, refuses an installation key that another installation already uses
-(`key-conflict`), and creates the installation:
+**At the operator.** The operator processes the request (Section 5.1), checks the code, checks
+the certificate request, and refuses an installation key that another installation already uses
+(`key-conflict`). A code is redeemed only when the installation is created; a
+request that fails before that leaves the code as it was. The check that the installation key is
+not in use, the redemption of the code and the creation of the installation are one atomic step:
+two concurrent pairing requests with one installation key and two codes MUST NOT create two
+installations. A `key-conflict` for a valid code counts against the same per-source attempt limit
+as a failed code, so that it is no free probe of codes. The installation is
+created with:
 
 - a new **home ID** (Section 2) that it has never assigned before and MUST NOT assign again,
   also not after unpairing;
@@ -1051,7 +1057,13 @@ bits for the TXT record, and a `status`:
   the name `verified`, unless another installation holds it. After 30 days as `lapsed`, the
   operator removes the registration.
 
-Registering the name already registered keeps its token and status. Only a `verified` name of an
+Registering the name already registered keeps its token and makes the operator look up the TXT
+record again before it answers; the `status` in the answer is the result of that lookup (`pending` becomes
+`verified` when the record is found). Without this rule a household would learn the token only from
+the first answer, and the next lookup would come only after up to a day. A token belongs to one
+registration. When a registration ends (it is removed or replaced, or the operator removes it
+after 30 days as `lapsed`), its token is discarded, and a later registration, also of the same
+name by the same installation, gets a new token. The operator MUST NOT use a token again. Only a `verified` name of an
 installation that was not unpaired is **held**. An installation has
 at most one own-domain name; registering another replaces it. The operator MUST refuse a name that
 another installation holds (`name-unavailable`); several installations may have the same name
@@ -1398,10 +1410,10 @@ this version defines the classes of operators.
 
 | Class | What is checked | Sections |
 |---|---|---|
-| `metadata` | the metadata document and how it is served | 3 |
+| `metadata` | the metadata document and how it is served, the domains of the operator and both protection levels | 3, 7.1, 7.3 |
 | `enrollment` | directory, nonces, requests with their errors and the order of their checks, pairing, the installation, tunnel certificates, ACME support, the registration and verification of an own-domain name, and unpairing | 5, 6.4 |
 | `dns` | the records of the name domain and of a standard name: CAA at the apex and at the name, A and AAAA, challenge records, TTL, and their removal on unpairing | 5.6, 5.7, 6.3 |
-| `relay` | the tunnel: TLS parameters, frames, the control connection, tokens and data connections, routing of an agent connection by its standard name and by a verified own-domain name, the PROXY header, `pins`, and the denylist after unpairing | 4, 6.1 |
+| `relay` | the tunnel: TLS parameters, frames, the control connection, tokens and data connections, routing of an agent connection by its standard name and by a verified own-domain name, the PROXY header, `pins`, the pinned keys of the relay, and the denylist after unpairing | 4, 6.1, 6.8 |
 
 An operator **conforms** to this version if it passes all four classes. A claim of conformance
 names the version (the tag of the repository of this specification), the operator domain, the
@@ -1422,6 +1434,7 @@ the cases offline: they MUST NOT be used with a live operator.
 | File | Cases |
 |---|---|
 | `metadata-v0.json` | metadata documents with the host they were fetched from, and whether a gateway accepts them (Section 3) |
+| `enrollment-v0.json` | the order of the checks of an enrollment request (Section 5.1) as symbolic cases without keys or URLs: who the request claims to be, the URL, the nonce, the signature and the payload, and the error the operator answers with; cases that a live test cannot bring an operator into (`blocked`, `offline-too-long`) are marked offline |
 | `jws-v0.json` | signed requests and key changes, and whether they verify, are malformed or have a bad signature (Sections 5.1, 5.5) |
 | `csr-v0.json` | certificate signing requests with the installation key and the keys of earlier tunnel certificates, and whether the operator accepts them or refuses them with `bad-csr` (Section 5.4) |
 | `certificate-v0.json` | issued tunnel certificates with their chain and what the gateway asked for, and whether they meet Section 5.4 |
@@ -1434,7 +1447,7 @@ first added as a case.
 
 ### 8.3 Live test
 
-The test tool `relay-conformance` (in `cmd/`) plays a gateway and an agent against a live operator.
+The test tool `relay-conformance` (in `relay/cmd/`) plays a gateway and an agent against a live operator.
 With up to two pairing codes of the test account (Section 8.4) it pairs a test installation with
 keys it generates for this run, sends the requests of the cases with their deliberate defects and
 compares the errors, also requests of one installation at the URLs of another, checks the tunnel
@@ -1443,10 +1456,23 @@ zone of the tester, opens the tunnel with the parameters of the cases, sends fra
 defects and presents tokens that the relay must refuse, connects as an agent to the standard name
 and to the own-domain name, and finally unpairs and checks that the installation, its certificates
 and its records are gone. It reports an ACME account URI at a CA of `acme_cas` that belongs to no
-account, so the CAA record of the test permits nobody and the test obtains no server certificate. It
+account, so the CAA record of the test permits nobody and the test obtains no server certificate;
+the URI has the form of an account URI of that CA (the prefix in `relay/cas.md`) followed by a number
+far above every number the CA has assigned, and the operator need not check at the CA whether the
+account exists. It
 honours `Retry-After` and spaces its attempts, so that the limits of an operator do not fail it. A
 run creates at most two installations and unpairs every one it created before it ends, also when a
 check fails.
+
+An operator is **conformant** in the report only if the tool ran all four classes with two pairing
+codes and an own domain; a run with fewer codes, without an own domain, with fewer classes, or in
+which the operator could not be reached or limited the rate is incomplete and says so, never
+conformant. The cases `blocked` and `offline-too-long` and a pairing code for an existing installation (a replacement code) are checked
+offline only, because a live test cannot make an operator block its test account or wait for days. DNSSEC
+and IPv6 are hints in the report and decide nothing. The tool checks the source of a PROXY header
+only for its form and for being a public address, because it cannot know the address of the
+agent it plays. The tool connects only to globally reachable unicast addresses, whatever an operator
+publishes. A result shows the state of the test account at the time of the test and no more.
 
 ### 8.4 Access for testing
 
@@ -1549,6 +1575,22 @@ A household that wants less of this runs its gateway without a relay.
 
 ### Unreleased
 
+- Section 5.2: a pairing code is redeemed only when the installation is created, in one atomic
+  step, so an installation key that is in use (`key-conflict`) or a bad certificate request
+  leaves the code usable; the check of the key, the redemption and the creation are one atomic step,
+  so that two concurrent pairings with one key and two codes cannot create two installations, and a
+  `key-conflict` for a valid code counts against the per-source attempt limit like a failed code.
+  Section 6.4: a token belongs to one registration; when it ends, the token
+  is discarded and a later registration, also of the same name, gets a new one, and an operator
+  MUST NOT use a token again.
+- Section 8.1, 8.3 and Section 3: `metadata` also covers Sections 7.1 and 7.3, and `relay` Section
+  6.8; the test tool is in `relay/cmd/`, it is conformant only with two pairing codes, an own domain
+  and all four classes, `blocked`, `offline-too-long` and replacement codes are checked offline
+  only, DNSSEC and IPv6 are hints; `relay_addresses` MUST be globally reachable unicast addresses.
+- Section 6.4: registering a name that is registered already makes the operator look up the TXT
+  record again, so that a household does not wait a day for the first verification. Section 8.2:
+  `enrollment-v0.json`, the order of the checks of a request (Section 5.1). Section 8.3: the ACME
+  account URI of the test has the form of the CA's account URIs and a number that no account has.
 - Section 8: cases for certificate signing requests, issued tunnel certificates, frames of the
   control connection, the binding of data connections and TLS of tunnel connections. Section 5.4:
   the key of a request is a key in the sense of Section 5.1, a P-256 point uncompressed; the

@@ -17,6 +17,11 @@
       "cases": 19
     },
     {
+      "path": "relay/conformance/enrollment-v0.json",
+      "sha256": "ec93f9bfbce264ccbc88ef22e7067077d8e5d88c0b59a843278f69a4e9e8cae2",
+      "cases": 25
+    },
+    {
       "path": "relay/conformance/frames-v0.json",
       "sha256": "84cdbd1726b1a710495ad068700ede01cb5207149092c0386f91a101a84ecb9b",
       "cases": 89
@@ -50,6 +55,10 @@
     {
       "path": "relay/conformance/schema/csr-v0.schema.json",
       "sha256": "1efa506ce595b583c4505437c155ea40fff22e5254a8f6764b90ce75f396434f"
+    },
+    {
+      "path": "relay/conformance/schema/enrollment-v0.schema.json",
+      "sha256": "a276548f2a7ceda7029962583d2c97f5b68b1c21b48adc4c93758e5f22b64a02"
     },
     {
       "path": "relay/conformance/schema/frames-v0.schema.json",
