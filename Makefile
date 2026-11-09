@@ -10,11 +10,12 @@ GREMLINS    := github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
 COVER_MIN      := 95
 EFFICACY_MIN   := 90
 FUZZTIME       ?= 10m
-# package:target
-FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate evaluator:FuzzValue audit:FuzzVerify jws:FuzzVerify jws:FuzzVerifyRequest internal/harness:FuzzServe
+# package:target; the long fuzzing of scheduled.yml builds its matrix from this list (make fuzz-targets)
+FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate evaluator:FuzzValue audit:FuzzVerify jws:FuzzVerify jws:FuzzVerifyRequest internal/harness:FuzzServe \
+	relay/internal/dnsq:FuzzCAA relay/internal/tunnelclient:FuzzPROXY relay/internal/frames:FuzzReadFrame
 MUTATION_PKGS  := ./evaluator ./audit ./jcs ./jws ./displaytext ./ratelimit
 
-.PHONY: check test cover vet staticcheck vulncheck fuzz mutation manifest
+.PHONY: check test cover vet staticcheck vulncheck fuzz fuzz-one fuzz-targets mutation manifest
 
 ## check: everything that must be green before a commit
 check: vet staticcheck cover vulncheck
@@ -56,9 +57,18 @@ manifest:
 ## fuzz: each target for FUZZTIME, e.g. make fuzz FUZZTIME=30s
 fuzz:
 	@for spec in $(FUZZ_TARGETS); do \
-		pkg=$${spec%%:*}; target=$${spec#*:}; \
-		go test ./$$pkg/ -run '^$$' -fuzz "^$$target\$$" -fuzztime $(FUZZTIME) || exit 1; \
+		$(MAKE) --no-print-directory fuzz-one FUZZ=$$spec || exit 1; \
 	done
+
+## fuzz-one: one target for FUZZTIME, e.g. make fuzz-one FUZZ=jws:FuzzVerify FUZZTIME=30s
+fuzz-one:
+	@spec='$(FUZZ)'; pkg=$${spec%%:*}; target=$${spec#*:}; \
+	if [ -z "$$spec" ] || [ "$$pkg" = "$$spec" ]; then echo "FUZZ=package:target is needed"; exit 2; fi; \
+	go test ./$$pkg/ -run '^$$' -fuzz "^$$target\$$" -fuzztime $(FUZZTIME)
+
+## fuzz-targets: the targets, one package:target per line; the matrix of the long fuzzing is built from it
+fuzz-targets:
+	@printf '%s\n' $(FUZZ_TARGETS)
 
 ## mutation: mutation tests; target ≥ 90 % killed mutants (required before a release).
 ## Gremlins does not reliably enforce the threshold via its exit code, so awk checks it.

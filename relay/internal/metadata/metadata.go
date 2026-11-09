@@ -40,6 +40,7 @@ type Document struct {
 	PrivacyPolicy  string `json:"privacy_policy"`
 	Relay          struct {
 		Host string `json:"host"`
+		Port int    `json:"port"`
 	} `json:"relay"`
 	RelayAddresses        []string `json:"relay_addresses"`
 	RelayAddressesPlanned *struct {

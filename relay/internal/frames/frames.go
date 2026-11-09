@@ -219,10 +219,10 @@ var kind = map[uint16]struct {
 // receiver applies. It returns the decoded messages and, if a frame is an error, its index;
 // otherwise the index is -1.
 func Control(frames []Frame) ([]Message, int, error) {
-	s := &control{outstanding: map[string]string{}, pins: map[int64]bool{}, drained: map[string]bool{}}
+	s := NewSession()
 	out := make([]Message, 0, len(frames))
 	for i, f := range frames {
-		m, err := s.next(f)
+		m, err := s.Next(f)
 		if err != nil {
 			return out, i, err
 		}
@@ -231,8 +231,11 @@ func Control(frames []Frame) ([]Message, int, error) {
 	return out, -1, nil
 }
 
-// control is the state of a control connection that the rules need.
-type control struct {
+// Session is the state of a control connection that the rules need, fed one frame at a time:
+// the receiver of a live connection and Control use the same rules. After a frame that is an
+// error the session refuses every further frame.
+type Session struct {
+	failed      error
 	hello       Message
 	acked       bool
 	closed      bool
@@ -241,7 +244,28 @@ type control struct {
 	pins        map[int64]bool    // sequences of the pins the relay sent
 }
 
-func (s *control) next(f Frame) (Message, error) {
+// NewSession returns the state of a control connection before its first frame.
+func NewSession() *Session {
+	return &Session{outstanding: map[string]string{}, pins: map[int64]bool{}, drained: map[string]bool{}}
+}
+
+// Acked reports whether hello-ack has been seen.
+func (s *Session) Acked() bool { return s.acked }
+
+// Next checks one frame of the connection, in the order the frames are sent, by the rules its
+// receiver applies, and returns the decoded message.
+func (s *Session) Next(f Frame) (Message, error) {
+	if s.failed != nil {
+		return nil, s.failed
+	}
+	m, err := s.next(f)
+	if err != nil {
+		s.failed = err
+	}
+	return m, err
+}
+
+func (s *Session) next(f Frame) (Message, error) {
 	if f.From != Gateway && f.From != Relay {
 		return nil, fmt.Errorf("%w: sender %q", ErrCase, f.From)
 	}
@@ -287,7 +311,7 @@ func (s *control) next(f Frame) (Message, error) {
 // phase: before hello-ack only hello, hello-ack and error are valid, and each of the first
 // two only once.
 // The relay sends nothing before hello, not even error.
-func (s *control) phase(typ uint16, name, from string) error {
+func (s *Session) phase(typ uint16, name, from string) error {
 	switch {
 	case from == Relay && s.hello == nil:
 		return fmt.Errorf("%w: %s from the relay before hello", ErrFrame, name)
@@ -357,7 +381,7 @@ func decode(typ uint16, r *reader) Message {
 }
 
 // apply checks the rules between frames and updates the state.
-func (s *control) apply(typ uint16, from string, m Message) error {
+func (s *Session) apply(typ uint16, from string, m Message) error {
 	other := Relay
 	if from == Relay {
 		other = Gateway
@@ -399,7 +423,7 @@ func (s *control) apply(typ uint16, from string, m Message) error {
 }
 
 // ack: the version is in the range of hello, and every capability was offered in hello.
-func (s *control) ack(m Message) error {
+func (s *Session) ack(m Message) error {
 	v := m["version"].(int)
 	if v < s.hello["min_version"].(int) || v > s.hello["max_version"].(int) {
 		return fmt.Errorf("%w: version %d not in the range of hello", ErrFrame, v)

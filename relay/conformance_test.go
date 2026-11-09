@@ -17,6 +17,7 @@ var conformanceSchemas = map[string]string{
 	"conformance/binding-v0.json":     "conformance/schema/binding-v0.schema.json",
 	"conformance/certificate-v0.json": "conformance/schema/certificate-v0.schema.json",
 	"conformance/csr-v0.json":         "conformance/schema/csr-v0.schema.json",
+	"conformance/enrollment-v0.json":  "conformance/schema/enrollment-v0.schema.json",
 	"conformance/frames-v0.json":      "conformance/schema/frames-v0.schema.json",
 	"conformance/jws-v0.json":         "conformance/schema/jws-v0.schema.json",
 	"conformance/metadata-v0.json":    "conformance/schema/metadata-v0.schema.json",
