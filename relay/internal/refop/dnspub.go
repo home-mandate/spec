@@ -41,6 +41,9 @@ func (o *Operator) publishApex() {
 		rrs = append(rrs, refdns.CAA(apex, o.ttl(apexTTL), 0, "issuewild", ";"))
 	}
 	o.dns.Replace(apex, refdns.TypeCAA, rrs...)
+	if o.cfg.Faults.Has(ApexCNAME) {
+		o.dns.Replace(apex, refdns.TypeCNAME, refdns.CNAME(apex, o.ttl(apexTTL), "other.example"))
+	}
 }
 
 // publishName publishes the records of a new installation: A and AAAA, and the CAA record

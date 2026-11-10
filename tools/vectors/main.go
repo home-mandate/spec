@@ -72,6 +72,8 @@ func run(args []string, dir string, stdin io.Reader, stdout io.Writer) error {
 		return runRelayCSR(args[1:], dir, stdout)
 	case "relay-certificate":
 		return runRelayCertificate(args[1:], dir, stdout)
+	case "relay-proxy":
+		return runRelayProxy(args[1:], stdout)
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }

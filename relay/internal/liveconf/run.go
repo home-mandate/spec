@@ -239,8 +239,12 @@ func (r *run) result() Result {
 		c := rep.Classes[class]
 		c.Conforms = !c.NotRun && c.Cases > 0 && c.Passed == c.Cases
 		failed = failed || c.Failed > 0
-		if c.NotRun {
+		switch {
+		case c.NotRun:
 			rep.Incomplete = append(rep.Incomplete, fmt.Sprintf("class %s was not run: %s", class, c.Reason))
+		case !c.Conforms && c.Failed == 0:
+			// A check that was skipped without a failure before it never counts as passed.
+			rep.Incomplete = append(rep.Incomplete, fmt.Sprintf("class %s skipped %d checks", class, c.Skipped))
 		}
 	}
 	if n := len(r.s.Codes); n < MaxCodes {
@@ -316,6 +320,11 @@ func (r *run) failIn(class, file, id, got, want string) {
 
 func (r *run) note(text string) {
 	r.rep.Notes = append(r.rep.Notes, text)
+}
+
+// incomplete records why the run cannot claim conformance although no check failed.
+func (r *run) incomplete(text string) {
+	r.rep.Incomplete = append(r.rep.Incomplete, text)
 }
 
 // must returns v and panics on an error that cannot happen: the inputs are the tool's own.

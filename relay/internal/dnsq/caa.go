@@ -60,70 +60,128 @@ func (i Issue) Param(tag string) (string, bool) {
 	return "", false
 }
 
-// ParseIssue parses the value of an issue or issuewild property:
+// ParseIssue parses the value of an issue or issuewild property by the grammar of RFC 8659
+// section 4.2:
 //
-//	issuer-domain-name *WSP [";" *WSP [parameter *(*WSP ";" *WSP parameter)] *WSP]
+//	issue-value = *WSP [issuer-domain-name *WSP] [";" *WSP [parameters *WSP]]
+//	parameters  = (parameter *WSP ";" *WSP parameters) / parameter
+//	parameter   = tag *WSP "=" *WSP value
 //
-// with parameter = tag "=" value. A value that is only ";" gives an empty Issue. Blanks around
-// the parts are allowed; anything else that the grammar does not allow is an error.
+// An empty value, and one that is only blanks and ";", gives an empty Issue: no issuer, so no
+// issuance. The domain is returned in lower case; parameter tags and values as written. A
+// value that does not match the grammar is an error: RFC 8659 treats it like an empty issuer
+// domain name, which the caller decides on (RELAY-v0 sections 6.5 and 6.7).
 func ParseIssue(value string) (Issue, error) {
-	domain, rest, found := strings.Cut(value, ";")
-	issue := Issue{Domain: strings.ToLower(strings.Trim(domain, " \t"))}
-	if issue.Domain != "" && !validDomain(issue.Domain) {
-		return Issue{}, ErrCAA
-	}
-	if !found {
-		if issue.Domain == "" {
-			return Issue{}, ErrCAA
-		}
+	p := scanner{s: value}
+	p.skipWSP()
+	issue := Issue{Domain: strings.ToLower(p.domain())}
+	p.skipWSP()
+	if p.done() {
 		return issue, nil
 	}
-	for _, part := range strings.Split(rest, ";") {
-		part = strings.Trim(part, " \t")
-		if part == "" {
-			continue
-		}
-		tag, val, ok := strings.Cut(part, "=")
-		if !ok || !validTag(tag) || !validParamValue(val) {
+	if !p.take(';') {
+		return Issue{}, ErrCAA
+	}
+	p.skipWSP()
+	for !p.done() {
+		param, ok := p.parameter()
+		if !ok {
 			return Issue{}, ErrCAA
 		}
-		issue.Params = append(issue.Params, Param{Tag: tag, Value: val})
+		issue.Params = append(issue.Params, param)
+		p.skipWSP()
+		if p.done() {
+			break
+		}
+		// A ";" after a parameter needs a parameter after it.
+		if !p.take(';') {
+			return Issue{}, ErrCAA
+		}
+		p.skipWSP()
+		if p.done() {
+			return Issue{}, ErrCAA
+		}
 	}
 	return issue, nil
 }
 
-func validDomain(s string) bool {
-	for _, label := range strings.Split(s, ".") {
-		if label == "" || strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
-			return false
-		}
-		for _, c := range label {
-			if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-') {
-				return false
-			}
-		}
-	}
-	return true
+// scanner reads a string byte by byte.
+type scanner struct {
+	s string
+	i int
 }
 
-func validTag(s string) bool {
-	if s == "" {
+func (p *scanner) done() bool { return p.i >= len(p.s) }
+
+func (p *scanner) take(c byte) bool {
+	if p.done() || p.s[p.i] != c {
 		return false
 	}
-	for _, c := range s {
-		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-') {
-			return false
-		}
-	}
+	p.i++
 	return true
 }
 
-// validParamValue: printable ASCII without blanks and semicolons.
-func validParamValue(s string) bool {
-	for _, c := range s {
-		if c <= ' ' || c >= 0x7f || c == ';' {
-			return false
+func (p *scanner) skipWSP() {
+	for !p.done() && (p.s[p.i] == ' ' || p.s[p.i] == '\t') {
+		p.i++
+	}
+}
+
+func alnum(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
+}
+
+// label reads (ALPHA / DIGIT) *( *("-") (ALPHA / DIGIT)) and returns it, or "" if there is none.
+// Hyphens that no letter or digit follows are not part of it.
+func (p *scanner) label() string {
+	start := p.i
+	if p.done() || !alnum(p.s[p.i]) {
+		return ""
+	}
+	end := p.i + 1
+	for j := end; j < len(p.s); j++ {
+		if alnum(p.s[j]) {
+			end = j + 1
+		} else if p.s[j] != '-' {
+			break
 		}
 	}
-	return true
+	p.i = end
+	return p.s[start:end]
+}
+
+// domain reads label *("." label), or nothing. A "." that no label follows stays unread, so
+// that the caller finds it and refuses the value.
+func (p *scanner) domain() string {
+	start := p.i
+	if p.label() == "" {
+		return ""
+	}
+	for p.i+1 < len(p.s) && p.s[p.i] == '.' {
+		save := p.i
+		p.i++
+		if p.label() == "" {
+			p.i = save
+			break
+		}
+	}
+	return p.s[start:p.i]
+}
+
+// parameter reads tag *WSP "=" *WSP value.
+func (p *scanner) parameter() (Param, bool) {
+	tag := p.label()
+	if tag == "" {
+		return Param{}, false
+	}
+	p.skipWSP()
+	if !p.take('=') {
+		return Param{}, false
+	}
+	p.skipWSP()
+	start := p.i
+	for !p.done() && p.s[p.i] > ' ' && p.s[p.i] < 0x7f && p.s[p.i] != ';' {
+		p.i++
+	}
+	return Param{Tag: tag, Value: p.s[start:p.i]}, true
 }

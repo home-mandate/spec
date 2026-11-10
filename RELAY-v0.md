@@ -128,7 +128,7 @@ https://<operator-domain>/.well-known/home-mandate-relay
 ```
 
 The document MUST validate against `relay/schema/metadata-v0.schema.json`; an example is
-`relay/examples/metadata.json`. A gateway MUST fetch it over HTTPS with a certificate that is
+`relay/examples/metadata.json`. A gateway MUST fetch it over HTTPS with TLS 1.3 (RFC 8446) or later and a certificate that is
 valid for the operator domain under the gateway's ordinary trust store, MUST NOT follow
 redirects, and MUST reject a document larger than 16 KiB or that is not I-JSON (RFC 7493). The document is closed: a member that
 the schema does not list makes it invalid. New members come with a new `type`; until this
@@ -152,6 +152,12 @@ specification is released, the schema can still change under the same `type`.
 | `portal` | HTTPS URL of the portal, shown to the household |
 | `privacy_policy` | HTTPS URL of the operator's privacy policy, shown to the household |
 
+The rule on ranges of addresses binds the operator and is checked by the test tool (Section 8.3). A gateway MAY refuse such a document; the cases require neither. The same holds for the addresses of `relay_addresses_planned`.
+
+A gateway MUST NOT open a connection (metadata fetch, enrollment, tunnel) to an address that is not globally reachable unicast. The gateway resolves a name once per connection attempt, checks every address that this yields (also for a later attempt and a reconnect), and opens the socket to the checked address itself, never to the name again; the check is made on the address of the socket, so a gateway MUST NOT connect through a proxy that resolves the name, unless it resolves the name itself and connects the proxy to the checked address. The rule covers every connection to a host that the operator names (the metadata, every URL of Section 5.1, the tunnel and every connection that follows a redirect or a `Location`). The gateway follows no redirect of the metadata or the tunnel; a redirect of an enrollment response goes to a URL of Section 5.1 only, and its address is checked too. An exception is possible only in a test mode that is not available in operation.
+
+The globally reachable unicast addresses are those that the IANA special-purpose address registries do not list as not globally reachable. In IPv6 the globally reachable unicast addresses are those of 2000::/3 that the registries do not list as not globally reachable, and, as the one exception outside 2000::/3, 64:ff9b::/96, which counts only if the IPv4 address in its last 32 bits is globally reachable by the rules above (64:ff9b:1::/48 does not count). An IPv4-mapped and an IPv4-compatible address and an address of 2002::/16 never count. A network-specific NAT64 prefix (RFC 6052 Section 2.2) cannot be recognised by the gateway; an address in it counts by the general rule. A text that is not an IPv4 address in dotted decimal or an IPv6 address is refused: a number, a part in octal or hexadecimal, a name, white space, brackets, a zone or a trailing dot make it no address.
+
 Before it completes a pairing, the gateway MUST show the household the operator domain, the
 protection levels, `acme_cas` and `max_offline_days`. A change of the document applies to an existing
 pairing from its next issuance on (Section 5.5), except the host of `enrollment` and the
@@ -163,7 +169,7 @@ not change stored pins (Section 6.8); relay addresses change as in Section 6.4.
 ## 4. Tunnel protocol
 
 The gateway connects outbound to the relay at `relay.host` and `relay.port` of the metadata
-(Section 3). It keeps one **control connection** for signals and opens one **data connection** for
+(Section 3), to an address that Section 3 allows. It keeps one **control connection** for signals and opens one **data connection** for
 each agent connection. The relay copies the bytes of an agent connection into its data connection
 without terminating them. Each agent connection is thus a TCP and TLS connection of its own, limited
 and closed on its own; the tunnel does not multiplex.
@@ -224,7 +230,7 @@ a certificate when it adds the certificate to the denylist. It closes a control 
 data connection. It accepts the relay's certificate if the SHA-256 digest of its
 SubjectPublicKeyInfo is a stored pin, and refuses it otherwise; it checks neither a chain, nor the
 validity period, nor a name, so the certificate MAY be self-signed. The pin that matched on a
-control connection is its **pin of the connection**, active or backup, which Section 4.7 uses.
+control connection is its **pin of the connection**, active or backup, which Section 4.7 uses; the kind it has there is fixed at the handshake and stays for the connection.
 
 ### 4.2 Transport
 
@@ -438,10 +444,11 @@ protocol version 2 header with the address and port of the agent. Only this form
 
 Both addresses have the same family, and an IPv4 address is never written as an IPv4-mapped IPv6
 address. The source is the agent; the destination is `192.0.2.1:443` or `[2001:db8::1]:443`, so that
-the header reveals nothing about the relay, and the gateway ignores it. Neither port is 0. The
+the header reveals nothing about the relay. The gateway ignores the destination address and port, whatever their values; the requirements on them bind the relay. Neither port is 0. The gateway closes the connection on a source port of 0. The
 gateway reads exactly the 16 fixed bytes and the announced block, and closes the connection on
-anything else, or on a source that is unspecified, loopback, private (RFC 1918, `fc00::/7`),
+anything else, also when the stream ends before the announced block is complete, or on a source that is unspecified, loopback, private (RFC 1918, `fc00::/7`),
 link-local, multicast, broadcast, in `0.0.0.0/8` or an IPv4-mapped IPv6 address (`::ffff:0:0/96`).
+A gateway MAY refuse further ranges of source addresses that are not globally reachable (Section 3); it MUST NOT refuse 100.64.0.0/10 or an address that is globally reachable.
 
 The relay MUST write the address from which the agent's connection reached the operator. An operator
 MAY run load balancers in front of the relay; how they pass that address to the relay is the
@@ -465,9 +472,13 @@ before it rotates a key.
 | `pins-ack` | sequence (u32) of the `pins` it answers, result (u8: 1 stored, 2 ignored) |
 
 A `pins` that breaks this encoding is an error. The gateway applies the rules of Section 6.8 with
-the pin of the connection (Section 4.1): a set that breaks them is ignored, and the stored set
-stays. Otherwise the gateway stores the set, durably and as a whole, before it answers `stored`; a
-set equal to the stored one is also answered `stored`. The gateway answers within one heartbeat
+the pin of the connection (Section 4.1) for each `pins`: a set equal to the stored one is answered
+`stored`. Otherwise the pin of the connection must still be stored, in the kind it had at the
+handshake; if not, the set is ignored (`ignored`). A connection never gains the rights of the other
+kind. A set that breaks the rules of Section 6.8 is ignored, and the stored set stays. Otherwise
+the gateway stores the set, durably and as a whole, before it answers `stored`. If a set cannot be
+stored durably, the gateway answers `ignored`. A set need not contain the pin of the connection. If, after a set is stored, the pin of a control connection is no longer stored at
+all, the gateway closes that connection, after the answer if the set arrived on it. This holds for every control connection, also when the set arrived on another one. The gateway answers within one heartbeat
 interval. The relay has at most one `pins` unanswered; without an answer within one interval it
 counts the set as not stored, keeps the connection, and MAY send the set again later. A `pins-ack`
 for no `pins` the relay sent on this connection is an error.
@@ -519,7 +530,7 @@ that connecting often from elsewhere cannot lock the gateway out. A peer above a
 
 ## 5. Pairing and issuance
 
-The gateway talks to the operator's **enrollment endpoint** over HTTPS (TLS 1.2 or later with a
+The gateway talks to the operator's **enrollment endpoint** over HTTPS (TLS 1.3 (RFC 8446) or later with a
 certificate valid for its host under the gateway's ordinary trust store). All messages are
 described by `relay/schema/enrollment-v0.schema.json`; examples are in `relay/examples/`.
 Section 1.2 shows the flow.
@@ -613,8 +624,7 @@ limit failed attempts per source address, SHOULD detect guessing spread over man
 without refusing the codes of other households, and answer every code that cannot be redeemed alike (`pairing-refused`), in the same time. The
 portal shows the **pairing string** `<operator-domain>/<code>`, with the operator domain in lower
 case, as text and as a QR code, for example `relay-operator.example/ABCD-EFGH-IJKL-MNOP`
-(`$defs/pairing_string`). A gateway accepts the code in either case and with or without the
-hyphens, and sends it in upper case without them.
+(`$defs/pairing_string`). A gateway MUST refuse a string that does not match `$defs/pairing_string` (the whole string, without a trailing line feed), or whose operator domain is longer than 253 characters, before any request; each of the three hyphens is optional on its own. A user interface MAY remove surrounding white space first. The gateway accepts the code in either case and sends it in upper case without hyphens. The gateway shows the operator domain in its A-label form as in the pairing string; it MAY add the decoded form only next to it and marked.
 
 **At the gateway.** Only a local administrator of the gateway can start a pairing, and only
 while the gateway is not paired with any operator. The gateway
@@ -1022,8 +1032,8 @@ report fetches the metadata again and, if its CA is no longer listed, chooses a 
 reports the new account as Section 5.6 describes. When the installation is unpaired, the record at
 the name is removed and the record at the apex applies again. The operator MUST NOT publish at or
 below a standard name any other record that a CA uses for validation (TXT outside
-`_acme-challenge`, CNAME, DNAME, NS). The A, AAAA and CAA records at a standard name and the CAA records
-at the apex MUST have a TTL of at most 3600 seconds.
+`_acme-challenge`, CNAME, DNAME, NS). The operator MUST NOT publish a CNAME or DNAME at the apex of the name domain. The A, AAAA and CAA records at a standard name and the CAA records
+at the apex MUST have a TTL of at most 3600 seconds. Records are compared as Section 6.7 describes.
 
 ### 6.4 Own-domain names
 
@@ -1112,10 +1122,12 @@ Own domain only if all of these hold:
    `caa_identity`, `accounturi` equal to its own ACME account and `validationmethods=dns-01` and
    no other method, and no `issuewild` property that permits anything;
 3. the answers are DNSSEC-validated, or, where the zone is not signed, at least two independent
-   resolvers on different networks give the same answer.
+   resolvers of different providers give the same answer.
 
 Any other result, including a failed lookup, gives the level Standard. When the level of a name
 falls, the gateway MUST tell its local administrator.
+
+A zone whose validation fails (bogus) is not treated as unsigned and gives Standard. `unsigned` requires that at least two independent resolvers agree that no DS exists and none of them failed. The AD bit counts only from a resolver reached over an authenticated channel or on the same host. Resolvers of one provider count as one. The queries are those for CAA at the name and its ancestors, with their CNAME and DNAME chains. The same answer in condition 3 means the same `issue` and `issuewild` properties by the meaning of Section 6.7, and a failed lookup of any resolver gives Standard also where the answers are DNSSEC-validated. Records are compared as Section 6.7 describes; an `issue` that does not match the grammar of RFC 8659 fails condition 2, and an `issuewild` that does not match it permits nothing.
 
 The gateway keeps its ACME account: it replaces the account key by a key rollover (RFC 8555
 Section 7.3.5), which keeps the account URI. If it has to create a new account, it MUST tell the
@@ -1148,13 +1160,14 @@ public name if one of its names matches it, including a wildcard that covers it 
 `*.<name_domain>`); a search by the exact name alone does not meet this rule. The gateway recognises the
 certificates it obtained itself, and their precertificates, by the public key of its current server
 key, and by the public key of an earlier server key only if the certificate was logged before that
-key was replaced, going by the timestamp of its log entry.
+key was replaced, going by the timestamp of its log entry; if the certificate is in several logs, its first entry counts, and a certificate logged at the moment the key was replaced is not recognised.
+Names are compared without regard to case, and a wildcard covers exactly one label, the leftmost: `*.<name_domain>` covers `<id>.<name_domain>` and neither `<name_domain>` nor a name below `<id>.<name_domain>`. A certificate was valid at any time since the pairing if its validity period, bounds included, overlaps the time from the pairing to the check. A certificate whose `notAfter` is not before the time of the check raises an alarm, also when its `notBefore` lies after that time; the alarm then says that it is not valid yet.
 Every certificate for a public name that the gateway did not obtain itself and that was valid at any
-time since the pairing raises an alarm to its local administrator
-with the issuer, the names and the validity of that certificate; one that has expired is reported
+time since the pairing, or is not valid yet, raises an alarm to its local administrator
+with the issuer, the names and the validity of that certificate; one that has expired (its `notAfter` is before the time of the check) is reported
 as a past exposure. The administrator MAY acknowledge a certificate
 (for example the household's own wildcard certificate for its zone), which ends the alarm for that
-certificate only. The gateway tells its administrator that monitoring is not possible when, for 24 hours, no query
+certificate only. A certificate is identified by the SHA-256 digest of the DER of its TBSCertificate with the poison and the SCT list removed, so that a precertificate and its certificate are one; the acknowledgement names this digest and nothing else (not a name, an issuer, a serial number or a key), and it also ends the alarm for the precertificate. The gateway tells its administrator that monitoring is not possible when, for 24 hours, no query
 of Certificate Transparency has succeeded, or no query of the CAA records below, or no read of its
 installation; each of these counts on its own.
 
@@ -1166,27 +1179,29 @@ of `issue` and `issuewild` properties of either differs from what Section 6.3 pr
   reported (or, while no account is in force, `0 issue ";"`), and optionally `issuewild ";"`;
 - at the apex exactly `issue ";"` and `issuewild ";"`.
 
-Tags are compared without regard to case, as in RFC 8659 Section 4.1. A missing prescribed
+Issuer domain name and property tag are compared without regard to case. Parameter tags and the values of `accounturi` and `validationmethods` are compared byte for byte, after removing the white space the grammar permits around `;` and `=`. Flags are disregarded. An empty value means the same as `;`. The order of the parameters is irrelevant. A parameter that occurs twice, or a further parameter, makes a different record. Each record counts on its own; two records with the same meaning are still two records, and more than one `issuewild ";"` is a difference. An `issue` or `issuewild` value that does not match the grammar of RFC 8659 is a difference here; in Section 6.5 a malformed `issue` fails the condition and a malformed `issuewild` permits nothing. A missing prescribed
 property, including an empty answer, is a difference; other properties, such as `iodef`, are
 ignored.
 
+A query fails when a resolver answers SERVFAIL, REFUSED or FORMERR, does not answer in time, truncates its answer and does not give it over TCP, or gives an answer that cannot be parsed. NXDOMAIN is an empty answer, not a failure. A difference counts as soon as any resolver that answered shows one, also when the round is not a successful query. A failed query is no difference; a resolver that fails is left out of the comparison. Only the 24 hours above depend on whether a round was successful: a round counts as a successful query only if at least two independent resolvers answered or the answers are DNSSEC-validated, and the 24 hours run per round of that kind. Resolvers of one provider count as one. An answer that follows a CNAME or DNAME at the name queried (the standard name or the apex) or at an ancestor of it is a difference.
+
 The record of a confirmed change can reach the resolvers before the gateway has read the pair. On
 a difference, the gateway therefore reads its installation again and, if the records still differ
-from what the pair then known prescribes, repeats both steps once after five minutes, and raises
+from what the pair then known prescribes, repeats both steps once after five minutes, only for the resolvers that still differ, and raises
 the alarm if the records still differ. This read never delays the alarm: it is limited to
 150 seconds, the gateway does not wait for a `Retry-After`, and after a failed
 read, or one it cannot send during a key-change recovery (Section 5.5), it compares with the last
 pair it knows. The gateway compares the answer of each resolver on its own, so resolvers that
 disagree count as a difference unless every answer is what is prescribed or excused below.
 
-A gateway starts these checks of its standard name one hour after a pairing, because resolvers can
-still hold the record of a replaced gateway, which it does not know.
+A gateway starts these checks of its standard name when one hour has passed since a pairing, and not before, because resolvers can
+still hold the record of a replaced gateway, which it does not know; the checks of the apex start at once.
 
-Resolvers can also still hold the previous record after a new pair took effect. For one hour after the
+Resolvers can also still hold the previous record after a new pair took effect. For less than one hour after the
 gateway first learns of a new pair in force, from the answer to its report or from its
 installation, it does not raise this alarm for exactly the record that was prescribed before that
 pair, if the gateway itself reported the earlier pair or none was in force. That record names the
-gateway's earlier account or permits no issuance.
+gateway's earlier account or permits no issuance. The gateway stores the time at which it learned a pair durably.
 
 ### 6.8 Pinning the relay
 
@@ -1225,7 +1240,7 @@ To recover from a lost or leaked active key, or to replace a backup key, its rel
 backup key and announces the complete new set (Section 4.7). A relay chooses its certificate before
 it knows the gateway, so during a recovery it presents the backup key to every gateway that connects,
 and every set it announces meanwhile lists that key among the active pins, so that the gateways it
-recovered keep accepting it; the operator later rotates it out as an active key.
+recovered keep accepting it; the operator later rotates it out as an active key. Because the kind of the pin of a connection is fixed at its handshake (Section 4.7), a relay that has listed its backup key among the active pins on a connection cannot announce a second set on that connection; a new connection with that key has the rights of an active pin and cannot change the backup pins, so a change of the backup pins needs a second backup key.
 
 ## 7. Operator obligations
 
@@ -1404,7 +1419,7 @@ An operator is conforming when a test shows it, not when it says so. The rules t
 from outside (Section 7.10) are turned into machine-readable cases, and a test tool checks a live
 operator against them, as SPEC-v0 Section 8 does for implementations of the specification. The
 conformance of gateways to this specification gets classes of its own once gateways implement it;
-this version defines the classes of operators.
+this version defines the classes of operators and, in Section 8.5, lists cases for the decisions of gateways.
 
 ### 8.1 Conformance classes
 
@@ -1441,6 +1456,13 @@ the cases offline: they MUST NOT be used with a live operator.
 | `frames-v0.json` | frames of a control connection in hex, with the messages they decode to or the first frame that its receiver treats as an error (Sections 4.3, 4.4, 4.7) |
 | `binding-v0.json` | the first bytes of a data connection and the tokens the relay knows, whether the relay binds the connection or closes it without an answer, and which tokens are consumed (Section 4.5) |
 | `tls-v0.json` | TLS parameters and certificates of a tunnel connection, and whether the relay accepts or refuses it (Sections 4.1, 4.2) |
+| `pairing-v0.json` | pairing strings and whether a gateway accepts them, with the domain and code it reads (Section 5.2) |
+| `pins-v0.json` | the pins a gateway has stored, the pin of the connection and the sets of `pins` that follow, with the answer, the stored pins and whether the connection is closed (Sections 4.7, 6.8) |
+| `proxy-v0.json` | the first bytes of a bound data connection, and whether a gateway reads the address of the agent, which one, and how many bytes it consumes (Section 4.6) |
+| `destination-v0.json` | the address a gateway is about to connect to, and whether it connects (Section 3) |
+| `caa-v0.json` | the answers of resolvers for the CAA records of a standard name or the apex, and whether the gateway counts a difference (Sections 6.3, 6.7) |
+| `protection-level-v0.json` | the answers for the CAA records of an own-domain name, and the protection level the gateway determines (Section 6.5) |
+| `ct-v0.json` | certificates found in Certificate Transparency logs, and whether the gateway raises an alarm (Section 6.7) |
 
 The collection grows with every version; every defect found in an operator or in this text is
 first added as a case.
@@ -1467,7 +1489,9 @@ check fails.
 An operator is **conformant** in the report only if the tool ran all four classes with two pairing
 codes and an own domain; a run with fewer codes, without an own domain, with fewer classes, or in
 which the operator could not be reached or limited the rate is incomplete and says so, never
-conformant. The cases `blocked` and `offline-too-long` and a pairing code for an existing installation (a replacement code) are checked
+conformant. The same holds when `acme_cas` lists no CA of `relay/cas.md`, because the tool then
+cannot form an account URI and leaves out the checks of ACME accounts and challenges, and whenever
+a check is skipped without an earlier failure. The cases `blocked` and `offline-too-long` and a pairing code for an existing installation (a replacement code) are checked
 offline only, because a live test cannot make an operator block its test account or wait for days. DNSSEC
 and IPv6 are hints in the report and decide nothing. The tool checks the source of a PROXY header
 only for its form and for being a public address, because it cannot know the address of the
@@ -1489,6 +1513,10 @@ An operator that claims conformance MUST, for as long as it claims it,
 
 A block of the test account or of one of its installations, or a refused run within that rate, ends the claim of conformance until
 a run passes.
+
+### 8.5 Cases for gateways
+
+The files `pairing-v0.json`, `pins-v0.json`, `proxy-v0.json`, `destination-v0.json`, `caa-v0.json`, `protection-level-v0.json` and `ct-v0.json`, together with `metadata-v0.json`, the checks of `certificate-v0.json` that Section 5.4 lists for the gateway, and the frames of `frames-v0.json` whose receiver is the gateway, state the decisions a gateway makes. This version defines neither classes of gateways nor a test tool for them, and no gateway can claim conformance by these cases yet. The cases show decisions, not that an implementation is general. Using them presupposes that the gateway offers these decisions as functions.
 
 ## 9. Security considerations
 
@@ -1575,6 +1603,29 @@ A household that wants less of this runs its gateway without a relay.
 
 ### Unreleased
 
+- Normative change, Sections 3 and 5: the gateway fetches the metadata and talks to the enrollment
+  endpoint with TLS 1.3 or later; TLS 1.2 is no longer enough.
+- Section 8.3: a run in which `acme_cas` lists no CA of `relay/cas.md`, or in which a check is
+  skipped without an earlier failure, is incomplete, not conformant.
+- Section 8.5 and the files `pairing-v0.json`, `pins-v0.json`, `proxy-v0.json`, `destination-v0.json`,
+  `caa-v0.json`, `protection-level-v0.json` and `ct-v0.json`: cases for the decisions of a gateway, without
+  classes of gateways and without a test tool for them. Section 3: a gateway MUST NOT connect to an address that is not globally reachable unicast; it resolves a name once per connection attempt, checks every address, opens the socket to the checked address itself (no proxy that resolves the name), follows no redirect of the metadata or the tunnel and checks the address of a redirect of an enrollment response too; in IPv6 only 2000::/3 and, by the embedded IPv4 address, 64:ff9b::/96 count, 2002::/16 never, and a text that is no address is refused; the rule
+  on ranges of addresses in the metadata binds the operator, and a gateway MAY refuse such a
+  document. Section 4.6: the gateway ignores the destination of the PROXY header, closes on a
+  source port of 0, MAY refuse further ranges of source addresses and MUST NOT refuse
+  100.64.0.0/10. Section 5.2: a gateway refuses a pairing string that does not match
+  `$defs/pairing_string` (`maxLength` 273 in the schema) or has an operator domain longer than 253
+  characters, and shows the operator domain as an A-label.
+- Normative change, Sections 4.1, 4.7 and 6.8: the kind of the pin of a connection is fixed at the
+  handshake and judged for each `pins` against the pins stored at that moment; a set equal to the
+  stored one is answered `stored` first, a set when the pin is no longer stored in that kind is
+  `ignored`, and the gateway closes a control connection, after the answer if the set arrived on it, as soon as a stored set leaves its pin no longer stored at all, also when the set arrived on another connection; a set need not contain the pin of the connection. A relay that listed its backup key among the active pins cannot announce a second set on that connection, and a new connection with that key cannot change the backup pins, so a change of the backup pins needs a second backup key.
+- Sections 6.3, 6.5 and 6.7: records are compared by meaning (case of domain and tag, parameter
+  tags and values byte for byte, flags disregarded, duplicates and further parameters differ, an empty value is `;`, the order of parameters is irrelevant, malformed values); failed queries, NXDOMAIN, successful rounds and independent resolvers (a difference counts whenever a resolver that answered shows it; only the 24 hours depend on a successful round);
+  CNAME or DNAME at the queried name or an ancestor is a difference, and the operator publishes none at the apex; a repeat only for resolvers that still differ; less than one hour for the excuse and
+  none for the standard name before one hour has passed; `unsigned` and `bogus` zones, the AD bit
+  and providers in Section 6.5; names, wildcards, the lookback since the pairing, the first log entry
+  and the replacement of a server key in the Certificate Transparency monitoring; a certificate that is not valid yet raises an alarm, and an acknowledgement names the digest of the TBSCertificate.
 - Section 5.2: a pairing code is redeemed only when the installation is created, in one atomic
   step, so an installation key that is in use (`key-conflict`) or a bad certificate request
   leaves the code usable; the check of the key, the redemption and the creation are one atomic step,

@@ -82,6 +82,7 @@ func TestEachBrokenVariantFailsExactlyItsCheck(t *testing.T) {
 		"D7 wrong address":                {refop.WrongAddress, ClassDNS, []string{"live:" + CheckDNSAddresses}},
 		"D8 extra TXT":                    {refop.ExtraTXT, ClassDNS, []string{"live:" + CheckDNSNoOther}},
 		"D9 no closed CAA":                {refop.NoClosedCAA, ClassDNS, []string{"live:" + CheckDNSClosed}},
+		"D10 CNAME at the apex":           {refop.ApexCNAME, ClassDNS, []string{"live:" + CheckDNSApex}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

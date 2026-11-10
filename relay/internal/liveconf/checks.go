@@ -92,7 +92,7 @@ const (
 
 // checks is the table of all checks of this version.
 var checks = []Check{
-	{CheckMetadataFetch, ClassMetadata, "3", "the document is served over HTTPS with a valid certificate, without a redirect"},
+	{CheckMetadataFetch, ClassMetadata, "3", "the document is served over HTTPS with TLS 1.3 and a valid certificate, without a redirect"},
 	{CheckMetadataSize, ClassMetadata, "3", "the document is at most 16 KiB"},
 	{CheckMetadataIJSON, ClassMetadata, "3", "the document is I-JSON"},
 	{CheckMetadataSchema, ClassMetadata, "3", "the document is valid against the schema"},

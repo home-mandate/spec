@@ -54,6 +54,14 @@ func TestCAAJudges(t *testing.T) {
 		"account wild permits":  {judgeAcct, caaAnswer("issue "+good, "issuewild letsencrypt.org"), false},
 		"account unparsable":    {judgeAcct, caaAnswer("issue =;;"), false},
 		"account two issue":     {judgeAcct, caaAnswer("issue "+good, "issue ;"), false},
+		"account spaced":        {judgeAcct, caaAnswer("issue LetsEncrypt.ORG ; accounturi = " + acct + " ;\tvalidationmethods\t=\tdns-01 "), true},
+		"account other order":   {judgeAcct, caaAnswer("issue letsencrypt.org; validationmethods=dns-01; accounturi=" + acct), true},
+		"account tag in case":   {judgeAcct, caaAnswer("issue letsencrypt.org; AccountURI=" + acct + "; validationmethods=dns-01"), false},
+		"account value in case": {judgeAcct, caaAnswer("issue letsencrypt.org; accounturi=" + acct + "; validationmethods=DNS-01"), false},
+		"account twice":         {judgeAcct, caaAnswer("issue " + good + "; accounturi=" + acct), false},
+		"account trailing ;":    {judgeAcct, caaAnswer("issue " + good + ";"), false},
+		"apex empty values":     {judgeApex, caaAnswer("issue ", "issuewild  ; "), true},
+		"closed empty value":    {judgeClosed, caaAnswer("issue "), true},
 	} {
 		if got := tt.judge(tt.in) == ""; got != tt.ok {
 			t.Errorf("%s: judged ok = %v", name, got)

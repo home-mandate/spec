@@ -55,9 +55,9 @@
       "pattern": "^[A-Z2-7]{16}$"
     },
     "pairing_string": {
-      "description": "<operator-domain>/<code> as shown by the portal; the gateway accepts the code in either case and with or without the hyphens between the groups of four.",
+      "description": "<operator-domain>/<code> as shown by the portal; the gateway accepts the code in either case and with or without each of the hyphens between the groups of four. maxLength is 253 (the longest domain) + 1 + 19; a domain of more than 253 characters is refused too (RELAY-v0 Section 5.2).",
       "type": "string",
-      "maxLength": 300,
+      "maxLength": 273,
       "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z]([a-z0-9-]{0,61}[a-z0-9])?/([A-Za-z2-7]{4}-?){3}[A-Za-z2-7]{4}$"
     },
     "jwk": {

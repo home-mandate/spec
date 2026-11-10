@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"io"
 	"math/rand/v2"
@@ -83,6 +84,8 @@ type Web struct {
 	client *http.Client
 	timing Timing
 	policy func(netip.Addr) bool
+	dial   func(ctx context.Context, network, addr string) (net.Conn, error)
+	roots  *x509.CertPool
 
 	mu    sync.Mutex
 	last  time.Time
@@ -96,7 +99,7 @@ func newWeb(env Env) *Web {
 		DialContext:            dialer.DialContext,
 		DisableCompression:     true,
 		DisableKeepAlives:      true,
-		TLSClientConfig:        &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: env.Roots},
+		TLSClientConfig:        &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: env.Roots},
 		TLSHandshakeTimeout:    handshakeTimeout,
 		ResponseHeaderTimeout:  env.Timing.Request,
 		MaxResponseHeaderBytes: maxHeaderBytes,
@@ -110,7 +113,26 @@ func newWeb(env Env) *Web {
 			return http.ErrUseLastResponse
 		},
 	}
-	return &Web{client: client, timing: env.Timing, policy: dialer.Policy()}
+	return &Web{client: client, timing: env.Timing, policy: dialer.Policy(), dial: dialer.DialContext, roots: env.Roots}
+}
+
+// onlyOlderTLS reports whether host completes a handshake on port 443 with TLS 1.2 and a valid
+// certificate. It tells an operator without TLS 1.3 (RELAY-v0 sections 3 and 5) from one that
+// cannot be reached; the probe goes through the address filter and sends nothing after the
+// handshake.
+func (w *Web) onlyOlderTLS(ctx context.Context, host string) bool {
+	ctx, cancel := context.WithTimeout(ctx, handshakeTimeout)
+	defer cancel()
+	raw, err := w.dial(ctx, "tcp", net.JoinHostPort(host, "443"))
+	if err != nil {
+		return false
+	}
+	defer raw.Close()
+	conn := tls.Client(raw, &tls.Config{
+		ServerName: host, RootCAs: w.roots,
+		MinVersion: tls.VersionTLS12, MaxVersion: tls.VersionTLS12,
+	})
+	return conn.HandshakeContext(ctx) == nil
 }
 
 // get fetches rawURL and reads at most limit bytes of the body. It honours Retry-After within

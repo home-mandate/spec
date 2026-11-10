@@ -342,6 +342,9 @@ var probes = []struct {
 	{"D9 no closed CAA", refop.NoClosedCAA, `issue ";"`, "", func(t *testing.T, w *world, _, _ enroll.Identity, pa enroll.Paired) string {
 		return texts(w, 1, std(pa.Installation), refdns.TypeCAA)
 	}},
+	{"D10 CNAME at the apex", refop.ApexCNAME, "0", "1", func(t *testing.T, w *world, _, _ enroll.Identity, pa enroll.Paired) string {
+		return fmt.Sprint(len(w.run.Operator.DNS().Lookup(0, refop.DefaultNameDomain, refdns.TypeCNAME)))
+	}},
 }
 
 func TestEachDefectChangesWhatItIsMeantToChange(t *testing.T) {

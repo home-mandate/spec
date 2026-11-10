@@ -14,15 +14,22 @@ import (
 
 // conformanceSchemas maps every conformance file of the Relay Specification to its schema.
 var conformanceSchemas = map[string]string{
-	"conformance/binding-v0.json":     "conformance/schema/binding-v0.schema.json",
-	"conformance/certificate-v0.json": "conformance/schema/certificate-v0.schema.json",
-	"conformance/csr-v0.json":         "conformance/schema/csr-v0.schema.json",
-	"conformance/enrollment-v0.json":  "conformance/schema/enrollment-v0.schema.json",
-	"conformance/frames-v0.json":      "conformance/schema/frames-v0.schema.json",
-	"conformance/jws-v0.json":         "conformance/schema/jws-v0.schema.json",
-	"conformance/metadata-v0.json":    "conformance/schema/metadata-v0.schema.json",
-	"conformance/tls-v0.json":         "conformance/schema/tls-v0.schema.json",
-	"conformance/manifest.json":       "conformance/schema/manifest.schema.json",
+	"conformance/binding-v0.json":          "conformance/schema/binding-v0.schema.json",
+	"conformance/certificate-v0.json":      "conformance/schema/certificate-v0.schema.json",
+	"conformance/csr-v0.json":              "conformance/schema/csr-v0.schema.json",
+	"conformance/enrollment-v0.json":       "conformance/schema/enrollment-v0.schema.json",
+	"conformance/frames-v0.json":           "conformance/schema/frames-v0.schema.json",
+	"conformance/jws-v0.json":              "conformance/schema/jws-v0.schema.json",
+	"conformance/pairing-v0.json":          "conformance/schema/pairing-v0.schema.json",
+	"conformance/pins-v0.json":             "conformance/schema/pins-v0.schema.json",
+	"conformance/proxy-v0.json":            "conformance/schema/proxy-v0.schema.json",
+	"conformance/caa-v0.json":              "conformance/schema/caa-v0.schema.json",
+	"conformance/protection-level-v0.json": "conformance/schema/protection-level-v0.schema.json",
+	"conformance/destination-v0.json":      "conformance/schema/destination-v0.schema.json",
+	"conformance/ct-v0.json":               "conformance/schema/ct-v0.schema.json",
+	"conformance/metadata-v0.json":         "conformance/schema/metadata-v0.schema.json",
+	"conformance/tls-v0.json":              "conformance/schema/tls-v0.schema.json",
+	"conformance/manifest.json":            "conformance/schema/manifest.schema.json",
 }
 
 func TestRelayManifestIsUpToDate(t *testing.T) {

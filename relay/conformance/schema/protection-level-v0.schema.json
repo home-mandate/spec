@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-mandate.org/relay-conformance/v0/protection-level.schema.json",
+  "title": "Protection level cases of the Relay Specification v0 (RELAY-v0 section 6.5)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "cases"
+  ],
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "required": [
+          "id",
+          "section",
+          "account",
+          "previous_level",
+          "dnssec",
+          "resolvers",
+          "expected",
+          "why"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "section": {
+            "const": "6.5"
+          },
+          "account": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "caa_identity",
+              "acme_account"
+            ],
+            "properties": {
+              "caa_identity": {
+                "type": "string"
+              },
+              "acme_account": {
+                "type": "string"
+              }
+            }
+          },
+          "previous_level": {
+            "enum": [
+              "standard",
+              "own-domain"
+            ]
+          },
+          "dnssec": {
+            "enum": [
+              "validated",
+              "unsigned",
+              "bogus"
+            ]
+          },
+          "resolvers": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 6,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "provider",
+                "status",
+                "chain",
+                "records",
+                "parent_records"
+              ],
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9-]{1,32}$"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "nxdomain",
+                    "servfail",
+                    "refused",
+                    "formerr",
+                    "timeout",
+                    "truncated",
+                    "unparsable"
+                  ]
+                },
+                "chain": {
+                  "type": "array",
+                  "maxItems": 4,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "type",
+                      "at"
+                    ],
+                    "properties": {
+                      "type": {
+                        "enum": [
+                          "CNAME",
+                          "DNAME"
+                        ]
+                      },
+                      "at": {
+                        "enum": [
+                          "name",
+                          "ancestor"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "records": {
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "flags",
+                      "tag",
+                      "value"
+                    ],
+                    "properties": {
+                      "flags": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                      },
+                      "tag": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9]{1,15}$"
+                      },
+                      "value": {
+                        "type": "string",
+                        "maxLength": 512
+                      }
+                    }
+                  }
+                },
+                "parent_records": {
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "flags",
+                      "tag",
+                      "value"
+                    ],
+                    "properties": {
+                      "flags": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                      },
+                      "tag": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9]{1,15}$"
+                      },
+                      "value": {
+                        "type": "string",
+                        "maxLength": 512
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "level",
+              "notify_admin"
+            ],
+            "properties": {
+              "level": {
+                "enum": [
+                  "standard",
+                  "own-domain"
+                ]
+              },
+              "notify_admin": {
+                "type": "boolean"
+              }
+            }
+          },
+          "why": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "additionalProperties": false
+      }
+    }
+  }
+}

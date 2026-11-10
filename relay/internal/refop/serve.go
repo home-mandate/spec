@@ -60,10 +60,14 @@ func Serve(cfg Config) *Running {
 		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
 	leafDER := must(x509.CreateCertificate(rand.Reader, leafTemplate, ca, &leafKey.PublicKey, caKey))
-	l := must(tls.Listen("tcp", "127.0.0.1:0", &tls.Config{
-		MinVersion:   tls.VersionTLS12,
+	serverTLS := &tls.Config{
+		MinVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{{Certificate: [][]byte{leafDER}, PrivateKey: leafKey}},
-	}))
+	}
+	if cfg.Faults.Has(OnlyTLS12) {
+		serverTLS.MinVersion, serverTLS.MaxVersion = tls.VersionTLS12, tls.VersionTLS12
+	}
+	l := must(tls.Listen("tcp", "127.0.0.1:0", serverTLS))
 	roots := x509.NewCertPool()
 	roots.AddCert(ca)
 	r := &Running{Addr: l.Addr().String(), Roots: roots, Operator: o,

@@ -27,6 +27,13 @@ product that implements the specification is Home-Mandate for Home Assistant.
 | `relay/conformance/frames-v0.json` | Frames of a control connection of the tunnel (RELAY-v0 sections 4.3, 4.4, 4.7), valid or an error | Apache 2.0 |
 | `relay/conformance/binding-v0.json` | First bytes of a data connection (RELAY-v0 section 4.5): bound or closed, and the tokens consumed | Apache 2.0 |
 | `relay/conformance/tls-v0.json` | TLS probes of tunnel connections (RELAY-v0 sections 4.1, 4.2) that the relay accepts or refuses | Apache 2.0 |
+| `relay/conformance/pairing-v0.json` | Pairing strings and whether a gateway accepts them (RELAY-v0 section 5.2) | Apache 2.0 |
+| `relay/conformance/pins-v0.json` | New pins announced to a gateway: stored or ignored (RELAY-v0 sections 4.7, 6.8) | Apache 2.0 |
+| `relay/conformance/proxy-v0.json` | PROXY headers as a gateway reads them (RELAY-v0 section 4.6) | Apache 2.0 |
+| `relay/conformance/destination-v0.json` | Addresses a gateway may connect to (RELAY-v0 section 3) | Apache 2.0 |
+| `relay/conformance/caa-v0.json` | Comparison of CAA records in the gateway's monitoring (RELAY-v0 sections 6.3, 6.7) | Apache 2.0 |
+| `relay/conformance/protection-level-v0.json` | Determining the protection level of an own-domain name (RELAY-v0 section 6.5) | Apache 2.0 |
+| `relay/conformance/ct-v0.json` | Certificates in Certificate Transparency logs and the alarms of a gateway (RELAY-v0 section 6.7) | Apache 2.0 |
 | `relay/conformance/keys/` | Test keys of the relay cases; the private parts are public | Apache 2.0 |
 | `relay/conformance/schema/` | JSON Schemas of the relay conformance files | Apache 2.0 |
 | `relay/conformance/manifest.json` | All machine-readable files of the Relay Specification with SHA-256 and number of cases; `make manifest` rewrites it | Apache 2.0 |

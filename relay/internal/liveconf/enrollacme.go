@@ -21,7 +21,7 @@ func (s *script) acme(ctx context.Context) error {
 	a, b := s.insts[0], s.insts[1]
 	account, caaID, ok := accountURI(s.doc.ACMECAs)
 	if !ok {
-		s.r.note("acme_cas lists no CA of relay/cas.md: the ACME checks were not made")
+		s.r.incomplete("acme_cas lists no CA of relay/cas.md, so the ACME checks were not made")
 		return nil
 	}
 	s.account, s.caaID = account, caaID
