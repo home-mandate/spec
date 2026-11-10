@@ -65,6 +65,11 @@ func runMetadata(ctx context.Context, r *run) error {
 		m.skipRest(1)
 		return nil
 	}
+	if errors.As(err, &nf) && nf.kind == kindOther && r.web.onlyOlderTLS(ctx, r.s.Operator) {
+		r.fail(ClassMetadata, CheckMetadataFetch, "the operator does not offer TLS 1.3", "TLS 1.3")
+		m.skipRest(1)
+		return nil
+	}
 	if err != nil {
 		return incompleteFor(err)
 	}

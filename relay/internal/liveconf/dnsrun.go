@@ -103,7 +103,7 @@ func judgeAccount(caaID, account string) func(dnsq.Answer) string {
 		uri, _ := got.Param("accounturi")
 		methods, hasMethods := got.Param("validationmethods")
 		switch {
-		case got.Domain != caaID || uri != account:
+		case got.Domain != strings.ToLower(caaID) || uri != account:
 			return "the issue record is not for the reported CA and account"
 		case !hasMethods || methods != "dns-01":
 			return "the issue record has no validationmethods=dns-01"
@@ -144,12 +144,31 @@ func (s *script) dnsAfterPairing(ctx context.Context) error {
 		return err
 	}
 	std := s.insts[0].paired.Installation.PublicName
-	s.rec(CheckDNSApex, s.perServer(ctx, s.doc.NameDomain, dnsq.TypeCAA, judgeApex))
+	s.rec(CheckDNSApex, s.apexProblem(ctx))
 	s.rec(CheckDNSClosed, s.perServer(ctx, std, dnsq.TypeCAA, judgeClosed))
 	s.rec(CheckDNSAddresses, s.addressProblem(ctx, std))
 	s.rec(CheckDNSTTL, s.ttlProblem(ctx, std))
 	s.rec(CheckDNSNoOther, s.otherProblem(ctx, std))
 	return nil
+}
+
+// apexProblem checks the CAA records at the apex, and that the apex is no CNAME or DNAME, which
+// would make a CA follow it (RELAY-v0 section 6.3).
+func (s *script) apexProblem(ctx context.Context) string {
+	if p := s.perServer(ctx, s.doc.NameDomain, dnsq.TypeCAA, judgeApex); p != "" {
+		return p
+	}
+	for _, typ := range []dnsmessage.Type{dnsq.TypeCNAME, dnsq.TypeDNAME} {
+		if p := s.perServer(ctx, s.doc.NameDomain, typ, func(a dnsq.Answer) string {
+			if len(a.Records) > 0 {
+				return fmt.Sprintf("a record of type %d at the apex", typ)
+			}
+			return ""
+		}); p != "" {
+			return p
+		}
+	}
+	return ""
 }
 
 func (s *script) addressProblem(ctx context.Context, std string) string {

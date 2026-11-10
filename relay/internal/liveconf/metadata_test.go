@@ -52,6 +52,7 @@ func TestBrokenMetadataFailsExactlyItsCheck(t *testing.T) {
 		{"M6 protection level missing", refop.MetadataNoLevel, CheckMetadataLevels},
 		{"M7 same registered domain", refop.MetadataSameDomain, CheckMetadataDomains},
 		{"M8 private relay address", refop.MetadataPrivateAddress, CheckMetadataAddresses},
+		{"M9 only TLS 1.2", refop.OnlyTLS12, CheckMetadataFetch},
 	} {
 		t.Run(v.name, func(t *testing.T) {
 			_, env := serve(t, refop.Config{Faults: v.fault})
@@ -68,8 +69,8 @@ func TestBrokenMetadataFailsExactlyItsCheck(t *testing.T) {
 }
 
 func TestEveryMetadataFaultIsCovered(t *testing.T) {
-	// The eight faults of the reference are the eight variants above; a new fault needs a
-	// variant. refop.MetadataPrivateAddress is the last one.
+	// The eight faults of the document and refop.OnlyTLS12 are the variants above; a new fault
+	// of the document needs a variant. refop.MetadataPrivateAddress is the last one.
 	if refop.MetadataPrivateAddress != 1<<7 {
 		t.Error("a metadata fault was added without a variant")
 	}

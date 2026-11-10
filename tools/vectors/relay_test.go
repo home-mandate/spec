@@ -192,3 +192,40 @@ func TestCSRHelpersRefuseUnsupportedKeys(t *testing.T) {
 		t.Error("resign accepted a key it cannot use")
 	}
 }
+
+// TestRelayProxyFileIsUpToDate: the stored PROXY cases are those the generator writes, byte
+// for byte.
+func TestRelayProxyFileIsUpToDate(t *testing.T) {
+	out, err := runTool(t, "../..", "", "relay-proxy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := os.ReadFile("../../relay/conformance/proxy-v0.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != string(stored) {
+		t.Error("relay/conformance/proxy-v0.json is not what the generator writes; run: go run ./tools/vectors relay-proxy > relay/conformance/proxy-v0.json")
+	}
+	if _, err := runTool(t, "../..", "", "relay-proxy", "extra"); err == nil {
+		t.Error("relay-proxy accepted an argument")
+	}
+}
+
+// TestRelayProxyCasesAreConsistent: every accepted or optional case names the source and the
+// bytes consumed that its header holds, and a refused case names neither.
+func TestRelayProxyCasesAreConsistent(t *testing.T) {
+	seen := map[string]bool{}
+	for _, c := range relayProxyCases() {
+		seen[c.Expected] = true
+		if (c.Expected == proxyRefused) != (c.Source == nil && c.Consumed == nil) {
+			t.Errorf("%s: source and consumed do not fit %s", c.ID, c.Expected)
+		}
+		if c.Consumed != nil && *c.Consumed != 28 && *c.Consumed != 52 {
+			t.Errorf("%s: consumed %d", c.ID, *c.Consumed)
+		}
+	}
+	if !seen[proxyAccepted] || !seen[proxyRefused] || !seen[proxyEither] {
+		t.Errorf("results covered: %v", seen)
+	}
+}

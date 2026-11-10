@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/netip"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -70,13 +71,10 @@ func TestACMEChecksAreSkippedWithoutAKnownCA(t *testing.T) {
 	doc["acme_cas"] = []string{"unknown-ca.example"}
 	data, _ := json.Marshal(doc)
 	res := runEnroll(t, refop.Config{Document: data}, nil)
-	found := false
-	for _, n := range res.Report.Notes {
-		found = found || strings.Contains(n, "acme_cas lists no CA")
-	}
 	c := res.Report.Classes[ClassEnrollment]
-	if !found || c.Conforms || c.Skipped == 0 {
-		t.Errorf("notes %v, class %+v", res.Report.Notes, c)
+	if !slices.Contains(res.Report.Incomplete, "acme_cas lists no CA of relay/cas.md, so the ACME checks were not made") ||
+		c.Conforms || c.Failed != 0 || c.Skipped == 0 || res.Exit != ExitIncomplete || res.Report.Conforms {
+		t.Errorf("incomplete %v, class %+v, exit %d", res.Report.Incomplete, c, res.Exit)
 	}
 }
 

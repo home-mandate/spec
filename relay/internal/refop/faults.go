@@ -83,3 +83,9 @@ const (
 	// UnpairIgnored (E23) answers 200 to an unpairing but leaves the installation active.
 	UnpairIgnored
 )
+
+// ApexCNAME (D10) publishes a CNAME at the apex of the name domain (RELAY-v0 section 6.3).
+const ApexCNAME Fault = 1 << 41
+
+// OnlyTLS12 (M9) offers only TLS 1.2 on the operator's HTTPS port (RELAY-v0 sections 3 and 5).
+const OnlyTLS12 Fault = 1 << 42
