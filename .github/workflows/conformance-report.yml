@@ -2,11 +2,11 @@
 name: Conformance report
 
 # Runs mandate-conformance against the reference code (cmd/mandate-harness) at the tag of a
-# published release and attaches the report to that release as conformance-report.json, with
+# draft release and attaches the report to that draft as conformance-report.json, with
 # build provenance (gh attestation verify conformance-report.json --repo home-mandate/spec).
 # home-mandate.org shows a conformance class as passed only with such a report.
-# Called by release.yml after the release exists (a release created with the workflow token
-# starts no other workflow), or by hand for an existing release (input: its tag).
+# Called by release.yml after the draft exists, or by hand for a draft that lacks the report
+# (input: its tag). A published release is immutable: nothing can be attached to it.
 on:
   workflow_call:
     inputs:
@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Tag of an existing release, e.g. v0.1.0-rc.2
+        description: Tag of a draft release, e.g. v0.2.0-rc.1
         required: true
         type: string
 
@@ -38,14 +38,13 @@ jobs:
       GOWORK: "off"
       TAG: ${{ inputs.tag }}
     steps:
-      - name: Check the tag and the release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # Whether the draft exists is checked by the job that attaches: a draft is visible only
+      # with write access, which this job doesn't get.
+      - name: Check the tag
         run: |
           if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$ ]]; then
             echo "::error::$TAG is not a release tag"; exit 1
           fi
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -91,11 +90,13 @@ jobs:
           subject-path: conformance-report*.json
 
       # Never replaces an attached report; a re-run adds only what is missing.
-      - name: Attach to the release
+      - name: Attach to the draft
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)
+          [ "$draft" = true ] || { echo "::error::$TAG is published; a report can only be attached to a draft"; exit 1; }
           attached=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name')
           for file in conformance-report*.json; do
             if grep -qxF "$file" <<< "$attached"; then echo "$file is already attached"; continue; fi

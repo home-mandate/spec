@@ -8,7 +8,10 @@ only what is particular to this repository.
 
 A version is the text, the schemas, the conformance cases and the reference implementation at
 a tag; the Go module proxy serves it from the tag. A tag runs `.github/workflows/release.yml`,
-which creates the GitHub release, and `conformance-report.yml` attaches the attested report.
+which creates the GitHub release as a draft; `conformance-report.yml` attaches the attested
+report to the draft, and the draft is published only with the report attached. A published
+release is immutable. A run that fails before that leaves a draft, and the version needs a new
+tag; the Go module proxy may serve the failed tag anyway.
 
 Merges are not tagged one by one. A pre-release (`v0.2.0-alpha.1`) is tagged on purpose, when
 implementers should look at a state.
