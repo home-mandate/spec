@@ -2,7 +2,10 @@
 name: Release
 
 # A tag vX.Y.Z, vX.Y.Z-alpha.N or vX.Y.Z-rc.N publishes a GitHub release with the conformance
-# report of that commit (conformance-report.yml).
+# report of that commit (conformance-report.yml). The release is created as a draft, the report
+# is attached to the draft, and only a draft with the attested report is published. A published
+# release is immutable (repository setting), so nothing can be added or replaced afterwards; a
+# failed run leaves a draft and needs a new version.
 #
 # Guards: only admins may create tags and tags are immutable (repository rulesets). The tag
 # must point to a commit on main, for a patch on release/X.Y (.github/scripts/release-base.sh),
@@ -87,23 +90,28 @@ jobs:
           fi
 
   release:
-    name: Create the release
+    name: Create the draft
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: write # the release
     steps:
-      - name: Create the release
+      # A re-run of failed jobs finds the draft of the first attempt and keeps it.
+      - name: Create the draft
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         run: |
           set -euo pipefail
+          if draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2> /dev/null); then
+            [ "$draft" = true ] || { echo "::error::release $TAG is published already"; exit 1; }
+            echo "The draft of $TAG exists from an earlier attempt"; exit 0
+          fi
           flags=()
           if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --generate-notes "${flags[@]}"
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$TAG" --generate-notes "${flags[@]}"
 
   conformance-report:
     name: Conformance report
@@ -115,3 +123,29 @@ jobs:
     uses: ./.github/workflows/conformance-report.yml
     with:
       tag: ${{ github.ref_name }}
+
+  # The gate: the draft becomes the release only with the attested report attached.
+  publish:
+    name: Publish the release
+    needs: conformance-report
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # the release
+      attestations: read # the report's provenance
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: The report is attached and attested
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/assets"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$dir" --pattern 'conformance-report*.json'
+          for file in conformance-report.json; do
+            [ -f "$dir/$file" ] || { echo "::error::$file is not attached to the draft of $TAG"; exit 1; }
+            gh attestation verify "$dir/$file" --repo "$GITHUB_REPOSITORY"
+          done
+
+      - name: Publish the draft
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
