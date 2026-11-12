@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/home-mandate/spec/internal/errquote"
 )
 
 // ErrMalformed is returned for input that is not I-JSON.
@@ -94,7 +96,7 @@ func applyToken(stack []jsonFrame, tok json.Token) ([]jsonFrame, error) {
 		if top.object && top.expectKey {
 			key, _ := tok.(string) // The decoder guarantees a string in key position.
 			if _, dup := top.keys[key]; dup {
-				return nil, fmt.Errorf("%w: duplicate key %q", ErrMalformed, key)
+				return nil, fmt.Errorf("%w: duplicate key %s", ErrMalformed, errquote.Quote(key))
 			}
 			top.keys[key] = struct{}{}
 			top.expectKey = false
