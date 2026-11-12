@@ -198,3 +198,16 @@ func TestZeroNumbers(t *testing.T) {
 		t.Error("the input was changed")
 	}
 }
+
+// TestDuplicateKeyIsQuotedCut: the error of a duplicate key quotes at most
+// errquote.MaxBytes of the key, however long it is (spec#143).
+func TestDuplicateKeyIsQuotedCut(t *testing.T) {
+	long := strings.Repeat("k", 5000)
+	err := Check([]byte(`{"` + long + `":1,"` + long + `":2}`))
+	if !errors.Is(err, ErrMalformed) || !strings.Contains(err.Error(), "duplicate key") {
+		t.Fatalf("err = %.200v, want a duplicate key", err)
+	}
+	if len(err.Error()) > 200 || !strings.Contains(err.Error(), `"...`) {
+		t.Errorf("err of %d bytes does not quote the key cut: %.200s", len(err.Error()), err)
+	}
+}

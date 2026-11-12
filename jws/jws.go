@@ -107,7 +107,7 @@ func SignDetached(payload []byte, kid string, signer any) (string, error) {
 
 func sign(payload []byte, kid string, signer any) (head, sig string, err error) {
 	if !kidPattern.MatchString(kid) {
-		return "", "", fmt.Errorf("%w: key ID %q", ErrKey, kid)
+		return "", "", fmt.Errorf("%w: key ID %s", ErrKey, quote(kid))
 	}
 	alg, _, err := signerAlg(signer)
 	if err != nil {
@@ -222,7 +222,7 @@ func verify(head string, payload []byte, sig string, keys Keys) (string, error) 
 	}
 	key, ok := keys[h.Kid]
 	if !ok {
-		return "", fmt.Errorf("%w: key ID %q", ErrKey, h.Kid)
+		return "", fmt.Errorf("%w: key ID %s", ErrKey, quote(h.Kid))
 	}
 	if !verifyInput(h.Alg, key, signingInput(head, payload), raw) {
 		return "", ErrSignature
@@ -251,10 +251,10 @@ func parseHeader(head string) (protectedHeader, error) {
 		return h, fmt.Errorf("%w: header must have exactly alg and kid", ErrMalformed)
 	}
 	if h.Alg != AlgEdDSA && h.Alg != AlgES256 {
-		return h, fmt.Errorf("%w: algorithm %q", ErrMalformed, h.Alg)
+		return h, fmt.Errorf("%w: algorithm %s", ErrMalformed, quote(h.Alg))
 	}
 	if !kidPattern.MatchString(h.Kid) {
-		return h, fmt.Errorf("%w: key ID %q", ErrMalformed, h.Kid)
+		return h, fmt.Errorf("%w: key ID %s", ErrMalformed, quote(h.Kid))
 	}
 	return h, nil
 }
@@ -300,17 +300,17 @@ func ParseJWKS(data []byte) (Keys, error) {
 			return nil, fmt.Errorf("%w: %w", ErrKey, err)
 		}
 		if !kidPattern.MatchString(k.Kid) {
-			return nil, fmt.Errorf("%w: key ID %q", ErrKey, k.Kid)
+			return nil, fmt.Errorf("%w: key ID %s", ErrKey, quote(k.Kid))
 		}
 		if _, dup := keys[k.Kid]; dup {
-			return nil, fmt.Errorf("%w: duplicate key ID %q", ErrKey, k.Kid)
+			return nil, fmt.Errorf("%w: duplicate key ID %s", ErrKey, quote(k.Kid))
 		}
 		if _, private := members["d"]; private {
-			return nil, fmt.Errorf("%w: key %q is a private key", ErrKey, k.Kid)
+			return nil, fmt.Errorf("%w: key %s is a private key", ErrKey, quote(k.Kid))
 		}
 		key, err := publicKey(k)
 		if err != nil {
-			return nil, fmt.Errorf("%w: key %q: %w", ErrKey, k.Kid, err)
+			return nil, fmt.Errorf("%w: key %s: %w", ErrKey, quote(k.Kid), err)
 		}
 		keys[k.Kid] = key
 	}
@@ -427,19 +427,19 @@ func publicJWK(kid string, key crypto.PublicKey) (jwk, error) {
 	switch k := key.(type) {
 	case ed25519.PublicKey:
 		if !usableEd25519(k) {
-			return jwk{}, fmt.Errorf("%w: key %q", ErrKey, kid)
+			return jwk{}, fmt.Errorf("%w: key %s", ErrKey, quote(kid))
 		}
 		return jwk{Kty: "OKP", Crv: "Ed25519", Kid: kid, X: b64.EncodeToString(k)}, nil
 	case *ecdsa.PublicKey:
 		if k == nil {
-			return jwk{}, fmt.Errorf("%w: key %q", ErrKey, kid)
+			return jwk{}, fmt.Errorf("%w: key %s", ErrKey, quote(kid))
 		}
 		point, err := k.Bytes()
 		if err != nil || len(point) != 1+2*p256Bytes {
-			return jwk{}, fmt.Errorf("%w: key %q", ErrKey, kid)
+			return jwk{}, fmt.Errorf("%w: key %s", ErrKey, quote(kid))
 		}
 		return jwk{Kty: "EC", Crv: "P-256", Kid: kid,
 			X: b64.EncodeToString(point[1 : 1+p256Bytes]), Y: b64.EncodeToString(point[1+p256Bytes:])}, nil
 	}
-	return jwk{}, fmt.Errorf("%w: key %q: %T", ErrKey, kid, key)
+	return jwk{}, fmt.Errorf("%w: key %s: %T", ErrKey, quote(kid), key)
 }

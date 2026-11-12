@@ -8,8 +8,21 @@ import (
 	"testing"
 )
 
-// FuzzVerify: arbitrary input never panics and never verifies unless it is the JWS
-// that was signed.
+// maxErrorBytes bounds an error message, whatever the input: values from the input are
+// quoted cut (issue #143). A cut value of 64 bytes quotes to at most 4*64+5 bytes when every
+// byte is escaped as \xNN; the longest message, of ParseJWKS, quotes three such values (a
+// key ID of the kid pattern, kty and crv), about 600 bytes with its text.
+const maxErrorBytes = 1024
+
+func checkErrorLength(t *testing.T, err error) {
+	t.Helper()
+	if err != nil && len(err.Error()) > maxErrorBytes {
+		t.Fatalf("error of %d bytes: %.200s", len(err.Error()), err)
+	}
+}
+
+// FuzzVerify: arbitrary input never panics, never verifies unless it is the JWS that was
+// signed, and gives errors of bounded length.
 func FuzzVerify(f *testing.F) {
 	key := ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize))
 	keys := Keys{"k": key.Public()}
@@ -26,20 +39,26 @@ func FuzzVerify(f *testing.F) {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, input string) {
-		if got, _, err := Verify(input, keys); err == nil && (input != compact || string(got) != string(payload)) {
+		got, _, err := Verify(input, keys)
+		if err == nil && (input != compact || string(got) != string(payload)) {
 			t.Fatalf("Verify accepted %q", input)
 		}
-		if _, err := VerifyDetached(input, payload, keys); err == nil && input != detached {
+		checkErrorLength(t, err)
+		_, err = VerifyDetached(input, payload, keys)
+		if err == nil && input != detached {
 			t.Fatalf("VerifyDetached accepted %q", input)
 		}
-		if _, err := ParseJWKS([]byte(input)); err == nil && len(input) < 20 {
+		checkErrorLength(t, err)
+		_, err = ParseJWKS([]byte(input))
+		if err == nil && len(input) < 20 {
 			t.Fatalf("ParseJWKS accepted %q", input)
 		}
+		checkErrorLength(t, err)
 	})
 }
 
-// FuzzVerifyRequest: arbitrary input never panics, errors are one of the three kinds,
-// and nothing verifies but the requests that were signed. ParseRequest accepts what
+// FuzzVerifyRequest: arbitrary input never panics, errors are one of the three kinds and
+// of bounded length, and nothing verifies but the requests that were signed. ParseRequest accepts what
 // VerifyRequest accepts.
 func FuzzVerifyRequest(f *testing.F) {
 	key := ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize))
@@ -64,6 +83,7 @@ func FuzzVerifyRequest(f *testing.F) {
 	}
 	kinds := []error{ErrMalformed, ErrSignature, ErrKey}
 	oneOf := func(t *testing.T, err error) {
+		checkErrorLength(t, err)
 		for _, kind := range kinds {
 			if errors.Is(err, kind) {
 				return
@@ -91,8 +111,10 @@ func FuzzVerifyRequest(f *testing.F) {
 		} else if err != nil {
 			oneOf(t, err)
 		}
-		if _, err := ParseJWK([]byte(input)); err == nil && len(input) < 40 {
+		_, err = ParseJWK([]byte(input))
+		if err == nil && len(input) < 40 {
 			t.Fatalf("ParseJWK accepted %q", input)
 		}
+		checkErrorLength(t, err)
 	})
 }

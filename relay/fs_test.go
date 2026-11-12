@@ -3,12 +3,15 @@
 package relay_test
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/home-mandate/spec/internal/manifest"
 	"github.com/home-mandate/spec/relay"
 )
 
@@ -55,5 +58,42 @@ func TestFSNeverEmbedsTheTestKeys(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestFSHoldsEveryFileOfTheManifest: every file that conformance/manifest.json lists, apart
+// from conformance/keys, can be read through FS with the recorded digest (spec#144).
+func TestFSHoldsEveryFileOfTheManifest(t *testing.T) {
+	data, err := fs.ReadFile(relay.FS(), relay.ManifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := manifest.Decode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	read, keys := 0, 0
+	for _, file := range stored.Files {
+		name, ok := strings.CutPrefix(file.Path, "relay/")
+		if !ok {
+			t.Errorf("%s is outside relay/", file.Path)
+			continue
+		}
+		if strings.HasPrefix(name, "conformance/keys/") {
+			keys++
+			continue
+		}
+		data, err := fs.ReadFile(relay.FS(), name)
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != file.SHA256 {
+			t.Errorf("%s: sha256 %s, manifest %s", name, got, file.SHA256)
+		}
+		read++
+	}
+	if read+keys != len(stored.Files) || read == 0 {
+		t.Errorf("read %d files and skipped %d keys of %d in the manifest", read, keys, len(stored.Files))
 	}
 }

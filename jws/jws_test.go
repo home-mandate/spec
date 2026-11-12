@@ -483,3 +483,102 @@ func TestMarshalJWKSRefusesWhatParseJWKSRefuses(t *testing.T) {
 		}
 	}
 }
+
+// TestSignRejectsUnusableKeys: a private key that cannot sign gives ErrKey, never a panic
+// (issue #143).
+func TestSignRejectsUnusableKeys(t *testing.T) {
+	ec, other := ecKey(t), ecKey(t)
+	p256 := func(d *big.Int, public ecdsa.PublicKey) *ecdsa.PrivateKey {
+		return &ecdsa.PrivateKey{PublicKey: public, D: d}
+	}
+	signers := map[string]any{
+		"P-256 without D":         p256(nil, ec.PublicKey),
+		"P-256 without X and Y":   p256(ec.D, ecdsa.PublicKey{Curve: elliptic.P256()}),
+		"P-256 with D zero":       p256(big.NewInt(0), ec.PublicKey),
+		"P-256 with D too large":  p256(new(big.Int).Lsh(big.NewInt(1), 300), ec.PublicKey),
+		"P-256 with D of another": p256(other.D, ec.PublicKey),
+		"Ed25519 of 0 bytes":      ed25519.PrivateKey{},
+		"Ed25519 of 32 bytes":     ed25519.PrivateKey(make([]byte, ed25519.SeedSize)),
+		"Ed25519 of 63 bytes":     ed25519.PrivateKey(make([]byte, ed25519.PrivateKeySize-1)),
+		"Ed25519 of 65 bytes":     ed25519.PrivateKey(make([]byte, ed25519.PrivateKeySize+1)),
+		"nil ECDSA key":           (*ecdsa.PrivateKey)(nil),
+		"ECDSA without curve":     &ecdsa.PrivateKey{},
+		"nil Ed25519 key":         ed25519.PrivateKey(nil),
+		"nil":                     nil,
+	}
+	for name, signer := range signers {
+		calls := map[string]func() error{
+			"Sign":          func() error { _, err := Sign([]byte("x"), "k", signer); return err },
+			"SignDetached":  func() error { _, err := SignDetached([]byte("x"), "k", signer); return err },
+			"SignRequest":   func() error { _, err := SignRequest(nil, RequestHeader{Kid: "k"}, signer); return err },
+			"SignKeyChange": func() error { _, err := SignKeyChange([]byte("{}"), KeyChangeHeader{}, signer); return err },
+		}
+		for call, f := range calls {
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						t.Errorf("%s with %s panics: %v", call, name, r)
+					}
+				}()
+				if err := f(); !errors.Is(err, ErrKey) {
+					t.Errorf("%s with %s: err = %v, want ErrKey", call, name, err)
+				}
+			}()
+		}
+	}
+}
+
+// TestErrorsQuoteOnlyAPrefix: an error of Sign, Verify or ParseJWKS quotes at most
+// maxQuotedBytes of a value it did not accept, so that input cannot fill logs (issue #143).
+func TestErrorsQuoteOnlyAPrefix(t *testing.T) {
+	ed := rfcKey(t)
+	keys := Keys{"ed-1": ed.Public()}
+	long := strings.Repeat("A", 5000)
+	control := strings.Repeat(`\u0001`, 5000) // every byte quotes to \x01, four bytes
+	errs := map[string]func() error{
+		"Sign kid": func() error { _, err := SignDetached([]byte("x"), long, ed); return err },
+		"Verify alg": func() error {
+			_, err := VerifyDetached(header(t, `{"alg":"`+long+`","kid":"ed-1"}`)+"..AA", nil, keys)
+			return err
+		},
+		"Verify kid": func() error {
+			_, err := VerifyDetached(header(t, `{"alg":"EdDSA","kid":"`+long+`"}`)+"..AA", nil, keys)
+			return err
+		},
+		"Verify dup key": func() error {
+			_, err := VerifyDetached(header(t, `{"`+long+`":1,"`+long+`":2}`)+"..AA", nil, keys)
+			return err
+		},
+		"ParseJWKS kid": func() error {
+			_, err := ParseJWKS([]byte(`{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"` + long + `","x":"AA"}]}`))
+			return err
+		},
+		"ParseJWKS kty": func() error {
+			_, err := ParseJWKS([]byte(`{"keys":[{"kty":"` + long + `","kid":"k","x":"AA"}]}`))
+			return err
+		},
+		"ParseJWKS dup": func() error {
+			_, err := ParseJWKS([]byte(`{"keys":[{"` + long + `":1,"` + long + `":2}]}`))
+			return err
+		},
+		"SignRequest alg":   func() error { _, err := SignRequest(nil, RequestHeader{Alg: long, Kid: "k"}, ed); return err },
+		"SignKeyChange alg": func() error { _, err := SignKeyChange([]byte("{}"), KeyChangeHeader{Alg: long}, ed); return err },
+		"ParseJWKS kty and crv of control characters": func() error {
+			_, err := ParseJWKS([]byte(`{"keys":[{"kty":"` + control + `","crv":"` + control + `","kid":"k","x":"AA"}]}`))
+			return err
+		},
+	}
+	for name, f := range errs {
+		err := f()
+		if err == nil {
+			t.Errorf("%s: accepted", name)
+			continue
+		}
+		if strings.Contains(err.Error(), long[:maxQuotedBytes+1]) || !strings.Contains(err.Error(), `"...`) {
+			t.Errorf("%s: err does not quote a cut value: %.200s", name, err)
+		}
+		if len(err.Error()) > maxErrorBytes {
+			t.Errorf("%s: err of %d bytes: %.200s", name, len(err.Error()), err)
+		}
+	}
+}

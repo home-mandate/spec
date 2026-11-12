@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
-	"strconv"
 
+	"github.com/home-mandate/spec/internal/errquote"
 	"github.com/home-mandate/spec/internal/ijson"
 )
 
@@ -56,7 +56,7 @@ const (
 	// maxKeyChangeBytes is the bound of $defs/compact_jws of the enrollment schema.
 	maxKeyChangeBytes = 16 << 10
 	// maxQuotedBytes bounds how much of a value from a request an error message quotes.
-	maxQuotedBytes = 64
+	maxQuotedBytes = errquote.MaxBytes
 )
 
 // httpsURL is $defs/https_url of the metadata schema: a lower-case DNS host, an optional
@@ -77,7 +77,7 @@ func SignRequest(payload []byte, h RequestHeader, signer any) (string, error) {
 		return "", err
 	}
 	if h.Alg != "" && h.Alg != alg {
-		return "", fmt.Errorf("%w: algorithm %q for a %s key", ErrKey, h.Alg, alg)
+		return "", fmt.Errorf("%w: algorithm %s for a %s key", ErrKey, quote(h.Alg), alg)
 	}
 	if (h.JWK == nil) == (h.Kid == "") {
 		return "", fmt.Errorf("%w: header needs exactly one of jwk and kid", ErrMalformed)
@@ -145,7 +145,7 @@ func SignKeyChange(payload []byte, h KeyChangeHeader, signer any) (string, error
 		return "", err
 	}
 	if h.Alg != "" && h.Alg != alg {
-		return "", fmt.Errorf("%w: algorithm %q for a %s key", ErrKey, h.Alg, alg)
+		return "", fmt.Errorf("%w: algorithm %s for a %s key", ErrKey, quote(h.Alg), alg)
 	}
 	if h.JWK != nil && !sameKey(h.JWK, public) {
 		return "", fmt.Errorf("%w: jwk is not the key of the signer", ErrKey)
@@ -503,14 +503,9 @@ func checkURL(name, s string) error {
 	return nil
 }
 
-// quote quotes a value from a request for an error message, at most its first
+// quote quotes a value from input or a caller for an error message, at most its first
 // maxQuotedBytes bytes, so that a sender cannot fill logs through the errors.
-func quote(s string) string {
-	if len(s) <= maxQuotedBytes {
-		return strconv.Quote(s)
-	}
-	return strconv.Quote(s[:maxQuotedBytes]) + "..."
-}
+func quote(s string) string { return errquote.Quote(s) }
 
 // checkPayload: a payload is a JSON object in I-JSON, or empty for a read.
 func checkPayload(payload []byte, emptyAllowed bool) error {
@@ -561,12 +556,32 @@ func signerAlg(signer any) (string, crypto.PublicKey, error) {
 		}
 		return AlgEdDSA, key.Public(), nil
 	case *ecdsa.PrivateKey:
+		if key == nil || key.Curve == nil {
+			return "", nil, fmt.Errorf("%w: ECDSA private key without a curve", ErrKey)
+		}
 		if key.Curve != elliptic.P256() {
 			return "", nil, fmt.Errorf("%w: curve %s", ErrKey, key.Curve.Params().Name)
+		}
+		if !usableP256(key) {
+			return "", nil, fmt.Errorf("%w: P-256 private key that does not fit its public key", ErrKey)
 		}
 		return AlgES256, key.Public(), nil
 	}
 	return "", nil, fmt.Errorf("%w: %T", ErrKey, signer)
+}
+
+// usableP256 reports whether a private key on P-256 has a scalar in 1..n-1 and the public
+// key of that scalar. crypto/ecdsa would panic on a missing D, X or Y.
+func usableP256(key *ecdsa.PrivateKey) bool {
+	if key.D == nil || key.X == nil || key.Y == nil {
+		return false
+	}
+	private, err := key.ECDH()
+	if err != nil {
+		return false
+	}
+	public, err := key.PublicKey.ECDH()
+	return err == nil && private.PublicKey().Equal(public)
 }
 
 // keyAlg returns the algorithm of a public key.
