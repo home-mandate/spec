@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-mandate.org/relay-conformance/v0/pins.schema.json",
+  "title": "New pins cases of the Relay Specification v0 (RELAY-v0 sections 4.7 and 6.8)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "cases"
+  ],
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "required": [
+          "id",
+          "section",
+          "stored",
+          "connection_pin",
+          "steps",
+          "why"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "section": {
+            "const": "4.7"
+          },
+          "stored": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "active",
+              "backup"
+            ],
+            "properties": {
+              "active": {
+                "type": "array",
+                "uniqueItems": true,
+                "maxItems": 12,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+                }
+              },
+              "backup": {
+                "type": "array",
+                "uniqueItems": true,
+                "maxItems": 12,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+                }
+              }
+            }
+          },
+          "connection_pin": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "active",
+                "backup",
+                "expected",
+                "stored_after",
+                "connection"
+              ],
+              "properties": {
+                "active": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+                  }
+                },
+                "backup": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "maxItems": 12,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+                  }
+                },
+                "expected": {
+                  "enum": [
+                    "stored",
+                    "ignored"
+                  ]
+                },
+                "stored_after": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "active",
+                    "backup"
+                  ],
+                  "properties": {
+                    "active": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "maxItems": 12,
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+                      }
+                    },
+                    "backup": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "maxItems": 12,
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+                      }
+                    }
+                  }
+                },
+                "connection": {
+                  "enum": [
+                    "open",
+                    "closed"
+                  ]
+                },
+                "arrived_on": {
+                  "const": "other"
+                }
+              }
+            }
+          },
+          "why": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "additionalProperties": false
+      }
+    }
+  }
+}

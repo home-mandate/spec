@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-mandate.org/relay-conformance/v0/frames.schema.json",
+  "title": "Control connection frame cases of the Relay Specification v0 (RELAY-v0 sections 4.3, 4.4, 4.7)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "cases"
+  ],
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "frames",
+          "expected",
+          "why"
+        ],
+        "oneOf": [
+          {
+            "properties": {
+              "expected": {
+                "const": "valid"
+              }
+            },
+            "required": [
+              "messages"
+            ],
+            "not": {
+              "required": [
+                "at"
+              ]
+            }
+          },
+          {
+            "properties": {
+              "expected": {
+                "const": "error"
+              }
+            },
+            "required": [
+              "at"
+            ],
+            "not": {
+              "required": [
+                "messages"
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "frames": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "from",
+                "hex"
+              ],
+              "properties": {
+                "from": {
+                  "enum": [
+                    "gateway",
+                    "relay"
+                  ]
+                },
+                "hex": {
+                  "type": "string",
+                  "pattern": "^([0-9a-f]{2})*$",
+                  "minLength": 8
+                }
+              }
+            }
+          },
+          "expected": {
+            "enum": [
+              "valid",
+              "error"
+            ]
+          },
+          "at": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Index of the first frame that is an error."
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "type": {
+                  "enum": [
+                    "hello",
+                    "hello-ack",
+                    "ping",
+                    "pong",
+                    "stream-open",
+                    "stream-close",
+                    "error",
+                    "drain",
+                    "pins",
+                    "pins-ack",
+                    "ignored"
+                  ]
+                }
+              }
+            },
+            "description": "Each frame decoded, in order."
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

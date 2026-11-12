@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-mandate.org/relay-conformance/v0/jws.schema.json",
+  "title": "Request JWS cases of the Relay Specification v0 (RELAY-v0 sections 5.1 and 5.5)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "cases"
+  ],
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "jws",
+          "key",
+          "url",
+          "expected",
+          "why"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "kind": {
+            "description": "request: the body of a POST to the enrollment endpoint (Section 5.1); key-change: the inner JWS of a key change (Section 5.5).",
+            "enum": [
+              "request",
+              "key-change"
+            ]
+          },
+          "jws": {
+            "type": "string",
+            "description": "The JWS in compact serialization, as sent."
+          },
+          "key": {
+            "description": "The public key the verifier holds for kid, in the form of $defs/jwk of relay/schema/enrollment-v0.schema.json; null when the header is to carry the key as jwk (pairing requests and key changes).",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "kty",
+                  "crv",
+                  "x"
+                ]
+              }
+            ]
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL the request was sent to; url in the header MUST equal it (malformed otherwise). For a key change, the URL of key_change."
+          },
+          "expected": {
+            "enum": [
+              "valid",
+              "malformed",
+              "bad-signature"
+            ]
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

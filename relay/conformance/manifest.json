@@ -1,0 +1,228 @@
+{
+  "spec": "relay-v0",
+  "files": [
+    {
+      "path": "relay/conformance/binding-v0.json",
+      "sha256": "7c2f126f63eab2aa13b2d3d49bbefc01e572382c24bab3fbad42f6426984e1f3",
+      "cases": 16
+    },
+    {
+      "path": "relay/conformance/caa-v0.json",
+      "sha256": "6cf3367bb499424e97d44e320049772dd718f6d5bf6a41e5705ae3e24a953c02",
+      "cases": 110
+    },
+    {
+      "path": "relay/conformance/certificate-v0.json",
+      "sha256": "740fc8095b236a98e22329ad24661d43aaf4130dd10d87a21221994c7ad9f811",
+      "cases": 38
+    },
+    {
+      "path": "relay/conformance/csr-v0.json",
+      "sha256": "f879c5600f492079020d712052dc35c9f6e4c215cbba9d73fc55bbef71f224b7",
+      "cases": 19
+    },
+    {
+      "path": "relay/conformance/ct-v0.json",
+      "sha256": "6a04817af86ad4fb3f10a5c22aa8c2951844447c7c0a732bb528f268842c0870",
+      "cases": 43
+    },
+    {
+      "path": "relay/conformance/destination-v0.json",
+      "sha256": "0f61db25e06e6961eb4cc15b98ae2686e3fda4c11752363d58ebf747e338fa91",
+      "cases": 103
+    },
+    {
+      "path": "relay/conformance/enrollment-v0.json",
+      "sha256": "ec93f9bfbce264ccbc88ef22e7067077d8e5d88c0b59a843278f69a4e9e8cae2",
+      "cases": 25
+    },
+    {
+      "path": "relay/conformance/frames-v0.json",
+      "sha256": "84cdbd1726b1a710495ad068700ede01cb5207149092c0386f91a101a84ecb9b",
+      "cases": 89
+    },
+    {
+      "path": "relay/conformance/jws-v0.json",
+      "sha256": "7d00d80a48ebef2a92f348cec479f2cd64fbf3fe077775b66bd32fa8cc73e62e",
+      "cases": 62
+    },
+    {
+      "path": "relay/conformance/keys/test-keys.json",
+      "sha256": "07d89887761df8e5da513ef74eb8f3e136dd090f6982fe49f64a07d779fce82f"
+    },
+    {
+      "path": "relay/conformance/keys/test-keys.private.json",
+      "sha256": "b7145fa14ca703d1ec956763608a76ed2421eb4a631e4d18831c3ddfe240759e"
+    },
+    {
+      "path": "relay/conformance/metadata-v0.json",
+      "sha256": "f7b3c0e9796a2af9b83b79f362f1b6933ff1f9865ccdd5fbf926e64f8bc10a71",
+      "cases": 51
+    },
+    {
+      "path": "relay/conformance/pairing-v0.json",
+      "sha256": "0e8ed425ceab468455747597d35124307f20b531370fcad22e47260cb9c2ae83",
+      "cases": 68
+    },
+    {
+      "path": "relay/conformance/pins-v0.json",
+      "sha256": "7d249bdbc2dab345408a493257ff596d9d4560c99c23c1c6ea79f41cb1dca624",
+      "cases": 47
+    },
+    {
+      "path": "relay/conformance/protection-level-v0.json",
+      "sha256": "e236ce6bcedfe5d0aa889be3b1c636957f3a0b8c3339ab045386fd869e865f20",
+      "cases": 59
+    },
+    {
+      "path": "relay/conformance/proxy-v0.json",
+      "sha256": "dce709a2186fd479bb910b90b9c386e9c5ddd4c9343f7b5dc71937ff7e3a035f",
+      "cases": 106
+    },
+    {
+      "path": "relay/conformance/schema/binding-v0.schema.json",
+      "sha256": "9476df3e532d593e20ae0fd768c9730f39c43edc847c5db8a6053fede6df29ad"
+    },
+    {
+      "path": "relay/conformance/schema/caa-v0.schema.json",
+      "sha256": "a652e8ddceeae2e74ebc5613b06df42cc59127a526cb4b0a5c43057b4e23d168"
+    },
+    {
+      "path": "relay/conformance/schema/certificate-v0.schema.json",
+      "sha256": "72458257b7053a32dcc85f69d6816d98be23cd9b272ae23ebdfddc67ef7969f1"
+    },
+    {
+      "path": "relay/conformance/schema/csr-v0.schema.json",
+      "sha256": "1efa506ce595b583c4505437c155ea40fff22e5254a8f6764b90ce75f396434f"
+    },
+    {
+      "path": "relay/conformance/schema/ct-v0.schema.json",
+      "sha256": "d4e4cfb00b462b227f1be79097da040a6b03cf3db0e0cdec43aca5f926767f29"
+    },
+    {
+      "path": "relay/conformance/schema/destination-v0.schema.json",
+      "sha256": "6c3cf4d06c487026925e3c9a550f227c1a492919c55425579d17f63c0c0e480e"
+    },
+    {
+      "path": "relay/conformance/schema/enrollment-v0.schema.json",
+      "sha256": "a276548f2a7ceda7029962583d2c97f5b68b1c21b48adc4c93758e5f22b64a02"
+    },
+    {
+      "path": "relay/conformance/schema/frames-v0.schema.json",
+      "sha256": "58e323b69942153cc45087f53fb9c6a0e2d5e9f2fac00bf9fcfae648daec0a5f"
+    },
+    {
+      "path": "relay/conformance/schema/jws-v0.schema.json",
+      "sha256": "d0c169136737cff60b7b22018fa63357cfa017b1d9b12c21ccc686e87f8a937d"
+    },
+    {
+      "path": "relay/conformance/schema/manifest.schema.json",
+      "sha256": "3c3716d8be0565e12ed7629394e911a221a64c3517134bb88cad49d3b6568fde"
+    },
+    {
+      "path": "relay/conformance/schema/metadata-v0.schema.json",
+      "sha256": "7cd7095a7f559426506d13d87afe8ce07d137d70adeb46383c14ae2382be498c"
+    },
+    {
+      "path": "relay/conformance/schema/pairing-v0.schema.json",
+      "sha256": "9844a2080684be30508bcd73f7531fe3cdebede6cb0219c16aa4d1a67c049d62"
+    },
+    {
+      "path": "relay/conformance/schema/pins-v0.schema.json",
+      "sha256": "e09a63c460d129a5f3086a72933ad31421da55c128252a89ed08731348d81a3f"
+    },
+    {
+      "path": "relay/conformance/schema/protection-level-v0.schema.json",
+      "sha256": "095486c37821fbd414468ba3dbe8effad0aad102a76f2796e5cabf6d9345d84c"
+    },
+    {
+      "path": "relay/conformance/schema/proxy-v0.schema.json",
+      "sha256": "096f4edd3156a2736a771ec91f80a01ceeeba4d0d675f524db2a72a4e467d30a"
+    },
+    {
+      "path": "relay/conformance/schema/tls-v0.schema.json",
+      "sha256": "0b06a61fd1d6b7b99ff6784379fd8d4b15a8fbca8af92f11df24af4af94c958c"
+    },
+    {
+      "path": "relay/conformance/tls-v0.json",
+      "sha256": "0f7a4bcb72b3244e9fdf426373d4bec5ea56260d21bf1cab737c8646fd06fd04",
+      "cases": 14
+    },
+    {
+      "path": "relay/examples/acme-challenge-request.json",
+      "sha256": "30361bbbc0d3aa06643bbb0147e6ece11388ffd02d159397b4b7b8b35ea960b0"
+    },
+    {
+      "path": "relay/examples/certificate-request.json",
+      "sha256": "ac78ade2a90b862f95fd26a7e6d289627984fe6b2711b585d8c5a39ac3468038"
+    },
+    {
+      "path": "relay/examples/certificate-response.json",
+      "sha256": "ef6365d14aa65e4a65e977b40173d9f9218ae1ab9b25bff2b382938838277fbd"
+    },
+    {
+      "path": "relay/examples/directory.json",
+      "sha256": "9a36aeed289ada2d5e95ef6d1eecb3cf6cf8d9bec2f4c17e98cb3beed1fd769f"
+    },
+    {
+      "path": "relay/examples/installation-update-acme.json",
+      "sha256": "a90464511aaa97268440c67fb7649fe55045fa4e2e986f763c2c4c4bdd0881be"
+    },
+    {
+      "path": "relay/examples/installation-update-own-domain.json",
+      "sha256": "aff79a5ac5fe749908a2ca072e5bdcb35d7d52b59fcedb34a812ac19cf892ba4"
+    },
+    {
+      "path": "relay/examples/installation-update-unpair.json",
+      "sha256": "6b0699e53c369f469c1586585199becc2c4f78698350c66f64a0bc25e57a7599"
+    },
+    {
+      "path": "relay/examples/installation.json",
+      "sha256": "b2ddf9bcf19229aca7d83f0f0cd9094069c5d321830bb3e973b03fa5a4460ecf"
+    },
+    {
+      "path": "relay/examples/key-change-header.json",
+      "sha256": "001156c92f4570733681bdaefdd92b77bb9f47a9dc6bcadc1724247963af0de7"
+    },
+    {
+      "path": "relay/examples/key-change-request.json",
+      "sha256": "5c4569407c12e89df59440fa437003b21ce2a719ee5a0a604bbb10602c498a46"
+    },
+    {
+      "path": "relay/examples/key-change.json",
+      "sha256": "963dfebe1c3a721aa22d3d7b9cfd75d2046b70128ff1164eb6e78b19debeaf7b"
+    },
+    {
+      "path": "relay/examples/metadata.json",
+      "sha256": "ab80b647e600de18e85094ead49bc286f2ba97943893315997fefbd77d06c729"
+    },
+    {
+      "path": "relay/examples/pair-request.json",
+      "sha256": "d1deba1e55c413b8651a1c2936ea9290aaad9424a141281d5ebfef7d396e2a54"
+    },
+    {
+      "path": "relay/examples/pair-response.json",
+      "sha256": "b0efa300389808ae51281c6b93be8d470c58d364cbb81b7ac630a9dcf62935f8"
+    },
+    {
+      "path": "relay/examples/problem.json",
+      "sha256": "3992175605f75c51e44602806d2226d3d50268d703a52604dbe78a8c782ebcd6"
+    },
+    {
+      "path": "relay/examples/protected-header-kid.json",
+      "sha256": "e1438503f992878a26949396689304bcd544f4c2bfe884a4a4a5cb18e8c7b49d"
+    },
+    {
+      "path": "relay/examples/protected-header-pair.json",
+      "sha256": "188cca46ec5f30ce751152dd8eef70857f03cf8cf6812ca473efc4ed3b08d303"
+    },
+    {
+      "path": "relay/schema/enrollment-v0.schema.json",
+      "sha256": "43ecb4fd2e6dac879024994691021534effba2838cff0c67bb65de81d2ca6f91"
+    },
+    {
+      "path": "relay/schema/metadata-v0.schema.json",
+      "sha256": "3702b4d7f96a660761a40e613b2245781913caa0d9b87e5524c30abba48d4081"
+    }
+  ]
+}

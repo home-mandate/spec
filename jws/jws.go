@@ -4,8 +4,9 @@
 // an audit log (SPEC-v0 section 9.5) and signed mandates (section 7). It implements the
 // small part of JSON Web Signature (RFC 7515) the specification uses: the compact
 // serialization, also with detached payload, with the algorithms EdDSA (Ed25519,
-// RFC 8037) and ES256, and public keys as a JWK Set (RFC 7517). It uses only the
-// standard library.
+// RFC 8037) and ES256, and public keys as a JWK Set (RFC 7517). It also signs and checks
+// the requests of the Relay Specification (RELAY-v0 sections 5.1 and 5.5), whose header
+// names the key by URL or carries it. It uses only the standard library.
 package jws
 
 import (
@@ -108,17 +109,9 @@ func sign(payload []byte, kid string, signer any) (head, sig string, err error) 
 	if !kidPattern.MatchString(kid) {
 		return "", "", fmt.Errorf("%w: key ID %q", ErrKey, kid)
 	}
-	alg := ""
-	switch key := signer.(type) {
-	case ed25519.PrivateKey:
-		alg = AlgEdDSA
-	case *ecdsa.PrivateKey:
-		if key.Curve != elliptic.P256() {
-			return "", "", fmt.Errorf("%w: curve %s", ErrKey, key.Curve.Params().Name)
-		}
-		alg = AlgES256
-	default:
-		return "", "", fmt.Errorf("%w: %T", ErrKey, signer)
+	alg, _, err := signerAlg(signer)
+	if err != nil {
+		return "", "", err
 	}
 	encoded, err := json.Marshal(protectedHeader{Alg: alg, Kid: kid})
 	if err != nil {
@@ -368,7 +361,7 @@ func publicKey(k jwk) (crypto.PublicKey, error) {
 		point := append(append([]byte{4}, x...), y...)
 		return ecdsa.ParseUncompressedPublicKey(elliptic.P256(), point)
 	}
-	return nil, fmt.Errorf("key type %q with curve %q", k.Kty, k.Crv)
+	return nil, fmt.Errorf("key type %s with curve %s", quote(k.Kty), quote(k.Crv))
 }
 
 // smallOrderEd25519 holds the encodings of the points of small order (SPEC-v0 section 7.1):
@@ -419,26 +412,34 @@ func canonicalEd25519(encoded []byte) bool {
 func MarshalJWKS(keys Keys) ([]byte, error) {
 	set := jwks{Keys: []jwk{}}
 	for kid, key := range keys {
-		switch k := key.(type) {
-		case ed25519.PublicKey:
-			if !usableEd25519(k) {
-				return nil, fmt.Errorf("%w: key %q", ErrKey, kid)
-			}
-			set.Keys = append(set.Keys, jwk{Kty: "OKP", Crv: "Ed25519", Kid: kid, X: b64.EncodeToString(k)})
-		case *ecdsa.PublicKey:
-			if k == nil {
-				return nil, fmt.Errorf("%w: key %q", ErrKey, kid)
-			}
-			point, err := k.Bytes()
-			if err != nil || len(point) != 1+2*p256Bytes {
-				return nil, fmt.Errorf("%w: key %q", ErrKey, kid)
-			}
-			set.Keys = append(set.Keys, jwk{Kty: "EC", Crv: "P-256", Kid: kid,
-				X: b64.EncodeToString(point[1 : 1+p256Bytes]), Y: b64.EncodeToString(point[1+p256Bytes:])})
-		default:
-			return nil, fmt.Errorf("%w: key %q: %T", ErrKey, kid, key)
+		k, err := publicJWK(kid, key)
+		if err != nil {
+			return nil, err
 		}
+		set.Keys = append(set.Keys, k)
 	}
 	slices.SortFunc(set.Keys, func(a, b jwk) int { return strings.Compare(a.Kid, b.Kid) })
 	return json.MarshalIndent(set, "", "  ")
+}
+
+// publicJWK returns a usable public key as a JWK.
+func publicJWK(kid string, key crypto.PublicKey) (jwk, error) {
+	switch k := key.(type) {
+	case ed25519.PublicKey:
+		if !usableEd25519(k) {
+			return jwk{}, fmt.Errorf("%w: key %q", ErrKey, kid)
+		}
+		return jwk{Kty: "OKP", Crv: "Ed25519", Kid: kid, X: b64.EncodeToString(k)}, nil
+	case *ecdsa.PublicKey:
+		if k == nil {
+			return jwk{}, fmt.Errorf("%w: key %q", ErrKey, kid)
+		}
+		point, err := k.Bytes()
+		if err != nil || len(point) != 1+2*p256Bytes {
+			return jwk{}, fmt.Errorf("%w: key %q", ErrKey, kid)
+		}
+		return jwk{Kty: "EC", Crv: "P-256", Kid: kid,
+			X: b64.EncodeToString(point[1 : 1+p256Bytes]), Y: b64.EncodeToString(point[1+p256Bytes:])}, nil
+	}
+	return jwk{}, fmt.Errorf("%w: key %q: %T", ErrKey, kid, key)
 }

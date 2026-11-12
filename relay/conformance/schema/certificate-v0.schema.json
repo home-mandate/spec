@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-mandate.org/relay-conformance/v0/certificate.schema.json",
+  "title": "Tunnel certificate cases of the Relay Specification v0 (RELAY-v0 section 5.4)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "cases"
+  ],
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "chain",
+          "not_after",
+          "tunnel_key",
+          "trust_domain",
+          "home_id",
+          "requested_at",
+          "received_at",
+          "earlier_not_before",
+          "expected",
+          "why"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "chain": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "description": "The issued certificate first, in DER, base64url without padding."
+          },
+          "not_after": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
+          "tunnel_key": {
+            "type": "object",
+            "required": [
+              "kty",
+              "crv",
+              "x"
+            ],
+            "description": "A public JWK of a test key, without kid."
+          },
+          "trust_domain": {
+            "type": "string"
+          },
+          "home_id": {
+            "type": "string",
+            "pattern": "^[a-z2-7]{26}$"
+          },
+          "requested_at": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
+          "received_at": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
+          "earlier_not_before": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected": {
+            "enum": [
+              "valid",
+              "invalid"
+            ]
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

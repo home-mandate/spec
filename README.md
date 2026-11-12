@@ -20,6 +20,23 @@ product that implements the specification is Home-Mandate for Home Assistant.
 | `RELAY-v0.md` | Relay Specification (draft, not part of `v0.1.0`): how gateways are reached through relays of any operator – operator metadata, pairing and issuance, names and certificates | CC BY 4.0 |
 | `relay/` | Schemas, examples and tests of the Relay Specification (draft, not part of `v0.1.0`) | Apache 2.0 |
 | `relay/cas.md` | Informative list of certificate authorities that log every certificate and enforce RFC 8657 | CC BY 4.0 |
+| `relay/conformance/jws-v0.json` | Requests of the Relay Specification (the JWS of RELAY-v0 sections 5.1 and 5.5) with the expected result: valid, malformed or bad-signature | Apache 2.0 |
+| `relay/conformance/metadata-v0.json` | Operator metadata (RELAY-v0 section 3) that a gateway accepts or rejects | Apache 2.0 |
+| `relay/conformance/csr-v0.json` | Certificate signing requests for tunnel certificates (RELAY-v0 section 5.4) that an operator accepts or refuses with `bad-csr` | Apache 2.0 |
+| `relay/conformance/certificate-v0.json` | Issued tunnel certificates (RELAY-v0 section 5.4), valid or invalid | Apache 2.0 |
+| `relay/conformance/frames-v0.json` | Frames of a control connection of the tunnel (RELAY-v0 sections 4.3, 4.4, 4.7), valid or an error | Apache 2.0 |
+| `relay/conformance/binding-v0.json` | First bytes of a data connection (RELAY-v0 section 4.5): bound or closed, and the tokens consumed | Apache 2.0 |
+| `relay/conformance/tls-v0.json` | TLS probes of tunnel connections (RELAY-v0 sections 4.1, 4.2) that the relay accepts or refuses | Apache 2.0 |
+| `relay/conformance/pairing-v0.json` | Pairing strings and whether a gateway accepts them (RELAY-v0 section 5.2) | Apache 2.0 |
+| `relay/conformance/pins-v0.json` | New pins announced to a gateway: stored or ignored (RELAY-v0 sections 4.7, 6.8) | Apache 2.0 |
+| `relay/conformance/proxy-v0.json` | PROXY headers as a gateway reads them (RELAY-v0 section 4.6) | Apache 2.0 |
+| `relay/conformance/destination-v0.json` | Addresses a gateway may connect to (RELAY-v0 section 3) | Apache 2.0 |
+| `relay/conformance/caa-v0.json` | Comparison of CAA records in the gateway's monitoring (RELAY-v0 sections 6.3, 6.7) | Apache 2.0 |
+| `relay/conformance/protection-level-v0.json` | Determining the protection level of an own-domain name (RELAY-v0 section 6.5) | Apache 2.0 |
+| `relay/conformance/ct-v0.json` | Certificates in Certificate Transparency logs and the alarms of a gateway (RELAY-v0 section 6.7) | Apache 2.0 |
+| `relay/conformance/keys/` | Test keys of the relay cases; the private parts are public | Apache 2.0 |
+| `relay/conformance/schema/` | JSON Schemas of the relay conformance files | Apache 2.0 |
+| `relay/conformance/manifest.json` | All machine-readable files of the Relay Specification with SHA-256 and number of cases; `make manifest` rewrites it | Apache 2.0 |
 | `vocabulary/v0.json` | Vocabulary: categories, actions, critical actions (normative) | Apache 2.0 |
 | `schema/vocabulary-v0.schema.json` | JSON Schema of a vocabulary file, also for extensions | Apache 2.0 |
 | `profiles/` | Informative mappings of platforms (Home Assistant, Matter) to the vocabulary | Apache 2.0 |
@@ -46,7 +63,7 @@ product that implements the specification is Home-Mandate for Home Assistant.
 | `ratelimit/` | Reference for the rate limit bound of SPEC-v0 section 11.2 | Apache 2.0 |
 | `jcs/` | JSON Canonicalization Scheme (RFC 8785) for the digests of mandates and audit entries | Apache 2.0 |
 | `schema/*.go`, `spec.go` | Go packages that embed the schemas (`schema`) and the schemas, examples and conformance cases (root package), respectively | Apache 2.0 |
-| `tools/vectors/` | Helper for maintaining the conformance files: manifest, mandate digests, chaining audit entries | Apache 2.0 |
+| `tools/vectors/` | Helper for maintaining the conformance files: manifests, mandate digests, chaining audit entries, relay request, CSR and certificate cases | Apache 2.0 |
 | `Makefile` | Checks: `make check` (vet, staticcheck, coverage ≥ 95 %, govulncheck), `make fuzz`, `make mutation` (≥ 90 %) | Apache 2.0 |
 | `cmd/mandate-conformance/` | Test tool: plays the conformance cases against any implementation, over standard input and output or over HTTP (SPEC-v0 section 10) | Apache 2.0 |
 | `cmd/mandate-harness/` | The reference code behind the process binding of the test interface; example for implementers | Apache 2.0 |

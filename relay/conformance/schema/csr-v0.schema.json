@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-mandate.org/relay-conformance/v0/csr.schema.json",
+  "title": "Certificate signing request cases of the Relay Specification v0 (RELAY-v0 section 5.4)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "cases"
+  ],
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "csr",
+          "installation_key",
+          "earlier_keys",
+          "expected",
+          "why"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "csr": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "minLength": 64,
+            "maxLength": 16384,
+            "description": "As in the payload of a certificate request."
+          },
+          "installation_key": {
+            "type": "object",
+            "required": [
+              "kty",
+              "crv",
+              "x"
+            ],
+            "description": "A public JWK of a test key, without kid."
+          },
+          "earlier_keys": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "kty",
+                "crv",
+                "x"
+              ],
+              "description": "A public JWK of a test key, without kid."
+            },
+            "description": "Keys of the tunnel certificates issued to the installation before."
+          },
+          "expected": {
+            "enum": [
+              "accepted",
+              "bad-csr"
+            ]
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
