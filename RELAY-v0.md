@@ -46,7 +46,7 @@ The specification builds on existing standards:
 The TLS connection of an agent ends in the gateway, with a key that never leaves the home.
 The relay sees the server name, the agent's address, the time and the number of bytes, not
 the content. OAuth, the evaluation of mandates and approvals take place in the home
-(SPEC-v0).
+(SPEC-v0; Section 11.7 there states what holds for every way in from outside).
 
 The remaining risk is the operator's control over the DNS of the public name: whoever
 controls it can obtain a second certificate for the name and open the TLS connection at the
@@ -957,13 +957,17 @@ household allows; it can only stop being the way in.
 
 ## 6. Names and certificates
 
+Some rules for gateways sit outside this section: pages under a public name in Section 7.1, and the
+backoff after a CA's limits in Section 7.8.
+
 ### 6.1 Public names
 
 Every installation has its **standard name** `<home ID>.<name_domain>` (Section 5.2). It MAY
 also have one **own-domain name**: a name in a DNS zone of the household, registered as in
 Section 6.4. The household chooses, when it sets up remote access, which of the two names agents
-use; that name is the gateway's OAuth issuer. Changing it gives a new issuer, and agents must be
-connected again. The gateway keeps its standard name in either case.
+use; that name is the host of the gateway's public origin and therefore its OAuth issuer (SPEC-v0
+Section 11.7 items 1 and 2). Changing it gives a new issuer, and agents must be connected again.
+The gateway keeps its standard name in either case.
 
 Both names reach the gateway through the same relay: agents connect to port 443 of the relay,
 which passes the connection to the installation whose name is in the TLS server name indication
@@ -1155,23 +1159,15 @@ CAs that meet both conditions according to public sources.
 ### 6.7 Certificate Transparency monitoring
 
 A gateway MUST monitor Certificate Transparency for each of its public names, at both protection
-levels, at least once an hour, through any service or log it chooses. A certificate counts for a
-public name if one of its names matches it, including a wildcard that covers it (such as
-`*.<name_domain>`); a search by the exact name alone does not meet this rule. The gateway recognises the
-certificates it obtained itself, and their precertificates, by the public key of its current server
-key, and by the public key of an earlier server key only if the certificate was logged before that
-key was replaced, going by the timestamp of its log entry; if the certificate is in several logs, its first entry counts, and a certificate logged at the moment the key was replaced is not recognised.
-Names are compared without regard to case, and a wildcard covers exactly one label, the leftmost: `*.<name_domain>` covers `<id>.<name_domain>` and neither `<name_domain>` nor a name below `<id>.<name_domain>`. A certificate was valid at any time since the pairing if its validity period, bounds included, overlaps the time from the pairing to the check. A certificate whose `notAfter` is not before the time of the check raises an alarm, also when its `notBefore` lies after that time; the alarm then says that it is not valid yet.
-Every certificate for a public name that the gateway did not obtain itself and that was valid at any
-time since the pairing, or is not valid yet, raises an alarm to its local administrator
-with the issuer, the names and the validity of that certificate; one that has expired (its `notAfter` is before the time of the check) is reported
-as a past exposure. The administrator MAY acknowledge a certificate
-(for example the household's own wildcard certificate for its zone), which ends the alarm for that
-certificate only. A certificate is identified by the SHA-256 digest of the DER of its TBSCertificate with the poison and the SCT list removed, so that a precertificate and its certificate are one; the acknowledgement names this digest and nothing else (not a name, an issuer, a serial number or a key), and it also ends the alarm for the precertificate. The gateway tells its administrator that monitoring is not possible when, for 24 hours, no query
-of Certificate Transparency has succeeded, or no query of the CAA records below, or no read of its
-installation; each of these counts on its own.
+levels, as SPEC-v0 Section 11.7 item 7 requires for the host of a public origin: from the pairing
+on, which is the beginning of monitoring there, with the public key of its server certificate as
+the key agents are shown, and with the alarm, the acknowledgement and the sources of that item.
+The cases are in `conformance/ct-v0.json` of the Home-Mandate Specification. The gateway also tells
+its administrator that monitoring is not possible when, for 24 hours, no query of the CAA records
+below has succeeded, or no read of its installation; each of these counts on its own, as does the
+monitoring of Certificate Transparency itself.
 
-With the same frequency, the gateway queries, through the resolvers of Section 6.5, the CAA
+At least once an hour, the gateway queries, through the resolvers of Section 6.5, the CAA
 records of its standard name and of the apex of the name domain that this name is in, and raises an alarm when the set
 of `issue` and `issuewild` properties of either differs from what Section 6.3 prescribes:
 
@@ -1261,10 +1257,9 @@ An operator SHOULD have its name domain entered on the Public Suffix List once i
 conditions of that list. The list takes no entries whose only purpose is to get around the limits
 of a CA, and it usually declines small projects; an operator that does not qualify still conforms.
 
-Because a gateway cannot rely on such an entry, on pages under a public name it MUST set cookies
-only with the prefix `__Host-`, MUST ignore cookies without it, and MUST protect requests from a browser that
-change anything with a check of `Origin` or a token and not with `SameSite` alone, whether or not the name
-domain is on the list.
+Because a gateway cannot rely on such an entry, it follows SPEC-v0 Section 11.7 item 5 on pages
+under a public name (`__Host-` cookies only, and changes protected by a check of `Origin` or a token,
+not by `SameSite` alone), whether or not the name domain is on the list.
 
 The operator SHOULD sign the name domain with DNSSEC, and SHOULD publish both IPv4 and IPv6
 addresses in `relay_addresses`, because agents and their networks may support only one of them.
@@ -1462,7 +1457,6 @@ the cases offline: they MUST NOT be used with a live operator.
 | `destination-v0.json` | the address a gateway is about to connect to, and whether it connects (Section 3) |
 | `caa-v0.json` | the answers of resolvers for the CAA records of a standard name or the apex, and whether the gateway counts a difference (Sections 6.3, 6.7) |
 | `protection-level-v0.json` | the answers for the CAA records of an own-domain name, and the protection level the gateway determines (Section 6.5) |
-| `ct-v0.json` | certificates found in Certificate Transparency logs, and whether the gateway raises an alarm (Section 6.7) |
 
 The collection grows with every version; every defect found in an operator or in this text is
 first added as a case.
@@ -1516,7 +1510,8 @@ a run passes.
 
 ### 8.5 Cases for gateways
 
-The files `pairing-v0.json`, `pins-v0.json`, `proxy-v0.json`, `destination-v0.json`, `caa-v0.json`, `protection-level-v0.json` and `ct-v0.json`, together with `metadata-v0.json`, the checks of `certificate-v0.json` that Section 5.4 lists for the gateway, and the frames of `frames-v0.json` whose receiver is the gateway, state the decisions a gateway makes. This version defines neither classes of gateways nor a test tool for them, and no gateway can claim conformance by these cases yet. The cases show decisions, not that an implementation is general. Using them presupposes that the gateway offers these decisions as functions.
+The files `pairing-v0.json`, `pins-v0.json`, `proxy-v0.json`, `destination-v0.json`, `caa-v0.json` and `protection-level-v0.json`, together with `metadata-v0.json`, the checks of `certificate-v0.json` that Section 5.4 lists for the gateway, and the frames of `frames-v0.json` whose receiver is the gateway, state the decisions a gateway makes; the cases for Certificate Transparency monitoring are in
+`conformance/ct-v0.json` of the Home-Mandate Specification (SPEC-v0 Section 11.7 item 7). This version defines neither classes of gateways nor a test tool for them, and no gateway can claim conformance by these cases yet. The cases show decisions, not that an implementation is general. Using them presupposes that the gateway offers these decisions as functions.
 
 ## 9. Security considerations
 
@@ -1603,6 +1598,12 @@ A household that wants less of this runs its gateway without a relay.
 
 ### Unreleased
 
+- Sections 1.1, 6, 6.1, 6.7, 7.1 and 8.5: the rules that hold for every gateway reached from
+  outside, whichever way, are now in SPEC-v0 Section 11.7: the public origin as OAuth issuer,
+  Certificate Transparency monitoring (now from at least two independent sources) and pages under
+  a public name. This document refers to them. `ct-v0.json` and its schema moved to
+  `conformance/` of the Home-Mandate Specification, with `since` in place of `pairing`.
+  Section 6 points to the gateway rules of Sections 7.1 and 7.8.
 - Normative change, Sections 3 and 5: the gateway fetches the metadata and talks to the enrollment
   endpoint with TLS 1.3 or later; TLS 1.2 is no longer enough.
 - Section 8.3: a run in which `acme_cas` lists no CA of `relay/cas.md`, or in which a check is

@@ -59,16 +59,16 @@ func TestOddInputs(t *testing.T) {
 	if _, err := refgateway.RunPins(refgateway.PinsInput{ConnectionPin: "x"}, 0); err == nil {
 		t.Error("a pin of the connection that is not stored")
 	}
-	in := refgateway.CTInput{Pairing: "x"}
+	in := refgateway.CTInput{Since: "x"}
 	if _, err := refgateway.CTAlarms(in, 0); err != nil {
 		t.Errorf("no certificates need no times: %v", err)
 	}
 	cert := refgateway.Certificate{ID: "a", NotBefore: "2026-01-01T00:00:00Z", NotAfter: "2026-01-01T00:00:00Z", Logged: "2026-01-01T00:00:00Z"}
 	for _, bad := range []refgateway.CTInput{
-		{Pairing: "x", Now: "2026-01-01T00:00:00Z", Certificates: []refgateway.Certificate{cert}},
-		{Pairing: "2026-01-01T00:00:00Z", Now: "x", Certificates: []refgateway.Certificate{cert}},
-		{Pairing: "2026-01-01T00:00:00Z", Now: "2026-01-01T00:00:00Z", Certificates: []refgateway.Certificate{{ID: "a"}}},
-		{Pairing: "2026-01-01T00:00:00Z", Now: "2026-01-01T00:00:00Z", Certificates: []refgateway.Certificate{cert},
+		{Since: "x", Now: "2026-01-01T00:00:00Z", Certificates: []refgateway.Certificate{cert}},
+		{Since: "2026-01-01T00:00:00Z", Now: "x", Certificates: []refgateway.Certificate{cert}},
+		{Since: "2026-01-01T00:00:00Z", Now: "2026-01-01T00:00:00Z", Certificates: []refgateway.Certificate{{ID: "a"}}},
+		{Since: "2026-01-01T00:00:00Z", Now: "2026-01-01T00:00:00Z", Certificates: []refgateway.Certificate{cert},
 			ServerKeys: refgateway.ServerKeys{Earlier: []refgateway.EarlierKey{{PublicKey: "k", Replaced: "x"}}}},
 	} {
 		if _, err := refgateway.CTAlarms(bad, 0); err == nil {

@@ -100,6 +100,8 @@ func TestConformanceFilesMatchTheirSchemas(t *testing.T) {
 		spec.SelectionCasesPath:  "conformance/schema/selection-v0.schema.json",
 		spec.SignedCasesPath:     "conformance/schema/signed-v0.schema.json",
 		spec.SuccessionCasesPath: "conformance/schema/succession-v0.schema.json",
+		spec.OriginCasesPath:     "conformance/schema/origin-v0.schema.json",
+		spec.CTCasesPath:         "conformance/schema/ct-v0.schema.json",
 		spec.ManifestPath:        "conformance/schema/manifest.schema.json",
 	} {
 		t.Run(file, func(t *testing.T) {

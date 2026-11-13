@@ -12,7 +12,7 @@ EFFICACY_MIN   := 90
 FUZZTIME       ?= 10m
 # package:target; the long fuzzing of scheduled.yml builds its matrix from this list (make fuzz-targets)
 FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate evaluator:FuzzValue audit:FuzzVerify jws:FuzzVerify jws:FuzzVerifyRequest internal/harness:FuzzServe \
-	relay/internal/dnsq:FuzzCAA relay/internal/tunnelclient:FuzzPROXY relay/internal/frames:FuzzReadFrame
+	internal/origin:FuzzValid internal/origin:FuzzHTUMatches relay/internal/dnsq:FuzzCAA relay/internal/tunnelclient:FuzzPROXY relay/internal/frames:FuzzReadFrame
 MUTATION_PKGS  := ./evaluator ./audit ./jcs ./jws ./displaytext ./ratelimit
 
 .PHONY: check test cover vet staticcheck vulncheck fuzz fuzz-one fuzz-targets mutation manifest

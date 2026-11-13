@@ -22,11 +22,6 @@
       "cases": 19
     },
     {
-      "path": "relay/conformance/ct-v0.json",
-      "sha256": "6a04817af86ad4fb3f10a5c22aa8c2951844447c7c0a732bb528f268842c0870",
-      "cases": 43
-    },
-    {
       "path": "relay/conformance/destination-v0.json",
       "sha256": "0f61db25e06e6961eb4cc15b98ae2686e3fda4c11752363d58ebf747e338fa91",
       "cases": 103
@@ -94,10 +89,6 @@
     {
       "path": "relay/conformance/schema/csr-v0.schema.json",
       "sha256": "1efa506ce595b583c4505437c155ea40fff22e5254a8f6764b90ce75f396434f"
-    },
-    {
-      "path": "relay/conformance/schema/ct-v0.schema.json",
-      "sha256": "d4e4cfb00b462b227f1be79097da040a6b03cf3db0e0cdec43aca5f926767f29"
     },
     {
       "path": "relay/conformance/schema/destination-v0.schema.json",

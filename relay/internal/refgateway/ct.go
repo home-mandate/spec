@@ -25,12 +25,12 @@ const (
 	CTOldKeyInclusive                       // logged at the moment of the replacement still counts as before
 	CTAckAll                                // an acknowledgement ends the alarms for all certificates
 	CTNotYetIgnored                         // a certificate that is not valid yet raises no alarm
-	CTLookbackExclusive                     // a certificate that expired at the pairing is not valid since it
+	CTLookbackExclusive                     // a certificate that expired at the beginning of monitoring is not valid since it
 	CTNowExclusive                          // a certificate that expires at the check is not valid any more
 	CTSubdomain                             // names below a public name count
 	CTSuffix                                // names that merely end in a public name count
 	CTOnlyStandard                          // only the first public name is watched
-	CTStartExclusive                        // a certificate that is valid from the check on is not valid since the pairing
+	CTStartExclusive                        // a certificate that is valid from the check on is not valid since the beginning of monitoring
 	CTAlarmAlways                           // every certificate raises an alarm
 	CTNeverAlarm                            // no certificate raises an alarm
 	CTAckByName                             // an acknowledgement also ends the alarm for certificates with the same names
@@ -62,10 +62,10 @@ type Certificate struct {
 	Logged    string   `json:"logged"`
 }
 
-// CTInput is the input of a case of ct-v0.json.
+// CTInput is the input of a case of conformance/ct-v0.json in the root of the repository.
 type CTInput struct {
 	PublicNames  []string      `json:"public_names"`
-	Pairing      string        `json:"pairing"`
+	Since        string        `json:"since"`
 	Now          string        `json:"now"`
 	ServerKeys   ServerKeys    `json:"server_keys"`
 	Acknowledged []string      `json:"acknowledged"`
@@ -79,10 +79,10 @@ type CTResult struct {
 }
 
 // times are the parsed times of a certificate and of the check.
-type times struct{ pairing, now, notBefore, notAfter, logged time.Time }
+type times struct{ since, now, notBefore, notAfter, logged time.Time }
 
-// CTAlarms decides for each certificate whether the gateway raises an alarm (RELAY-v0 section
-// 6.7): "alarm", "past-exposure" or "none". A time that does not parse is a defect of the case.
+// CTAlarms decides for each certificate whether the gateway raises an alarm (SPEC-v0 section
+// 11.7 item 7, RELAY-v0 section 6.7): "alarm", "past-exposure" or "none". A time that does not parse is a defect of the case.
 func CTAlarms(in CTInput, f CTFault) ([]CTResult, error) {
 	out := make([]CTResult, 0, len(in.Certificates))
 	for i, c := range in.Certificates {
@@ -105,7 +105,7 @@ func parseTimes(in CTInput, c Certificate) (times, error) {
 	for _, x := range []struct {
 		to   *time.Time
 		text string
-	}{{&t.pairing, in.Pairing}, {&t.now, in.Now}, {&t.notBefore, c.NotBefore}, {&t.notAfter, c.NotAfter}, {&t.logged, c.Logged}} {
+	}{{&t.since, in.Since}, {&t.now, in.Now}, {&t.notBefore, c.NotBefore}, {&t.notAfter, c.NotAfter}, {&t.logged, c.Logged}} {
 		if *x.to, err = time.Parse(time.RFC3339, x.text); err != nil {
 			return t, err
 		}
@@ -143,7 +143,7 @@ func decide(in CTInput, index int, t times, earlier map[string]time.Time, f CTFa
 	if t.notBefore.After(t.now) && f.Has(CTNotYetIgnored) || f.Has(CTStartExclusive) && t.notBefore.Equal(t.now) {
 		return "none"
 	}
-	if t.notAfter.Before(t.pairing) || f.Has(CTLookbackExclusive) && t.notAfter.Equal(t.pairing) {
+	if t.notAfter.Before(t.since) || f.Has(CTLookbackExclusive) && t.notAfter.Equal(t.since) {
 		return "none"
 	}
 	return classify(t, f)

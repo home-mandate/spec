@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-mandate.org/conformance/v0/origin.schema.json",
+  "title": "Public origin and htu cases of the Home-Mandate Specification v0 (SPEC-v0 section 11.7 items 1 and 6)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "cases"
+  ],
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "section",
+              "value",
+              "expected",
+              "why"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "section": {
+                "const": "11.7"
+              },
+              "value": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "expected": {
+                "enum": [
+                  "valid",
+                  "invalid"
+                ]
+              },
+              "why": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "section",
+              "htu",
+              "url",
+              "expected",
+              "why"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "section": {
+                "const": "11.7"
+              },
+              "htu": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "expected": {
+                "enum": [
+                  "match",
+                  "mismatch"
+                ]
+              },
+              "why": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$"
+    }
+  }
+}
