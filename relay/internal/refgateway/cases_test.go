@@ -29,7 +29,12 @@ type caseFamily struct {
 
 func loadFile[T any](t *testing.T, name string) []T {
 	t.Helper()
-	data, err := os.ReadFile("../../conformance/" + name + "-v0.json")
+	dir := "../../conformance/"
+	if name == "ct" {
+		// The cases of Certificate Transparency monitoring belong to SPEC-v0 section 11.7.
+		dir = "../../../conformance/"
+	}
+	data, err := os.ReadFile(dir + name + "-v0.json")
 	if err != nil {
 		t.Fatal(err)
 	}

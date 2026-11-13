@@ -12,6 +12,11 @@
       "cases": 251
     },
     {
+      "path": "conformance/ct-v0.json",
+      "sha256": "17e5c728c35cf4d79f1bba297c0133b12bf57e14cb24694cee8507b58e30b4c6",
+      "cases": 43
+    },
+    {
       "path": "conformance/digest-v0.json",
       "sha256": "4c8e2acb023f8e9a6edf778f716f017a380ef69f56468c2be9f02eb606e507db",
       "cases": 52
@@ -122,12 +127,21 @@
       "sha256": "98ff3888bdbaeeb9748cc1182d06487fac5ef868a70d3b59f20b52ebc5438167"
     },
     {
+      "path": "conformance/origin-v0.json",
+      "sha256": "2a4bdbfc1be0e20a0a8cd14a1b619362f68246801cb801a0b9cf3d1590e628bd",
+      "cases": 59
+    },
+    {
       "path": "conformance/schema/audit-v0.schema.json",
       "sha256": "73e27904577e9e0b718df624ec6554ef68c606058f7fcd95f621e4633c7f969b"
     },
     {
       "path": "conformance/schema/cases-v0.schema.json",
       "sha256": "b882beee2bc32fbc54e04323f9ed6a4325e5d7d09c76543a36d72c30d8fb1557"
+    },
+    {
+      "path": "conformance/schema/ct-v0.schema.json",
+      "sha256": "48586e48b06a84734bfa1473bff361fc417022e955a5eab0c7126ab30003880f"
     },
     {
       "path": "conformance/schema/digest-v0.schema.json",
@@ -140,6 +154,10 @@
     {
       "path": "conformance/schema/manifest.schema.json",
       "sha256": "3f71beb96f9491b6e624ce01a2388c0e9f8cbfdb2cd11b5d9e81032da1f707f5"
+    },
+    {
+      "path": "conformance/schema/origin-v0.schema.json",
+      "sha256": "05f3db15c4e9d28f45b77cd61403bed3f77e7da491d4cd115012616333a8c3fd"
     },
     {
       "path": "conformance/schema/selection-v0.schema.json",

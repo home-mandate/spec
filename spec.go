@@ -25,6 +25,8 @@ const (
 	SelectionCasesPath  = "conformance/selection-v0.json"
 	SignedCasesPath     = "conformance/signed-v0.json"
 	SuccessionCasesPath = "conformance/succession-v0.json"
+	OriginCasesPath     = "conformance/origin-v0.json"
+	CTCasesPath         = "conformance/ct-v0.json"
 	ManifestPath        = "conformance/manifest.json"
 )
 

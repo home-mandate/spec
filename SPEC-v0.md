@@ -102,6 +102,11 @@ PDP, travels signed (Section 7).
   evaluated and recorded, but a denial by the rules of an action that is not critical does
   not stop the agent; where a rule asks for a confirmation, a human still confirms
   (Section 4.6).
+- **Reachable from outside:** an implementation that accepts connections of agents under a
+  name that can be reached from the internet, through a proxy, a relay or a forwarded port
+  (Section 11.7).
+- **Public origin:** the origin under which agents reach such an implementation; where agents
+  sign in with OAuth, it is the issuer (Section 11.7).
 - **Template:** a mandate draft that an implementation stores and from which it creates
   mandates. This version defines no format for templates; the audit log records changes to
   them (Section 9.2).
@@ -1136,6 +1141,20 @@ Set) the signatures of checkpoints are verified (Section 9.5), optionally agains
 expected `log_id`; `anchored` is then the expected `seq` up to which a verified checkpoint
 covers the log.
 
+`conformance/origin-v0.json` contains cases for Section 11.7 items 1 and 6. A case has either a
+configured `value` and whether it is a public origin (`expected`: `valid` or `invalid`), or the
+`htu` of a DPoP proof and the `url` the implementation built from its public origin, and whether
+they match (`expected`: `match` or `mismatch`).
+
+`conformance/ct-v0.json` contains cases for Section 11.7 item 7: the names monitored
+(`public_names`: the host of the public origin; a gateway paired with a relay monitors each of its
+public names, RELAY-v0 Section 6.7), the beginning of monitoring (`since`) and the time of the
+check (`now`), the keys agents are shown (`server_keys`: the current one, and earlier ones with
+the time each was replaced), the certificates acknowledged (by digest only) and the certificates
+found, each with its digest, its names, its validity, the SHA-256 digest of its public key and the
+time of its first log entry; and, for each certificate in the order given, the expected result:
+`alarm` (also for one that is not valid yet), `past-exposure` or `none`.
+
 In addition to `cases` or `logs` respectively, every file has a `description`; every case has a
 unique `id` and optionally `why`.
 
@@ -1165,7 +1184,10 @@ that class in that version.
 `evaluator` is the basis: an implementation that claims any conformance to the
 evaluation conforms to it. The obligations of the PEP (Section 11: approval, rate limit,
 revocation) cannot be tested from outside in this version; an implementation states for
-each item of Section 11 how it meets it.
+each item of Section 11 how it meets it, those of Section 11.7 included if it is reachable from
+outside. `origin-v0.json` and `ct-v0.json` state decisions of Section 11.7 for implementations
+that offer them as functions; they form no class, and no implementation can claim conformance
+by them in this version.
 
 A claim of conformance names the version (the tag of this repository), the classes and
 the manifest (`conformance/manifest.json`, by its SHA-256). The report of the test tool
@@ -1661,6 +1683,9 @@ before it executes the action. What follows holds for both.
    that the mandate in audit mode would deny the request, and by which rule: their answer
    then also says whether the household wants the `deny`. The agent is not told
    (Section 11.6 item 2).
+   What the human is shown is taken from what the PEP itself resolved and will execute
+   (Section 12.4, Parameters), never from what the agent or the way of the request supplied,
+   whichever way the human is reached (Section 11.7).
    Text supplied by the agent (a reason, for example) MUST be recognizable as such.
 3. **Once.** A confirmation permits exactly one execution. A second use, a replay or a
    forged confirmation MUST be rejected; implementations use a value that cannot be
@@ -1919,6 +1944,132 @@ An implementation is not required to offer audit mode. One that does not MUST re
 store a mandate with `enforce: false` instead of storing it and enforcing it, so that the
 household never believes a mandate is being tried while it enforces, or the reverse.
 
+### 11.7 Remote access
+
+Agents that run in the cloud reach an implementation from the internet: through a proxy the
+household runs, through a relay (`RELAY-v0.md`, a draft), or through a forwarded port. An
+implementation is **reachable from outside** when it accepts connections of agents under a name
+that can be reached from the internet. This section states what holds for such an implementation,
+whichever way it is reached. An implementation that only its own network can reach conforms
+without it. One that is reachable from outside MUST meet it, and an implementation that does not
+meet it MUST NOT offer, in its setup or its documentation, to be reached from outside.
+
+1. **Public origin.** The **public origin** is the origin (RFC 6454) under which agents reach the
+   implementation from outside. It is configured, by a human at the setup or by the way in (a relay
+   names it at pairing), and never derived from a request: not from `Host`, `Forwarded`,
+   `X-Forwarded-Host`, `X-Forwarded-Proto` or any other header. It is written in one form only:
+   `https://`, the host, and `:` and the port only if the port is not 443, in decimal without a
+   leading zero; no userinfo, path, query or fragment, not even a single `/`. The host is a DNS
+   name of at least two labels without a final dot; each label consists of lower-case letters,
+   digits and hyphens and neither begins nor ends with a hyphen, a label that is not ASCII is
+   written as its A-label, IDNA lookup (UTS 46, RFC 5891) maps the name to itself, and the last
+   label is not all digits. An IP address is not a public origin. An implementation has exactly
+   one public origin at a time.
+2. **Issuer.** Where agents sign in with OAuth, the issuer identifier of the authorization server
+   (RFC 8414) is the public origin, character for character. The authorization servers in the
+   protected resource metadata (RFC 9728), the `iss` of authorization responses (RFC 9207), every
+   endpoint the metadata name and the resource indicators (RFC 8707) are built from it. A new
+   public origin is a new issuer: the credentials (access and refresh tokens) that the
+   implementation issued under the previous one MUST lose their validity when the change takes
+   effect, also those that a client could still present without naming a resource. The agents stay
+   admitted, with their `agent.client_id`, their mandates and their history, and a human
+   reconnects each of them (Section 11.3). Because every agent has to be connected again, the
+   public origin belongs to the setup, and an implementation SHOULD tell a human so before they
+   change it.
+3. **End of TLS.** The TLS connection of an agent MUST end in the implementation or in a proxy
+   that the household runs, with a version not older than TLS 1.2 (RFC 5246); TLS 1.3 (RFC 8446)
+   SHOULD be offered. A relay or a tunnel before that point only passes the bytes on (RELAY-v0
+   Section 7.2 requires this of a relay): a service that ends the agent's TLS connection itself,
+   for example a tunnel or a content delivery network that presents its own certificate for the
+   public origin, is not a way in under this section. Whoever ends the TLS connection can read and
+   change everything that passes: credentials, sign-in, approval pages, requests and their
+   results. The private key of the server certificate of the public origin SHOULD NOT leave the
+   household.
+4. **Forwarded requests.** An implementation takes a forwarded address of the agent
+   (`Forwarded`, `X-Forwarded-For`, the PROXY protocol) only on connections from a proxy it was
+   configured to trust, and ignores it on every other connection. It uses such an address only
+   for limits and its logs, never to decide what a request may do. No part of a URL that the
+   implementation issues or checks (its metadata, a redirect, the `htu` of item 6) is taken from a
+   header of the request.
+5. **Pages under the public origin.** A browser loads the sign-in, consent and approval pages and
+   the user interface under the public origin, in the same site as every other host of its
+   registered domain, which may be a page that someone else controls (a home of the same relay,
+   for example). On pages under the public origin, an implementation MUST set cookies only with
+   the prefix `__Host-`, MUST ignore cookies without it, and MUST protect every request from a
+   browser that changes anything with a check of `Origin` against the public origin or with a
+   token bound to the session, not with `SameSite` alone. Where the check is by `Origin`, a request
+   without one counts as coming from another origin. Requests that a browser does not make, among
+   them those to the token endpoint and to the endpoint of the agents' protocol (for MCP: the
+   endpoint of its HTTP transport), are protected by their credentials instead.
+6. **Token binding.** Where agents sign in with OAuth:
+   - The implementation MUST offer DPoP (RFC 9449) with at least `ES256`, and announce it in its
+     metadata. While it is reachable from outside, it MUST NOT let anyone switch the offer off.
+   - A token bound to a key MUST NOT be accepted without a valid proof of that key, in particular
+     not as a bearer token. An agent whose client was once bound receives only bound tokens; when
+     it is bound, its credentials that are not bound lose their validity.
+   - The `htu` of a proof is compared with the URL that the implementation builds from its public
+     origin, after the normalization of RFC 3986 Sections 6.2.2 and 6.2.3 (scheme and host in lower
+     case, no default port) and without query and fragment (RFC 9449 Section 4.3). A `jti` is
+     accepted once within the time in which the implementation accepts the proof's `iat`; an
+     implementation whose memory of `jti` values does not survive a restart rejects every proof
+     whose `iat` lies before the start of the process.
+   - **Transition.** A client that does not support DPoP MAY receive tokens that are not bound,
+     and only under these conditions: an access token is valid for at most 15 minutes; a refresh
+     token is replaced at every use, and a replaced refresh token that is presented again ends
+     every token descended from the same grant; and the implementation shows the household which
+     agents are not bound. A client whose protocol, in the version it uses, requires DPoP MUST NOT
+     receive a token that is not bound. A household MAY refuse tokens that are not bound
+     altogether. A later version of this specification ends the transition.
+
+   *Informative:* for MCP, DPoP is the extension SEP-1932. A bound token is of no use to whoever
+   steals it later; it does not protect against whoever ends the TLS connection while it is open
+   (item 3).
+7. **Certificate Transparency.** The implementation MUST monitor Certificate Transparency (RFC
+   6962) for the host of its public origin at least once an hour, from the time that host became
+   its public origin (for a relay: from the pairing). `conformance/ct-v0.json` contains cases.
+   - **What counts.** A certificate counts if one of its names matches the host, including a
+     wildcard that covers it; a search by the exact name alone does not meet this item. Names are
+     compared without regard to case, and a wildcard covers exactly one label, the leftmost:
+     `*.example.net` covers `home.example.net` and neither `example.net` nor
+     `a.home.example.net`.
+   - **Own certificates.** The implementation recognises the certificates that were obtained for
+     the public origin, and their precertificates, by the public key that agents are shown: the
+     key of the implementation, or, where a proxy of the household ends TLS (item 3), the key of
+     that proxy. The current key counts always. An earlier key counts only for a certificate that
+     was logged before that key was replaced, going by the timestamp of its log entry; if the
+     certificate is in several logs, its first entry counts, and a certificate logged at the
+     moment the key was replaced is not recognised. An implementation that cannot learn the key
+     agents are shown recognises no certificate as its own.
+   - **Alarm.** A certificate for the host that is not recognised, and that was valid at any time
+     since monitoring began or is not valid yet, raises an alarm to the local administrator with
+     its issuer, its names and its validity. A validity period, bounds included, that overlaps the
+     time from the beginning of monitoring to the check counts as valid since then; a certificate
+     whose `notAfter` is not before the time of the check raises an alarm, also when its
+     `notBefore` lies after that time, and the alarm then says that it is not valid yet. One whose
+     `notAfter` is before the time of the check is reported as a past exposure.
+   - **Acknowledgement.** The administrator MAY acknowledge a certificate (for example the
+     household's own wildcard certificate for its zone), which ends the alarm for that certificate
+     only. A certificate is identified by the SHA-256 digest of the DER of its TBSCertificate with
+     the poison and the SCT list removed, so that a precertificate and its certificate are one; the
+     acknowledgement names this digest and nothing else (not a name, an issuer, a serial number or
+     a key), and it also ends the alarm for the precertificate.
+   - **Sources.** The implementation queries at least two independent sources and takes every
+     certificate that any of them reports. A source is a monitoring service, or the logs that the
+     browsers' log lists accept, read by the implementation itself with their signed tree heads
+     verified. Services of one provider count as one source. A source run by whoever runs the way
+     in (the operator of a relay) does not count. The queries go directly over the household's own
+     connection to the internet, never through the relay or the tunnel. The implementation tells
+     its administrator that monitoring is limited when, for 24 hours, only one source has
+     answered, and that monitoring is not possible when none has. `ct-sources.md` lists services
+     (informative).
+8. **Turning it off.** The local administrator MUST be able to turn remote access off at any
+   time without asking anyone outside the household. Monitoring (item 7) goes on while remote
+   access is off, as long as the public origin is configured.
+
+Section 11.1 holds for every way in: a confirmation reaches the PEP on a path the agent does not
+control, also when the approval page is served under the public origin, and what the human is
+shown is what the PEP will execute.
+
 ## 12. Security considerations
 
 ### 12.1 What the specification protects
@@ -1941,6 +2092,12 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Compromised or rotated issuer key** | Keys are configured, never fetched from a location a mandate names; the verifier remembers by which key it accepted a mandate, and a mandate accepted only by a key that is no longer trusted loses its effect or is confirmed again; a weakening successor needs a human (Sections 3.5, 7.1); every change of trust is recorded (Section 9.2) | Until the key is withdrawn, the attacker can issue narrowing successors and new mandates for the audience, within what the configuration lets the issuer issue; a new mandate takes effect without a human unless it is in audit mode or names unknown `approvers` |
 | **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal, and a replacement that weakens the mandate or follows a revoked one takes effect only after a human confirmed it (Section 3.5); every change to the trusted issuers and their keys is recorded (`issuer.changed`, Section 9.2) | The specification does not define how this trust is configured |
 | **Attacker between PEP and PDP** | The connection MUST be authenticated in both directions; the PDP MUST NOT be reachable by agents (Section 6) | The specification does not define the mechanism |
+| **Runs the way in from outside without ending TLS** (a relay, a tunnel, a network on the path) | The agent's TLS connection ends in the implementation or the household's proxy; forwarded addresses only from a configured proxy and never for authorization (Section 11.7 items 3, 4) | Denial of service; the times, addresses and amounts of the agents' connections (RELAY-v0 Section 10) |
+| **Ends the agent's TLS connection** (the household's proxy, or a service that should not, such as a tunnel that presents its own certificate) | Only the household's own proxy may (Section 11.7 item 3) | Everything that passes: credentials, sign-in, approval pages, requests and their results. A proxy of the household is trusted (Section 12.3) |
+| **Obtains a certificate for the public origin** (whoever controls its DNS, a CA that misissues) | Certificate Transparency monitoring with an alarm, from at least two independent sources (Section 11.7 item 7) | Reading until the household reacts to the alarm; a certificate that no log contains goes unnoticed. For a relay's names, RELAY-v0 Section 6.2 |
+| **Steals a token** (from a log, a backup, a client) | DPoP binds tokens to the client's key; a bound token is never accepted as a bearer token (Section 11.7 item 6) | A token that is not bound, during the transition: at most 15 minutes for an access token, and a refresh token until its next use by the client, which ends every token of the grant |
+| **Another page in the same site** (another home of the same relay, another host of the household's domain) | `__Host-` cookies only, other cookies ignored, changes protected by `Origin` or a token (Section 11.7 item 5) | Cookies that the other page sets for the whole domain can make a browser's requests fail |
+| **Forges `Host` or `X-Forwarded-*`** | The public origin is configured, and no URL the implementation issues or checks comes from a header (Section 11.7 items 1, 4) | – |
 | **Whoever can change a mandate and switches it to audit mode** (a member of the household, a manipulated user interface, an issuer) | Critical actions, `ask` and every denial outside the rules stay enforced (Section 4.6). Switching audit mode on takes effect only after a human of the household confirmed it explicitly, also for a signed successor, and every approver is notified (Sections 3.5, 11.6). The switch is a new version with a new digest, recorded with `mandate.updated` and its actor (Sections 3.2, 9.2), and implementations MUST show audit mode wherever they show mandates (Section 11.6). In a signed mandate, `enforce` is covered by the signature (Section 7); a verifier rejects an audit entry that claims an unenforced deny of a critical action (Section 9.1) | In audit mode the agent can do every action that is not critical, including `read` of cameras and presence sensors, without asking unless a rule sets it to `ask`. Whoever can change mandates could also write a broad `allow`; audit mode gives no more power, but it looks harmless. A human who confirms without reading; the confirmation and the notice make the switch visible, they do not prevent it |
 | **Agent with a path past the PEP** (another credential for the platform, for example an MCP tool that talks to the platform with its own API token, or the right to create or change scripts, automations or rules) | Nothing. The evaluation covers only the requests that reach the PEP (Section 12.3, the only path) | Whatever the agent can do on that path, no mandate limits. A script or an automation it writes can scan the network, load programs or unlock the front door |
 | **Compromised PEP** | Nothing. The PEP executes; a PEP that ignores a `deny` cannot be stopped by a format | – |
@@ -1961,7 +2118,10 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
   credential for the platform (an API token, a user account) and cannot create or change
   what executes on the platform: scripts, automations, rules, scenes, adapters,
   integrations, code. Whatever the agent can do past the PEP, no mandate limits;
-- **the keys**: of issuers (Section 7) and of the audit log (Section 9.5).
+- **the keys**: of issuers (Section 7) and of the audit log (Section 9.5);
+- **the end of TLS**: for an implementation reachable from outside, whoever ends the agents' TLS
+  connections, the implementation or the household's proxy, and holds the key of the public
+  origin (Section 11.7).
 
 ### 12.4 Advice for implementers
 
@@ -2059,6 +2219,11 @@ behavior of the people in a household and MUST be protected like the devices the
   item 11); an agent that probes actions on resources it may not read learns little, and
   every probe counts against its rate limit, is recorded, and is executed or asked for
   whenever the resource can carry it out.
+- **Remote access.** The host of the public origin is in public Certificate Transparency logs as
+  soon as a certificate is issued for it, and it tells anyone that the household runs an
+  implementation. Whoever runs the way in learns when agents connect, from where and how much
+  they exchange (RELAY-v0 Section 10). The household SHOULD be told both when it sets up remote
+  access (Section 11.7).
 - **Audit mode.** `read` is never critical, so a mandate in audit mode lets the agent read
   whatever it asks for, unless a rule sets the `read` to `ask` (Section 4.6). A household that tries a mandate SHOULD be told that
   the agent can see more during the trial than the mandate will permit afterwards.
@@ -2162,7 +2327,22 @@ behavior of the people in a household and MUST be protected like the devices the
 
 ### Unreleased
 
-Nothing yet.
+- New Section 11.7 "Remote access", for implementations that agents reach from outside the
+  household's network; one that only its own network can reach conforms without it. It fixes the
+  public origin and its form, makes it the OAuth issuer where agents sign in with OAuth (a new
+  origin is a new issuer and ends the credentials issued under the old one), requires that the
+  agent's TLS connection ends in the implementation or the household's proxy, takes forwarded
+  addresses only from a configured proxy and only for limits and logs, requires `__Host-` cookies
+  and a check of `Origin` or a token on pages under the public origin, requires DPoP with a
+  transition for clients without it, and requires Certificate Transparency monitoring from at
+  least two independent sources. Sections 2, 8, 8.1, 11.1 item 2, 12.2, 12.3 and 13 refer to it.
+  No format changes.
+- Section 11.1 item 2: what the human is shown comes from what the PEP resolved and will
+  execute, whichever way the human is reached.
+- New conformance files `conformance/origin-v0.json` and `conformance/ct-v0.json` with their
+  schemas, without a conformance class. `ct-v0.json` moves here from `relay/conformance/`, with
+  `since` in place of `pairing` and the cases unchanged otherwise.
+- New informative list `ct-sources.md` of Certificate Transparency services.
 
 ### v0.1.1 (2026-11-04)
 

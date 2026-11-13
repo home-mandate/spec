@@ -33,7 +33,6 @@ product that implements the specification is Home-Mandate for Home Assistant.
 | `relay/conformance/destination-v0.json` | Addresses a gateway may connect to (RELAY-v0 section 3) | Apache 2.0 |
 | `relay/conformance/caa-v0.json` | Comparison of CAA records in the gateway's monitoring (RELAY-v0 sections 6.3, 6.7) | Apache 2.0 |
 | `relay/conformance/protection-level-v0.json` | Determining the protection level of an own-domain name (RELAY-v0 section 6.5) | Apache 2.0 |
-| `relay/conformance/ct-v0.json` | Certificates in Certificate Transparency logs and the alarms of a gateway (RELAY-v0 section 6.7) | Apache 2.0 |
 | `relay/conformance/keys/` | Test keys of the relay cases; the private parts are public | Apache 2.0 |
 | `relay/conformance/schema/` | JSON Schemas of the relay conformance files | Apache 2.0 |
 | `relay/conformance/manifest.json` | All machine-readable files of the Relay Specification with SHA-256 and number of cases; `make manifest` rewrites it | Apache 2.0 |
@@ -43,6 +42,7 @@ product that implements the specification is Home-Mandate for Home Assistant.
 | `schema/mandate-v0.schema.json` | JSON Schema of the mandate (Draft 2020-12) | Apache 2.0 |
 | `schema/audit-v0.schema.json` | JSON Schema of an audit log entry (Draft 2020-12) | Apache 2.0 |
 | `data/forbidden-codepoints-v0.json` | Code points not permitted in text displayed to humans (SPEC-v0 section 3.1 item 8), derived from Unicode 17.0.0 | Apache 2.0 |
+| `ct-sources.md` | Informative list of Certificate Transparency services (SPEC-v0 section 11.7 item 7) | CC BY 4.0 |
 | `data/corrections-v0.json` | Deviations a verifier keeps accepting in existing audit logs (SPEC-v0 section 14) | Apache 2.0 |
 | `examples/` | Example mandates | Apache 2.0 |
 | `conformance/cases-v0.json` | Conformance cases | Apache 2.0 |
@@ -54,6 +54,8 @@ product that implements the specification is Home-Mandate for Home Assistant.
 | `conformance/mandates/` | Test mandates for edge cases | Apache 2.0 |
 | `conformance/digest-v0.json` | Digests of mandates (RFC 8785 + SHA-256) | Apache 2.0 |
 | `conformance/audit-v0.json` | Audit logs with the expected result of the hash chain verification | Apache 2.0 |
+| `conformance/origin-v0.json` | Public origins that are valid or invalid, and `htu` values of DPoP proofs that match or not (SPEC-v0 section 11.7) | Apache 2.0 |
+| `conformance/ct-v0.json` | Certificates in Certificate Transparency logs and whether an alarm is raised (SPEC-v0 section 11.7 item 7, RELAY-v0 section 6.7) | Apache 2.0 |
 | `conformance/schema/` | JSON Schemas of the conformance files, so that they can be used without the Go code | Apache 2.0 |
 | `conformance/manifest.json` | All machine-readable files with SHA-256 and number of cases; `make manifest` rewrites it | Apache 2.0 |
 | `evaluator/` | Reference evaluator as a Go library (`github.com/home-mandate/spec/evaluator`), standard library only plus a JSON Schema validator | Apache 2.0 |
