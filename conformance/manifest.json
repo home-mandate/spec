@@ -13,8 +13,8 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "e9deaf341b5ef5bd659d4a73ee0b7cf3ea847c01bfc7426c98146048774c272a",
-      "cases": 251
+      "sha256": "a3a1b7ac74c8bddc8545683b47dcebcb4d1b16df8be8fa740ab7417fe8334611",
+      "cases": 255
     },
     {
       "path": "conformance/ct-v0.json",
@@ -110,6 +110,10 @@
     {
       "path": "conformance/mandates/critical.json",
       "sha256": "29c827e6662c922111e96ca7a96682607469226918d5f938450105d037ae1742"
+    },
+    {
+      "path": "conformance/mandates/dst-gap.json",
+      "sha256": "957e234e0f4106dad54165b6c08339902f2f78f9cf5d8a02aeaf27f2fd060257"
     },
     {
       "path": "conformance/mandates/identifiers.json",
