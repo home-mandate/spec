@@ -1253,7 +1253,7 @@ with the events and members marked "(v1)"; an entry of version 0 MUST NOT carry 
 | `seq` | sequential number in the audit log, starting at 1, without gaps. Read by its value: `1`, `1.0` and `1e0` are the same number; writers SHOULD use the plain form |
 | `recorded_at` | point in time of the entry (RFC 3339, as in Section 3.1 item 0: no leap second, like every point in time in an entry) |
 | `event` | event type (Section 9.2) |
-| `principal` | principal |
+| `principal` | principal. An entry that is about one principal names it; an entry that concerns the implementation as a whole (for example `log.*`, `config.changed`, `issuer.changed`, `emergency_stop.*`, `directory.changed`, the events of Section 11.7) names the household principal (`household:…`) the implementation serves. An implementation that serves more than one household MUST keep one log for each household |
 | `prev` | digest of the previous entry (Section 9.4); `null` for the first entry |
 
 Depending on the event, the following are added:
@@ -1610,6 +1610,31 @@ another household signed with the same key would verify.
 
 A change of the key that signs checkpoints is recorded with `config.changed` (Section 9.2)
 in the log it signs.
+
+**The signer.** A checkpoint is only as good as what its signer agreed to sign. Whatever signs
+checkpoints (a part of the implementation, a separate process, a hardware key)
+
+1. MUST take the digest it signs from its own state: the digest of the last entry the
+   implementation appended itself, or the chain it verified from the entry its previous
+   checkpoint covered up to the new position. It MUST NOT sign a digest it only read from the
+   log file: someone who can write the file but has no key could otherwise change the entries
+   after the last checkpoint, recompute the chain, and have the next checkpoint anchor the
+   forgery;
+2. MUST keep the highest `seq` it signed for a `log_id`, with its digest, where whoever can
+   write the log cannot change it, and MUST NOT sign a `seq` that is not higher. Two signed
+   digests for one position of one log would be two histories;
+3. signs often enough: an implementation that signs checkpoints MUST append one at the latest
+   after 1000 further entries and at the latest 24 hours after the previous one, if entries
+   were appended since; it MAY append them more often. The part of the log that is not
+   anchored stays small.
+
+After a restore of the log from a backup that ends before the highest signed `seq`, the log
+cannot be continued: entries at positions that were signed already would form a second
+history. The implementation MUST then start a new log with a new `log_id`, its first entry
+with `seq` 1, and keep the old log as it was restored. A signing key in a hardware or
+operating system keystore is RECOMMENDED; in an installation where the process, the log and
+the key share one machine, a checkpoint shows only that this process wrote the log, and a
+copy of the checkpoints outside the machine (a witness) adds what the machine cannot.
 
 What a checkpoint adds: a log that was rewritten or replaced no longer matches the
 checkpoints signed before, nobody without the key can sign new ones, and the time a
@@ -2167,7 +2192,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Agent that tries to obtain a confirmation** | The confirmation is bound to one request, used once, comes from a named approver on a path the agent does not control, and the request is evaluated again afterwards (Section 11.1) | A human who confirms without reading. The implementation MUST show what is confirmed; it cannot make the human read |
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded, and so are added or removed resources and changed categories or areas, as far as the implementation tracks them (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
-| **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only. Entries of an invented version leave the content of the log from there on unchecked; a verifier reports this (Section 9.4) and still checks the chain, so a change before them stays visible |
+| **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it; a later checkpoint anchors them only if its signer took the digest from the log file, which Section 9.5 forbids. A signer whose stored highest `seq` was reset, together with a restored log, can sign a second history. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only. Entries of an invented version leave the content of the log from there on unchecked; a verifier reports this (Section 9.4) and still checks the chain, so a change before them stays visible |
 | **Failure of the audit log** (full or read-only storage, a crash between the command and the entry, a log removed while the PEP runs) | The PEP stores what it will record before it dispatches a command and denies when it cannot (`denied_by: audit`); an execution the process did not see end is recorded as `outcome_unknown` (Sections 9, 11.1 item 9) | A full disk stops the agents, not the household: the platform itself is unaffected. Whoever can fill the storage denies service to every agent; the entries that record it are written once the log can be written again |
 | **Agent, device or integration that writes into the log** (a resource, area or action name with a line feed, a control character, a direction-changing mark, a terminal escape sequence or markup) | Such a name matches nothing and is denied (Section 3.4); the entry records it as sent, and whatever renders entries for a human MUST show the values of `request` as a JSON string shows them, escapes included (Sections 9.1, 13); identifiers in mandates and in matched requests are ASCII | An interface, a consumer of an export or a verifier that ignores Section 9.1 shows a forged or hidden line, or runs an escape sequence in a terminal |
 | **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7); a signed mandate expires and names its `audience`, so it is not replayed at another verifier (Sections 3.5, 7.1) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
@@ -2430,6 +2455,14 @@ behavior of the people in a household and MUST be protected like the devices the
 ## Changelog
 
 ### Unreleased
+
+- Section 9.5, the signer of checkpoints: it signs digests from its own state, never one it
+  only read from the log file; it keeps the highest signed `seq` and never signs a position
+  twice; a checkpoint follows at the latest after 1000 entries or 24 hours; a log restored
+  behind the highest signed `seq` is not continued, a new log with a new `log_id` begins.
+  Section 12.2 names the remaining risk.
+- Section 9.1, `principal`: entries that concern the whole implementation name the household
+  it serves; an implementation for several households keeps one log for each.
 
 - **Audit version 1** (`https://home-mandate.org/audit/v1`, `schema/audit-v1.schema.json`):
   version 0 and the events `agent.bound`, `credentials.withdrawn`, `cert.unexpected`,
