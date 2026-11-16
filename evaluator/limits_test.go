@@ -54,3 +54,13 @@ func TestLimits(t *testing.T) {
 		t.Errorf("nil mandate: %v", got)
 	}
 }
+
+// A mandate in audit mode names no limits (SPEC-v0 sections 11.5 and 11.6 item 2): an agent
+// that succeeds outside the limits it was told would learn that its mandate does not enforce.
+func TestLimitsAuditMode(t *testing.T) {
+	m := auditMode(t, `[{"id":"r-heat","resource":{"category":"climate"},"actions":["set_temperature"],"decision":"allow",
+		"constraints":{"temperature":{"min":1600,"max":2300}}}]`)
+	if got := m.Limits(request("climate", "", "set_temperature")); got != nil {
+		t.Errorf("Limits in audit mode = %v, want nil", got)
+	}
+}
