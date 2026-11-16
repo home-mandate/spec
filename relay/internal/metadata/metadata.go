@@ -15,8 +15,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/home-mandate/spec/internal/ijson"
-	"github.com/home-mandate/spec/internal/rfc3339"
+	"github.com/home-mandate/spec/ijson"
+	"github.com/home-mandate/spec/rfc3339"
 )
 
 // MaxBytes is the largest document a gateway accepts (RELAY-v0 section 3).

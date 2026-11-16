@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/home-mandate/spec/internal/ijson"
+	"github.com/home-mandate/spec/ijson"
 )
 
 // principalPattern is the pattern of principal in the mandate schema.

@@ -9,7 +9,8 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/home-mandate/spec/internal/manifest"
+	"github.com/home-mandate/spec/manifest"
+	"github.com/home-mandate/spec/relay"
 )
 
 // conformanceSchemas maps every conformance file of the Relay Specification to its schema.
@@ -32,7 +33,7 @@ var conformanceSchemas = map[string]string{
 }
 
 func TestRelayManifestIsUpToDate(t *testing.T) {
-	data, err := os.ReadFile(manifest.RelayPath[len("relay/"):])
+	data, err := os.ReadFile(relay.ManifestLayout.Path[len("relay/"):])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,12 +41,12 @@ func TestRelayManifestIsUpToDate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	built, err := manifest.Relay.Build(os.DirFS(".."))
+	built, err := relay.ManifestLayout.Build(os.DirFS(".."))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, line := range manifest.Diff(built, stored) {
-		t.Errorf("%s is out of date (%s); run: make manifest", manifest.RelayPath, line)
+		t.Errorf("%s is out of date (%s); run: make manifest", relay.ManifestLayout.Path, line)
 	}
 }
 

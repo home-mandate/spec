@@ -26,7 +26,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/home-mandate/spec/internal/ijson"
+	"github.com/home-mandate/spec/ijson"
 )
 
 // Algorithms of SPEC-v0. Every implementation that verifies signatures supports EdDSA.

@@ -17,7 +17,7 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/home-mandate/spec/internal/ijson"
+	"github.com/home-mandate/spec/ijson"
 	"github.com/home-mandate/spec/relay"
 	"github.com/home-mandate/spec/relay/internal/metadata"
 )

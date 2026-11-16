@@ -10,7 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/home-mandate/spec/internal/manifest"
+	"github.com/home-mandate/spec/manifest"
+	"github.com/home-mandate/spec/relay"
 )
 
 // TestRelayJWSFileIsUpToDate: the stored cases are those the generator writes, byte for
@@ -74,7 +75,7 @@ func TestManifestWritesAndChecksTheRelayManifest(t *testing.T) {
 	if _, err := runTool(t, dir, "", "manifest"); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(manifest.RelayPath)))
+	data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(relay.ManifestLayout.Path)))
 	if err != nil {
 		t.Fatal(err)
 	}

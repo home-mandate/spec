@@ -64,6 +64,9 @@ product that implements the specification is Home-Mandate for Home Assistant.
 | `jws/` | The part of JSON Web Signature the specification uses: compact serialization, EdDSA and ES256, JWK Sets; standard library only | Apache 2.0 |
 | `ratelimit/` | Reference for the rate limit bound of SPEC-v0 section 11.2 | Apache 2.0 |
 | `jcs/` | JSON Canonicalization Scheme (RFC 8785) for the digests of mandates and audit entries | Apache 2.0 |
+| `ijson/` | The I-JSON rules (RFC 7493) that `encoding/json` does not check: valid UTF-8, no lone surrogates or noncharacters, no duplicate keys, one value, bounded nesting | Apache 2.0 |
+| `rfc3339/` | Timestamps read by the grammar of RFC 3339, stricter than `time.Parse` | Apache 2.0 |
+| `manifest/` | Builds, reads and compares `conformance/manifest.json`; a companion specification describes its own files with a `manifest.Layout` | Apache 2.0 |
 | `schema/*.go`, `spec.go` | Go packages that embed the schemas (`schema`) and the schemas, examples and conformance cases (root package), respectively | Apache 2.0 |
 | `tools/vectors/` | Helper for maintaining the conformance files: manifests, mandate digests, chaining audit entries, relay request, CSR and certificate cases | Apache 2.0 |
 | `Makefile` | Checks: `make check` (vet, staticcheck, coverage ≥ 95 %, govulncheck), `make fuzz`, `make mutation` (≥ 90 %) | Apache 2.0 |

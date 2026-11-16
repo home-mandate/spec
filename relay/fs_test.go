@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/home-mandate/spec/internal/manifest"
+	"github.com/home-mandate/spec/manifest"
 	"github.com/home-mandate/spec/relay"
 )
 

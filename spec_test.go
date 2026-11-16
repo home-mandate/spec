@@ -11,7 +11,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/home-mandate/spec"
-	"github.com/home-mandate/spec/internal/manifest"
+	"github.com/home-mandate/spec/manifest"
 )
 
 func TestFSContainsSpecFiles(t *testing.T) {

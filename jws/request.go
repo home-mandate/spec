@@ -23,7 +23,7 @@ import (
 	"regexp"
 
 	"github.com/home-mandate/spec/internal/errquote"
-	"github.com/home-mandate/spec/internal/ijson"
+	"github.com/home-mandate/spec/ijson"
 )
 
 // RequestHeader is the protected header of a request (RELAY-v0 section 5.1): exactly alg,

@@ -37,8 +37,9 @@ import (
 
 	"github.com/home-mandate/spec/audit"
 	"github.com/home-mandate/spec/evaluator"
-	"github.com/home-mandate/spec/internal/ijson"
-	"github.com/home-mandate/spec/internal/manifest"
+	"github.com/home-mandate/spec/ijson"
+	"github.com/home-mandate/spec/manifest"
+	"github.com/home-mandate/spec/relay"
 )
 
 func main() {
@@ -85,7 +86,7 @@ func runManifest(args []string, dir string, stdout io.Writer) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	for _, layout := range []manifest.Layout{manifest.Specification, manifest.Relay} {
+	for _, layout := range []manifest.Layout{manifest.Specification, relay.ManifestLayout} {
 		// A tree without the conformance files of a layout has no manifest of it.
 		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(layout.CaseDir))); err != nil {
 			continue
