@@ -62,7 +62,7 @@
         "time": { "$ref": "#/$defs/date_time" },
         "timezone": { "type": "string", "minLength": 1, "maxLength": 64 },
         "revoked": { "description": "Revocation status at evaluation time; absent = false.", "type": "boolean" },
-        "group": { "description": "The same in every decision entry of one request for several resources (SPEC-v0 sections 4.4 and 9.1): a UUID (RFC 9562), lower case.", "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "group": { "description": "The same in every decision entry of one request for several resources, or of a request for a renamed resource (SPEC-v0 sections 4.4, 9.1 and 11.4): a UUID (RFC 9562), lower case. With it, a deny that is not enforced can be recorded as denied for the whole request.", "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
         "resource": {
           "description": "Resource as requested or resolved; unknown categories and identifiers that the evaluation found invalid are also logged unchanged, so identifiers here are limited only in length and number (SPEC-v0 section 9.1).",
           "type": "object",
@@ -533,9 +533,13 @@
       "then": { "required": ["approval"],
                 "properties": { "approval": { "anyOf": [ { "properties": { "outcome": { "const": "approved" } } },
                                                          { "required": ["cause"], "properties": { "cause": { "const": "revoked" } } } ] } } } },
-    { "if": { "required": ["evaluation"], "properties": { "evaluation": { "required": ["enforced"], "not": { "required": ["confirm"] } } } },
+    { "if": { "required": ["evaluation"], "properties": { "evaluation": { "required": ["enforced"], "not": { "required": ["confirm"] } } },
+              "not": { "required": ["request"], "properties": { "request": { "required": ["group"] } } } },
       "then": { "properties": { "result": { "required": ["status"], "anyOf": [ { "properties": { "status": { "enum": ["executed", "failed"] } } },
                                                                                 { "properties": { "status": { "const": "denied" }, "denied_by": { "const": "audit" } } } ] } } } },
+    { "if": { "required": ["evaluation", "request"], "properties": { "evaluation": { "required": ["enforced"], "not": { "required": ["confirm"] } },
+                                                                    "request": { "required": ["group"] } } },
+      "then": { "properties": { "result": { "properties": { "denied_by": { "not": { "const": "rate_limit" } } } } } } },
     { "if": { "properties": { "seq": { "const": 1 } } },
       "then": { "properties": { "prev": { "type": "null" } } },
       "else": { "properties": { "prev": { "$ref": "#/$defs/digest" } } } }

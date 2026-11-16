@@ -305,6 +305,18 @@ exactly per character, without normalization: two identifiers that differ in any
 identify different agents. How an implementation authenticates the agent behind an
 identifier is outside this specification.
 
+An https identifier names a piece of software, not an installation of it: two members of the
+household who each run the same client sign in with the same metadata URL. Everything that
+belongs to the identifier (mandates, the rate limit, the limit on waiting approval requests)
+would then be shared, and an instance one of them runs could act under the mandate or use
+up the limits of the other. An implementation SHOULD therefore give every installation it
+admits an identifier of its own (`<namespace>:<id>`), or authenticate the installation behind
+a shared identifier. An implementation that admits an agent by its metadata document SHOULD
+keep what the document said when a human admitted the agent (the document or a digest of
+it), and SHOULD ask a human to confirm again before it accepts a changed document: a domain
+that expires or changes hands would otherwise give its new owner the agent and its
+mandates.
+
 ### 3.4 Resource and area identifiers
 
 `entity_id` and `area` are **opaque identifiers**: 1 to 255 (`entity_id`) or 1 to 64 (`area`)
@@ -408,7 +420,8 @@ which is discarded (`mandate.discarded`, `cause: superseded`, Section 9.2).
 The `approvers` of a mandate from outside are identifiers the issuer chose (Section 3.4).
 A signed mandate whose `approvers` are not all approvers the implementation knows
 (Section 11.1) takes effect only after a human of the household confirmed it as well, so
-that whoever signs a mandate does not decide who confirms the agent's requests.
+that whoever signs a mandate does not decide who confirms the agent's requests. Who counts
+as such a human, and how long a proposal waits, is said in Section 11.6 item 4.
 
 **Audit mode.** A mandate that switches audit mode on MUST NOT take effect until a human
 of the household has confirmed it explicitly (Section 11.6 item 4), like a weakening. It
@@ -536,7 +549,9 @@ In addition to the decision, the evaluation returns:
   For the pre-check, step 1 and step 3, there is no `rule_id`.
 - **Approval settings** (only for `ask` and for a result that requires a confirmation): the
   `approval` of the first matching `ask` rule in document order that has its own
-  `approval`, otherwise the `approval` of the mandate.
+  `approval`, otherwise the `approval` of the mandate. They need not belong to the rule
+  that `rule_id` names: an earlier `ask` rule without its own `approval`, or a `deny` rule
+  in audit mode, can carry the decision while a later `ask` rule gives the settings.
 - **`enforced`:** `false` if the result is a `deny` that is not enforced (step 6,
   Section 4.6); then `reason` is `no_match` or `rule`. Every other result is enforced and
   has no `enforced`.
@@ -582,7 +597,11 @@ time**: the point in time is converted to the household's time zone.
 An implementation can store several mandates. Which one is evaluated for a request is
 determined by the agent (`agent.client_id`) and the principal of the request, both compared
 exactly. `household:x` and `person:x` are different principals; nothing is inherited from
-one to the other. The PEP determines the principal; it does not take it from the agent. A
+one to the other. The PEP determines the principal; it does not take it from the agent. It derives it from
+the human who authorized the agent's credential and who may act for that principal, never
+from the client alone: a `household:` principal is not implied for every user who signs in
+with the same client (Section 3.3), and a guest or a child who admits an agent does not
+give it the household's mandate. A
 request that names no agent, or whose principal does not match the pattern of `principal`
 in the schema, is `deny` with `invalid_request` before any mandate is selected, so that
 `no_mandate` and `ambiguous_mandate` do not arise for a subject no mandate could name
@@ -623,13 +642,28 @@ no longer a valid mandate, because it denies every request of its agent.
 
 The evaluation always concerns exactly one resource and one action. If an agent addresses
 several resources at once (an area, a group, a list), the PEP resolves them with its
-directory and evaluates each resource separately. Unless the PEP documents otherwise, the
-request is executed only if every single evaluation permits it: one `deny` denies the
-whole request, and one `ask` requires a confirmation that names all resources concerned. A
+directory and evaluates each resource separately. The request is executed only if every
+single evaluation permits it: one `deny` denies the whole request, and one `ask` requires
+a confirmation that names all resources concerned. A
 `deny` that is not enforced (Section 4.6) counts as permitting here, and as an `ask` if it
 requires a confirmation; it is recorded as such, every resource as its own `decision`
-entry, and the entries of one request SHOULD carry the same `request.group` (Section 9.1).
+entry, and the entries of one request SHOULD carry the same `request.group` (Section 9.1),
+and MUST if one of them records the outcome of the whole request instead of its own (below).
 The agent is never told which of the resources were not enforced (Section 11.6).
+
+One confirmation covers the whole request. Its settings follow from those of the
+evaluations that require one: the shortest `timeout`, and as `approvers` those that every
+one of them names. If no approver is common to all of them, nobody is asked and the request
+is denied by the approval (`denied_by: approval`, RECOMMENDED `error` `no_approver`): a
+confirmation by someone who may not confirm one of the resources would confirm it anyway.
+Every entry of the request records the same outcome: the entries whose evaluation required
+the confirmation carry the same `approval` object, and every entry carries the same
+`result`, also an entry whose own evaluation permitted the request and one whose `deny`
+was not enforced. Only audit version 1 can record the latter, in an entry with
+`request.group` (Section 9.1); an implementation that does so writes version 1
+(Section 14). A verifier cannot check from one entry that the entries of a `group` agree;
+the shared `group` lets a reader see them together. Every evaluation counts towards the
+rate limit (Section 11.2).
 The PEP MUST execute such a request on exactly the resources it evaluated, naming each of
 them to the platform (for example as a list of identifiers), never the area, group or list
 it resolved them from: the platform would resolve that again on its own, and a resource
@@ -1262,8 +1296,8 @@ Depending on the event, the following are added:
 |---|---|
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
-| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked`; optionally `group`, a UUID (RFC 9562, lower case) that is the same in every `decision` entry of one request for several resources (Section 4.4) and appears in the entries of no other request |
-| `mandate` | `id` and `digest`. `previous_digest`, different from `digest`: required for `mandate.updated`, the version replaced; for `mandate.proposed` the version the implementation held when it recorded the proposal, in force or not (Section 3.5), absent if it held none; a `mandate.discarded` repeats the `digest` and `previous_digest` of its proposal (Section 11.6 item 4); absent with every other event. For `mandate.removed`, `digest` is that of the last version the implementation held; for `mandate.proposed` and `mandate.discarded`, `digest` is that of the proposed version. `cause`, required with `mandate.discarded` and `mandate.rejected` and absent otherwise: for `mandate.discarded` why the proposal did not take effect (`rejected`: a human declined it, `superseded`: another version took effect or a later proposal replaced it, `revoked`: the mandate was revoked, `expired`: the proposed version expired first); for `mandate.rejected` why a mandate from outside was not accepted (`invalid`: not a valid mandate or not canonical, or a signed mandate without `audience` or `expires`, Sections 3.1 and 7.1; `signature`: the signature does not verify, or the header or `kid` is not acceptable; `untrusted_issuer`: no trusted key for the issuer, the issuer may not issue for this principal or agent, or the mandate names another `audience`; `succession`: Section 3.5, a rollback included; `unsupported`: the implementation does not offer what the mandate needs, such as audit mode, Section 11.6, or a format major it does not support, Section 14). With `mandate.rejected`, `digest` is present if the document was a JSON object (Section 3.2) and `id` if it named one; if nothing could be read, the object has only `cause` |
+| `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked`; optionally `group`, a UUID (RFC 9562, lower case) that is the same in every `decision` entry of one request for several resources (Section 4.4) or for a renamed resource (Section 11.4) and appears in the entries of no other request |
+| `mandate` | `id` and `digest`. `previous_digest`, different from `digest`: required for `mandate.updated`, the version replaced; for `mandate.proposed` the version the implementation held when it recorded the proposal, in force or not (Section 3.5), absent if it held none; a `mandate.discarded` repeats the `digest` and `previous_digest` of its proposal (Section 11.6 item 4); absent with every other event. For `mandate.removed`, `digest` is that of the last version the implementation held; for `mandate.proposed` and `mandate.discarded`, `digest` is that of the proposed version. `cause`, required with `mandate.discarded` and `mandate.rejected` and absent otherwise: for `mandate.discarded` why the proposal did not take effect (`rejected`: a human declined it, `superseded`: another version took effect or a later proposal replaced it, `revoked`: the mandate was revoked, `expired`: the proposed version, or the proposal, expired first, Section 11.6 item 4); for `mandate.rejected` why a mandate from outside was not accepted (`invalid`: not a valid mandate or not canonical, or a signed mandate without `audience` or `expires`, Sections 3.1 and 7.1; `signature`: the signature does not verify, or the header or `kid` is not acceptable; `untrusted_issuer`: no trusted key for the issuer, the issuer may not issue for this principal or agent, or the mandate names another `audience`; `succession`: Section 3.5, a rollback included; `unsupported`: the implementation does not offer what the mandate needs, such as audit mode, Section 11.6, or a format major it does not support, Section 14). With `mandate.rejected`, `digest` is present if the document was a JSON object (Section 3.2) and `id` if it named one; if nothing could be read, the object has only `cause` |
 | `vocabulary` | the vocabulary the evaluation used for the category of the resource (Section 5): `id` and `version` as in its file. Only with `decision` and `evaluation`, and not with `reason` `unknown_resource` or `unknown_category`: no vocabulary was used. For a category of Section 5, `id` is `https://home-mandate.org/vocabulary/v0`; for an extension category, the `id` of the extension (Section 5.1). The schema cannot see the vocabulary; a verifier MUST reject any other `id` for a category of Section 5, the `id` of Section 5 for an extension category and, for an extension whose vocabulary it knows, any `id` other than that vocabulary's, and an entry that violates this is invalid |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, `approval_timeout` (the timeout of the approval settings; required for `ask` and with `confirm`, absent otherwise), `enforced` (only `false`, Section 4.6) and `confirm` (only `true`, with `enforced`) |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, where it names an approver whose answer arrived after the timeout, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
@@ -1324,6 +1358,10 @@ For `decision`, the following additionally applies:
   unless `evaluation.enforced` is `false`: then `result` is `executed`, `failed` or
   `denied` with `denied_by: audit` (audit mode, Section 11.6; the log, Section 9), and
   with `evaluation.confirm: true` the `result` can be anything an `ask` can have;
+  (v1) in an entry with `request.group`, the `result` can also be a denial other than by
+  the rate limit, which comes before any evaluation: the request was denied as a whole,
+  for another resource, by the approval or because its approval request was cancelled
+  (Section 4.4);
 - `evaluation.enforced` appears only in `decision` entries with `mandate` and `request`,
   only as `false`, and only with `evaluation.decision: deny` and `reason` `no_match` or
   `rule`. An `allow` or an `ask` is never marked: an allow is executed anyway, and an
@@ -1363,7 +1401,10 @@ For `decision`, the following additionally applies:
   state of the log. `error` MAY name the cause, RECOMMENDED `log_unwritable`;
 - a denial with `denied_by: approval` carries the `approval` object if a request was
   made: answered, timed out or cancelled. It has none if no request was made: no approver
-  could be reached, or the agent already had too many requests waiting (Section 11.1);
+  could be reached, the agent already had too many requests waiting, or the request was
+  tied to another one or refused to protect the approvers (Section 11.1 items 7 and 12;
+  `error` names which), and none in an entry of a request for several resources whose own
+  evaluation required no confirmation (Section 4.4);
 - `approval.outcome: cancelled` only with `result.status: denied`, and with the `denied_by`
   that matches its `cause`: `withdrawn` and `interrupted` with `approval`, `revoked` with
   `authentication` (the agent was revoked) or `mandate` (only its mandate was), and
@@ -1430,10 +1471,12 @@ template.
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
 returns for `request` and the version `mandate.digest` under the vocabulary that
 `vocabulary` names, including `enforced`, `confirm` and `approval_timeout`. This makes
-every decision reproducible, also after the implementation has updated its vocabulary
+every decision reproducible entry by entry, also after the implementation has updated its vocabulary
 (Section 14); an implementation SHOULD therefore record `vocabulary` (Section 9.1). Without
 it, the decision is reproducible under the newest version the implementation knew at the
-time of the decision.
+time of the decision. A request whose outcome several entries decide together, for several
+resources (Section 4.4) or for a renamed resource (Section 11.4), is reproducible from its
+entries: each from its own `request`, and the request from the entries of its `group`.
 
 The rate limit and the emergency stop are defined in Sections 11.2 and 11.3. Denials are
 logged with `denied_by: rate_limit` or `emergency_stop` respectively, and the emergency stop
@@ -1768,10 +1811,18 @@ before it executes the action. What follows holds for both.
 1. **Who.** A confirmation counts only if it comes from one of the `approvers` of the
    approval settings (Section 4.1), authenticated by the implementation. One approver
    suffices. An approver that the user management no longer knows does not count. If no
-   approver can be reached, the result is `deny`.
+   approver can be reached, the result is `deny` (RECOMMENDED `error` `no_approver`).
+   An implementation MUST NOT let the identifier of an approver name another person later
+   (an identifier the user management gives anew, a reused account name): whoever received
+   it would inherit the approvals of every stored mandate.
 2. **What is confirmed.** A confirmation is bound to exactly one request: the agent, the
    resource (for a request for several resources, the set the PEP resolved, Section 4.4),
-   the action, its parameters and the `mandate_digest` of the evaluation. It MUST NOT be
+   the action, its parameters and the `mandate_digest` of the evaluation, and to the
+   **credential** of the request: if the agent's tokens are bound to a key (Section 11.7
+   item 6), it MUST be bound to that key (its `jkt`); otherwise it SHOULD be bound to the
+   grant the token belongs to, which a refresh of the token does not change. An identical
+   request of another installation with the same `client_id` (Section 3.3) then cannot use
+   it. It MUST NOT be
    used for any other request, and the human MUST be shown what they confirm: the agent
    (`display_name` and `client_id`), the resource or every resource of the set, the action
    and the parameters. For a `deny` that is not enforced, the human SHOULD also be shown
@@ -1781,7 +1832,11 @@ before it executes the action. What follows holds for both.
    What the human is shown is taken from what the PEP itself resolved and will execute
    (Section 12.4, Parameters), never from what the agent or the way of the request supplied,
    whichever way the human is reached (Section 11.7).
-   Text supplied by the agent (a reason, for example) MUST be recognizable as such.
+   Text supplied by the agent (a reason, for example) MUST be recognizable as such: it is
+   shown after the agent, the resource, the action and the parameters, in an area of its
+   own that names the agent as its source, and it MUST satisfy the rules for displayed
+   text (Section 3.1 item 8) or is not shown. It SHOULD be shortened to at most 200 code
+   points, marked as shortened. A manipulated agent writes whatever makes a human confirm.
 3. **Once.** A confirmation permits exactly one execution. A second use, a replay or a
    forged confirmation MUST be rejected; implementations use a value that cannot be
    guessed and accept it once.
@@ -1790,10 +1845,17 @@ before it executes the action. What follows holds for both.
    a confirmation, its own or another agent's. A voice assistant that asks "shall I
    unlock?" and reports the answer itself is not a confirmation.
 5. **In time.** No answer within the `timeout` of the approval settings → `deny`
-   (`timeout`). A rejection or an answer that is invalid (wrong person, wrong value,
-   malformed) → `deny`. A request that ends earlier without an answer: item 8.
+   (`timeout`). A rejection, or an answer of an approver that is invalid (wrong value,
+   malformed), → `deny`. An answer of someone who is not an approver of the request is
+   no answer: it is ignored, changes neither the request nor its `timeout`, and the
+   request stays open until an approver answers or the `timeout` ends it; otherwise anyone
+   who reaches the approval page could deny every waiting request. Such answers MAY be
+   recorded with `auth.rejected` and SHOULD be limited in number. A request that ends
+   earlier without an answer: item 8.
    The execution follows the confirmation without delay; a confirmation that is older
-   than `timeout` when the action would be executed has expired.
+   than `timeout` when the action would be executed has expired: the action is not
+   executed, and the entry records the approval as given (`approved`) and the request as
+   denied by the approval, with the RECOMMENDED `error` `confirmation_expired`.
 6. **Evaluated again.** After the confirmation and immediately before the execution, the
    PEP evaluates the request again. The action is executed only if the result is not
    `deny` and the `mandate_digest` is the one that was confirmed; a `deny` that is not
@@ -1810,8 +1872,15 @@ before it executes the action. What follows holds for both.
    the RECOMMENDED `error` `resources_changed`.
 7. **Limited.** The number of approval requests of one agent that wait for an answer at
    the same time MUST be limited (RECOMMENDED: 2). A request beyond the limit is `deny`
-   without asking anyone. Requests that lead to `ask` count towards the rate limit
-   (Section 11.2). Both protect the approvers from being worn down by repeated requests.
+   without asking anyone (RECOMMENDED `error` `too_many_pending`). Requests that lead to
+   `ask` count towards the rate limit (Section 11.2). Both protect the approvers from being
+   worn down by repeated requests. A request the agent withdrew or an approver rejected
+   SHOULD keep counting towards the limit of waiting requests for a while (RECOMMENDED: its `timeout`), since
+   withdrawing and asking again would otherwise notify the approvers as often as the rate
+   limit allows. An implementation MAY refuse further requests of the agent for the same
+   resource for a while to protect the approvers (RECOMMENDED `error` `approval_cooldown`).
+   A PEP that refuses a request for these reasons SHOULD tell the agent when it may ask
+   again; how is a matter of the binding.
 8. **Ended without an answer.** A request also ends before its timeout when the agent
    withdraws it, when the agent or its mandate is revoked, when the emergency stop is
    activated, or when the process that made it stops. The action is then not executed, and
@@ -1849,14 +1918,41 @@ before it executes the action. What follows holds for both.
    NOT tell any other agent more than that the resource cannot carry out this one
    (Section 13). An implementation that does not know what the resource can do asks as
    before.
+12. **Repeated requests.** Clients give up on a call long before a `timeout` ends and make
+   it again. An implementation SHOULD tie a request that repeats a waiting one of the same
+   agent (same credential as in item 2, resource, action and parameters) to it instead of
+   asking again, and SHOULD NOT execute again a call that repeats one it executed with a
+   confirmation a short time before (RECOMMENDED: at most the `timeout`), or one with the
+   same idempotency key of the binding. The agent then learns the outcome of the earlier
+   request, or that it still waits; how is a matter of the binding. Such a request
+   executes nothing itself; its entry is denied by the approval, without an `approval`
+   object, with the RECOMMENDED `error` `approval_duplicate` (tied to the waiting request)
+   or `already_executed`. A request of the agent for a resource for which another request
+   of it waits (for several resources: for any of them), with another action or other parameters, is denied the same way with
+   `approval_pending`, and a request that reuses an idempotency key of the binding for
+   another call with `idempotency_conflict`. Every such request counts towards the rate
+   limit (Section 11.2).
+13. **The approval page.** A page on which a human answers approval requests MUST NOT
+   let another origin embed it, MUST accept an answer only from a request it protects
+   against cross-site forgery (Section 11.7 item 5), and MUST accept an answer only from an
+   explicit action of the human on the page, never from opening a link. A link that leads
+   to the page is used up by the first answer of an approver, not by opening it (a preview
+   or a scanner opens links) and not by someone who is not an approver; once an approver
+   has authenticated with it, it counts only for that approver. For a critical action (Section 4, step 5), the implementation SHOULD ask the
+   approver to prove that they are present (a PIN, biometrics or signing in again), and an
+   action from a notification on a locked device SHOULD NOT be enough.
 
 **MCP elicitation (informative).** Item 4 names no mechanism. For an agent that uses MCP:
 
 - **URL mode elicitation** (MCP `2025-11-25` and later) can be such a path. The person
   confirms on a page the PEP serves, the client opens it so that neither the client nor
   the model can see the page, and the PEP verifies who confirms. It satisfies item 4 when
-  the PEP checks that the person who confirms is one of the approvers (item 1) and binds
-  the page to exactly one request (items 2 and 3).
+  the PEP checks that the person who confirms is one of the approvers (item 1), binds
+  the page to exactly one request (items 2 and 3), and the approver authenticates in a
+  context the agent cannot operate: the URL reaches the client, and a client with a
+  browser or a tool that operates the computer, or one that runs in the approver's
+  signed-in browser, could open the page and answer. A second device, or a number that
+  the approver compares between two devices, closes this path.
 - **Form mode elicitation** is not a confirmation in the sense of item 4. The answer
   passes through the agent's client, and the PEP cannot tell whether a person gave it.
 - In both cases the person asked is whoever sits at the client, not necessarily an
@@ -1879,10 +1975,22 @@ act or decide.
 - In every period of 3600 seconds, at most N requests of the agent under the mandate
   reach the evaluation. The count belongs to the mandate (`id`), not to a version of it:
   a new version does not reset it. Further requests are denied without evaluation
-  (`denied_by: rate_limit`).
+  (`denied_by: rate_limit`). The mandate is selected first (Section 4.3), then the limit
+  is checked, then the request is evaluated.
 - Every request of the authenticated agent counts, whatever the action and whatever the
   result: `read`, requests that are denied and requests that lead to `ask`. Requests
-  denied by the rate limit itself or by the emergency stop do not count.
+  denied by the rate limit itself or by the emergency stop do not count. A request for
+  several resources counts once for every resource it evaluates (Section 4.4); if the
+  limit does not leave room for all of them, the whole request is denied by it.
+- Requests for which the selection yields no single valid mandate (`no_mandate`,
+  `ambiguous_mandate`, `invalid_mandate`, `revoked`) have no N of their own. They count
+  against a limit of the implementation for the agent and principal, RECOMMENDED at most 60
+  per hour, and for `ambiguous_mandate` at most the smallest N of the valid candidates: an
+  agent without a mandate could otherwise fill the evaluation and the log. Requests within
+  that limit are evaluated and recorded with their reason (`revoked` included); those
+  beyond it are denied with `denied_by: rate_limit` and MAY be summarized (`result.count`).
+- N is an upper bound. An implementation MAY limit more strictly, for example the number
+  of requests within a minute.
 - The bound is normative, the algorithm is not. A sliding window meets it; a token bucket
   that is full after an idle period does not, because it lets up to 2N requests pass
   within one hour.
@@ -1958,7 +2066,15 @@ them.
 When a resource is renamed, an implementation SHOULD keep applying the rules that name its
 former identifier to it, together with the rules that name the new one, and take the
 stricter decision (Section 4, most restrictive wins) until a human resolves the rename:
-takes it over into the mandates or dismisses it. A rename then fails closed.
+takes it over into the mandates or dismisses it. A rename then fails closed. The PEP
+evaluates the request once for the current and once for every former identifier, with
+the resource otherwise as the directory gives it, and records each evaluation as its own
+`decision` entry with the same `request.group` (Section 9.1); each entry is reproducible
+from its own `request`. The request is decided as Section 4.4 decides a request for
+several resources, with one difference: the former identifier is evaluated for the
+decision only. It is not shown to an approver as a resource of its own, nothing is executed
+on it, and the request counts once towards the rate limit; the action is executed, if at
+all, on the current identifier only.
 
 ### 11.5 Telling the agent its limits
 
@@ -1980,7 +2096,9 @@ The limits inform; they decide nothing. Every request is evaluated as in Section
 
 Audit mode (Section 4.6) is not part of what an agent is told. An implementation MUST NOT
 tell an agent that its mandate is in audit mode or that a request was not enforced, and
-the limits it names are those of the `allow` rules, as without audit mode (Section 11.6).
+MUST NOT name limits of a mandate in audit mode: an agent that succeeds with a value
+outside the limits it was told would learn that the mandate does not enforce
+(Section 11.6 item 2).
 
 ### 11.6 Audit mode
 
@@ -1997,8 +2115,10 @@ audit mode:
    `ask`, with every obligation of Section 11.1, and the entry records the outcome of the
    approval request as for an `ask`. It never records a request whose result is not
    enforced as denied by the mandate, except a confirmed one that the evaluation before the
-   execution denied (Section 11.1 item 6) or one whose mandate was revoked while it waited
-   (Section 11.1 item 8), and it never executes a `deny` that is enforced.
+   execution denied (Section 11.1 item 6), one whose mandate was revoked while it waited
+   (Section 11.1 item 8), or one that belongs to a request for several resources that was
+   denied as a whole (Section 4.4; audit version 1, with `request.group`), and it never
+   executes a `deny` that is enforced.
 2. **Tells the agent nothing.** The agent receives the same response as for an `allow` of
    the same request, or, if the result requires a confirmation, as for an `ask`: no hint of
    the audit mode, of the denial or of the rule. An agent
@@ -2024,14 +2144,29 @@ audit mode:
    interface of the implementation and on a path the agent does not control (Section 11.1
    item 4). The confirmation names the digest of exactly the version that is adopted and
    counts for no other; a signed successor is not adopted automatically. What follows
-   about proposals applies to every such mandate, not only to audit mode. The
+   about proposals applies to every such mandate, not only to audit mode.
+   A human of the household who may confirm is a user with administration rights in the
+   implementation. A mandate that only names `approvers` the implementation does not know,
+   and neither switches audit mode on, weakens the stored mandate nor follows a revoked
+   one, MAY also be confirmed by an approver (Section 11.1 item 1) that both the stored and
+   the proposed version name, or, if no version is stored, that the proposed version names
+   and the implementation knows. Audit mode and a weakening thus always need an
+   administrator, and an issuer cannot add someone who confirms its mandate. Where another
+   such person exists, the confirmation SHOULD come from someone
+   other than the human who proposed the mandate (the `actor` of `mandate.proposed`, if it
+   is a user); an agent never confirms. When the confirmation
+   arrives, the implementation checks succession (Section 3.5) again against the mandate it
+   holds at that moment; a proposal that no longer passes is not adopted and is discarded
+   (`superseded`), so that a confirmation never undoes a version that took effect in the
+   meantime. A proposal expires after a bounded time, RECOMMENDED 24 hours, so that an old
+   notification cannot adopt it later, and is discarded (`expired`). The
    implementation MUST notify every approver of the mandate when such a mandate is
    proposed, while it waits for the confirmation, and again when the mandate takes effect.
    It MUST record the proposal with
    `mandate.proposed`, with the digest of the proposed version as `digest` and that of the
    stored version, if there is one, as `previous_digest`. A proposal that does not take
    effect, because a human declined it, another version took effect or replaced it, the
-   mandate was revoked or the proposed version expired, it MUST record with
+   mandate was revoked, or the proposed version or the proposal expired, it MUST record with
    `mandate.discarded`, with the same `digest` and `previous_digest` as the proposal and
    with that `cause` (Section 9.1). The confirmation is recorded as
    `mandate.updated`, or as `mandate.created` if no version was stored, with the same
@@ -2189,7 +2324,8 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | Attacker | What the specification does | What remains |
 |---|---|---|
 | **Agent that is malicious or was manipulated** (prompt injection through a website, an e-mail, a document) | The decision is made outside the agent. Default `deny`, most restrictive rule wins, critical actions need `allow_critical` or a human (Section 4). The agent supplies only the resource and the action; category, areas, time and status come from the PEP. Rate limit and a limit on waiting approval requests (Section 11) | Everything the mandate allows, the agent can do. A mandate with a broad `allow` is a broad permission. An automation or a rule on the platform that reacts to an allowed action on a harmless-looking resource (a switch, a virtual datapoint) does what the household would not let the agent do directly; the PEP sees only the switch. Such a resource is marked critical (Section 12.4) |
-| **Agent that tries to obtain a confirmation** | The confirmation is bound to one request, used once, comes from a named approver on a path the agent does not control, and the request is evaluated again afterwards (Section 11.1) | A human who confirms without reading. The implementation MUST show what is confirmed; it cannot make the human read |
+| **Agent that tries to obtain a confirmation** | The confirmation is bound to one request and to the credential it came with, used once, comes from a named approver on a path the agent does not control, on a page that cannot be embedded or answered by opening a link, and the request is evaluated again afterwards; its own text is shown last, marked and limited; an answer of someone who is not an approver is ignored; repeated requests are tied to the waiting one and withdrawn ones keep counting (Section 11.1) | A human who confirms without reading. The implementation MUST show what is confirmed; it cannot make the human read |
+| **Second installation of the same client, or new owner of its domain** (two members of the household run the same software; the domain of an https `client_id` changes hands) | One identifier per installation or an authenticated installation, a changed metadata document confirmed again (Section 3.3); the principal comes from the human who authorized the credential (Section 4.3); a confirmation is bound to the credential (Section 11.1 item 2) | An implementation that admits every installation under the metadata URL shares mandates and limits between them. A new owner of the domain who serves the unchanged document is not noticed by the document; it still needs a human to authorize a new sign-in, who sees the same agent |
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded, and so are added or removed resources and changed categories or areas, as far as the implementation tracks them (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
 | **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it; a later checkpoint anchors them only if its signer took the digest from the log file, which Section 9.5 forbids. A signer whose stored highest `seq` was reset, together with a restored log, can sign a second history. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only. Entries of an invented version leave the content of the log from there on unchecked; a verifier reports this (Section 9.4) and still checks the chain, so a change before them stays visible |
@@ -2220,7 +2356,8 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
 - **the user management**: it decides who an approver is and authenticates the person;
 - **the approval channel**: it reaches the approver and nobody else can answer on it;
 - **the authentication of the agent**: the specification assumes that the agent behind
-  a `client_id` was authenticated; how is outside its scope;
+  a `client_id` was authenticated, as an installation and not only as a piece of software
+  (Section 3.3); how is outside its scope;
 - **the only path**: the agent reaches the platform only through the PEP. It holds no other
   credential for the platform (an API token, a user account) and cannot create or change
   what executes on the platform: scripts, automations, rules, scenes, adapters,
@@ -2455,6 +2592,46 @@ behavior of the people in a household and MUST be protected like the devices the
 ## Changelog
 
 ### Unreleased
+
+- Section 11.1, approval: a confirmation is also bound to the credential the request came
+  with (to the key of bound tokens, MUST; otherwise to the grant or session, SHOULD);
+  text of the agent is shown last in an area of its own, follows Section 3.1 item 8 and
+  SHOULD be at most 200 code points; an answer of someone who is not an approver is
+  ignored instead of denying the request (MAY be recorded with `auth.rejected`); an expired confirmation is denied by the
+  approval with `confirmation_expired`; approver identifiers are never given to another
+  person; withdrawn and rejected requests keep counting towards the pending limit for a
+  while, and a PEP SHOULD tell the agent when it may ask again. New item 12, repeated
+  requests (tied to the waiting request, not executed twice), and item 13, the approval
+  page (not embeddable, protected against forgery, an explicit action, a link used once,
+  presence for critical actions SHOULD). RECOMMENDED `error` codes `no_approver`,
+  `too_many_pending`, `approval_pending`, `approval_duplicate`, `already_executed`,
+  `idempotency_conflict`, `approval_cooldown` and `confirmation_expired`. The note on URL
+  mode elicitation says when it keeps the agent out.
+- Section 4.4, several resources: always executed only if every evaluation permits it; one
+  confirmation with the shortest `timeout` and the approvers common to all, none in common
+  is `no_approver`; every entry of the request records the same outcome, and the entries
+  MUST then carry the same `request.group`; every evaluation counts towards the rate limit. Section 4.1: the approval settings need not belong to the
+  rule `rule_id` names.
+- Section 11.2, rate limit: selection, then the limit, then the evaluation; requests without
+  a single valid mandate count against a limit of the implementation, RECOMMENDED at most 60
+  per hour; N is an upper bound and an implementation MAY limit more strictly.
+- Section 11.4: a request for a renamed resource is recorded as one entry per identifier with
+  the same `request.group`; the former identifier is evaluated for the decision only, never
+  shown or executed, and the request counts once. Section 9.2: decisions are reproducible
+  entry by entry.
+- Section 11.6 item 4: who confirms a proposal (an administrator; for a mandate that only
+  names unknown approvers also an approver both versions name), SHOULD not the proposer, never an agent; succession is checked again at adoption; a
+  proposal expires, RECOMMENDED after 24 hours (`mandate.discarded` with `cause: expired`).
+- Sections 11.5 and 11.6: no limits are named for a mandate in audit mode. The Go evaluator's
+  `Mandate.Limits` returns none for such a mandate.
+- Sections 3.3, 4.3, 12.2 and 12.3: an https `client_id` names software, not an installation;
+  an implementation SHOULD give every installation its own identifier or authenticate it, and
+  SHOULD confirm a changed metadata document again; the principal comes from the human who
+  authorized the agent's credential.
+- Audit version 1 (not yet released): in an entry with `request.group`, a `deny` that is not
+  enforced may record the denial of the whole request, but never one by the rate limit;
+  Section 11.6 item 1 names this exception. New logs `v129` to `v138` in
+  `conformance/audit-v1.json`.
 
 - Section 9.5, the signer of checkpoints: it signs digests from its own state, never one it
   only read from the log file; it keeps the highest signed `seq` and never signs a position
