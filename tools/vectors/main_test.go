@@ -13,8 +13,8 @@ import (
 	"testing"
 
 	"github.com/home-mandate/spec/audit"
-	"github.com/home-mandate/spec/manifest"
 	"github.com/home-mandate/spec/jws"
+	"github.com/home-mandate/spec/manifest"
 )
 
 const entryTemplate = `{"type":"https://home-mandate.org/audit/v0","id":"01928b2e-7c3a-7000-8000-00000000000N","seq":N,` +

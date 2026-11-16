@@ -4,9 +4,8 @@
 // schemas, example mandates and conformance cases. Implementations use it to test against
 // exactly the version of the specification they depend on.
 //
-// The files of the Relay Specification (RELAY-v0.md, a draft) are not in FS: they are not
-// part of v0.1.0, and the freeze of SPEC-v0 Section 14 does not cover them. The package
-// relay embeds them instead, in relay.FS.
+// The Home-Mandate Relay Specification has its own repository and module,
+// github.com/home-mandate/relay-spec, which embeds its files.
 package spec
 
 import (

@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/home-mandate/spec/rfc3339"
 	"github.com/home-mandate/spec/jcs"
 	"github.com/home-mandate/spec/jws"
+	"github.com/home-mandate/spec/rfc3339"
 )
 
 const (

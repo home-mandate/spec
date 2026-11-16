@@ -1947,8 +1947,9 @@ household never believes a mandate is being tried while it enforces, or the reve
 ### 11.7 Remote access
 
 Agents that run in the cloud reach an implementation from the internet: through a proxy the
-household runs, through a relay (`RELAY-v0.md`, a draft), or through a forwarded port. An
-implementation is **reachable from outside** when it accepts connections of agents under a name
+household runs, through a relay (the Home-Mandate Relay Specification, RELAY-v0, in the
+repository home-mandate/relay-spec), or through a forwarded port. An implementation is
+**reachable from outside** when it accepts connections of agents under a name
 that can be reached from the internet. This section states what holds for such an implementation,
 whichever way it is reached. An implementation that only its own network can reach conforms
 without it. One that is reachable from outside MUST meet it, and an implementation that does not
@@ -2346,6 +2347,11 @@ behavior of the people in a household and MUST be protected like the devices the
 - Go: the packages `ijson`, `rfc3339` and `manifest` of the reference code are public (they
   were internal), so that the Relay Specification can use them from its own repository. No
   change to the specification or its formats.
+- The Relay Specification (`RELAY-v0.md` and `relay/`, a draft that was never part of a
+  release) moved to its own repository, home-mandate/relay-spec, with its own versions. The
+  Go package `github.com/home-mandate/spec/relay` is now `github.com/home-mandate/relay-spec`.
+  The cases of Certificate Transparency monitoring (`conformance/ct-v0.json`) and the requests
+  of package `jws` stay here.
 
 ### v0.1.1 (2026-11-04)
 
