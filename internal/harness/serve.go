@@ -14,8 +14,8 @@ import (
 
 	"github.com/home-mandate/spec/audit"
 	"github.com/home-mandate/spec/evaluator"
-	"github.com/home-mandate/spec/rfc3339"
 	"github.com/home-mandate/spec/jws"
+	"github.com/home-mandate/spec/rfc3339"
 )
 
 // maxLineBytes bounds one request: a mandate of 256 KiB inside a JSON string, several

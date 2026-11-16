@@ -2,8 +2,7 @@
 
 // Command vectors maintains the conformance files of the specification:
 //
-//	vectors manifest [-check]   write or check conformance/manifest.json and
-//	                            relay/conformance/manifest.json
+//	vectors manifest [-check]   write or check conformance/manifest.json
 //	vectors digest <mandate>    print the digest of a mandate (SPEC-v0 section 3.2)
 //	vectors chain < entries     link a JSON array of audit entries by prev and print them
 //	                            with their digests (SPEC-v0 section 9.4)
@@ -14,13 +13,6 @@
 //	                            test key (SPEC-v0 section 9.5)
 //	vectors sign [-raw] <keys> <kid> <file>
 //	                            print a signed mandate (SPEC-v0 section 7), signed with a test key
-//	vectors relay-jws <keys>    print relay/conformance/jws-v0.json, the requests of the Relay
-//	                            Specification (RELAY-v0 sections 5.1, 5.5), signed with test keys
-//	vectors relay-csr <keys>    print relay/conformance/csr-v0.json, certificate signing requests
-//	                            for tunnel certificates (RELAY-v0 section 5.4)
-//	vectors relay-certificate <keys>
-//	                            print relay/conformance/certificate-v0.json, issued tunnel
-//	                            certificates (RELAY-v0 section 5.4)
 //
 // Run it from the repository root: go run ./tools/vectors <command>.
 package main
@@ -39,7 +31,6 @@ import (
 	"github.com/home-mandate/spec/evaluator"
 	"github.com/home-mandate/spec/ijson"
 	"github.com/home-mandate/spec/manifest"
-	"github.com/home-mandate/spec/relay"
 )
 
 func main() {
@@ -67,14 +58,6 @@ func run(args []string, dir string, stdin io.Reader, stdout io.Writer) error {
 		return runCheckpoint(args[1:], dir, stdout)
 	case "sign":
 		return runSign(args[1:], dir, stdout)
-	case "relay-jws":
-		return runRelayJWS(args[1:], dir, stdout)
-	case "relay-csr":
-		return runRelayCSR(args[1:], dir, stdout)
-	case "relay-certificate":
-		return runRelayCertificate(args[1:], dir, stdout)
-	case "relay-proxy":
-		return runRelayProxy(args[1:], stdout)
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }
@@ -86,16 +69,7 @@ func runManifest(args []string, dir string, stdout io.Writer) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	for _, layout := range []manifest.Layout{manifest.Specification, relay.ManifestLayout} {
-		// A tree without the conformance files of a layout has no manifest of it.
-		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(layout.CaseDir))); err != nil {
-			continue
-		}
-		if err := manifestFor(layout, dir, *check, stdout); err != nil {
-			return err
-		}
-	}
-	return nil
+	return manifestFor(manifest.Specification, dir, *check, stdout)
 }
 
 func manifestFor(layout manifest.Layout, dir string, check bool, stdout io.Writer) error {

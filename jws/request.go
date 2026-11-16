@@ -2,7 +2,7 @@
 
 package jws
 
-// Requests of the Home-Mandate Relay Specification (RELAY-v0.md, draft): the JWS that a
+// Requests of the Home-Mandate Relay Specification (RELAY-v0, home-mandate/relay-spec): the JWS that a
 // gateway sends to the enrollment endpoint of an operator (section 5.1) and the inner JWS of
 // a key change (section 5.5). Unlike a signed mandate, a request names its key by the
 // installation URL (kid) or carries it (jwk), so the header is parsed before the key is known.
@@ -22,8 +22,8 @@ import (
 	"math/big"
 	"regexp"
 
-	"github.com/home-mandate/spec/internal/errquote"
 	"github.com/home-mandate/spec/ijson"
+	"github.com/home-mandate/spec/internal/errquote"
 )
 
 // RequestHeader is the protected header of a request (RELAY-v0 section 5.1): exactly alg,
