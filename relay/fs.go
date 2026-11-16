@@ -5,7 +5,18 @@ package relay
 import (
 	"embed"
 	"io/fs"
+
+	"github.com/home-mandate/spec/manifest"
 )
+
+// ManifestLayout says which files relay/conformance/manifest.json lists, with paths relative to
+// the root of the repository.
+var ManifestLayout = manifest.Layout{
+	Spec:    "relay-v0",
+	Path:    "relay/conformance/manifest.json",
+	Roots:   []string{"relay/conformance", "relay/examples", "relay/schema"},
+	CaseDir: "relay/conformance",
+}
 
 // Paths within FS.
 const (

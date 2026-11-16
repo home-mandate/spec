@@ -11,7 +11,7 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/home-mandate/spec/internal/ijson"
+	"github.com/home-mandate/spec/ijson"
 	"github.com/home-mandate/spec/jcs"
 	"github.com/home-mandate/spec/schema"
 )

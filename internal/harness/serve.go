@@ -14,7 +14,7 @@ import (
 
 	"github.com/home-mandate/spec/audit"
 	"github.com/home-mandate/spec/evaluator"
-	"github.com/home-mandate/spec/internal/rfc3339"
+	"github.com/home-mandate/spec/rfc3339"
 	"github.com/home-mandate/spec/jws"
 )
 

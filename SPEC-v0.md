@@ -2343,6 +2343,9 @@ behavior of the people in a household and MUST be protected like the devices the
   schemas, without a conformance class. `ct-v0.json` moves here from `relay/conformance/`, with
   `since` in place of `pairing` and the cases unchanged otherwise.
 - New informative list `ct-sources.md` of Certificate Transparency services.
+- Go: the packages `ijson`, `rfc3339` and `manifest` of the reference code are public (they
+  were internal), so that the Relay Specification can use them from its own repository. No
+  change to the specification or its formats.
 
 ### v0.1.1 (2026-11-04)
 

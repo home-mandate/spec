@@ -10,7 +10,7 @@ import (
 
 	"github.com/home-mandate/spec"
 	"github.com/home-mandate/spec/evaluator"
-	"github.com/home-mandate/spec/internal/rfc3339"
+	"github.com/home-mandate/spec/rfc3339"
 )
 
 // mandateSource is the common shape conformance files use to refer to a mandate.

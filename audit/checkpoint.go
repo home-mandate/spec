@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/home-mandate/spec/internal/rfc3339"
+	"github.com/home-mandate/spec/rfc3339"
 	"github.com/home-mandate/spec/jcs"
 	"github.com/home-mandate/spec/jws"
 )

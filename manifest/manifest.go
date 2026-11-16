@@ -2,7 +2,9 @@
 
 // Package manifest lists the machine-readable files of a version of the specification
 // with their SHA-256 and, for conformance files, the number of cases. With it, anyone
-// can state exactly which files and cases a conformance run covered.
+// can state exactly which files and cases a conformance run covered. Specification is the
+// layout of this repository; a companion specification, such as the Relay Specification,
+// describes its own files with a Layout of its own.
 package manifest
 
 import (
@@ -20,10 +22,6 @@ import (
 // Path of the manifest within the repository; the manifest does not list itself.
 const Path = "conformance/manifest.json"
 
-// RelayPath is the path of the manifest of the Relay Specification (RELAY-v0.md, draft),
-// whose files are not part of a release of the specification.
-const RelayPath = "relay/conformance/manifest.json"
-
 // Layout says which files a manifest lists.
 type Layout struct {
 	// Spec is the value of the member spec.
@@ -38,9 +36,6 @@ type Layout struct {
 
 // Specification lists the files of the specification (conformance/manifest.json).
 var Specification = Layout{Spec: "v0", Path: Path, Roots: []string{"conformance", "data", "examples", "schema", "vocabulary"}, CaseDir: "conformance"}
-
-// Relay lists the files of the Relay Specification (relay/conformance/manifest.json).
-var Relay = Layout{Spec: "relay-v0", Path: RelayPath, Roots: []string{"relay/conformance", "relay/examples", "relay/schema"}, CaseDir: "relay/conformance"}
 
 // caseKeys are the members that hold the cases of a conformance file.
 var caseKeys = []string{"cases", "logs"}
