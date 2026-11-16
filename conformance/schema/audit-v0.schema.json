@@ -68,6 +68,21 @@
             "type": "integer",
             "minimum": 0,
             "description": "For a valid log verified with keys: the seq up to which a verified checkpoint covers the log; 0 if none."
+          },
+          "integrity_broken_at": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "seq of the first entry at which the log is not complete and unaltered (SPEC-v0 section 9.4); 0 if it has no readable seq; absent if there is none."
+          },
+          "conformance_broken_at": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "seq of the first entry of a known audit version that breaks condition 1 (SPEC-v0 section 9.4); 0 if it has no readable seq; absent if there is none."
+          },
+          "unknown_version_at": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "seq of the first entry of an audit version the verifier does not know (SPEC-v0 sections 9.4 and 14); absent if there is none."
           }
         },
         "if": {

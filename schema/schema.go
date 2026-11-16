@@ -13,6 +13,7 @@ import (
 const (
 	MandateID    = "https://home-mandate.org/mandate/v0/mandate.schema.json"
 	AuditID      = "https://home-mandate.org/audit/v0/audit.schema.json"
+	AuditV1ID    = "https://home-mandate.org/audit/v1/audit.schema.json"
 	VocabularyID = "https://home-mandate.org/vocabulary/v0/vocabulary.schema.json"
 )
 
@@ -21,6 +22,8 @@ var (
 	mandateSchema []byte
 	//go:embed audit-v0.schema.json
 	auditSchema []byte
+	//go:embed audit-v1.schema.json
+	auditV1Schema []byte
 	//go:embed vocabulary-v0.schema.json
 	vocabularySchema []byte
 )
@@ -28,8 +31,13 @@ var (
 // Mandate returns a copy of the mandate schema.
 func Mandate() []byte { return bytes.Clone(mandateSchema) }
 
-// Audit returns a copy of the audit log schema.
+// Audit returns a copy of the schema of audit log entries of version 0
+// (https://home-mandate.org/audit/v0).
 func Audit() []byte { return bytes.Clone(auditSchema) }
+
+// AuditV1 returns a copy of the schema of audit log entries of version 1
+// (https://home-mandate.org/audit/v1, SPEC-v0 section 14).
+func AuditV1() []byte { return bytes.Clone(auditV1Schema) }
 
 // Vocabulary returns a copy of the schema of vocabulary files (core and extensions).
 func Vocabulary() []byte { return bytes.Clone(vocabularySchema) }

@@ -116,4 +116,9 @@ type Response struct {
 	BrokenAt *int64 `json:"broken_at,omitempty"`
 	Anchored *int64 `json:"anchored,omitempty"`
 	Entries  *int   `json:"entries,omitempty"`
+	// The findings of SPEC-v0 section 9.4, each the seq of the first entry of its kind and
+	// absent if there is none.
+	IntegrityBrokenAt   *int64 `json:"integrity_broken_at,omitempty"`
+	ConformanceBrokenAt *int64 `json:"conformance_broken_at,omitempty"`
+	UnknownVersionAt    *int64 `json:"unknown_version_at,omitempty"`
 }

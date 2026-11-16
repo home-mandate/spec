@@ -1,0 +1,346 @@
+{
+  "description": "Audit logs of version 1 and logs that mix versions 0 and 1, with the expected result of the verification, SPEC-v0.md sections 9.4 and 14. Besides valid and broken_at, a case states the three findings of section 9.4: integrity_broken_at, conformance_broken_at and unknown_version_at, each absent if there is none. Entries of the unknown version 2 stand for any version a verifier does not know. Checkpoints are signed with the test key test-ed25519 of conformance/keys/test-keys.private.json.",
+  "logs": [
+    {
+      "id": "v101",
+      "why": "every new event of version 1, in a log of version 1",
+      "expected": "valid",
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"binding": "dpop", "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "gateway", "kind": "system"}, "agent": {"client_id": "hm-client:voice-7c21e9a4"}, "binding": {"jkt": "kPYe4TclFMsM9R3f6RaAkkZMqT6s7tBIqzemuT4FtJA", "method": "dpop"}, "event": "agent.bound", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:f79c4fb1bce03bb92f1e9132bd776cf237459b4641af29421a370286b9e1d381", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "config": {"setting": "public_origin", "value": "https://home.example.net"}, "event": "config.changed", "id": "01a0f64c-7140-7001-9007-0000000b1003", "prev": "sha256:bf93dd4ee1b1131b09c7a43ac9b7927ef5e866685b810a9148510c0dd371c706", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:02:00Z", "seq": 3, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "config": {"previous_value": "off", "setting": "remote_access", "value": "on"}, "event": "config.changed", "id": "01a0f64c-7140-7001-9007-0000000b1004", "prev": "sha256:1e8a84eb819eec90260dc6d78e14274b1cf6a46c61f98ab96621a2c8625d72a5", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:03:00Z", "seq": 4, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "config": {"previous_value": "allowed", "setting": "unbound_tokens", "value": "refused"}, "event": "config.changed", "id": "01a0f64c-7140-7001-9007-0000000b1005", "prev": "sha256:91af20543adedf33a4d9cc2c1cb5e032ae6aeb078490557c03d7086617af6159", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:04:00Z", "seq": 5, "type": "https://home-mandate.org/audit/v1"},
+        {"ct": {"previous_status": "ok", "status": "limited"}, "event": "ct.status", "id": "01a0f64c-7140-7001-9007-0000000b1006", "prev": "sha256:070a3a6dc9b9fa46930f0826670ccd41e885991e4ca0778f4a0194d9b558d42c", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:05:00Z", "seq": 6, "type": "https://home-mandate.org/audit/v1"},
+        {"certificate": {"digest": "kPYe4TclFMsM9R3f6RaAkkZMqT6s7tBIqzemuT4FtJA", "issuer": "CN=R11, O=Let's Encrypt, C=US", "logged": "2026-11-01T00:00:01Z", "names": ["home.example.net"], "not_after": "2027-01-30T00:00:00Z", "not_before": "2026-11-01T00:00:00Z", "public_key": "zA27oSzA-qqjmHNFpv1mbw33uyBXik4eDkfE8F6VRps", "status": "alarm"}, "event": "cert.unexpected", "id": "01a0f64c-7140-7001-9007-0000000b1007", "prev": "sha256:cb8ac785f774c019cbda8d6f661eafc4220b8fb7139d49667553f65a84015c3b", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:06:00Z", "seq": 7, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "certificate": {"digest": "kPYe4TclFMsM9R3f6RaAkkZMqT6s7tBIqzemuT4FtJA"}, "event": "cert.acknowledged", "id": "01a0f64c-7140-7001-9007-0000000b1008", "prev": "sha256:f12fc7fbbb448fd39ad5e636079235a591235f749fb137fd9ee1a9c261c17c4c", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:07:00Z", "seq": 8, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4"}, "credentials": {"cause": "user", "scope": "agent"}, "event": "credentials.withdrawn", "id": "01a0f64c-7140-7001-9007-0000000b1009", "prev": "sha256:818b9171c1afc8a7e2a9ffb581610f97e86c3b7c867c83ba009635be1dab6993", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:08:00Z", "seq": 9, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "gateway", "kind": "system"}, "credentials": {"cause": "public_origin", "scope": "all"}, "event": "credentials.withdrawn", "id": "01a0f64c-7140-7001-9007-0000000b100a", "prev": "sha256:66ab72c3293b2cf3681fc691ed3bf2a10defeda63abfb549c0f631ef96976d27", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:09:00Z", "seq": 10, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "event": "relay.paired", "id": "01a0f64c-7140-7001-9007-0000000b100b", "prev": "sha256:56e0138dd018c1741c8b5ee79265dc6300030379fd7314e17fab041484bf4d83", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:10:00Z", "relay": {"home_id": "k7q2xwmpd4hj3n6rt5vbyc2ezu", "name": "k7q2xwmpd4hj3n6rt5vbyc2ezu.homes.example.net", "operator": "relay.example.net"}, "seq": 11, "type": "https://home-mandate.org/audit/v1"},
+        {"event": "relay.status_changed", "id": "01a0f64c-7140-7001-9007-0000000b100c", "prev": "sha256:6acea56136b922ca6bf0f8b85cca8838b7136af36fd90f6d7f14821fbc38e599", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:11:00Z", "relay": {"home_id": "k7q2xwmpd4hj3n6rt5vbyc2ezu", "operator": "relay.example.net", "previous_status": "active", "status": "paused"}, "seq": 12, "type": "https://home-mandate.org/audit/v1"},
+        {"event": "relay.pins_changed", "id": "01a0f64c-7140-7001-9007-0000000b100d", "prev": "sha256:c5799403556920a1703d96a9104c88e7cf685c6bcda6a6565411ef4f7f6f0aba", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:12:00Z", "relay": {"active_pins": 2, "backup_pins": 1, "operator": "relay.example.net", "source": "relay"}, "seq": 13, "type": "https://home-mandate.org/audit/v1"},
+        {"event": "relay.protection_changed", "id": "01a0f64c-7140-7001-9007-0000000b100e", "prev": "sha256:b28314a131e85f1b05450da5d41d7809e2be825cb85171932d40eafef5708376", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:13:00Z", "relay": {"level": "own_domain", "name": "home.example.com", "operator": "relay.example.net", "previous_level": "standard"}, "seq": 14, "type": "https://home-mandate.org/audit/v1"},
+        {"event": "relay.caa_alarm", "id": "01a0f64c-7140-7001-9007-0000000b100f", "prev": "sha256:47efc8f162c773fae8c723ae3705c604bd5dfd65415ed407238a1d74bcf55c61", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:14:00Z", "relay": {"name": "homes.example.net", "operator": "relay.example.net", "scope": "apex"}, "seq": 15, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "event": "relay.acme_account_changed", "id": "01a0f64c-7140-7001-9007-0000000b1010", "prev": "sha256:44d34b7f51f43d88fa415c5d0567c8d86acdfbf32eec8c7a58329f1b7bb5c0a8", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:15:00Z", "relay": {"account": "https://acme-v02.api.letsencrypt.org/acme/acct/123456789", "change": "confirmed", "operator": "relay.example.net"}, "seq": 16, "type": "https://home-mandate.org/audit/v1"},
+        {"event": "relay.unpaired", "id": "01a0f64c-7140-7001-9007-0000000b1011", "prev": "sha256:7314d63bf86bee5e31bf94af7df96ae1c602db78220086d157e03384c2ae7590", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:16:00Z", "relay": {"cause": "local", "home_id": "k7q2xwmpd4hj3n6rt5vbyc2ezu", "operator": "relay.example.net"}, "seq": 17, "type": "https://home-mandate.org/audit/v1"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1012", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:418a6036bfbadadafafeac3e86b1070971ef5843bc5b15cc46d5d1f0b7532805", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:17:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:17:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 18, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}}
+      ]
+    },
+    {
+      "id": "v102",
+      "why": "a log that continues in version 1 after entries of version 0 (SPEC-v0 section 14, mixed data)",
+      "expected": "valid",
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1002", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:f6ddade88bc2adf0354635e2cd7d32871bf7c69db73efc06824fd5b31b28522c", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:01:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}},
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"binding": "none", "client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1003", "prev": "sha256:c7e7b43135e350a73bc21e97016479eb9b4525d5e96f3c5bcc5d8af0ef4a335a", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:02:00Z", "seq": 3, "type": "https://home-mandate.org/audit/v1"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1004", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:a2289a7b72777236861bbc8030199c352340948014ce0b78aacfb956945467c4", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:03:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:03:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 4, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}}
+      ]
+    },
+    {
+      "id": "v103",
+      "why": "a checkpoint before the first entry of version 1 anchors the part of version 0; a checkpoint in version 1 signs the payload type audit-checkpoint/v0",
+      "expected": "valid",
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "anchored": 4,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1002", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:f6ddade88bc2adf0354635e2cd7d32871bf7c69db73efc06824fd5b31b28522c", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:01:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}},
+        {"checkpoint": {"log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..LEQNdI8OahVxFipK3n4LwozuqaToHVubGR0RLnC4Efbrk61U46T1OiQo_IcoOdnqB1Xiy8J4KqOpb5ZombZoDQ"}, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000000b1003", "prev": "sha256:c7e7b43135e350a73bc21e97016479eb9b4525d5e96f3c5bcc5d8af0ef4a335a", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:02:00Z", "seq": 3, "type": "https://home-mandate.org/audit/v1"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1004", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:24d343987791f301d85f125f3d5f3816b92343976e4b974fd70f82d57b043f27", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:03:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:03:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 4, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}},
+        {"checkpoint": {"log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..-yaoU-hmc03deJ_20PJL6OIAq1tbeAHNwjflnZiRmadsPRAWCwQzA26xNAMpz3B5AqAStzUZNnYyFTZUODNeDw"}, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000000b1005", "prev": "sha256:99648428a82c5e8be9a8d5ee5e16cf8ab914a37fb13c9d824176a08741fcbb13", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:04:00Z", "seq": 5, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v104",
+      "why": "an entry of version 0 after an entry of version 1 breaks condition 1",
+      "expected": "invalid",
+      "broken_at": 3,
+      "conformance_broken_at": 3,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1002", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:01:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1003", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:cdf01e790ca2df68bf839976bffd740a39ef62c11e719963991b4e940f2a5dbc", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:02:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:02:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 3, "type": "https://home-mandate.org/audit/v0", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}}
+      ]
+    },
+    {
+      "id": "v105",
+      "why": "an event of version 1 under the type of version 0",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v0"},
+        {"actor": {"id": "gateway", "kind": "system"}, "agent": {"client_id": "hm-client:voice-7c21e9a4"}, "binding": {"jkt": "kPYe4TclFMsM9R3f6RaAkkZMqT6s7tBIqzemuT4FtJA", "method": "dpop"}, "event": "agent.bound", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:f6ddade88bc2adf0354635e2cd7d32871bf7c69db73efc06824fd5b31b28522c", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v0"}
+      ]
+    },
+    {
+      "id": "v106",
+      "why": "an entry of a version this verifier does not know: the log is not damaged; from there on its content is not checked (SPEC-v0 section 9.4)",
+      "expected": "invalid",
+      "broken_at": 3,
+      "unknown_version_at": 3,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1002", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:01:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}},
+        {"event": "relay.something_new", "id": "01a0f64c-7140-7001-9007-0000000b1003", "prev": "sha256:cdf01e790ca2df68bf839976bffd740a39ef62c11e719963991b4e940f2a5dbc", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:02:00Z", "relay": {"new": true, "operator": "relay.example.net"}, "seq": 3, "type": "https://home-mandate.org/audit/v2"},
+        {"event": "relay.something_new", "id": "01a0f64c-7140-7001-9007-0000000b1004", "prev": "sha256:f7b8a40877a68958eee967cdb15679fd4a408fc1d7cd06d8c2a7263995d28cdd", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:03:00Z", "relay": {"new": true, "operator": "relay.example.net"}, "seq": 4, "type": "https://home-mandate.org/audit/v2"}
+      ]
+    },
+    {
+      "id": "v107",
+      "why": "an entry changed before an entry of an unknown version: the chain is still checked, and the change breaks it",
+      "expected": "invalid",
+      "broken_at": 4,
+      "integrity_broken_at": 3,
+      "unknown_version_at": 4,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1002", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:01:00Z"}, "result": {"duration_ms": 999, "status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1003", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:cdf01e790ca2df68bf839976bffd740a39ef62c11e719963991b4e940f2a5dbc", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:02:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:02:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 3, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}},
+        {"event": "relay.something_new", "id": "01a0f64c-7140-7001-9007-0000000b1004", "prev": "sha256:50ba05ea4155ecb2f5c02a5b9b293b23dc17ad633696cab8d5349f62477deb58", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:03:00Z", "relay": {"new": true, "operator": "relay.example.net"}, "seq": 4, "type": "https://home-mandate.org/audit/v2"}
+      ]
+    },
+    {
+      "id": "v108",
+      "why": "a break of the chain after an entry of an unknown version is still found",
+      "expected": "invalid",
+      "broken_at": 2,
+      "integrity_broken_at": 4,
+      "unknown_version_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"event": "relay.something_new", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "relay": {"new": true, "operator": "relay.example.net"}, "seq": 2, "type": "https://home-mandate.org/audit/v2"},
+        {"event": "relay.something_new", "id": "01a0f64c-7140-7001-9007-0000000b1003", "prev": "sha256:cbc31da3715c87be63f30d0ff375da7135edc730da03556d760d1b692e38098e", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:02:00Z", "relay": {"new": true, "operator": "relay.example.net"}, "seq": 3, "type": "https://home-mandate.org/audit/v2"},
+        {"event": "relay.something_new", "id": "01a0f64c-7140-7001-9007-0000000b1004", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:03:00Z", "relay": {"new": true, "operator": "relay.example.net"}, "seq": 4, "type": "https://home-mandate.org/audit/v2"}
+      ]
+    },
+    {
+      "id": "v109",
+      "why": "an unknown version in the first entry",
+      "expected": "invalid",
+      "broken_at": 1,
+      "unknown_version_at": 1,
+      "entries": [
+        {"event": "relay.something_new", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "relay": {"new": true, "operator": "relay.example.net"}, "seq": 1, "type": "https://home-mandate.org/audit/v2"},
+        {"event": "relay.something_new", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:05903ab622b9775d7bb6af3313cabf5117e64d1c687e94129a0fb4f3a77f9c6f", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "relay": {"new": true, "operator": "relay.example.net"}, "seq": 2, "type": "https://home-mandate.org/audit/v2"}
+      ]
+    },
+    {
+      "id": "v123",
+      "why": "an entry of version 1 after one of an unknown newer version: an older version after a newer one breaks condition 1, known or not (SPEC-v0 section 14)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 3,
+      "unknown_version_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"event": "relay.something_new", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "relay": {"new": true, "operator": "relay.example.net"}, "seq": 2, "type": "https://home-mandate.org/audit/v2"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1003", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:cbc31da3715c87be63f30d0ff375da7135edc730da03556d760d1b692e38098e", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:02:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:02:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 3, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}}
+      ]
+    },
+    {
+      "id": "v124",
+      "why": "a rewritten history whose signed checkpoint was given an unknown version, so that it would not be checked: a checkpoint is checked whatever its version, and the rewrite breaks the integrity (SPEC-v0 sections 9.4 and 9.5)",
+      "expected": "invalid",
+      "broken_at": 4,
+      "integrity_broken_at": 4,
+      "unknown_version_at": 4,
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1002", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:01:00Z"}, "result": {"duration_ms": 999, "status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1003", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:44abb8107a9defda6a3f182abd9c741388ce78e6f1140c1e9e65d38b91c63d8d", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:02:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:02:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 3, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}},
+        {"checkpoint": {"log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..stOA9t_cJjP8C_uNd1aLzWhsTvHjMwnBZr9FzQ8id8qQKG4h1b9clCSJ677IcjCccinWnt4t7ivSgWDO9lCNDw"}, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000000b1004", "prev": "sha256:c87d58dcf3beba334097d260c66fd1eaa0efd83ff22fe45191918279ecee9ea1", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:03:00Z", "seq": 4, "type": "https://home-mandate.org/audit/v2"}
+      ]
+    },
+    {
+      "id": "v125",
+      "why": "a deleted beginning covered by a log.truncated entry of an unknown version: the log is not damaged",
+      "expected": "invalid",
+      "broken_at": 7,
+      "unknown_version_at": 7,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1005", "prev": "sha256:abababababababababababababababababababababababababababababababab", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 5, "type": "https://home-mandate.org/audit/v1"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1006", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:29369841a3dcea4dade0e9650485cb3189dde989e1d07f8280d936f078d28063", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:01:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 6, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}},
+        {"actor": {"id": "gateway", "kind": "system"}, "event": "log.truncated", "id": "01a0f64c-7140-7001-9007-0000000b1007", "prev": "sha256:57329337a846aac0f62b777eceab9323faa27009ef9adacc0eb25d482ba3e61c", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:02:00Z", "seq": 7, "truncated": {"last_digest": "sha256:abababababababababababababababababababababababababababababababab", "up_to_seq": 4}, "type": "https://home-mandate.org/audit/v2"}
+      ]
+    },
+    {
+      "id": "v110",
+      "why": "credentials of one agent without the agent",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "credentials": {"cause": "user", "scope": "agent"}, "event": "credentials.withdrawn", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v111",
+      "why": "credentials of all agents with an agent",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4"}, "credentials": {"cause": "emergency_stop", "scope": "all"}, "event": "credentials.withdrawn", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v112",
+      "why": "an unexpected certificate without its names",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"certificate": {"digest": "kPYe4TclFMsM9R3f6RaAkkZMqT6s7tBIqzemuT4FtJA", "issuer": "CN=R11", "logged": "2026-11-01T00:00:01Z", "not_after": "2027-01-30T00:00:00Z", "not_before": "2026-11-01T00:00:00Z", "public_key": "zA27oSzA-qqjmHNFpv1mbw33uyBXik4eDkfE8F6VRps", "status": "alarm"}, "event": "cert.unexpected", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v113",
+      "why": "an acknowledgement names the digest and nothing else (SPEC-v0 section 11.7 item 7)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "certificate": {"digest": "kPYe4TclFMsM9R3f6RaAkkZMqT6s7tBIqzemuT4FtJA", "names": ["home.example.net"]}, "event": "cert.acknowledged", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v114",
+      "why": "a public origin with the default port written out: a pattern allows it, the rule of SPEC-v0 section 11.7 item 1 does not",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "config": {"setting": "public_origin", "value": "https://home.example.net:443"}, "event": "config.changed", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v115",
+      "why": "a public origin with a path",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "config": {"setting": "public_origin", "value": "https://home.example.net/mcp"}, "event": "config.changed", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v116",
+      "why": "a member of the relay object that another event uses",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"event": "relay.status_changed", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "relay": {"home_id": "k7q2xwmpd4hj3n6rt5vbyc2ezu", "level": "standard", "operator": "relay.example.net", "status": "blocked"}, "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v117",
+      "why": "new pins without an active pin",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"event": "relay.pins_changed", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "relay": {"active_pins": 0, "backup_pins": 1, "operator": "relay.example.net", "source": "admin"}, "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v118",
+      "why": "the binding of an agent on a decision",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"agent": {"binding": "dpop", "client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1002", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:01:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 2, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}}
+      ]
+    },
+    {
+      "id": "v119",
+      "why": "a status of Certificate Transparency monitoring that equals the previous one",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"ct": {"previous_status": "ok", "status": "ok"}, "event": "ct.status", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v120",
+      "why": "a version with a leading zero names no audit version",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v01"}
+      ]
+    },
+    {
+      "id": "v121",
+      "why": "a home ID that is not 26 characters of base32",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "event": "relay.paired", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "relay": {"home_id": "K7Q2", "name": "k7q2.homes.example.net", "operator": "relay.example.net"}, "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v126",
+      "why": "credentials withdrawn with an emergency stop are those of every agent",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4"}, "credentials": {"cause": "emergency_stop", "scope": "agent"}, "event": "credentials.withdrawn", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v127",
+      "why": "a pairing is chosen by a human",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "hm-client:voice-7c21e9a4", "kind": "agent"}, "event": "relay.paired", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "relay": {"home_id": "k7q2xwmpd4hj3n6rt5vbyc2ezu", "name": "k7q2xwmpd4hj3n6rt5vbyc2ezu.homes.example.net", "operator": "relay.example.net"}, "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v128",
+      "why": "credentials a human withdrew name that human",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "gateway", "kind": "system"}, "credentials": {"cause": "user", "scope": "all"}, "event": "credentials.withdrawn", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v122",
+      "why": "the names and the issuer of a certificate come from whoever obtained it: control characters and a direction mark are recorded unchanged, and the entry is valid (SPEC-v0 section 9.1)",
+      "expected": "valid",
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "agent": {"client_id": "hm-client:voice-7c21e9a4", "display_name": "Voice assistant"}, "event": "agent.registered", "id": "01a0f64c-7140-7001-9007-0000000b1001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"certificate": {"digest": "kPYe4TclFMsM9R3f6RaAkkZMqT6s7tBIqzemuT4FtJA", "issuer": "CN=\u001b]0;evil\u0007", "logged": "2026-11-15T00:00:00Z", "names": ["*.example.net", "home.example.net‮\u001b[31m"], "not_after": "2027-03-01T00:00:00Z", "not_before": "2026-12-01T00:00:00Z", "public_key": "zA27oSzA-qqjmHNFpv1mbw33uyBXik4eDkfE8F6VRps", "status": "not_yet_valid"}, "event": "cert.unexpected", "id": "01a0f64c-7140-7001-9007-0000000b1002", "prev": "sha256:8f877b5b72ba2c4231301562eb27d3eb22ce49e7f096a754b93dd07f79559dbe", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:01:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    }
+  ]
+}

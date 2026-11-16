@@ -17,6 +17,7 @@ func TestSchemasDeclareTheirIDs(t *testing.T) {
 	}{
 		"mandate":    {schema.Mandate, schema.MandateID},
 		"audit":      {schema.Audit, schema.AuditID},
+		"audit v1":   {schema.AuditV1, schema.AuditV1ID},
 		"vocabulary": {schema.Vocabulary, schema.VocabularyID},
 	} {
 		var doc struct {
@@ -50,7 +51,7 @@ func TestSchemasAreCopies(t *testing.T) {
 const portableEscapes = `.*+?()[]{}|^$\/-`
 
 func TestPatternsUseOnlyThePortableSubset(t *testing.T) {
-	for name, data := range map[string][]byte{"mandate": schema.Mandate(), "audit": schema.Audit(), "vocabulary": schema.Vocabulary()} {
+	for name, data := range map[string][]byte{"mandate": schema.Mandate(), "audit": schema.Audit(), "audit v1": schema.AuditV1(), "vocabulary": schema.Vocabulary()} {
 		var doc any
 		if err := json.Unmarshal(data, &doc); err != nil {
 			t.Fatalf("%s: %v", name, err)

@@ -29,6 +29,10 @@ type auditCase struct {
 	Keys         string            `json:"keys"`
 	LogID        string            `json:"log_id"`
 	Anchored     *int64            `json:"anchored"`
+	// The findings of SPEC-v0 section 9.4; nil: none of that kind.
+	IntegrityBrokenAt   *int64 `json:"integrity_broken_at"`
+	ConformanceBrokenAt *int64 `json:"conformance_broken_at"`
+	UnknownVersionAt    *int64 `json:"unknown_version_at"`
 }
 
 // verify runs the case through the entry point its form calls for.
@@ -50,9 +54,20 @@ func (c auditCase) verify() (audit.Result, error) {
 	return audit.Verify(raw(c.Entries))
 }
 
+// loadCases reads the logs of audit-v0.json; loadAllCases those of both audit files.
 func loadCases(t *testing.T) []auditCase {
 	t.Helper()
-	data, err := fs.ReadFile(spec.FS(), spec.AuditCasesPath)
+	return loadCaseFile(t, spec.AuditCasesPath)
+}
+
+func loadAllCases(t *testing.T) []auditCase {
+	t.Helper()
+	return append(loadCases(t), loadCaseFile(t, spec.AuditV1CasesPath)...)
+}
+
+func loadCaseFile(t *testing.T, path string) []auditCase {
+	t.Helper()
+	data, err := fs.ReadFile(spec.FS(), path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +92,7 @@ func raw(entries []json.RawMessage) [][]byte {
 }
 
 func TestConformanceAuditLogs(t *testing.T) {
-	for _, c := range loadCases(t) {
+	for _, c := range loadAllCases(t) {
 		t.Run(c.ID+" "+c.Why, func(t *testing.T) {
 			got, err := c.verify()
 			if err != nil {
@@ -97,6 +112,17 @@ func TestConformanceAuditLogs(t *testing.T) {
 				}
 			default:
 				t.Fatalf("unknown expectation %q", c.Expected)
+			}
+			for name, f := range map[string]struct {
+				got  audit.Finding
+				want *int64
+			}{"integrity": {got.Integrity, c.IntegrityBrokenAt}, "conformance": {got.Conformance, c.ConformanceBrokenAt}, "unknown version": {got.UnknownVersion, c.UnknownVersionAt}} {
+				switch {
+				case f.want == nil && f.got.Found():
+					t.Errorf("%s finding at seq %d, want none", name, f.got.At)
+				case f.want != nil && (!f.got.Found() || f.got.At != *f.want):
+					t.Errorf("%s finding %+v, want seq %d", name, f.got, *f.want)
+				}
 			}
 		})
 	}
@@ -233,7 +259,9 @@ func TestEntrySizeLimitBoundary(t *testing.T) {
 func TestValidResultHasNoIndex(t *testing.T) {
 	c := loadCases(t)[0]
 	got, err := audit.Verify(raw(c.Entries))
-	if err != nil || got != (audit.Result{Valid: true, Index: -1, Entries: len(c.Entries), FirstSeq: 1}) {
+	none := audit.Finding{Index: -1}
+	want := audit.Result{Valid: true, Index: -1, Entries: len(c.Entries), FirstSeq: 1, Integrity: none, Conformance: none, UnknownVersion: none}
+	if err != nil || got != want {
 		t.Errorf("Verify = %+v, %v; want {Valid:true Index:-1 BrokenAt:0}", got, err)
 	}
 	if got, _ := audit.Verify(nil); got.Index != -1 || got.Entries != 0 {
@@ -373,4 +401,140 @@ func (g *generatedLog) Read(p []byte) (int, error) {
 	n := copy(p, g.pending)
 	g.pending = g.pending[n:]
 	return n, nil
+}
+
+// A verifier that meets an entry of a version it does not know keeps checking the chain:
+// it reports the version, never a damaged log (SPEC-v0 section 9.4).
+func TestUnknownVersionKeepsCheckingTheChain(t *testing.T) {
+	v1 := func(seq int, prev string, event string) []byte {
+		p := "null"
+		if prev != "" {
+			p = `"` + prev + `"`
+		}
+		return []byte(`{"type":"https://home-mandate.org/audit/v` + event + `","id":"01a0f64c-7140-7001-9007-00000000000` + string(rune('0'+seq)) + `","seq":` + string(rune('0'+seq)) + `,"recorded_at":"2026-11-16T10:00:00Z","event":"ct.status","principal":"household:hm-7f3a","ct":{"status":"ok"},"prev":` + p + `}`)
+	}
+	first := v1(1, "", "1")
+	d1, err := audit.Digest(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := v1(2, d1, "9")
+	d2, err := audit.Digest(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	third := v1(3, d2, "9")
+	got, err := audit.Verify([][]byte{first, second, third})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Valid || got.Integrity.Found() || got.Conformance.Found() || got.UnknownVersion.At != 2 || got.BrokenAt != 2 {
+		t.Errorf("result = %+v", got)
+	}
+	// The same log with the last entry changed: the chain still catches it.
+	tampered := v1(3, d1, "9")
+	if got, _ := audit.Verify([][]byte{first, second, tampered}); got.Integrity.At != 3 || got.UnknownVersion.At != 2 {
+		t.Errorf("tampered: %+v", got)
+	}
+}
+
+func TestVersionsThatAreNoAuditVersion(t *testing.T) {
+	for _, typ := range []string{"https://home-mandate.org/audit/v", "https://home-mandate.org/audit/v01", "https://home-mandate.org/audit/v1x", "https://home-mandate.org/audit/v1234567890", "https://home-mandate.org/mandate/v0", ""} {
+		entry := []byte(`{"type":"` + typ + `","id":"01a0f64c-7140-7001-9007-000000000001","seq":1,"recorded_at":"2026-11-16T10:00:00Z","event":"ct.status","principal":"household:hm-7f3a","ct":{"status":"ok"},"prev":null}`)
+		got, err := audit.Verify([][]byte{entry})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !got.Conformance.Found() || got.UnknownVersion.Found() || got.Integrity.Found() {
+			t.Errorf("type %q: %+v", typ, got)
+		}
+	}
+}
+
+func TestAnOverlongLineEndsTheReading(t *testing.T) {
+	long := bytes.Repeat([]byte(" "), audit.MaxEntryBytes+3)
+	got, err := audit.VerifyJSONLines(bytes.NewReader(append(long, '\n')))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Valid || got.Integrity.At != 0 || !got.Integrity.Found() || !got.Conformance.Found() {
+		t.Errorf("result = %+v", got)
+	}
+}
+
+// entryOf builds a ct.status entry of a type, seq and prev, for the tests of the findings.
+func entryOf(typ string, seq int, prev string) []byte {
+	p := "null"
+	if prev != "" {
+		p = `"` + prev + `"`
+	}
+	return []byte(fmt.Sprintf(`{"type":%q,"id":"01a0f64c-7140-7001-9007-%012d","seq":%d,"recorded_at":"2026-11-16T10:00:00Z","event":"ct.status","principal":"household:hm-7f3a","ct":{"status":"ok"},"prev":%s}`, typ, seq, seq, p))
+}
+
+// chained links entries of the given types into a log.
+func chained(t *testing.T, types ...string) [][]byte {
+	t.Helper()
+	var out [][]byte
+	prev := ""
+	for i, typ := range types {
+		e := entryOf(typ, i+1, prev)
+		d, err := audit.Digest(e)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out, prev = append(out, e), d
+	}
+	return out
+}
+
+const (
+	typeV0 = "https://home-mandate.org/audit/v0"
+	typeV1 = "https://home-mandate.org/audit/v1"
+)
+
+func TestTheFirstOfConformanceAndUnknownVersionIsBrokenAt(t *testing.T) {
+	// ct.status is no event of version 0: that entry breaks a rule.
+	for name, tc := range map[string]struct {
+		types                    []string
+		broken, conform, unknown int64
+	}{
+		"unknown first":                         {[]string{typeV1, "https://home-mandate.org/audit/v5", typeV0}, 2, 3, 2},
+		"conformance first":                     {[]string{typeV1, typeV0, "https://home-mandate.org/audit/v5"}, 2, 2, 3},
+		"a version of four digits is a version": {[]string{typeV1, "https://home-mandate.org/audit/v1000"}, 2, -1, 2},
+		"a version of nine digits is a version": {[]string{typeV1, "https://home-mandate.org/audit/v123456789"}, 2, -1, 2},
+	} {
+		got, err := audit.Verify(chained(t, tc.types...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		at := func(f audit.Finding) int64 {
+			if !f.Found() {
+				return -1
+			}
+			return f.At
+		}
+		if got.BrokenAt != tc.broken || at(got.Conformance) != tc.conform || at(got.UnknownVersion) != tc.unknown || got.Integrity.Found() {
+			t.Errorf("%s: %+v", name, got)
+		}
+	}
+}
+
+func TestAnEmptyLogHasNoFindings(t *testing.T) {
+	got, err := audit.Verify(nil)
+	if err != nil || !got.Valid || got.Integrity.Found() || got.Conformance.Found() || got.UnknownVersion.Found() {
+		t.Errorf("Verify(nil) = %+v, %v", got, err)
+	}
+}
+
+// A first entry whose digest cannot be computed (a fraction, which the canonical form of this
+// implementation does not write) still has a readable seq, which the integrity finding names.
+func TestAFirstEntryWithoutDigestKeepsItsSeq(t *testing.T) {
+	entry := []byte(`{"type":"https://home-mandate.org/audit/v1","seq":1,"prev":null,"x":1.5}`)
+	got, err := audit.Verify([][]byte{entry})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Integrity.Index != 0 || got.Integrity.At != 1 || got.Conformance.At != 1 {
+		t.Errorf("result = %+v", got)
+	}
 }

@@ -275,6 +275,7 @@ const (
 	fileSuccession = "conformance/succession-v0.json"
 	fileSigned     = "conformance/signed-v0.json"
 	fileAudit      = "conformance/audit-v0.json"
+	fileAuditV1    = "conformance/audit-v1.json"
 )
 
 func (r *runner) evaluation() error {
@@ -402,10 +403,24 @@ type auditCase struct {
 	Keys         string            `json:"keys"`
 	LogID        string            `json:"log_id"`
 	Anchored     *int64            `json:"anchored"`
+	// The findings of SPEC-v0 section 9.4; absent: none of that kind.
+	IntegrityBrokenAt   *int64 `json:"integrity_broken_at"`
+	ConformanceBrokenAt *int64 `json:"conformance_broken_at"`
+	UnknownVersionAt    *int64 `json:"unknown_version_at"`
 }
 
 func (r *runner) audit() error {
-	cases, err := load[auditCase](r.fsys, fileAudit, "logs")
+	for _, file := range []string{fileAudit, fileAuditV1} {
+		if err := r.auditFile(file); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// auditFile plays the logs of one audit conformance file.
+func (r *runner) auditFile(file string) error {
+	cases, err := load[auditCase](r.fsys, file, "logs")
 	for _, c := range cases {
 		req := Request{Op: OpVerifyAudit, ID: c.ID, JSONL: c.JSONL, LogID: c.LogID}
 		for _, e := range c.Entries {
@@ -425,11 +440,11 @@ func (r *runner) audit() error {
 		}
 		resp, doErr := r.impl.Do(req)
 		got, want := auditOutcome(c, resp)
-		r.record(class, fileAudit, c.ID, resp, doErr, got, want)
+		r.record(class, file, c.ID, resp, doErr, got, want)
 		for i, digest := range c.EntryDigests {
 			entry := string(c.Entries[i])
 			resp, doErr := r.impl.Do(Request{Op: OpEntryDigest, ID: c.ID, Entry: &entry})
-			r.record(class, fileAudit, fmt.Sprintf("%s entry %d", c.ID, i+1), resp, doErr, resp.Digest, digest)
+			r.record(class, file, fmt.Sprintf("%s entry %d", c.ID, i+1), resp, doErr, resp.Digest, digest)
 		}
 	}
 	return err
@@ -443,17 +458,17 @@ func auditOutcome(c auditCase, resp Response) (got, want string) {
 		want = fmt.Sprintf("valid anchored=%d", *c.Anchored)
 	}
 	// A valid log is reported with the number of its entries (SPEC-v0 section 9.4).
-	if c.Expected == "valid" && c.JSONL == nil {
+	countEntries := c.Expected == "valid" && c.JSONL == nil
+	if countEntries {
 		want += fmt.Sprintf(" entries=%d", len(c.Entries))
-		defer func() {
-			if resp.Valid != nil && *resp.Valid && resp.Entries != nil {
-				got += fmt.Sprintf(" entries=%d", *resp.Entries)
-			}
-		}()
 	}
+	// The findings are compared in every case: an implementation that does not report them
+	// fails the cases of an invalid log.
+	want += findings(c.IntegrityBrokenAt, c.ConformanceBrokenAt, c.UnknownVersionAt)
+
 	switch {
 	case resp.Valid == nil:
-		got = "no result"
+		return "no result", want
 	case !*resp.Valid && resp.BrokenAt != nil:
 		got = fmt.Sprintf("invalid broken_at=%d", *resp.BrokenAt)
 	case !*resp.Valid:
@@ -463,7 +478,21 @@ func auditOutcome(c auditCase, resp Response) (got, want string) {
 	default:
 		got = "valid"
 	}
-	return got, want
+	if countEntries && *resp.Valid && resp.Entries != nil {
+		got += fmt.Sprintf(" entries=%d", *resp.Entries)
+	}
+	return got + findings(resp.IntegrityBrokenAt, resp.ConformanceBrokenAt, resp.UnknownVersionAt), want
+}
+
+// findings writes the findings of SPEC-v0 section 9.4 for a comparison; an absent one is "-".
+func findings(integrity, conformance, unknown *int64) string {
+	show := func(v *int64) string {
+		if v == nil {
+			return "-"
+		}
+		return fmt.Sprint(*v)
+	}
+	return fmt.Sprintf(" integrity=%s conformance=%s unknown_version=%s", show(integrity), show(conformance), show(unknown))
 }
 
 // ClassNames returns the classes of a report in a fixed order.
