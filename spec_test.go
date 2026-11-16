@@ -97,6 +97,7 @@ func TestConformanceFilesMatchTheirSchemas(t *testing.T) {
 		spec.InvalidCasesPath:    "conformance/schema/invalid-v0.schema.json",
 		spec.DigestCasesPath:     "conformance/schema/digest-v0.schema.json",
 		spec.AuditCasesPath:      "conformance/schema/audit-v0.schema.json",
+		spec.AuditV1CasesPath:    "conformance/schema/audit-v1.schema.json",
 		spec.SelectionCasesPath:  "conformance/schema/selection-v0.schema.json",
 		spec.SignedCasesPath:     "conformance/schema/signed-v0.schema.json",
 		spec.SuccessionCasesPath: "conformance/schema/succession-v0.schema.json",

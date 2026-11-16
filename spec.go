@@ -17,10 +17,12 @@ import (
 const (
 	MandateSchemaPath   = "schema/mandate-v0.schema.json"
 	AuditSchemaPath     = "schema/audit-v0.schema.json"
+	AuditV1SchemaPath   = "schema/audit-v1.schema.json"
 	CasesPath           = "conformance/cases-v0.json"
 	InvalidCasesPath    = "conformance/invalid-v0.json"
 	DigestCasesPath     = "conformance/digest-v0.json"
 	AuditCasesPath      = "conformance/audit-v0.json"
+	AuditV1CasesPath    = "conformance/audit-v1.json"
 	SelectionCasesPath  = "conformance/selection-v0.json"
 	SignedCasesPath     = "conformance/signed-v0.json"
 	SuccessionCasesPath = "conformance/succession-v0.json"

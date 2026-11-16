@@ -14,12 +14,15 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/home-mandate/spec/displaytext"
 	"github.com/home-mandate/spec/ijson"
+	"github.com/home-mandate/spec/internal/origin"
 	"github.com/home-mandate/spec/jcs"
 	"github.com/home-mandate/spec/schema"
 )
@@ -55,20 +58,87 @@ type Result struct {
 	// entry that accounts for the deleted beginning is covered by a verified checkpoint.
 	// Otherwise whoever can write the log may have deleted the beginning.
 	TruncationAnchored bool
+
+	// The three findings of SPEC-v0 section 9.4, reported apart because they mean different
+	// things to a household. Valid and BrokenAt above keep their meaning.
+	//
+	// Integrity: the first entry at which the log is not complete and unaltered (conditions
+	// 2, 3 and 4, and an entry whose digest cannot be computed).
+	Integrity Finding
+	// Conformance: the first entry of a known version that breaks a rule of condition 1.
+	Conformance Finding
+	// UnknownVersion: the first entry of an audit version this verifier does not know. The
+	// content of the entries from there on is not checked; the chain is.
+	UnknownVersion Finding
 }
 
-var auditSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
-	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(schema.Audit()))
-	if err != nil {
-		return nil, err
+// Finding names the first entry of a kind of violation.
+type Finding struct {
+	// Index is the position of the entry in file order, starting at 0; -1 if there is none.
+	Index int
+	// At is the seq of the entry, as in broken_at: 0 if it has no readable seq.
+	At int64
+}
+
+// Found reports whether there is such an entry.
+func (f Finding) Found() bool { return f.Index >= 0 }
+
+var none = Finding{Index: -1}
+
+// note records the first finding of a kind.
+func note(f *Finding, index int, seq int64) {
+	if !f.Found() {
+		*f = Finding{Index: index, At: seq}
 	}
-	c := jsonschema.NewCompiler()
-	c.AssertFormat()
-	if err := c.AddResource(schema.AuditID, doc); err != nil {
-		return nil, err
+}
+
+// The audit versions this package reads (SPEC-v0 section 14): the type of an entry is
+// typePrefix and the number of its version.
+const (
+	typePrefix = "https://home-mandate.org/audit/v"
+	// newestVersion is the newest version this package reads and writes.
+	newestVersion = 1
+	// maxVersionDigits bounds the number of a version that versionOf reads.
+	maxVersionDigits = 9
+)
+
+// auditSchemas are the compiled schemas, by version.
+var auditSchemas = sync.OnceValues(func() ([]*jsonschema.Schema, error) {
+	var out []*jsonschema.Schema
+	for _, s := range []struct {
+		id  string
+		doc []byte
+	}{{schema.AuditID, schema.Audit()}, {schema.AuditV1ID, schema.AuditV1()}} {
+		doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(s.doc))
+		if err != nil {
+			return nil, err
+		}
+		c := jsonschema.NewCompiler()
+		c.AssertFormat()
+		if err := c.AddResource(s.id, doc); err != nil {
+			return nil, err
+		}
+		compiled, err := c.Compile(s.id)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, compiled)
 	}
-	return c.Compile(schema.AuditID)
+	return out, nil
 })
+
+// versionOf reads the version an entry names in its type: ok is false if the type names no
+// audit version at all. A version is written in decimal without a leading zero.
+func versionOf(obj map[string]any) (version int, ok bool) {
+	t, _ := obj["type"].(string)
+	digits, found := strings.CutPrefix(t, typePrefix)
+	if !found || digits == "" || len(digits) > maxVersionDigits || (digits[0] == '0' && digits != "0") ||
+		strings.Trim(digits, "0123456789") != "" {
+		return 0, false
+	}
+	n, err := strconv.Atoi(digits)
+	return n, err == nil
+}
 
 // Digest returns the digest of one entry: "sha256:" + hex(SHA-256(JCS(entry))).
 func Digest(entry []byte) (string, error) {
@@ -114,7 +184,7 @@ func digestOf(v any) (string, error) {
 	return d, nil
 }
 
-// link is what the chain check needs from a schema-valid entry.
+// link is what the chain check needs from an entry.
 type link struct {
 	seq        int64
 	prev       string // empty for null
@@ -125,6 +195,8 @@ type link struct {
 	logID      string // of a checkpoint
 	signature  string // of a checkpoint
 	recordedAt string // of a checkpoint, as written: the signature covers it
+	// conforming: the entry is of a known version and keeps condition 1.
+	conforming bool
 }
 
 // Verify checks entries in file order: first the schema of all entries, then the start
@@ -150,10 +222,18 @@ func verifyEntries(entries [][]byte, opts Options) (Result, error) {
 // verifier checks a log entry by entry and keeps only what the rest of the log can
 // still depend on, so that a log of any length is verified in constant memory.
 type verifier struct {
-	compiled *jsonschema.Schema
-	count    int
-	first    link
-	previous link
+	schemas []*jsonschema.Schema
+	count   int
+	// lost: the previous entry has no digest or no readable seq, so the chain cannot be
+	// checked at the next one; the integrity finding names that entry already.
+	lost bool
+	// newest is the newest known version of an entry so far; an older one after it breaks
+	// condition 1 (SPEC-v0 section 14).
+	newest int
+	// integrity, conformance and unknown are the findings of the Result.
+	integrity, conformance, unknown Finding
+	first                           link
+	previous                        link
 	// startCovered: a log.truncated entry accounts for everything before the first entry;
 	// coveredAt is the seq of that entry.
 	startCovered bool
@@ -172,7 +252,7 @@ type verifier struct {
 }
 
 func newVerifier(opts Options) (*verifier, error) {
-	compiled, err := auditSchema()
+	schemas, err := auditSchemas()
 	if err != nil {
 		return nil, fmt.Errorf("audit: load schema: %w", err)
 	}
@@ -180,74 +260,125 @@ func newVerifier(opts Options) (*verifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &verifier{compiled: compiled, anchor: opts.Anchor, known: known}, nil
+	return &verifier{schemas: schemas, anchor: opts.Anchor, known: known, integrity: none, conformance: none, unknown: none}, nil
 }
 
-// add checks the next entry. done is true if the result is final: the entry violates
-// the schema.
+// add checks the next entry. Every entry is read: the findings on integrity, conformance
+// and unknown versions each need the whole log. done is never true; it is kept so that a
+// caller can stop early in a later version.
 func (v *verifier) add(entry []byte) (result Result, done bool) {
-	l, ok := check(v.compiled, v.known, entry)
-	if !ok {
-		return broken(v.count, l.seq), true
+	index := v.count
+	v.count++
+	l, linked := v.check(index, entry)
+	if !linked {
+		note(&v.integrity, index, l.seq)
+		v.lost = true
+		return Result{}, false
 	}
 	switch {
-	case v.count == 0:
+	case index == 0:
 		v.first = l
 	case l.event == eventTruncated && l.upToSeq == v.first.seq-1 && l.lastDigest == v.first.prev:
 		if !v.startCovered {
 			v.startCovered, v.coveredAt = true, l.seq
 		}
 	}
-	if v.count > 0 && v.chainBreak == nil && (l.seq != v.previous.seq+1 || l.prev != v.previous.digest) {
-		r := broken(v.count, l.seq)
-		v.chainBreak = &r
+	if index > 0 && !v.lost && (l.seq != v.previous.seq+1 || l.prev != v.previous.digest) {
+		note(&v.integrity, index, l.seq)
+		if v.chainBreak == nil {
+			r := broken(index, l.seq)
+			v.chainBreak = &r
+		}
 	}
-	if l.event == eventCheckpoint && v.checkpointBreak == nil && v.checkpoint(l) {
-		r := broken(v.count, l.seq)
-		v.checkpointBreak = &r
+	// A checkpoint is checked whatever its version and whether or not it keeps the rules: it
+	// is what anchors the log, and an entry made unreadable on purpose must not escape it.
+	if l.event == eventCheckpoint && v.checkpoint(l) {
+		note(&v.integrity, index, l.seq)
+		if v.checkpointBreak == nil {
+			r := broken(index, l.seq)
+			v.checkpointBreak = &r
+		}
 	}
-	v.previous = l
-	v.count++
+	v.previous, v.lost = l, false
 	return Result{}, false
 }
 
 func (v *verifier) finish() Result {
+	if v.count > 0 && v.first.seq != 1 && !v.startCovered && !v.lostFirst() {
+		// Condition 2 is about the first entry: it comes before every other break of integrity.
+		v.integrity = Finding{Index: 0, At: v.first.seq}
+	}
+	var r Result
 	switch {
 	case v.count == 0:
-		return valid(0)
+		r = valid(0)
+	case v.conformance.Found() || v.unknown.Found():
+		// Condition 1 of the original rule: an entry of an unknown version breaks the schema
+		// of every version this verifier knows.
+		first := v.conformance
+		if !first.Found() || (v.unknown.Found() && v.unknown.Index < first.Index) {
+			first = v.unknown
+		}
+		r = broken(first.Index, first.At)
 	case v.first.seq != 1 && !v.startCovered:
-		return broken(0, v.first.seq)
+		r = broken(0, v.first.seq)
 	case v.chainBreak != nil:
-		return *v.chainBreak
+		r = *v.chainBreak
 	case v.checkpointBreak != nil:
-		return *v.checkpointBreak
+		r = *v.checkpointBreak
+	default:
+		r = valid(v.count)
+		r.AnchoredSeq, r.LogID, r.FirstSeq = v.anchoredSeq, v.logID, v.first.seq
+		r.TruncationAnchored = v.startCovered && v.first.seq != 1 && v.coveredAt <= v.anchoredSeq
 	}
-	r := valid(v.count)
-	r.AnchoredSeq, r.LogID, r.FirstSeq = v.anchoredSeq, v.logID, v.first.seq
-	r.TruncationAnchored = v.startCovered && v.first.seq != 1 && v.coveredAt <= v.anchoredSeq
+	r.Integrity, r.Conformance, r.UnknownVersion = v.integrity, v.conformance, v.unknown
 	return r
 }
 
-// check validates one entry against the schema. On failure it still returns the seq if
-// it can be read, for the report.
-func check(compiled *jsonschema.Schema, known actionsByCategory, entry []byte) (link, bool) {
-	v, err := decode(entry)
+// lostFirst reports whether the first entry could not be linked, which the integrity
+// finding names already.
+func (v *verifier) lostFirst() bool {
+	return v.integrity.Found() && v.integrity.Index == 0
+}
+
+// check reads one entry. linked is false if the entry cannot take part in the chain: its
+// digest cannot be computed or it has no readable seq. The entry is checked against the
+// schema of its version and the rules of section 9.1 if this verifier knows the version; a
+// violation is a conformance finding, an unknown version a finding of its own.
+func (v *verifier) check(index int, entry []byte) (l link, linked bool) {
+	value, err := decode(entry)
 	if err != nil {
+		note(&v.conformance, index, 0)
 		return link{}, false
 	}
-	obj, _ := v.(map[string]any)
-	l := link{seq: intField(obj, "seq")}
-	if compiled.Validate(v) != nil || !displayable(obj) || !distinctFormerValues(obj) || !distinctAreas(obj) ||
-		!truncatesEarlier(obj) || !exportsEarlier(obj) || !enforcedConsistent(obj, known) || !vocabularyConsistent(obj, known) {
+	obj, isObject := value.(map[string]any)
+	l = link{seq: intField(obj, "seq")}
+	digest, err := digestOf(value)
+	if !isObject || err != nil {
+		note(&v.conformance, index, l.seq)
 		return l, false
 	}
-	digest, err := digestOf(v)
-	if err != nil {
-		return l, false
-	}
-	l.prev, _ = obj["prev"].(string)
-	l.event, _ = obj["event"].(string)
 	l.digest = digest
+	l.prev, _ = obj["prev"].(string)
+	version, isAudit := versionOf(obj)
+	switch {
+	case !isAudit || version < v.newest:
+		// No audit version, or an older version after a newer one, known or not.
+		note(&v.conformance, index, l.seq)
+	case version > newestVersion:
+		note(&v.unknown, index, l.seq)
+	case conforms(v.schemas[version], v.known, value, obj):
+		l.conforming = true
+	default:
+		note(&v.conformance, index, l.seq)
+	}
+	if isAudit {
+		v.newest = max(v.newest, version)
+	}
+	// What the chain, the start and the checkpoints need is read from every entry, also from
+	// one that breaks a rule or is of an unknown version: the integrity of a log does not
+	// depend on whether its writer kept the rules (section 9.4).
+	l.event, _ = obj["event"].(string)
 	if c, ok := obj["checkpoint"].(map[string]any); ok {
 		l.logID, _ = c["log_id"].(string)
 		l.signature, _ = c["signature"].(string)
@@ -257,7 +388,15 @@ func check(compiled *jsonschema.Schema, known actionsByCategory, entry []byte) (
 		l.upToSeq = intField(t, "up_to_seq")
 		l.lastDigest, _ = t["last_digest"].(string)
 	}
-	return l, true
+	return l, l.seq >= 1
+}
+
+// conforms checks an entry of a known version against its schema and against the rules of
+// section 9.1 that a schema cannot express.
+func conforms(compiled *jsonschema.Schema, known actionsByCategory, value any, obj map[string]any) bool {
+	return compiled.Validate(value) == nil && displayable(obj) && distinctFormerValues(obj) && distinctAreas(obj) &&
+		truncatesEarlier(obj) && exportsEarlier(obj) && enforcedConsistent(obj, known) && vocabularyConsistent(obj, known) &&
+		publicOriginValid(obj)
 }
 
 // displayedFields are the members that user interfaces show to humans; the rule for
@@ -284,6 +423,9 @@ var formerValues = [][3]string{
 	{"mandate", "digest", "previous_digest"},
 	{"template", "digest", "previous_digest"},
 	{"config", "value", "previous_value"},
+	{"ct", "status", "previous_status"},
+	{"relay", "status", "previous_status"},
+	{"relay", "level", "previous_level"},
 }
 
 // distinctFormerValues reports whether every change that names a former value names one
@@ -292,6 +434,21 @@ func distinctFormerValues(obj map[string]any) bool {
 	for _, path := range formerValues {
 		change, _ := obj[path[0]].(map[string]any)
 		if former, ok := change[path[2]].(string); ok && former == change[path[1]] {
+			return false
+		}
+	}
+	return true
+}
+
+// publicOriginValid reports whether a change of the public origin names values in the one
+// form of SPEC-v0 section 11.7 item 1, which a pattern cannot fully express.
+func publicOriginValid(obj map[string]any) bool {
+	config, _ := obj["config"].(map[string]any)
+	if setting, _ := config["setting"].(string); setting != "public_origin" {
+		return true
+	}
+	for _, key := range []string{"value", "previous_value"} {
+		if value, ok := config[key].(string); ok && origin.Valid(value) != nil {
 			return false
 		}
 	}
@@ -372,9 +529,13 @@ func intField(obj map[string]any, key string) int64 {
 	return r.Num().Int64()
 }
 
-func valid(entries int) Result { return Result{Valid: true, Index: -1, Entries: entries} }
+func valid(entries int) Result {
+	return Result{Valid: true, Index: -1, Entries: entries, Integrity: none, Conformance: none, UnknownVersion: none}
+}
 
-func broken(index int, seq int64) Result { return Result{Index: index, BrokenAt: seq} }
+func broken(index int, seq int64) Result {
+	return Result{Index: index, BrokenAt: seq, Integrity: none, Conformance: none, UnknownVersion: none}
+}
 
 // VerifyJSONLines verifies an audit log in the exchange format: one entry per line,
 // separated by line feeds, UTF-8, in ascending seq order (SPEC-v0 section 9.4). It
@@ -398,7 +559,10 @@ func verifyLines(r io.Reader, opts Options) (Result, error) {
 	}
 	if err := scanner.Err(); err != nil {
 		if errors.Is(err, bufio.ErrTooLong) {
-			return broken(v.count, 0), nil
+			// The reader cannot go on: the rest of the log is not read. The line counts as an
+			// entry without a readable seq.
+			v.add(nil)
+			return v.finish(), nil
 		}
 		return Result{}, fmt.Errorf("audit: read: %w", err)
 	}

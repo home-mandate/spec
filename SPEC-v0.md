@@ -1139,7 +1139,12 @@ debugging). Instead of `entries`, a log can be given as `jsonl`: the exchange fo
 (Section 9.4) as one string, for cases about line separators. With `keys` (path to a JWK
 Set) the signatures of checkpoints are verified (Section 9.5), optionally against the
 expected `log_id`; `anchored` is then the expected `seq` up to which a verified checkpoint
-covers the log.
+covers the log. Every log states the findings of Section 9.4 it has: `integrity_broken_at`,
+`conformance_broken_at` and `unknown_version_at`, each absent if there is none.
+
+`conformance/audit-v1.json` contains audit logs of version 1 and logs that mix versions 0 and 1
+(Section 14), in the same form. Entries of version 2 stand for a version a verifier does not
+know.
 
 `conformance/origin-v0.json` contains cases for Section 11.7 items 1 and 6. A case has either a
 configured `value` and whether it is a public origin (`expected`: `valid` or `invalid`), or the
@@ -1177,8 +1182,8 @@ that class in that version.
 | `evaluator` | validates mandates, computes digests, evaluates requests (Sections 3 and 4) | `cases-v0.json`, `invalid-v0.json`, `digest-v0.json` |
 | `selection` | selects the mandate among several (Section 4.3) | `selection-v0.json` |
 | `signatures` | verifies signed mandates and succession (Sections 3.5 and 7) | `signed-v0.json`, `succession-v0.json` |
-| `audit` | verifies the hash chain of audit logs, the `log_id` of their checkpoints, and computes entry digests (Sections 9.4, 9.5 condition 4 without keys) | logs in `audit-v0.json` without `keys` |
-| `audit-anchored` | additionally verifies checkpoints (Section 9.5) | logs in `audit-v0.json` with `keys` |
+| `audit` | verifies the hash chain of audit logs of versions 0 and 1, the `log_id` of their checkpoints, reports the findings of Section 9.4, and computes entry digests (Sections 9.4, 9.5 condition 4 without keys, 14) | logs in `audit-v0.json` and `audit-v1.json` without `keys` |
+| `audit-anchored` | additionally verifies checkpoints (Section 9.5) | logs in `audit-v0.json` and `audit-v1.json` with `keys` |
 | `pdp` | answers AuthZEN requests from its own mandate store and resource directory (Sections 4.3 and 6) | the cases of `cases-v0.json` whose mandate is valid and not revoked, and the cases of `selection-v0.json` whose mandates are valid, over HTTP. A PDP never evaluates a revoked mandate (Section 4.3): the `revoked` cases of `cases-v0.json` test the order of the reasons in direct evaluation; the `revoked` of a PDP is covered by the selection cases |
 
 `evaluator` is the basis: an implementation that claims any conformance to the
@@ -1207,7 +1212,8 @@ once the specification is frozen.
 Every implementation MUST maintain an audit log that shows **which agent did what, when, on the
 basis of which configuration**. The format and the hash chain are fixed so that
 audit logs of different implementations can be verified with the same tools.
-Machine-readable: `schema/audit-v0.schema.json`.
+Machine-readable: `schema/audit-v0.schema.json` and `schema/audit-v1.schema.json`, one for each
+version of the format (Section 14).
 
 **Recording comes before executing.** The log is evidence only if every execution left an
 entry. A PEP therefore MUST NOT dispatch a command to the platform before it has durably
@@ -1237,7 +1243,9 @@ record (Section 12.2).
 
 ### 9.1 Entries
 
-Each entry is a JSON object with `type: "https://home-mandate.org/audit/v0"` and:
+Each entry is a JSON object with the `type` of its version, `https://home-mandate.org/audit/v0` or
+`https://home-mandate.org/audit/v1` (Section 14), and the members below. Version 1 is version 0
+with the events and members marked "(v1)"; an entry of version 0 MUST NOT carry them.
 
 | Field | Contents |
 |---|---|
@@ -1267,7 +1275,13 @@ Depending on the event, the following are added:
 | `template` | change to a template (Section 2): `change` (`stored`: created or changed, `removed`, `hidden`: no longer offered or accepted for creating mandates without being removed, `shown`: offered and accepted again), `name` (1 to 64 characters) and `digest`; for `stored` the digest of the new content, for `removed` that of the last content, for `hidden` and `shown` optionally that of the current content. `previous_digest` only for `stored` and only if the template had content before, different from `digest`. Digests are computed as in Section 3.2 over the template as the implementation stores it. Only with `template.changed` |
 | `approver` | change to the humans whom the implementation lets answer approval requests (Section 11.1): `change` (`added`, `removed`) and `id` (1 to 128 characters), the identifier of the approver in the user management, as in `approval.by`. Only with `approver.changed` |
 | `issuer` | change to the issuers the implementation trusts and to their keys (Section 7.1): `change` (`trusted`, `untrusted`, `key_added`, `key_removed`), `issuer` (as a mandate names it, Section 3.5, recorded as given) and, only with `key_added` and `key_removed`, `kid` (as in Section 7.1), required there. Only with `issuer.changed` |
-| `config` | change to a setting that affects every evaluation or the anchoring of the log: `setting` (`timezone`: the household time zone, Section 4.2; `clock_check`: whether the implementation denies requests while it believes its clock is wrong, Section 11.4; `checkpoint_key`: the key that signs checkpoints, Section 9.5), `value` (the IANA name, `on` or `off`, or the `kid` as in Section 7.1; 1 to 64 printable ASCII characters without space) and `previous_value` (same form, different from `value`) if the setting had a value before. Only with `config.changed` |
+| `config` | change to a setting that affects every evaluation, the anchoring of the log or remote access: `setting` (`timezone`: the household time zone, Section 4.2; `clock_check`: whether the implementation denies requests while it believes its clock is wrong, Section 11.4; `checkpoint_key`: the key that signs checkpoints, Section 9.5; (v1) `public_origin`: the public origin, Section 11.7 item 1; (v1) `remote_access`: whether the implementation is reachable from outside, Section 11.7 item 8; (v1) `unbound_tokens`: whether tokens that are not bound are `allowed` or `refused`, Section 11.7 item 6), `value` (the IANA name, `on` or `off`, the `kid` as in Section 7.1, 1 to 64 printable ASCII characters without space; or the public origin in the form of Section 11.7 item 1, or `allowed` or `refused`) and `previous_value` (same form, different from `value`) if the setting had a value before. Only with `config.changed` |
+| `agent.binding` | (v1) whether the agent's tokens are bound to a key: `none` or `dpop` (Section 11.7 item 6). Optional with `agent.registered` and `agent.reconnected`, absent otherwise |
+| `binding` | (v1) the key the agent's tokens are bound to from now on: `method` (`dpop`) and `jkt` (the JWK SHA-256 thumbprint of the key, RFC 7638, base64url without padding). Only with `agent.bound` |
+| `credentials` | (v1) access and refresh tokens that lost their validity: `scope` (`all`: of every agent; `agent`: of the agent of the entry, which is then required) and `cause` (`emergency_stop`: with an emergency stop; `public_origin`: the public origin changed, Section 11.7 item 2; `user`: a human withdrew them). Only with `credentials.withdrawn` |
+| `certificate` | (v1) a certificate for the host of the public origin (Section 11.7 item 7): `digest` (SHA-256 of the DER of its TBSCertificate without the poison and the SCT list, base64url without padding) and, with `cert.unexpected`, `status` (`alarm`, `not_yet_valid` or `past_exposure`), `names` (the names of the certificate that match the host, 1 to 16), `issuer` (its distinguished name), `public_key` (SHA-256 of its SubjectPublicKeyInfo, base64url), `not_before`, `not_after` and `logged` (its first log entry). With `cert.acknowledged` only `digest`. Only with these two events |
+| `ct` | (v1) the state of Certificate Transparency monitoring: `status` (`ok`: at least two independent sources answered within 24 hours; `limited`: only one; `unavailable`: none) and optionally `previous_status`, different from `status`. Only with `ct.status` |
+| `relay` | (v1) what a gateway paired with a relay records (the Home-Mandate Relay Specification, RELAY-v0): `operator` (the operator domain as A-labels) and, depending on the event, `home_id`, `name`, `cause`, `status`, `previous_status`, `source`, `active_pins`, `backup_pins`, `level`, `previous_level`, `scope`, `account` and `change`, as Section 9.2 lists them. Only with the `relay.*` events |
 
 `request` records the input to the evaluation as the PEP determined it, also when the
 evaluation found it invalid (`invalid_request`). Identifiers in it are therefore limited only
@@ -1295,7 +1309,10 @@ outside U+0020 to U+007E and every backslash in the escaped form of JSON (`\n`, 
 `\\`), never interpret them as markup, as an escape sequence or as a line break, and keep
 them from changing the direction or the layout of what surrounds them. `parameters` are
 limited by Section 4.5, `timezone` comes from the PEP, and the displayed text of
-Section 3.1 item 8 is restricted at the source.
+Section 3.1 item 8 is restricted at the source. The same holds for the `names` and the `issuer`
+of a `certificate`, which whoever obtained the certificate chose, and for the values of `relay`
+that the operator sent: they are recorded unchanged, the schema does not restrict their
+characters, and they are shown as untrusted text.
 
 For `decision`, the following additionally applies:
 
@@ -1398,6 +1415,17 @@ template.
 | `mandate.rejected` | yes, if the implementation accepts mandates from outside (Sections 3.5 and 7) | every mandate from outside that was not accepted: invalid, not verifiable, from an untrusted issuer, against succession or unsupported |
 | `agent.reconnected` | yes, if the implementation lets humans reconnect agents | every existing agent that receives new credentials instead of being admitted anew (Section 11.3) |
 | `auth.rejected` | no | rejected sign-in or invalid token |
+| `agent.bound` (v1) | yes, if the implementation binds tokens (Section 11.7 item 6) | an agent whose tokens are bound to a key for the first time, with `binding` |
+| `credentials.withdrawn` (v1) | yes, if the implementation withdraws credentials | access and refresh tokens that lose their validity together: with an emergency stop that withdraws them, during an active emergency stop, for a new public origin (Section 11.7 item 2), or because a human withdraws them, with `credentials` |
+| `cert.unexpected` (v1) | yes, if the implementation is reachable from outside | a certificate that raises an alarm or is reported as a past exposure (Section 11.7 item 7): once for each certificate and `status`, not at every check |
+| `cert.acknowledged` (v1) | yes, if the implementation is reachable from outside | an administrator acknowledges a certificate (Section 11.7 item 7), with its `digest` only |
+| `ct.status` (v1) | yes, if the implementation is reachable from outside | every change of the state of Certificate Transparency monitoring between `ok`, `limited` and `unavailable` |
+| `relay.paired`, `relay.unpaired` (v1) | yes, if the implementation can be paired with a relay | a pairing (`home_id`, `name`: the standard name) and its end (`home_id`, `cause`: `local`, `operator` or `replaced`) |
+| `relay.status_changed` (v1) | yes, if the implementation can be paired with a relay | every change of the status of the installation the operator reports (`status`: `active`, `paused`, `blocked`) |
+| `relay.pins_changed` (v1) | yes, if the implementation can be paired with a relay | new pins of the relay (`source`: `relay` over a pinned tunnel, `admin` after a warning; `active_pins`, `backup_pins`: how many) |
+| `relay.protection_changed` (v1) | yes, if the implementation can be paired with a relay | the protection level of a public name changes (`name`, `level`: `standard` or `own_domain`, `previous_level`) |
+| `relay.caa_alarm` (v1) | yes, if the implementation can be paired with a relay | the CAA records of the standard name or of the apex of the name domain differ from what is prescribed (`name`, `scope`: `name` or `apex`) |
+| `relay.acme_account_changed` (v1) | yes, if the implementation can be paired with a relay | the gateway reported its ACME account or the household confirmed a change of account (`account`, `change`: `reported` or `confirmed`) |
 
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
 returns for `request` and the version `mandate.digest` under the vocabulary that
@@ -1471,6 +1499,46 @@ not an integer or of a magnitude of 2^53 or more),
 An audit log without entries is valid. Verification reports the number of entries, because
 an empty log proves nothing: a log that was emptied looks the same.
 
+**Findings.** `valid` and `broken_at` answer two questions at once: whether the log is complete
+and unaltered, and whether every entry keeps every rule. A verifier therefore also reports three
+findings, each the `seq` of the first entry of its kind in file order (`0` if that entry has no
+readable `seq`), or nothing if there is none:
+
+- `integrity_broken_at`: the log is not complete and unaltered from this entry on: condition 2
+  (the first entry), condition 3, condition 4 of Section 9.5, or an entry that takes no part in
+  the chain because its digest cannot be computed (it is not I-JSON or not a JSON object) or it
+  has no readable `seq`. The chain is checked over every entry that takes part in it, also over
+  entries that break condition 1 and entries of a version the verifier does not know; for the
+  same reason, every entry with `event: log.checkpoint` is checked as a checkpoint
+  (Section 9.5), and every `log.truncated` entry can account for a deleted beginning, whatever
+  its version and whether or not it keeps the rules. A checkpoint that cannot be checked breaks
+  the integrity.
+- `conformance_broken_at`: an entry of a version the verifier knows that breaks condition 1, an
+  entry whose `type` names no audit version, and an entry of an older version after one of a
+  newer version, whether the verifier knows the newer one or not (Section 14).
+- `unknown_version_at`: an entry whose `type` names a version of the audit format
+  (`https://home-mandate.org/audit/v` and a version number) that the verifier does not know.
+  It checks the content of no entry from there on against condition 1, and the chain on.
+
+A log is valid exactly if there is no finding. An entry of an unknown version breaks condition 1
+for `broken_at`, as it always did, because it matches the schema of no version the verifier
+knows.
+
+**Showing the result.** The findings mean different things to a household, and a false alarm
+devalues a true one. An implementation or a tool that shows the result of a verification to a
+human MUST
+
+- call a log damaged, altered or the like only for `integrity_broken_at`;
+- show `conformance_broken_at` as a fault of the software that wrote the entry, among the
+  details, not as damage;
+- show `unknown_version_at` as "entries from this one on were written in a newer version that
+  this tool cannot check; update the tool", and never as invalid or damaged, and never in a way
+  that looks like a log that was checked completely.
+
+A PEP MUST NOT refuse to start, or stop writing its log, because of `conformance_broken_at` or
+`unknown_version_at` alone; what it does about `integrity_broken_at` is up to the
+implementation.
+
 **What the chain proves, and what not.** The chain is neither keyed nor signed. It shows
 that the entries of a log are consistent with one another: a change, a gap or a reordering
 in the middle breaks it. It does **not** show that the log is the one the implementation
@@ -1514,7 +1582,9 @@ digest is the checkpoint's `prev`. A checkpoint therefore never has `seq` 1.
 
   `at` is the `recorded_at` of the checkpoint entry, character for character. The
   signature thus covers when the checkpoint was made, not only what it covers; a verifier
-  builds the payload from the entry, so nothing is repeated in `checkpoint`.
+  builds the payload from the entry, so nothing is repeated in `checkpoint`. The payload has
+  this `type` in a log of every version of the audit format: the signed statement has not
+  changed.
 
 Verification (Section 9.4) gains a fourth condition, checked after the chain:
 
@@ -1581,7 +1651,7 @@ cases).
 | `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate, or of the revoked mandate the result names, Section 4.3) if there is one |
 | `succession` | `stored`, `offered`, optionally `stored_revoked` | `accept`; with `accept`, `confirm: true` if the successor takes effect only after a human confirmed it (Section 3.5) |
 | `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer) | `valid`; `digest` if valid |
-| `verify_audit` | `entries` (array of entry texts) or `jsonl` (the exchange format); optionally `keys` and `log_id` | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given |
+| `verify_audit` | `entries` (array of entry texts) or `jsonl` (the exchange format); optionally `keys` and `log_id` | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given; `integrity_broken_at`, `conformance_broken_at` and `unknown_version_at` for each finding there is (Section 9.4) |
 | `entry_digest` | `entry` | `digest` |
 
 `request` is the input of the evaluation as the PEP determines it: `resource`
@@ -1842,6 +1912,10 @@ of them.
   reconnection is recorded with `agent.reconnected` and the human who chose it as `actor`
   (Section 9.2); a change to the agent's mandates made at the same time is a
   `mandate.updated`.
+- Credentials that lose their validity together, with an emergency stop, during one, for a
+  new public origin (Section 11.7 item 2) or because a human withdraws them, are recorded with
+  `credentials.withdrawn` (audit version 1, Section 9.2), so that the log shows afterwards
+  whether a stolen credential could still be used.
 
 ### 11.4 Clock and directory
 
@@ -1976,7 +2050,8 @@ meet it MUST NOT offer, in its setup or its documentation, to be reached from ou
    admitted, with their `agent.client_id`, their mandates and their history, and a human
    reconnects each of them (Section 11.3). Because every agent has to be connected again, the
    public origin belongs to the setup, and an implementation SHOULD tell a human so before they
-   change it.
+   change it. The change is recorded with `config.changed` (`public_origin`) and
+   `credentials.withdrawn` (`public_origin`).
 3. **End of TLS.** The TLS connection of an agent MUST end in the implementation or in a proxy
    that the household runs, with a version not older than TLS 1.2 (RFC 5246); TLS 1.3 (RFC 8446)
    SHOULD be offered. A relay or a tunnel before that point only passes the bytes on (RELAY-v0
@@ -2020,7 +2095,9 @@ meet it MUST NOT offer, in its setup or its documentation, to be reached from ou
      every token descended from the same grant; and the implementation shows the household which
      agents are not bound. A client whose protocol, in the version it uses, requires DPoP MUST NOT
      receive a token that is not bound. A household MAY refuse tokens that are not bound
-     altogether. A later version of this specification ends the transition.
+     altogether (`config.changed`, `unbound_tokens`). A later version of this specification
+     ends the transition.
+   - The first binding of an agent is recorded with `agent.bound`.
 
    *Informative:* for MCP, DPoP is the extension SEP-1932. A bound token is of no use to whoever
    steals it later; it does not protect against whoever ends the TLS connection while it is open
@@ -2063,9 +2140,13 @@ meet it MUST NOT offer, in its setup or its documentation, to be reached from ou
      its administrator that monitoring is limited when, for 24 hours, only one source has
      answered, and that monitoring is not possible when none has. `ct-sources.md` lists services
      (informative).
+   - **Record.** Alarms and past exposures are recorded with `cert.unexpected`, once for each
+     certificate and status, acknowledgements with `cert.acknowledged`, and the state of
+     monitoring with `ct.status` (Section 9.2).
 8. **Turning it off.** The local administrator MUST be able to turn remote access off at any
    time without asking anyone outside the household. Monitoring (item 7) goes on while remote
-   access is off, as long as the public origin is configured.
+   access is off, as long as the public origin is configured. Turning it on or off is recorded
+   with `config.changed` (`remote_access`).
 
 Section 11.1 holds for every way in: a confirmation reaches the PEP on a path the agent does not
 control, also when the approval page is served under the public origin, and what the human is
@@ -2086,7 +2167,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Agent that tries to obtain a confirmation** | The confirmation is bound to one request, used once, comes from a named approver on a path the agent does not control, and the request is evaluated again afterwards (Section 11.1) | A human who confirms without reading. The implementation MUST show what is confirmed; it cannot make the human read |
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded, and so are added or removed resources and changed categories or areas, as far as the implementation tracks them (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
-| **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only |
+| **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only. Entries of an invented version leave the content of the log from there on unchecked; a verifier reports this (Section 9.4) and still checks the chain, so a change before them stays visible |
 | **Failure of the audit log** (full or read-only storage, a crash between the command and the entry, a log removed while the PEP runs) | The PEP stores what it will record before it dispatches a command and denies when it cannot (`denied_by: audit`); an execution the process did not see end is recorded as `outcome_unknown` (Sections 9, 11.1 item 9) | A full disk stops the agents, not the household: the platform itself is unaffected. Whoever can fill the storage denies service to every agent; the entries that record it are written once the log can be written again |
 | **Agent, device or integration that writes into the log** (a resource, area or action name with a line feed, a control character, a direction-changing mark, a terminal escape sequence or markup) | Such a name matches nothing and is denied (Section 3.4); the entry records it as sent, and whatever renders entries for a human MUST show the values of `request` as a JSON string shows them, escapes included (Sections 9.1, 13); identifiers in mandates and in matched requests are ASCII | An interface, a consumer of an export or a verifier that ignores Section 9.1 shows a forged or hidden line, or runs an escape sequence in a terminal |
 | **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7); a signed mandate expires and names its `audience`, so it is not replayed at another verifier (Sections 3.5, 7.1) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
@@ -2233,10 +2314,11 @@ behavior of the people in a household and MUST be protected like the devices the
 
 - **Formats.** This section covers three formats: the mandate
   (`https://home-mandate.org/mandate/v0`), the audit entry
-  (`https://home-mandate.org/audit/v0`) and the audit checkpoint
-  (`https://home-mandate.org/audit-checkpoint/v0`, the signed payload of Section 9.5). The
-  `type` of each names its major version. The identifiers are identifiers, not addresses
-  that must resolve.
+  (`https://home-mandate.org/audit/v0`, `https://home-mandate.org/audit/v1`) and the audit
+  checkpoint (`https://home-mandate.org/audit-checkpoint/v0`, the signed payload of
+  Section 9.5). The `type` of a mandate and of a checkpoint names its major version, that of an
+  audit entry its version (bullet **Audit versions**). The identifiers are identifiers, not
+  addresses that must resolve.
 - **Releases.** Releases of this repository are tagged (`v0.1.0`, …). An implementation
   states which tag it conforms to, and `conformance/manifest.json` identifies the exact
   cases.
@@ -2252,8 +2334,27 @@ behavior of the people in a household and MUST be protected like the devices the
   category or action or for an invalid parameter value (bullet **Vocabulary**), a
   different result of succession (Section 3.5), a different digest (Sections 3.2, 9.4),
   or a different outcome of the verification of an audit log (Sections 9.4, 9.5). A change
-  that only makes documents valid that were invalid before, such as a new optional member
-  or a new audit event, is compatible; it is listed in the Changelog and keeps the `type`.
+  that only makes documents valid that were invalid before, such as a new optional member of
+  a mandate, is compatible; it is listed in the Changelog and keeps the `type`. The audit
+  entry is the exception: every addition comes with a new version (bullet **Audit versions**).
+- **Audit versions.** A reader of an audit log never skips what it does not know: an
+  implementation could otherwise write anything into a log and a verifier would let it pass.
+  So every addition to the audit entry (a new event, a new member, a new value of a member)
+  comes with a new `type`, `https://home-mandate.org/audit/v` and the next number, never under
+  an existing one. Each version is closed: its schema defines every event and member, and it
+  includes every version before it. Additions are collected and released together, not one
+  version per event. Version 1 adds the events of remote access, Certificate Transparency
+  monitoring, token binding, withdrawn credentials and relays (Sections 9.2, 11.3, 11.7). A
+  verifier that meets a version it does not know reports it as such (`unknown_version_at`,
+  Section 9.4), and an implementation that shows the result follows Section 9.4: the log is
+  not shown as damaged. Rollout:
+  - An implementation MUST NOT write entries of a new version before its own verification,
+    the display of its log and its export read them.
+  - It SHOULD NOT write them before the reference verifiers of this repository and of
+    spec-ts with that version are released, so that the tools households use can read them.
+  - An implementation that signs checkpoints MUST append a `log.checkpoint` immediately before
+    its first entry of a new version, so that the part before can be verified completely by
+    tools that know only the older version.
 - **Correction.** Implementations can turn out to have been more lenient than a rule. The
   rule is then enforced without making an unaltered log invalid, and the deviation is listed
   in `data/corrections-v0.json`. From that release on, an implementation MUST NOT write an
@@ -2265,19 +2366,21 @@ behavior of the people in a household and MUST be protected like the devices the
   to and do not fetch it at runtime, because a verdict must not depend on a remote file. A
   correction covers audit entries, the record of the past, and does not make a mandate
   valid: a mandate grants rights now. Where Section 4.3 names a correction, it only keeps
-  the attribution of a stored document as it was. The next major of a format drops its
-  corrections.
-- **Mixed data.** Once a newer major of a format exists, data of both majors exist side by
-  side:
-  - An implementation that supports a newer major MUST still read the documents of the
-    older majors it supported before, and MUST write new audit entries and checkpoints in
-    the newest major it supports. An audit log is not rewritten; it continues in the newer
-    major.
-  - A verifier MUST accept an audit log whose earlier entries carry an older major than
+  the attribution of a stored document as it was. A correction applies to the version of the
+  audit entry it names, and never to entries of a later version. The next major of a format
+  drops its corrections.
+- **Mixed data.** Once a newer major of a format, or a newer version of the audit entry,
+  exists, data of both exist side by side:
+  - An implementation that supports a newer major or version MUST still read the documents of
+    the older ones it supported before, and MUST write new audit entries in the newest version
+    it supports and new checkpoints in the newest major. An audit log is not rewritten; it
+    continues in the newer version.
+  - A verifier MUST accept an audit log whose earlier entries carry an older version than
     its later entries, provided every entry conforms to the schema of its own `type` and
-    the chain (Section 9.4) holds across the change. An entry of an older major after an
-    entry of a newer major makes the log invalid. A checkpoint is verified with the payload
-    `type` that belongs to the major of the checkpoint entry.
+    the chain (Section 9.4) holds across the change. An entry of an older version after an
+    entry of a newer version breaks condition 1 of Section 9.4. A checkpoint is verified with
+    the payload `type` of Section 9.5, which is `https://home-mandate.org/audit-checkpoint/v0`
+    in a log of audit version 0 and 1 alike.
   - A mandate moves to a newer format only by succession (Section 3.5): its issuer issues
     the same `id` with a higher `version` in the newer format. A stored or signed mandate
     MUST NOT be rewritten into another format, because its digest, its signature and the
@@ -2327,6 +2430,28 @@ behavior of the people in a household and MUST be protected like the devices the
 ## Changelog
 
 ### Unreleased
+
+- **Audit version 1** (`https://home-mandate.org/audit/v1`, `schema/audit-v1.schema.json`):
+  version 0 and the events `agent.bound`, `credentials.withdrawn`, `cert.unexpected`,
+  `cert.acknowledged`, `ct.status`, `relay.paired`, `relay.unpaired`, `relay.status_changed`,
+  `relay.pins_changed`, `relay.protection_changed`, `relay.caa_alarm` and
+  `relay.acme_account_changed`, the members `agent.binding`, `binding`, `credentials`,
+  `certificate`, `ct` and `relay`, and the settings `public_origin`, `remote_access` and
+  `unbound_tokens` of `config.changed` (Sections 9.1, 9.2, 11.3, 11.7). Entries of version 0
+  stay valid and are verified as before.
+- Section 14: every addition to the audit entry comes with a new version, never under an
+  existing `type`; a correction applies only to the version it names; rules for the rollout of
+  a new version (read before writing, a checkpoint before the first entry of the new version).
+  The checkpoint payload stays `audit-checkpoint/v0` in every version.
+- Section 9.4: a verifier reports three findings besides `valid` and `broken_at`, which keep
+  their meaning: `integrity_broken_at`, `conformance_broken_at` and `unknown_version_at`.
+  The chain is checked past entries that break a rule and past entries of an unknown version.
+  New rules for showing the result: only a broken integrity is damage, and an unknown version
+  is never shown as invalid. The test interface (Section 10) reports the findings, and the
+  classes `audit` and `audit-anchored` check them.
+- Conformance: `conformance/audit-v0.json` states the findings of every log; in `a07` to `a10`
+  the entries after the one that breaks a rule are chained again, so that these cases test only
+  that rule. New `conformance/audit-v1.json` (28 logs) with its schema.
 
 - New Section 11.7 "Remote access", for implementations that agents reach from outside the
   household's network; one that only its own network can reach conforms without it. It fixes the

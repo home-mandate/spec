@@ -264,7 +264,18 @@ func verifyAudit(req Request) Response {
 	} else if anchor != nil {
 		resp.Anchored = ptr(r.AnchoredSeq)
 	}
+	resp.IntegrityBrokenAt = findingAt(r.Integrity)
+	resp.ConformanceBrokenAt = findingAt(r.Conformance)
+	resp.UnknownVersionAt = findingAt(r.UnknownVersion)
 	return resp
+}
+
+// findingAt is the seq of a finding, or nil if there is none.
+func findingAt(f audit.Finding) *int64 {
+	if !f.Found() {
+		return nil
+	}
+	return ptr(f.At)
 }
 
 func entries(texts []string) [][]byte {
