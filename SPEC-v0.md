@@ -338,6 +338,26 @@ names changes or disappears, or when a resource leaves or enters such an area; t
 covers every area in the resource's set of areas. They SHOULD express restrictions by
 category or by identifier, not by area alone.
 
+The directory is fed by devices and integrations, and a resource can come under a rule
+without anyone changing a mandate: a device is paired, an integration discovers one, or
+the platform moves a resource to another category or set of areas after an update. When a resource
+is added, or its category or set of areas changes, and a mandate that is not revoked then
+allows an action on it that it did not allow before (an `allow` rule now matches, or a
+`deny` or `ask` rule no longer does), an implementation MUST tell the household which
+mandates now allow what for it. It SHOULD also treat the resource as critical (Section 4,
+step 5) until a human has seen it: unless the household marked it already, the
+implementation marks it itself and records this (`directory.changed` with
+`critical_marked` and an `actor` of kind `system`, Section 9.1), and only an explicit
+action of a human removes this marking (`critical_unmarked`); a marking the household set
+stays as it is. This is the default; an implementation MAY let the household switch it
+off. The marking does not protect `read` (Section 4, step 5) and does not stop an
+`allow` rule with `allow_critical`; the notice to the household is what covers these. A
+new resource is also one that takes over an identifier a mandate names (a new device
+that takes the identifier of a renamed one, an integration that chooses one already in
+use): an implementation SHOULD keep, for every identifier a mandate names, what tells it
+which physical resource it is (a registry entry or a device of the platform), and MUST
+treat the resource as new, as above, when that changes.
+
 **Areas** are the grouping this version knows. The resource directory gives each resource
 a **set of areas**: 0 to 16 area identifiers, each following the rules for `area` above,
 without duplicates and without order. The set holds the room of the resource and every
@@ -455,7 +475,10 @@ The PEP MUST resolve the resource the agent names to the identifier under which 
 directory knows it, and pass that identifier to the evaluation. Because identifiers are
 compared exactly (Section 3.4), passing the agent's spelling unchanged would let a
 different spelling of the same device slip past a rule. A resource the directory does not
-contain has no category; the result is `deny` with `unknown_resource`.
+contain has no category; the result is `deny` with `unknown_resource`. A name that is an
+identifier of the directory names that resource. A PEP that also resolves other names
+(display names, which a device can choose itself) MUST NOT choose when such a name fits
+more than one resource: the result is `deny` with `unknown_resource` as well.
 
 0. Pre-check, each case → `deny`:
    - the mandate is invalid (Section 3.1);
@@ -504,7 +527,7 @@ contain has no category; the result is `deny` with `unknown_resource`.
 
    The marking of a resource lets a household protect what the vocabulary cannot know: a
    switch that drives a door opener, a ground-floor window, a heater. It can only add
-   protection. An implementation SHOULD let the household mark resources as critical.
+   protection. An implementation MUST let the household mark resources as critical.
 6. Audit mode: if the mandate carries `enforce: false`, the result of step 3 or 4 is
    `deny` and the action is not critical (step 5), the result is **not enforced**
    (Section 4.6). It stays `deny`. If one of the matching rules of step 2 decides `ask`,
@@ -1012,8 +1035,15 @@ therefore answer alike whether or not a mandate exists for such a subject.
 clock, the household time zone and the mandate status. Whoever holds these is part of the
 trusted side. If PEP and PDP are separate components, exactly one of them holds the
 directory, and both MUST know which. The connection between them MUST be authenticated in
-both directions and protected against modification; a PDP MUST NOT answer callers it has
-not authenticated, and it MUST NOT be reachable by agents. A PDP that does not hold the
+both directions and protected against modification and replay (for example TLS with
+mutual authentication and without early data); a PDP MUST NOT answer callers it has not
+authenticated, and it MUST NOT be reachable by agents. A PDP that serves more than one
+household keeps the mandates, the directory, the clock settings and the time zone of each
+apart, and MUST answer a caller only for the principals it is configured to serve for
+that caller: a request for any other is refused at the transport (as for an
+unauthenticated caller, for example with HTTP 403), without an evaluation and without an
+AuthZEN response. It would otherwise give one household the decisions, approvers, rule
+identifiers and digests of another. A PDP that does not hold the
 directory itself takes `resource.type`, `resource.properties`, `context.time` and
 `context.timezone` from the authenticated PEP, and only from it.
 
@@ -1398,7 +1428,9 @@ For `decision`, the following additionally applies:
   that is not enforced, or with `ask` or `confirm: true` and then either without
   `approval` (nobody was asked) or with `approval.outcome: approved`. An answer other than
   `approved` is denied by the approval and an enforced `deny` by the mandate, whatever the
-  state of the log. `error` MAY name the cause, RECOMMENDED `log_unwritable`;
+  state of the log. `error` MAY name the cause, RECOMMENDED `log_unwritable` for a log
+  that cannot be written and `clock_behind` for a clock behind the log (Section 11.4),
+  which the PEP may not record truthfully;
 - a denial with `denied_by: approval` carries the `approval` object if a request was
   made: answered, timed out or cancelled. It has none if no request was made: no approver
   could be reached, the agent already had too many requests waiting, or the request was
@@ -1778,7 +1810,10 @@ are not sent. It compares `decision` and, in the response context, `outcome`, `r
 of a selection case, and against the `id` of the stored mandate of an evaluation case.
 
 The tool sends the HTTP headers it was given (for example `Authorization`) with every
-request; the control resource SHOULD require authentication even in a test build.
+request; the control resource MUST require authentication, even in a test build, unless
+it accepts connections only on the loopback interface of a test run, and the build that
+offers it is not used in operation (Section 10.1): whoever reaches it replaces the
+mandates and the directory. A test token given to the tool suffices.
 
 ### 10.4 Test tool
 
@@ -2054,8 +2089,26 @@ of them.
 
 The validity period, time windows and the audit log depend on the clock of the PEP, the
 evaluation on its resource directory. An implementation SHOULD synchronize its clock and
-SHOULD deny requests while it has reason to believe the clock is wrong (for example a time
-before the newest entry of its audit log). Changes to the directory are covered by
+SHOULD deny requests while it has reason to believe the clock is wrong. One such reason it
+MUST act on, unless a human switched the check of the clock off: while its clock shows a
+time before the **reference time**, it denies every request of an agent that reaches the
+evaluation (authentication, the emergency stop and the rate limit come first, Section 9)
+without evaluating it, as a request it may not record truthfully (`denied_by: audit`,
+RECOMMENDED `error` `clock_behind`). A clock set back would revive expired mandates,
+reopen time windows and lengthen the timeouts of approval requests. The reference time is
+the latest `recorded_at` (compared as points in time) of the entries since the check was
+last switched on, or of all entries if it never was switched off. The check applies to
+requests only: entries a human or the implementation causes meanwhile (the switch itself,
+an emergency stop, a revocation, a checkpoint) are appended with the time the clock
+shows, even if that is earlier than the entries before them. The denials are kept and
+recorded as Section 9 says for a log that cannot be written; the household SHOULD be told
+why requests are denied, that the record of them may be incomplete, and how to end it:
+correct the clock and wait, or confirm the current time by switching the check off and on
+again (each recorded with `config.changed`, `clock_check`), which sets the reference time
+anew. That way also ends a lock after a clock that ran forward and was corrected. An
+implementation MUST let a human switch the check off and on. Timeouts (Section 11.1
+item 5) and the rate limit (Section 11.2) SHOULD be measured with a clock that never runs
+backwards, not with the time of day. Changes to the directory are covered by
 Section 3.4. Changes that affect the evaluation (the critical marking, renamed resources, a
 resource added or removed, a changed category or set of areas) are recorded with
 `directory.changed` (Section 9.2), as far as the implementation tracks them. A change of the
@@ -2312,6 +2365,23 @@ Section 11.1 holds for every way in: a confirmation reaches the PEP on a path th
 control, also when the approval page is served under the public origin, and what the human is
 shown is what the PEP will execute.
 
+### 11.8 What `read` returns
+
+`read` tells an agent the state of a resource and is never critical (Section 5). What it
+returns is therefore limited, so that it neither stands in for a critical action nor hands
+out access:
+
+- A PEP MUST NOT return credentials, tokens, codes or URLs that grant access (to an image,
+  a stream or an interface of the platform), media (an image, a recording, a stream), or
+  anything else from which the agent could obtain them. What yields an image or a stream
+  of a camera is `snapshot`, which is critical.
+- A PEP SHOULD return only the state values that the profile of its platform lists for the
+  category, and for each kind of platform object where a category covers several
+  (`profiles/`, informative), or, for a platform without a profile, a list of its own that
+  it documents; never the attributes of the platform as they are, which an integration can
+  fill with anything. A kind the list does not name returns nothing.
+- The state a `read` returns is not recorded (Section 13); the request is.
+
 ## 12. Security considerations
 
 ### 12.1 What the specification protects
@@ -2328,6 +2398,8 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Second installation of the same client, or new owner of its domain** (two members of the household run the same software; the domain of an https `client_id` changes hands) | One identifier per installation or an authenticated installation, a changed metadata document confirmed again (Section 3.3); the principal comes from the human who authorized the credential (Section 4.3); a confirmation is bound to the credential (Section 11.1 item 2) | An implementation that admits every installation under the metadata URL shares mandates and limits between them. A new owner of the domain who serves the unchanged document is not noticed by the document; it still needs a human to authorize a new sign-in, who sees the same agent |
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded, and so are added or removed resources and changed categories or areas, as far as the implementation tracks them (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
+| **Device or integration that chooses its own identifier, class or area** (a device paired, an integration that discovers devices or changes them in an update, a device that names itself like another) | A resource that newly comes under an `allow` rule is reported to the household and treated as critical until a human has seen it; an identifier a mandate names that the platform gives to another resource counts as a new resource (Section 3.4); a name that fits more than one resource is `unknown_resource` (Section 4) | A household that removes the marking without looking. The marking does not protect `read` or an `allow` rule with `allow_critical`; a new camera or presence sensor can be read at once under a `read` rule for its category. An implementation that cannot tell that the platform gave an identifier to another device |
+| **Controls the clock or the time zone** (time spoofed on the network, a member of the household who may change the configuration) | A clock behind the newest entry of the log stops every request; timeouts and the rate limit use a clock that never runs backwards (Section 11.4); a change of the time zone or of the clock check is recorded (`config.changed`) | A clock moved forward, or backward but still after the reference time, shifts validity periods and time windows within that range. A clock that ran forward stops the agents after its correction until a human confirms the time. A changed time zone moves every time window; the log shows it, it does not prevent it |
 | **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it; a later checkpoint anchors them only if its signer took the digest from the log file, which Section 9.5 forbids. A signer whose stored highest `seq` was reset, together with a restored log, can sign a second history. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only. Entries of an invented version leave the content of the log from there on unchecked; a verifier reports this (Section 9.4) and still checks the chain, so a change before them stays visible |
 | **Failure of the audit log** (full or read-only storage, a crash between the command and the entry, a log removed while the PEP runs) | The PEP stores what it will record before it dispatches a command and denies when it cannot (`denied_by: audit`); an execution the process did not see end is recorded as `outcome_unknown` (Sections 9, 11.1 item 9) | A full disk stops the agents, not the household: the platform itself is unaffected. Whoever can fill the storage denies service to every agent; the entries that record it are written once the log can be written again |
 | **Agent, device or integration that writes into the log** (a resource, area or action name with a line feed, a control character, a direction-changing mark, a terminal escape sequence or markup) | Such a name matches nothing and is denied (Section 3.4); the entry records it as sent, and whatever renders entries for a human MUST show the values of `request` as a JSON string shows them, escapes included (Sections 9.1, 13); identifiers in mandates and in matched requests are ASCII | An interface, a consumer of an export or a verifier that ignores Section 9.1 shows a forged or hidden line, or runs an escape sequence in a terminal |
@@ -2351,8 +2423,10 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
 
 - **the resource directory**: it assigns category, areas and the critical marking. A wrong
   category makes the wrong vocabulary and the wrong rules apply, a wrong set of areas the
-  wrong rules by `area`;
-- **the clock**: validity periods and time windows depend on it (Section 11.4);
+  wrong rules by `area`. Devices and integrations feed it; Section 3.4 says what happens
+  when a resource comes under a rule that way;
+- **the clock and the time zone**: validity periods and time windows depend on them
+  (Section 11.4);
 - **the user management**: it decides who an approver is and authenticates the person;
 - **the approval channel**: it reaches the approver and nobody else can answer on it;
 - **the authentication of the agent**: the specification assumes that the agent behind
@@ -2400,7 +2474,7 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
   The agent MUST NOT receive this credential.
 - **Reading is not harmless.** `read` is never critical, but presence sensors, door
   contacts and cameras reveal who is at home. Mandates SHOULD allow `read` per category,
-  not for `any`.
+  not for `any`. What `read` returns is limited by Section 11.8.
 - **Parameters.** Only parameters of the vocabulary can be constrained, and a request
   carries only those (Section 4.5). A PEP MUST send to the platform only the resource
   identifiers and the declared parameters it evaluated, and MUST NOT pass any other member
@@ -2592,6 +2666,27 @@ behavior of the people in a household and MUST be protected like the devices the
 ## Changelog
 
 ### Unreleased
+
+- Section 3.4: a resource that newly comes under an `allow` rule because a device was
+  paired or the platform changed its category or areas is reported to the household and,
+  by default, treated as critical until a human has seen it; an identifier that the platform
+  gives to another resource counts as a new resource. Section 4: a name that fits more than
+  one resource is `unknown_resource`; marking resources as critical MUST be offered. These
+  tighten obligations of implementations; no document changes meaning (Section 14).
+- Section 11.4: while the clock is behind the reference time (the latest `recorded_at` since
+  the check was last switched on), every request that reaches the evaluation is denied
+  (`denied_by: audit`, `error` `clock_behind`); a human ends it by correcting the clock or
+  by switching the check off and on, which an implementation MUST offer; other entries are
+  appended with the time the clock shows; timeouts and the rate limit use a clock that never
+  runs backwards.
+- New Section 11.8, what `read` returns: never credentials, tokens, URLs that grant access
+  or media; SHOULD only the state values the profile lists. The Home Assistant profile lists
+  them per category.
+- Section 6: the connection between PEP and PDP is protected against replay as well; a PDP
+  for several households answers a caller only for its own principals. Section 10.3: the
+  control resource MUST require authentication unless it listens on loopback only.
+- Section 12.2: rows for devices and integrations that choose their own identifiers, class
+  or area, and for whoever controls the clock or the time zone; Section 12.3 adjusted.
 
 - Section 11.1, approval: a confirmation is also bound to the credential the request came
   with (to the key of bound tokens, MUST; otherwise to the grant or session, SHOULD);

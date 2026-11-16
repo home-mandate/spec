@@ -47,6 +47,33 @@ An entity that reports no `supported_features` tells nothing; the implementation
 asks as before. Some integrations change the features of an entity while it runs, so the
 current state counts, not one remembered from earlier.
 
+## What `read` returns
+
+SPEC-v0 section 11.8 limits `read` to state values. For Home Assistant, an implementation
+returns the state and only these attributes; every other attribute stays with the platform.
+The state of some entities is free text that an integration fills, so the list also limits
+which states are returned.
+
+| Category | State and attributes |
+|---|---|
+| `light` | state (`on`, `off`), `brightness`, `color_mode`, `color_temp_kelvin`, `supported_color_modes` |
+| `switch` | state |
+| `climate` | state (the HVAC mode), `hvac_action`, `current_temperature`, `temperature`, `target_temp_low`, `target_temp_high`, `hvac_modes`, `min_temp`, `max_temp` |
+| `cover`, `gate` | state, `current_position` |
+| `lock` | state (`locked`, `unlocked`, `open`, `jammed`, `locking`, `unlocking`, `opening`) |
+| `alarm` | state (`disarmed`, `armed_home`, `armed_away`, …, `triggered`) |
+| `camera` | state (`idle`, `recording`, `streaming`) |
+| `media` | state, `volume_level`, `is_volume_muted` |
+| `sensor` | state, `unit_of_measurement`, `device_class`; a state that contains `://` or is longer than 64 characters is not returned |
+| `scene`, `script` | state |
+| `other` | state, only for the domains `fan`, `vacuum`, `valve`, `humidifier`, `water_heater`, `siren`, `input_boolean`, `input_number`, `input_select`, `number` and `select`; for every other domain (`text`, `input_text`, `image`, `person`, `device_tracker`, `update` and those this list does not know) nothing |
+
+`entity_picture` carries a token that lets anyone fetch the image of a camera or the cover
+of a media player, and `access_token` of a camera grants its stream; neither is ever
+returned. `code_format` and `changed_by` of locks and alarm panels say how a code looks and
+who used one, and are left out as well. `supported_features` MAY be returned where it tells
+the agent which actions the entity can carry out (SPEC-v0 section 11.1 item 11).
+
 ## Parameters
 
 ### Climate modes
