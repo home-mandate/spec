@@ -3,16 +3,18 @@
 package harness_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -123,104 +125,9 @@ func TestUsageErrors(t *testing.T) {
 	}
 }
 
-// referencePDP is a PDP with the HTTP binding of the test interface, built on the
-// reference evaluator. mutate lets a test make it deviate.
-type referencePDP struct {
-	mu     sync.Mutex
-	state  harness.State
-	mutate func(*evaluator.Result)
-	token  string
-}
-
-func (p *referencePDP) handler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("PUT /test/state", func(w http.ResponseWriter, r *http.Request) {
-		if p.token != "" && r.Header.Get("Authorization") != "Bearer "+p.token {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		var state harness.State
-		if err := json.NewDecoder(r.Body).Decode(&state); err != nil {
-			http.Error(w, "bad state", http.StatusBadRequest)
-			return
-		}
-		p.mu.Lock()
-		p.state = state
-		p.mu.Unlock()
-		w.WriteHeader(http.StatusNoContent)
-	})
-	mux.HandleFunc("POST /access/v1/evaluation", func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Subject struct {
-				Type       string            `json:"type"`
-				ID         string            `json:"id"`
-				Properties map[string]string `json:"properties"`
-			} `json:"subject"`
-			Action struct {
-				Name       string                     `json:"name"`
-				Properties map[string]json.RawMessage `json:"properties"`
-			} `json:"action"`
-			Resource struct {
-				Type string `json:"type"`
-				ID   string `json:"id"`
-			} `json:"resource"`
-		}
-		// AuthZEN requires resource.type (SPEC-v0 section 10.3); a strict PDP refuses without it.
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Resource.Type == "" {
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-		p.mu.Lock()
-		state := p.state
-		p.mu.Unlock()
-		// The PDP takes category, areas and the critical marking from its directory.
-		resource := harness.Resource{EntityID: req.Resource.ID}
-		for _, known := range state.Directory {
-			if known.EntityID == req.Resource.ID {
-				resource = known
-			}
-		}
-		answer := harness.Answer(harness.Request{Op: harness.OpSelect, Mandates: state.Mandates,
-			Subject: &harness.Subject{ClientID: req.Subject.ID, Principal: req.Subject.Properties["principal"]},
-			Request: &harness.Evaluation{Resource: resource, Action: req.Action.Name, Parameters: req.Action.Properties,
-				Time: state.Time, Timezone: state.Timezone}})
-		result := evaluator.Result{Decision: evaluator.Decision(answer.Decision), Reason: evaluator.Reason(answer.Reason)}
-		if answer.RuleID != nil {
-			result.RuleID = *answer.RuleID
-		}
-		result.NotEnforced = answer.Enforced != nil && !*answer.Enforced
-		result.Confirm = answer.Confirm
-		if p.mutate != nil {
-			p.mutate(&result)
-		}
-		context := map[string]any{"outcome": result.Decision, "reason": result.Reason}
-		if result.RuleID != "" {
-			context["rule_id"] = result.RuleID
-		}
-		if result.NotEnforced {
-			context["enforced"] = false
-		}
-		if result.Confirm {
-			context["confirm"] = true
-		}
-		if answer.ApprovalTimeout != "" {
-			context["approval_timeout"], context["approvers"] = answer.ApprovalTimeout, answer.Approvers
-		}
-		if answer.MandateDigest != "" {
-			context["mandate_digest"] = answer.MandateDigest
-		}
-		if answer.Selected != nil {
-			context["mandate_id"] = *answer.Selected
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"decision": result.Decision == evaluator.Allow, "context": context})
-	})
-	return mux
-}
-
 func TestHTTPBindingAgainstAReferencePDP(t *testing.T) {
-	pdp := &referencePDP{token: "secret"}
-	server := httptest.NewServer(pdp.handler())
+	pdp := &harness.ReferencePDP{Token: "secret"}
+	server := httptest.NewServer(pdp.Handler())
 	defer server.Close()
 	code, stdout, stderr := runMain(t, "-header", "Authorization: Bearer secret", "-authzen", server.URL, "-control", server.URL+"/test/state")
 	if code != harness.ExitConforms {
@@ -270,8 +177,8 @@ func TestHTTPBindingDetectsDeviations(t *testing.T) {
 		"enforces no deny":    func(r *evaluator.Result) { r.NotEnforced = r.Decision == evaluator.Deny },
 		"never confirms":      func(r *evaluator.Result) { r.Confirm = false },
 	} {
-		pdp := &referencePDP{mutate: mutate}
-		server := httptest.NewServer(pdp.handler())
+		pdp := &harness.ReferencePDP{Mutate: mutate}
+		server := httptest.NewServer(pdp.Handler())
 		report, err := harness.RunPDP(context.Background(), spec.FS(), harness.PDP{AuthZEN: server.URL, Control: server.URL + "/test/state"})
 		server.Close()
 		if err != nil {
@@ -300,5 +207,87 @@ func TestHTTPBindingReportsAnUnreachablePDP(t *testing.T) {
 	report, _ = harness.RunPDP(ctx, spec.FS(), harness.PDP{AuthZEN: garbage.URL, Control: garbage.URL})
 	if c := report.Classes[harness.ClassPDP]; c.Passed != 0 {
 		t.Errorf("garbage answers: pdp = %+v", c)
+	}
+}
+
+// The reference PDP of mandate-harness -serve-authzen: on loopback only, and the class pdp
+// conforms against it (SPEC-v0 section 10.3).
+func TestServeAuthZEN(t *testing.T) {
+	for _, addr := range []string{"0.0.0.0:0", "192.0.2.1:0", "localhost:0", "no port"} {
+		if err := harness.ServeAuthZEN(context.Background(), addr, "", io.Discard); err == nil {
+			t.Errorf("%s: served", addr)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	ready, write := io.Pipe()
+	done := make(chan error, 1)
+	go func() { done <- harness.ServeAuthZEN(ctx, "127.0.0.1:0", "secret", write) }()
+	line, err := bufio.NewReader(ready).ReadString('\n')
+	if err != nil {
+		t.Fatal(err)
+	}
+	var authzen, control string
+	if _, err := fmt.Sscanf(line, "-authzen %s -control %s", &authzen, &control); err != nil {
+		t.Fatalf("ready line %q: %v", line, err)
+	}
+	report, err := harness.RunPDP(ctx, spec.FS(), harness.PDP{AuthZEN: authzen, Control: control, Header: http.Header{"Authorization": {"Bearer secret"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.Conforms(harness.ClassPDP) {
+		t.Errorf("pdp = %+v", report.Classes[harness.ClassPDP])
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Errorf("ServeAuthZEN after cancel: %v", err)
+	}
+	if err := harness.ServeAuthZEN(context.Background(), "127.0.0.1:0", "", errorWriter{}); err == nil {
+		t.Error("served although the ready line could not be written")
+	}
+}
+
+type errorWriter struct{}
+
+func (errorWriter) Write([]byte) (int, error) { return 0, errors.New("closed") }
+
+func TestHarnessMain(t *testing.T) {
+	for _, args := range [][]string{{"extra"}, {"-token", "t"}, {"-unknown"}} {
+		var stderr bytes.Buffer
+		if code := harness.HarnessMain(context.Background(), args, strings.NewReader(""), io.Discard, &stderr); code != harness.ExitUsage || !strings.Contains(stderr.String(), "usage") {
+			t.Errorf("%v: exit %d, stderr %q", args, code, stderr.String())
+		}
+	}
+	var stdout, stderr bytes.Buffer
+	if code := harness.HarnessMain(context.Background(), nil, strings.NewReader(`{"op":"capabilities"}`+"\n"), &stdout, &stderr); code != harness.ExitConforms || !strings.Contains(stdout.String(), "reference") {
+		t.Errorf("process binding: exit %d, stdout %q, stderr %q", code, stdout.String(), stderr.String())
+	}
+	if code := harness.HarnessMain(context.Background(), []string{"-serve-authzen", "0.0.0.0:0"}, nil, io.Discard, &stderr); code != harness.ExitFails {
+		t.Errorf("serve on a public address: exit %d", code)
+	}
+}
+
+// The reference PDP answers only requests to a loopback host, with a token if it has one, and
+// reads at most a few MiB of a body.
+func TestReferencePDPRefusesRebindingLargeBodiesAndWrongTokens(t *testing.T) {
+	handler := (&harness.ReferencePDP{Token: "secret"}).Handler()
+	for name, tt := range map[string]struct {
+		host, auth string
+		body       string
+		want       int
+	}{
+		"rebound name": {"evil.example:8080", "Bearer secret", `{}`, http.StatusMisdirectedRequest},
+		"no host port": {"localhost", "Bearer secret", `{}`, http.StatusMisdirectedRequest},
+		"wrong token":  {"127.0.0.1:8080", "Bearer secreT", `{}`, http.StatusUnauthorized},
+		"large body":   {"[::1]:8080", "Bearer secret", `{"time":"` + strings.Repeat("x", 5<<20) + `"}`, http.StatusBadRequest},
+		"good":         {"127.0.0.1:8080", "Bearer secret", `{"mandates":[],"directory":[],"time":"2026-10-12T19:00:00+02:00"}`, http.StatusNoContent},
+	} {
+		req := httptest.NewRequest(http.MethodPut, "/test/state", strings.NewReader(tt.body))
+		req.Host = tt.host
+		req.Header.Set("Authorization", tt.auth)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != tt.want {
+			t.Errorf("%s: status %d, want %d", name, rec.Code, tt.want)
+		}
 	}
 }

@@ -48,17 +48,23 @@ has its own repository and versions and builds on Section 11.7 here.
 | `evaluator/` | Reference evaluator as a Go library (`github.com/home-mandate/spec/evaluator`), standard library only plus a JSON Schema validator | Apache 2.0 |
 | `audit/` | Entry digests and hash-chain verification of audit logs (SPEC-v0 section 9), checked against `conformance/audit-v0.json` | Apache 2.0 |
 | `displaytext/` | Check of text displayed to humans against the code point list | Apache 2.0 |
-| `jws/` | The part of JSON Web Signature the specification uses: compact serialization, EdDSA and ES256, JWK Sets; standard library only | Apache 2.0 |
+| `jws/` | The part of JSON Web Signature the specification uses: compact serialization, EdDSA and ES256, JWK Sets, and the building blocks that protocols on top of it, such as the Relay Specification, sign and verify their own headers with; standard library only | Apache 2.0 |
 | `ratelimit/` | Reference for the rate limit bound of SPEC-v0 section 11.2 | Apache 2.0 |
 | `jcs/` | JSON Canonicalization Scheme (RFC 8785) for the digests of mandates and audit entries | Apache 2.0 |
 | `ijson/` | The I-JSON rules (RFC 7493) that `encoding/json` does not check: valid UTF-8, no lone surrogates or noncharacters, no duplicate keys, one value, bounded nesting | Apache 2.0 |
 | `rfc3339/` | Timestamps read by the grammar of RFC 3339, stricter than `time.Parse` | Apache 2.0 |
 | `manifest/` | Builds, reads and compares `conformance/manifest.json`; a companion specification describes its own files with a `manifest.Layout` | Apache 2.0 |
 | `schema/*.go`, `spec.go` | Go packages that embed the schemas (`schema`) and the schemas, examples and conformance cases (root package), respectively | Apache 2.0 |
-| `tools/vectors/` | Helper for maintaining the conformance files: the manifest, mandate digests, chaining audit entries, signed test mandates and checkpoints | Apache 2.0 |
+| `tools/vectors/` | Helper for maintaining the conformance files: the manifest, mandate digests, chaining audit entries, signed test mandates and checkpoints, and the certificates of `ct-v0.json` | Apache 2.0 |
 | `Makefile` | Checks: `make check` (vet, staticcheck, coverage ≥ 95 %, govulncheck), `make fuzz`, `make mutation` (≥ 90 %) | Apache 2.0 |
 | `cmd/mandate-conformance/` | Test tool: plays the conformance cases against any implementation, over standard input and output or over HTTP (SPEC-v0 section 10) | Apache 2.0 |
-| `cmd/mandate-harness/` | The reference code behind the process binding of the test interface; example for implementers | Apache 2.0 |
+| `cmd/mandate-harness/` | The reference code behind the process binding of the test interface, and with `-serve-authzen` the reference PDP over the HTTP binding; example for implementers | Apache 2.0 |
+| `conformance/DECLARATION.md` | The obligations no case can test, which an implementation declares how it meets (SPEC-v0 section 8.1) | CC BY 4.0 |
+
+The Go packages that are not under `internal/` are public. Their versions are those of the
+specification: a release without a new major keeps every document's verdict (SPEC-v0
+section 14), but while the specification is below v1, a minor release MAY change the Go API
+of these packages, and its changelog says how. From v1 on they follow semantic versioning.
 
 ## Testing an implementation
 

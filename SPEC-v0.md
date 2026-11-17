@@ -1102,7 +1102,9 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
   MUST reject everything else, even if the signature would verify.
 - The protected header is at most 256 bytes after base64url decoding, white space that JSON
   permits included; its two members need about a hundred. A verifier MUST reject a longer
-  one.
+  one. A signed mandate in compact serialization is at most 524 288 bytes (512 KiB): a mandate
+  of 256 KiB (Section 3.1 item 5) takes fewer than 350 000 characters in base64url. A verifier
+  MUST reject a longer one before it splits it into its parts.
 - A verifier MUST check an Ed25519 signature with the equation of RFC 8032 section 5.1.7
   without the cofactor (`[S]B = R + [k]A'`), not with the cofactored one that the RFC also
   permits, so that two verifiers never disagree about a signature; a library that verifies
@@ -1155,7 +1157,11 @@ key that was compromised may have signed it.
 How a verifier comes to trust the keys of an issuer is outside this specification
 (configuration, pairing, a JWK Set under the issuer's URL, …). Keys are exchanged as JWK or
 JWK Set (RFC 7517): `{"kty":"OKP","crv":"Ed25519","x":…}` or
-`{"kty":"EC","crv":"P-256","x":…,"y":…}`, each with a `kid` of the form above. A `kid` occurs
+`{"kty":"EC","crv":"P-256","x":…,"y":…}`, each with a `kid`, a string of the form above; a key
+without a `kid` or with a `kid` that is not such a string makes the key set verify nothing
+(Section 10.2). A key set and each of its keys are I-JSON (Section 3.1 item 1): a member that
+occurs twice, such as `x` in a key or `keys` in the set, makes the key set verify nothing. A
+key set is at most 65 536 bytes; a verifier MUST reject a longer one. A `kid` occurs
 at most once in a key set: a key set in which a `kid` repeats verifies nothing (Section 10.2),
 whichever of the keys a verifier would otherwise have picked. The names of the members are
 case-sensitive: `X` is not `x`, but an unknown member, and unknown members are ignored (RFC
@@ -1164,16 +1170,25 @@ present, `use` is `sig`, `key_ops` is an array that contains `verify`, and `alg`
 algorithm of the key's type (`EdDSA` for Ed25519, `ES256` for P-256); a key whose `use`,
 `key_ops` or `alg` says otherwise, is `null` or of another JSON type (an element of `key_ops`
 that is not a string included), cannot be used, and a key set with such a key verifies
-nothing (Section 10.2). The same holds for a key of another type or curve and for a key
-that is not a point of the curve: RFC 7517 section 5 lets a reader skip such keys, but a
-verifier that skipped part of a key set would trust less or more than the household
-configured. `x` and `y` are
-base64url without padding and without any other character.
+nothing (Section 10.2). The same holds for a key of another type or curve: RFC 7517 section 5
+lets a reader skip such keys, but a verifier that skipped part of a key set would trust less
+or more than the household configured. An issuer whose keys share a JWK Set with keys for other
+purposes publishes a set of its own for mandates. A key whose `x` and `y` decode but name no
+point of the curve verifies nothing, and the key set it is in stays usable: such a key never
+verifies a signature, so ignoring it changes no verdict, and most libraries accept an Ed25519
+key without decoding its point. A verifier without ES256 (which is optional, above) treats a
+well-formed P-256 key of a key set, whose `x` and `y` are 32 octets each in base64url, as a key
+it does not use: the set stays usable, and for a signature with `alg` `ES256` it answers that
+it cannot check it (Section 10.2: `unsupported`). A P-256 key that is not well-formed, such as
+one without `y`, makes the key set verify nothing for every verifier, with ES256 or without. `x` and
+`y` are base64url without padding and without any other character.
 A key with a member `d`, whatever its value, is a private key and is rejected (RFC 8037
 section 2). An issuer that becomes
 trusted or stops being trusted, and every key of an issuer that is added or removed, is
 recorded with `issuer.changed` (Section 9.2): which mandates a verifier accepts depends on
-it.
+it. A key is its bytes, not its `kid`: when the bytes under a `kid` change, the old key is
+removed and the new one added (`key_removed` and `key_added`), and what a verifier remembers
+it accepted by the old key (above) does not pass to the new one.
 
 The algorithms are fixed per version of the specification. The prefix of a digest
 (`sha256:`) and the `alg` of a signature name the algorithm, so that a later version can
@@ -1303,13 +1318,15 @@ that class in that version.
 | `signatures` | verifies signed mandates and succession (Sections 3.5 and 7) | `signed-v0.json`, `succession-v0.json` |
 | `audit` | verifies the hash chain of audit logs of versions 0 and 1, the `log_id` of their checkpoints, reports the findings of Section 9.4, and computes entry digests (Sections 9.4, 9.5 condition 4 without keys, 14) | logs in `audit-v0.json` and `audit-v1.json` without `keys` |
 | `audit-anchored` | additionally verifies checkpoints (Section 9.5) | logs in `audit-v0.json` and `audit-v1.json` with `keys` |
-| `pdp` | answers AuthZEN requests from its own mandate store and resource directory (Sections 4.3 and 6) | the cases of `cases-v0.json` whose mandate is valid and not revoked, and the cases of `selection-v0.json` whose mandates are valid, over HTTP. A PDP never evaluates a revoked mandate (Section 4.3): the `revoked` cases of `cases-v0.json` test the order of the reasons in direct evaluation; the `revoked` of a PDP is covered by the selection cases |
+| `pdp` | answers AuthZEN requests from its own mandate store and resource directory (Sections 4.3 and 6) | the cases of `cases-v0.json` whose mandate is not revoked, and the cases of `selection-v0.json` without `"pdp": false`, which marks a case with an invalid stored mandate that a PDP never stores, over HTTP. A PDP never evaluates a revoked mandate (Section 4.3): the `revoked` cases of `cases-v0.json` test the order of the reasons in direct evaluation; the `revoked` of a PDP is covered by the selection cases |
 
 `evaluator` is the basis: an implementation that claims any conformance to the
-evaluation conforms to it. The obligations of the PEP (Section 11: approval, rate limit,
-revocation) cannot be tested from outside in this version; an implementation states for
-each item of Section 11 how it meets it, those of Section 11.7 included if it is reachable from
-outside. `origin-v0.json` and `ct-v0.json` state decisions of Section 11.7 for implementations
+evaluation conforms to it. Many obligations cannot be tested from outside in this version:
+those of the PEP (Section 11: approval, rate limit, revocation, and Section 11.7 if it is
+reachable from outside), and those of Sections 3.4, 3.5, 4, 4.4, 6, 7.1, 9 and 14 about what an
+implementation stores, executes, records and shows. An implementation that claims to follow
+the specification as a whole states for each of them how it meets it;
+`conformance/DECLARATION.md` lists them, with the rules the test interface cannot reach. `origin-v0.json` and `ct-v0.json` state decisions of Section 11.7 for implementations
 that offer them as functions; they form no class, and no implementation can claim conformance
 by them in this version.
 
@@ -1921,11 +1938,14 @@ failed case. A `time` that does not follow Section 3.1 item 0, such as an offset
 comma before the fraction, a one-digit hour or the offset `-00:00`, is not readable.
 
 A case can require an algorithm that Section 7.1 makes optional: its member `requires` names
-it (`ES256`). An implementation without that algorithm answers the case with
+it (`ES256`). Every case whose signature or checkpoint uses that algorithm carries it, valid or
+not, because an implementation without the algorithm cannot tell them apart: it reads `alg`
+from the header, which it has checked as Section 7.1 asks, and answers the case with
 `{"error": "unsupported"}`; the case then does not count for its class, and the report lists
 it as not applicable. Every other case it answers so counts as not passed. `verify_signed` with a key set in which a
 key cannot be used answers `{"valid": false}`; `verify_audit` answers with an `error`, because it
-cannot report on the log.
+cannot report on the log. A key that is not a point of its curve is not such a key: it verifies
+nothing, and the key set stays usable (Section 7.1).
 
 Every request can carry `id`, the identifier of the case, for diagnostics.
 
@@ -1976,7 +1996,9 @@ cases of its version. Its report (`-report`) is a JSON object with `spec`, `mani
 SHA-256 of `conformance/manifest.json`), `binding`, `implementation`, per class the number
 of cases passed, failed and skipped and whether the implementation conforms, and the list
 of failed cases with what was expected and what was received. `cmd/mandate-harness` is the
-harness of the reference code and an example for implementers.
+harness of the reference code and an example for implementers; with `-serve-authzen` and a
+loopback address it offers the reference PDP over the HTTP binding, and prints the arguments
+for the tool.
 
 `implementation` names the implementation (`name`) and its release (`version`, for example
 `1.4.2`), not the version of the formats, which is in `spec`. Over the process binding the
@@ -2907,6 +2929,30 @@ behavior of the people in a household and MUST be protected like the devices the
   further cases where no verification changes (`denied_by: audit` for a clock behind the log,
   `cause: expired` for a proposal, `request.group` for a renamed resource), with the `error`
   codes that tell them apart RECOMMENDED.
+- Signatures and key sets (Section 7.1):
+  - A key whose point is not on its curve verifies nothing and leaves its key set usable,
+    for Ed25519 and P-256 alike; a key of another type or curve, a private key, a key a
+    restriction excludes and a repeated `kid` still make the set verify nothing. One case for
+    each kind of key next to the signing key (`g76` to `g100`).
+  - A key needs a `kid` that is a string of the pattern (`g93`, `g94`); a key set and its
+    keys are I-JSON (`g97`, `g98`) and at most 65 536 bytes (`g101`); a compact JWS is at most
+    512 KiB and is rejected by its length before it is split.
+  - A verifier without ES256 treats a P-256 key as one it does not use; issuers publish a key
+    set of their own for mandates; a key is its bytes, not its `kid`.
+- Test interface (Section 10): every case whose signature or checkpoint uses ES256 carries
+  `requires: ES256` (`g12`, `g20`, `g66` to `g69`, `g72` to `g74`, `a241`), so that an
+  implementation without ES256 can conform to `signatures` and `audit-anchored`. The reference
+  harness compares member names exactly and refuses a member that occurs twice. The selection
+  cases a PDP never stores are marked `"pdp": false`; `mandate-harness -serve-authzen` offers
+  the reference PDP over the HTTP binding. `conformance/DECLARATION.md` lists the obligations
+  no case can test, which Section 8.1 now asks an implementation to declare beyond Section 11.
+- Go packages: `jws` keeps the building blocks of the compact serialization (`SplitCompact`,
+  `DecodeSegment`, `SigningInput`, `SignCompact`, `VerifySignature`, `CanonicalSignature`,
+  `KeyAlgorithm`, `SignerAlgorithm`, `MarshalJWK`, `ParseJWK`); the requests of the Relay
+  Specification and their signing moved to home-mandate/relay-spec. The findings of
+  `audit.Result` are pointers, nil for none; `ijson.ZeroNumbers` became internal;
+  `manifest.Specification` is a function. staticcheck runs again (v0.8.2). The README says how
+  the public packages are versioned.
 - Audit version 1 before its release, and the text around it:
   - A request for several resources denied as a whole can record an entry with
     `confirm: true` and `denied_by: mandate` without an `approval` object; one it has is

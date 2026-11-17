@@ -24,6 +24,7 @@ import (
 
 	"github.com/home-mandate/spec/displaytext"
 	"github.com/home-mandate/spec/ijson"
+	"github.com/home-mandate/spec/internal/jsonnum"
 	"github.com/home-mandate/spec/internal/origin"
 	"github.com/home-mandate/spec/jcs"
 	"github.com/home-mandate/spec/rfc3339"
@@ -67,37 +68,36 @@ type Result struct {
 	//
 	// Integrity: the first entry at which the log is not complete and unaltered (conditions
 	// 2, 3 and 4, and an entry whose digest cannot be computed).
-	Integrity Finding
+	// Each is nil if there is no such entry, so that the zero value of a Result has none.
+	Integrity *Finding
 	// Conformance: the first entry of a known version that breaks a rule of condition 1.
-	Conformance Finding
+	Conformance *Finding
 	// UnknownVersion: the first entry of an audit version this verifier does not know. The
 	// content of the entries from there on is not checked; the chain is.
-	UnknownVersion Finding
+	UnknownVersion *Finding
 
 	// CheckpointGap is, for a valid log with a checkpoint, the first entry at which the writer
 	// did not keep the cadence of checkpoints of SPEC-v0 section 9.5. It is no finding, and it
 	// means something only for a log whose checkpoints verify with keys: without keys anyone
-	// can write a checkpoint entry. Index is -1 if there is none.
-	CheckpointGap Finding
+	// can write a checkpoint entry. nil if there is none.
+	CheckpointGap *Finding
 }
 
 // Finding names the first entry of a kind of violation.
 type Finding struct {
-	// Index is the position of the entry in file order, starting at 0; -1 if there is none.
+	// Index is the position of the entry in file order, starting at 0.
 	Index int
 	// At is the seq of the entry, as in broken_at: 0 if it has no readable seq.
 	At int64
 }
 
-// Found reports whether there is such an entry.
-func (f Finding) Found() bool { return f.Index >= 0 }
-
-var none = Finding{Index: -1}
+// Found reports whether there is such an entry: f is not nil.
+func (f *Finding) Found() bool { return f != nil }
 
 // note records the first finding of a kind.
-func note(f *Finding, index int, seq int64) {
-	if !f.Found() {
-		*f = Finding{Index: index, At: seq}
+func note(f **Finding, index int, seq int64) {
+	if *f == nil {
+		*f = &Finding{Index: index, At: seq}
 	}
 }
 
@@ -187,7 +187,7 @@ func decode(entry []byte) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrMalformed, err)
 	}
-	return ijson.ZeroNumbers(v), nil
+	return jsonnum.ZeroNumbers(v), nil
 }
 
 func digestOf(v any) (string, error) {
@@ -247,7 +247,7 @@ type verifier struct {
 	// condition 1 (SPEC-v0 section 14).
 	newest int
 	// integrity, conformance and unknown are the findings of the Result.
-	integrity, conformance, unknown Finding
+	integrity, conformance, unknown *Finding
 	first                           link
 	previous                        link
 	// startCovered: a log.truncated entry accounts for everything before the first entry;
@@ -283,7 +283,7 @@ type cadence struct {
 	// firstLate: the first of them was recorded more than 24 hours after the checkpoint, so the
 	// next checkpoint was due at once.
 	firstLate bool
-	gap       Finding
+	gap       *Finding
 }
 
 // late reports whether t lies more than 24 hours after the last checkpoint.
@@ -326,8 +326,7 @@ func newVerifier(opts Options) (*verifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &verifier{schemas: schemas, anchor: opts.Anchor, known: known, integrity: none, conformance: none, unknown: none,
-		cadence: cadence{gap: none}}, nil
+	return &verifier{schemas: schemas, anchor: opts.Anchor, known: known}, nil
 }
 
 // add checks the next entry. Every entry is read: the findings on integrity, conformance
@@ -374,7 +373,7 @@ func (v *verifier) add(entry []byte) (result Result, done bool) {
 func (v *verifier) finish() Result {
 	if v.count > 0 && v.first.seq != 1 && !v.startCovered && !v.lostFirst() {
 		// Condition 2 is about the first entry: it comes before every other break of integrity.
-		v.integrity = Finding{Index: 0, At: v.first.seq}
+		v.integrity = &Finding{Index: 0, At: v.first.seq}
 	}
 	var r Result
 	switch {
@@ -627,13 +626,11 @@ func intField(obj map[string]any, key string) int64 {
 }
 
 func valid(entries int) Result {
-	return Result{Valid: true, Index: -1, Entries: entries, Integrity: none, Conformance: none, UnknownVersion: none,
-		CheckpointGap: none}
+	return Result{Valid: true, Index: -1, Entries: entries}
 }
 
 func broken(index int, seq int64) Result {
-	return Result{Index: index, BrokenAt: seq, Integrity: none, Conformance: none, UnknownVersion: none,
-		CheckpointGap: none}
+	return Result{Index: index, BrokenAt: seq}
 }
 
 // VerifyJSONLines verifies an audit log in the exchange format: one entry per line,

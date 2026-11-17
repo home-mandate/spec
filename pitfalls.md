@@ -77,4 +77,19 @@ patch versions:
 Section 7.1 therefore fixes the checks on the bytes of keys and of `R`, a few constant
 comparisons, and requires verification without the cofactor. Do not rely on the library alone.
 
-Cases: `g45` to `g75`.
+With a library that verifies with the cofactor but offers point arithmetic, verification without
+the cofactor takes a few lines:
+
+1. Check the bytes as Section 7.1 asks: the signature has 64 octets, `S` (its last 32 octets,
+   little-endian) is less than the group order `L`, and neither the key `A` nor `R` (the first
+   32 octets) is one of the encodings of small order or has y ≥ p.
+2. Decode `A` into a point; if no point exists, the signature does not verify.
+3. Compute `k` = SHA-512(`R` ‖ `A` ‖ message), read as a little-endian integer, modulo `L`.
+4. Compute the point [`S`]B − [`k`]A, with B the base point, and encode it as 32 octets.
+5. The signature verifies exactly if that encoding equals `R`, byte for byte.
+
+Comparing the encoding with `R` is the equation without the cofactor; it is what Go's
+`crypto/ed25519` does. A library whose scalar multiplication refuses 0 needs its unsafe
+variant for `S` = 0, which step 1 does not exclude.
+
+Cases: `g45` to `g75`, `g76` to `g101` for key sets.

@@ -54,6 +54,10 @@
               }
             }
           },
+          "pdp": {
+            "const": false,
+            "description": "false: a stored mandate is invalid, which a PDP never stores, so the case is not played over the HTTP binding (SPEC-v0 sections 8.1 and 10.3); absent: it is."
+          },
           "subject": {
             "type": "object",
             "additionalProperties": false,

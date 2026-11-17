@@ -308,7 +308,7 @@ func verifyAudit(req Request) Response {
 }
 
 // findingAt is the seq of a finding, or nil if there is none.
-func findingAt(f audit.Finding) *int64 {
+func findingAt(f *audit.Finding) *int64 {
 	if !f.Found() {
 		return nil
 	}
@@ -327,6 +327,9 @@ func entries(texts []string) [][]byte {
 // that a client using a former member name (such as "area") gets an error instead of an
 // evaluation without that member.
 func decodeRequest(line []byte) (Request, error) {
+	if err := exactMembers(line); err != nil {
+		return Request{}, err
+	}
 	var req Request
 	dec := json.NewDecoder(bytes.NewReader(line))
 	dec.DisallowUnknownFields()

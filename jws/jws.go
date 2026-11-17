@@ -4,9 +4,9 @@
 // an audit log (SPEC-v0 section 9.5) and signed mandates (section 7). It implements the
 // small part of JSON Web Signature (RFC 7515) the specification uses: the compact
 // serialization, also with detached payload, with the algorithms EdDSA (Ed25519,
-// RFC 8037) and ES256, and public keys as a JWK Set (RFC 7517). It also signs and checks
-// the requests of the Relay Specification (RELAY-v0 sections 5.1 and 5.5), whose header
-// names the key by URL or carries it. It uses only the standard library.
+// RFC 8037) and ES256, and public keys as a JWK Set (RFC 7517). Protocols on top of the
+// specification with headers of their own, such as the requests of the Relay Specification,
+// build on its building blocks (compact.go). It uses only the standard library.
 package jws
 
 import (
@@ -42,8 +42,12 @@ var (
 	ErrKey       = errors.New("jws: unsupported or unknown key")
 )
 
-// maxCompactBytes bounds a JWS: a signed mandate is at most 256 KiB before encoding.
+// maxCompactBytes bounds a JWS: a signed mandate is at most 256 KiB before encoding
+// (SPEC-v0 section 7.1).
 const maxCompactBytes = 512 << 10
+
+// MaxKeySetBytes bounds a JWK Set (SPEC-v0 section 7.1): a key needs a few hundred bytes.
+const MaxKeySetBytes = 64 << 10
 
 const p256Bytes = 32
 
@@ -109,7 +113,7 @@ func sign(payload []byte, kid string, signer any) (head, sig string, err error) 
 	if !kidPattern.MatchString(kid) {
 		return "", "", fmt.Errorf("%w: key ID %s", ErrKey, quote(kid))
 	}
-	alg, _, err := signerAlg(signer)
+	alg, _, err := SignerAlgorithm(signer)
 	if err != nil {
 		return "", "", err
 	}
@@ -152,7 +156,7 @@ func signInput(alg string, signer any, input []byte) ([]byte, error) {
 			return out, nil
 		}
 	}
-	return nil, fmt.Errorf("%w: %T with %s", ErrKey, signer, alg)
+	return nil, fmt.Errorf("%w: %T with %s", ErrKey, signer, quote(alg))
 }
 
 func verifyInput(alg string, key crypto.PublicKey, input, sig []byte) bool {
@@ -168,7 +172,7 @@ func verifyInput(alg string, key crypto.PublicKey, input, sig []byte) bool {
 		r := sig[:ed25519.PublicKeySize]
 		return canonicalEd25519(r) && !smallOrderEd25519[[ed25519.PublicKeySize]byte(r)] && ed25519.Verify(k, input, sig)
 	case *ecdsa.PublicKey:
-		if alg != AlgES256 || len(sig) != 2*p256Bytes {
+		if k == nil || k.Curve != elliptic.P256() || alg != AlgES256 || len(sig) != 2*p256Bytes {
 			return false
 		}
 		digest := sha256.Sum256(input)
@@ -211,9 +215,13 @@ func VerifyDetached(detached string, payload []byte, keys Keys) (kid string, err
 	return verify(head, payload, sig, keys)
 }
 
+// split checks the length before it splits, so that a long input of dots allocates nothing.
 func split(compact string) (head, body, sig string, err error) {
-	parts := strings.Split(compact, ".")
-	if len(compact) > maxCompactBytes || len(parts) != 3 {
+	if len(compact) > maxCompactBytes {
+		return "", "", "", fmt.Errorf("%w: not a compact JWS", ErrMalformed)
+	}
+	parts := strings.SplitN(compact, ".", 4)
+	if len(parts) != 3 {
 		return "", "", "", fmt.Errorf("%w: not a compact JWS", ErrMalformed)
 	}
 	return parts[0], parts[1], parts[2], nil
@@ -352,9 +360,20 @@ type jwks struct {
 	Keys []jwk `json:"keys"`
 }
 
+// notOnCurve stands for a key whose point is not on its curve: it verifies nothing, and the
+// key set it is in stays usable (SPEC-v0 section 7.1). An Ed25519 key is not decoded here,
+// because the standard library decodes it only when it verifies; it verifies nothing then.
+type notOnCurve struct{}
+
+// errNotOnCurve marks a key whose point is not on its curve.
+var errNotOnCurve = errors.New("not on curve")
+
 // ParseJWKS reads public keys from a JWK Set. Every key needs a kid; private keys and
 // key types other than Ed25519 and P-256 are rejected.
 func ParseJWKS(data []byte) (Keys, error) {
+	if len(data) > MaxKeySetBytes {
+		return nil, fmt.Errorf("%w: JWK Set of %d bytes, at most %d", ErrMalformed, len(data), MaxKeySetBytes)
+	}
 	// A key set is no format of the specification; what it was accepted with stays accepted.
 	if err := ijson.CheckRecorded(data); err != nil {
 		return nil, fmt.Errorf("%w: JWK Set: %w", ErrMalformed, err)
@@ -390,6 +409,9 @@ func ParseJWKS(data []byte) (Keys, error) {
 			return nil, fmt.Errorf("%w: key %s is a private key", ErrKey, quote(k.Kid))
 		}
 		key, err := publicKey(k)
+		if errors.Is(err, errNotOnCurve) {
+			key, err = notOnCurve{}, nil
+		}
 		if err != nil {
 			return nil, fmt.Errorf("%w: key %s: %w", ErrKey, quote(k.Kid), err)
 		}
@@ -448,7 +470,11 @@ func publicKey(k jwk) (crypto.PublicKey, error) {
 		// The uncompressed point encoding lets the standard library check that the
 		// point lies on the curve.
 		point := append(append([]byte{4}, x...), y...)
-		return ecdsa.ParseUncompressedPublicKey(elliptic.P256(), point)
+		key, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), point)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", errNotOnCurve, err)
+		}
+		return key, nil
 	}
 	return nil, fmt.Errorf("key type %s with curve %s", quote(k.Kty), quote(k.Crv))
 }
@@ -497,7 +523,8 @@ func canonicalEd25519(encoded []byte) bool {
 	return new(big.Int).SetBytes(y).Cmp(ed25519FieldPrime) < 0
 }
 
-// MarshalJWKS writes public keys as a JWK Set, sorted by key ID.
+// MarshalJWKS writes public keys as a JWK Set, sorted by key ID. A key that ParseJWKS kept
+// although it is not a point of its curve cannot be written: it is no key to publish.
 func MarshalJWKS(keys Keys) ([]byte, error) {
 	set := jwks{Keys: []jwk{}}
 	for kid, key := range keys {
@@ -529,6 +556,9 @@ func publicJWK(kid string, key crypto.PublicKey) (jwk, error) {
 		}
 		return jwk{Kty: "EC", Crv: "P-256", Kid: kid,
 			X: b64.EncodeToString(point[1 : 1+p256Bytes]), Y: b64.EncodeToString(point[1+p256Bytes:])}, nil
+	}
+	if _, ok := key.(notOnCurve); ok {
+		return jwk{}, fmt.Errorf("%w: key %s is not a point of its curve and cannot be written", ErrKey, quote(kid))
 	}
 	return jwk{}, fmt.Errorf("%w: key %s: %T", ErrKey, quote(kid), key)
 }
