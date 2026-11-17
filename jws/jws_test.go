@@ -9,6 +9,7 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -667,5 +668,95 @@ func TestParseJWKSRestrictions(t *testing.T) {
 		if _, err := ParseJWKS([]byte(`{"keys":[{` + ecMembers + `,` + extra + `}]}`)); (err == nil) != want {
 			t.Errorf("P-256 key with %s: accepted %t, want %t (%v)", extra, err == nil, want, err)
 		}
+	}
+}
+
+// identityRSignature signs input with key the way g49 does: R is the identity and
+// S = k·a mod L, so that [S]B = R + [k]A holds without the cofactor.
+func identityRSignature(t *testing.T, key ed25519.PrivateKey, input []byte) []byte {
+	t.Helper()
+	order, _ := new(big.Int).SetString("7237005577332262213973186563042994240857116359379907606001950938285454250989", 10)
+	littleEndian := func(b []byte) *big.Int {
+		r := make([]byte, len(b))
+		for i, v := range b {
+			r[len(b)-1-i] = v
+		}
+		return new(big.Int).SetBytes(r)
+	}
+	h := sha512.Sum512(key.Seed())
+	h[0] &= 248
+	h[31] &= 127
+	h[31] |= 64
+	a := littleEndian(h[:32])
+	r := make([]byte, ed25519.PublicKeySize)
+	r[0] = 1
+	k := sha512.New()
+	k.Write(r)
+	k.Write(key.Public().(ed25519.PublicKey))
+	k.Write(input)
+	s := new(big.Int).Mul(littleEndian(k.Sum(nil)), a)
+	s.Mod(s, order)
+	sig := make([]byte, ed25519.SignatureSize)
+	copy(sig, r)
+	be := s.FillBytes(make([]byte, 32))
+	for i, v := range be {
+		sig[63-i] = v
+	}
+	return sig
+}
+
+// R of small order is rejected (SPEC-v0 section 7.1, case g49), although the standard
+// library accepts the signature: some libraries reject it, and verifiers must agree.
+func TestSmallOrderRIsRejected(t *testing.T) {
+	key := rfcKey(t)
+	head := b64.EncodeToString([]byte(`{"alg":"EdDSA","kid":"k"}`))
+	payload := []byte("any payload")
+	input := signingInput(head, payload)
+	sig := identityRSignature(t, key, input)
+	public := key.Public().(ed25519.PublicKey)
+	if !ed25519.Verify(public, input, sig) {
+		t.Fatal("the standard library does not accept the signature; the test no longer shows the check")
+	}
+	keys := Keys{"k": public}
+	if _, err := VerifyDetached(head+".."+b64.EncodeToString(sig), payload, keys); !errors.Is(err, ErrSignature) {
+		t.Errorf("VerifyDetached = %v, want ErrSignature", err)
+	}
+	compact := head + "." + b64.EncodeToString(payload) + "." + b64.EncodeToString(sig)
+	if _, _, err := Verify(compact, keys); !errors.Is(err, ErrSignature) {
+		t.Errorf("Verify = %v, want ErrSignature", err)
+	}
+	// Every other small-order encoding as R fails as well, whatever S.
+	for encoded := range smallOrderEd25519 {
+		bad := append(append([]byte{}, encoded[:]...), sig[32:]...)
+		if verifyInput(AlgEdDSA, public, input, bad) {
+			t.Errorf("R = %x accepted", encoded)
+		}
+	}
+}
+
+// Signatures of every length up to 65 octets never panic and only 64 can verify.
+func TestEd25519SignatureLengths(t *testing.T) {
+	key := rfcKey(t)
+	input := []byte("input")
+	good := ed25519.Sign(key, input)
+	for n := 0; n <= ed25519.SignatureSize+1; n++ {
+		sig := make([]byte, n)
+		copy(sig, good)
+		if got := verifyInput(AlgEdDSA, key.Public(), input, sig); got != (n == ed25519.SignatureSize) {
+			t.Errorf("length %d: verified = %t", n, got)
+		}
+	}
+}
+
+// A non-canonical R (y >= p) is rejected before the equation (SPEC-v0 section 7.1).
+func TestNonCanonicalRIsRejected(t *testing.T) {
+	key := rfcKey(t)
+	input := []byte("input")
+	sig := ed25519.Sign(key, input)
+	bad := append([]byte{}, sig...)
+	copy(bad, []byte{0xee, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f})
+	if canonicalEd25519(bad[:32]) || verifyInput(AlgEdDSA, key.Public(), input, bad) {
+		t.Error("R with y = p + 1 accepted")
 	}
 }

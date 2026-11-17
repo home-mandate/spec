@@ -6515,6 +6515,580 @@
           "type": "https://home-mandate.org/audit/v0"
         }
       ]
+    },
+    {
+      "id": "a239",
+      "why": "a checkpoint whose JWS has the algorithm none and no signature: never accepted; the empty signature also breaks the form the schema gives a checkpoint (SPEC-v0 sections 7.1, 9.4 and 9.5)",
+      "expected": "invalid",
+      "broken_at": 4,
+      "integrity_broken_at": 4,
+      "conformance_broken_at": 4,
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "entry_digests": [
+        "sha256:922570af4fd40b679677f1e2549a54702e5d38919e92a23c9b29ce5818aee74d",
+        "sha256:c2bc7f01d8e2cdad023808f9a89e7f32992c1729ef5287eb3e100a6556a21504",
+        "sha256:821de90194915ec1e20d703730ee8ad1ee414bcd5b0341cd6314b78b8aecc558",
+        "sha256:ef126f31c85dd7cb2abc319a7327862c05c28105be6aef9fd9d34ac8e5230002"
+      ],
+      "entries": [
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.released",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10002",
+          "prev": "sha256:922570af4fd40b679677f1e2549a54702e5d38919e92a23c9b29ce5818aee74d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10003",
+          "prev": "sha256:c2bc7f01d8e2cdad023808f9a89e7f32992c1729ef5287eb3e100a6556a21504",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "checkpoint": {
+            "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+            "signature": "eyJhbGciOiJub25lIiwia2lkIjoidGVzdC1lZDI1NTE5In0.."
+          },
+          "event": "log.checkpoint",
+          "id": "01a0f64c-7140-7001-9007-0000a0d40004",
+          "prev": "sha256:821de90194915ec1e20d703730ee8ad1ee414bcd5b0341cd6314b78b8aecc558",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:30+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a240",
+      "why": "a checkpoint signed correctly under a header with crit: exactly alg and kid (SPEC-v0 sections 7.1 and 9.5)",
+      "expected": "invalid",
+      "broken_at": 4,
+      "integrity_broken_at": 4,
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "entry_digests": [
+        "sha256:922570af4fd40b679677f1e2549a54702e5d38919e92a23c9b29ce5818aee74d",
+        "sha256:c2bc7f01d8e2cdad023808f9a89e7f32992c1729ef5287eb3e100a6556a21504",
+        "sha256:821de90194915ec1e20d703730ee8ad1ee414bcd5b0341cd6314b78b8aecc558",
+        "sha256:fbe1ceb3fccebe77344cb93f964ffd8d2fb92d307555fb7b8b271216d951845a"
+      ],
+      "entries": [
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.released",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10002",
+          "prev": "sha256:922570af4fd40b679677f1e2549a54702e5d38919e92a23c9b29ce5818aee74d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10003",
+          "prev": "sha256:c2bc7f01d8e2cdad023808f9a89e7f32992c1729ef5287eb3e100a6556a21504",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "checkpoint": {
+            "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+            "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSIsImNyaXQiOlsiZXhwIl0sImV4cCI6MX0..ESH8X3IE3rMfhbbqAExII4HZDnfrIb_hYeVXc60IKXp-ZjE9x32HS0qABy81EzqbkMLiiX2ViLRc4Gg24ev3DA"
+          },
+          "event": "log.checkpoint",
+          "id": "01a0f64c-7140-7001-9007-0000a0d40004",
+          "prev": "sha256:821de90194915ec1e20d703730ee8ad1ee414bcd5b0341cd6314b78b8aecc558",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:30+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a241",
+      "why": "a checkpoint signed with ES256 whose s is the higher of the two values that verify: only the lower one is accepted (SPEC-v0 sections 7.1 and 9.5)",
+      "expected": "invalid",
+      "broken_at": 4,
+      "integrity_broken_at": 4,
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "entry_digests": [
+        "sha256:922570af4fd40b679677f1e2549a54702e5d38919e92a23c9b29ce5818aee74d",
+        "sha256:c2bc7f01d8e2cdad023808f9a89e7f32992c1729ef5287eb3e100a6556a21504",
+        "sha256:821de90194915ec1e20d703730ee8ad1ee414bcd5b0341cd6314b78b8aecc558",
+        "sha256:2e8b5cea7939ac8d2441fc1bc0e292d5ed2351c4a979603c436db51a15ea7df2"
+      ],
+      "entries": [
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.released",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10002",
+          "prev": "sha256:922570af4fd40b679677f1e2549a54702e5d38919e92a23c9b29ce5818aee74d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10003",
+          "prev": "sha256:c2bc7f01d8e2cdad023808f9a89e7f32992c1729ef5287eb3e100a6556a21504",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "checkpoint": {
+            "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+            "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6InRlc3QtcDI1NiJ9..iRdWBy5-Mxf0khy-eyDSYwcCaVw-cfnUHTJXs4yLBsqTOYVG2fzkWspNTVHAyvAKTKQK_tUDqqJ5iH7wvAfefg"
+          },
+          "event": "log.checkpoint",
+          "id": "01a0f64c-7140-7001-9007-0000a0d40004",
+          "prev": "sha256:821de90194915ec1e20d703730ee8ad1ee414bcd5b0341cd6314b78b8aecc558",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:30+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a242",
+      "why": "a checkpoint whose signature segment has the unused bits of its last character set: a signature has exactly one spelling (SPEC-v0 sections 7.1 and 9.5)",
+      "expected": "invalid",
+      "broken_at": 4,
+      "integrity_broken_at": 4,
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "entry_digests": [
+        "sha256:922570af4fd40b679677f1e2549a54702e5d38919e92a23c9b29ce5818aee74d",
+        "sha256:c2bc7f01d8e2cdad023808f9a89e7f32992c1729ef5287eb3e100a6556a21504",
+        "sha256:821de90194915ec1e20d703730ee8ad1ee414bcd5b0341cd6314b78b8aecc558",
+        "sha256:567a900fe771844b1d4ba47325b30c9173a8b5f0ad6a4c8ec50330cab510eec1"
+      ],
+      "entries": [
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.released",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10002",
+          "prev": "sha256:922570af4fd40b679677f1e2549a54702e5d38919e92a23c9b29ce5818aee74d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10003",
+          "prev": "sha256:c2bc7f01d8e2cdad023808f9a89e7f32992c1729ef5287eb3e100a6556a21504",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "checkpoint": {
+            "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+            "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..js_8iHghQZ-Ps_9ipoEQtbFYeOZyfvUuLbg8ZOOp0Yq-u4buo4wzdyWBBXi8-8UPr7UhsSRa2ZQ_4sHAIMKrDP"
+          },
+          "event": "log.checkpoint",
+          "id": "01a0f64c-7140-7001-9007-0000a0d40004",
+          "prev": "sha256:821de90194915ec1e20d703730ee8ad1ee414bcd5b0341cd6314b78b8aecc558",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:30+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a243",
+      "why": "request values with every kind of escape of RFC 8785: \\b, \\t, \\f, \\r, \\u0000 and \\u001f in lower case, the quotation mark and the backslash escaped, and written as they are: DEL, U+2028, U+2029, the slash, \u00e9 and an emoji; entry 2 names the digest of entry 1 over that form (SPEC-v0 sections 9.1 and 9.4, RFC 8785 section 3.2.2.2)",
+      "expected": "valid",
+      "entry_digests": [
+        "sha256:2c3934f6436c4b49f65d20f6d85b60325bf18b30e39e9dad40fcd8f698334790",
+        "sha256:288af91c28bea08557fe324d2474449b5df0af26904343e3145e0b4444df529d"
+      ],
+      "entries": [
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "deny",
+            "reason": "invalid_request",
+            "rule_id": null
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2430001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:31:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "lock.\b\t\f\r\u0000\u001f\u007f\u2028\u2029\"\\/\u00e9\ud83d\ude00",
+              "category": "light",
+              "areas": [
+                "flur\b",
+                "\u001f"
+              ]
+            },
+            "action": "unlock\u0000"
+          },
+          "result": {
+            "status": "denied",
+            "denied_by": "mandate"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "allow",
+            "reason": "rule",
+            "rule_id": "r-lights"
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000a2430002",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3"
+          },
+          "prev": "sha256:2c3934f6436c4b49f65d20f6d85b60325bf18b30e39e9dad40fcd8f698334790",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:32:00.005+02:00",
+          "request": {
+            "time": "2026-10-01T09:30:00+02:00",
+            "timezone": "Europe/Berlin",
+            "resource": {
+              "entity_id": "light.wohnzimmer_decke",
+              "category": "light",
+              "areas": [
+                "wohnzimmer"
+              ]
+            },
+            "action": "turn_on"
+          },
+          "result": {
+            "status": "executed"
+          },
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a244",
+      "why": "an entry whose id is a UUID of version 4: an id is a UUID of version 7 (SPEC-v0 section 9.1, RFC 9562 section 5.7)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entry_digests": [
+        "sha256:8b5e949305d2bf56cc1b615c20c66d6b59fb243ae836b12708190a0bcce172b6",
+        "sha256:5613130aeded436f887c1eb52d62cfb0bbf380368378e8f38325c38aeb0f2ebc",
+        "sha256:7064cd59accb90a7205d45739608f7c7f97e5f04bbcfa27c11c351cadedbbe8f"
+      ],
+      "entries": [
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a2440001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.released",
+          "id": "01a0f64c-7140-4001-9007-0000a2440002",
+          "prev": "sha256:8b5e949305d2bf56cc1b615c20c66d6b59fb243ae836b12708190a0bcce172b6",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a2440003",
+          "prev": "sha256:5613130aeded436f887c1eb52d62cfb0bbf380368378e8f38325c38aeb0f2ebc",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a245",
+      "why": "an entry whose id is written in upper case (SPEC-v0 section 9.1, RFC 9562 section 4)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entry_digests": [
+        "sha256:251c46224204b5b9546d9d4538452c344ab8bbab4d97f325a5d39b46bf772aa1",
+        "sha256:436158ffb4419dd67531180340e5482b120c80575fc38ada20faf6f5a3cfac84",
+        "sha256:3e0e6b2b1219cbcf1ed5c24db46a9dea1abebccf28bedfd6ac4810c58633bace"
+      ],
+      "entries": [
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a2450001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.released",
+          "id": "01A0F64C-7140-7001-9007-0000A2450002",
+          "prev": "sha256:251c46224204b5b9546d9d4538452c344ab8bbab4d97f325a5d39b46bf772aa1",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a2450003",
+          "prev": "sha256:436158ffb4419dd67531180340e5482b120c80575fc38ada20faf6f5a3cfac84",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a246",
+      "why": "an entry whose id has the variant bits 110, not those of RFC 9562 (SPEC-v0 section 9.1, RFC 9562 section 4.1)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entry_digests": [
+        "sha256:dad1d990185fd1bee075272ed7d2d4043f4339de76ce0355a3b35c37edbdc355",
+        "sha256:3bf88ca95883a9b8bb40e554047a154b4f5dbceb663e7be78a8b0aab52b24fcf",
+        "sha256:ee7c5734115eea5eab9f836b45c5d886df29d793fca4eaf8cdac2277fb8ec16b"
+      ],
+      "entries": [
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a2460001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.released",
+          "id": "01a0f64c-7140-7001-c007-0000a2460002",
+          "prev": "sha256:dad1d990185fd1bee075272ed7d2d4043f4339de76ce0355a3b35c37edbdc355",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a2460003",
+          "prev": "sha256:3bf88ca95883a9b8bb40e554047a154b4f5dbceb663e7be78a8b0aab52b24fcf",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
+    },
+    {
+      "id": "a247",
+      "why": "an entry whose id is written without hyphens (SPEC-v0 section 9.1, RFC 9562 section 4)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entry_digests": [
+        "sha256:7a044808508030aab7e141370f4357464b35d88dd2a2f4a2f3c0cd93a1515479",
+        "sha256:71d5c1130fc2b995c52e33fc9c410f09cc17c1f889a955b204358c01da3e0f7c",
+        "sha256:f29a6eaeb104b71db0b438c742f84f2748b1d8445fe652bad988a17bd841b0bc"
+      ],
+      "entries": [
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a2470001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.released",
+          "id": "01a0f64c71407001900700000a2470002",
+          "prev": "sha256:7a044808508030aab7e141370f4357464b35d88dd2a2f4a2f3c0cd93a1515479",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a2470003",
+          "prev": "sha256:71d5c1130fc2b995c52e33fc9c410f09cc17c1f889a955b204358c01da3e0f7c",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
     }
   ]
 }
