@@ -1,0 +1,10 @@
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "kid": "mixed-order",
+      "x": "O1tHXEuC3RVyeZ_FRvTGwD5HjGZUqkx_lFs0fqMq9g0"
+    }
+  ]
+}

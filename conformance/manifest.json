@@ -3,8 +3,8 @@
   "files": [
     {
       "path": "conformance/audit-v0.json",
-      "sha256": "4c24905dafb024f5d295655c7430d8b5f9fdd241e946703b30ff6918947fa38b",
-      "cases": 238
+      "sha256": "abe473a13cbcfb581692679879ede5392aab33ed25582b1f7af391e1d9f7148a",
+      "cases": 247
     },
     {
       "path": "conformance/audit-v1.json",
@@ -23,13 +23,13 @@
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "19e13a6aac4a1e7530a0c0398ce5a5ed565fe6d38c96977b54e3daf50c0848e4",
-      "cases": 53
+      "sha256": "4101f6036fc137c4fe409522b6d895a87e01e912b0e5916717d75786f7980598",
+      "cases": 66
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "767548f5436d71fa159152a401d0234f5859ffa9878f4edb67cc71016167dca2",
-      "cases": 190
+      "sha256": "a6a27c0d169171a21cfbfdc67ffee0c8d595664bce6c16970b67e92e300cdfe0",
+      "cases": 616
     },
     {
       "path": "conformance/keys/alg-eddsa.json",
@@ -60,6 +60,10 @@
       "sha256": "b50a4b64c13b90bda0572a2e1fc2ceb3e5e658d225cce2bcfc91edfd5a8a154b"
     },
     {
+      "path": "conformance/keys/crv-x25519.json",
+      "sha256": "88f2a770044124129e154e7223d4f9c2c7d7b6e2e265f7cefb4a9f095fb0be8d"
+    },
+    {
       "path": "conformance/keys/d-empty.json",
       "sha256": "e1a26364bf00f22bd0a154911571079c20a0bff256fdf01c68f0edbe0a05b10a"
     },
@@ -76,12 +80,44 @@
       "sha256": "be7f4cfcd246fc1b8457983faf976a8cd02197d9eed62741659bde8b4b77f040"
     },
     {
+      "path": "conformance/keys/kid-64.json",
+      "sha256": "fdece250404a827a7958612c05ca0f099b9b8f874d8dad3dc7f61e8cba5973de"
+    },
+    {
+      "path": "conformance/keys/kid-65.json",
+      "sha256": "95666184dda3155d99925ddd7f85a690fd71fde9802b04210bb39e1dede151f4"
+    },
+    {
+      "path": "conformance/keys/kid-slash.json",
+      "sha256": "b3c1201191040f5de72a4a789ef1e9d85c0bc89a1531b06515996ac3e3d406e5"
+    },
+    {
+      "path": "conformance/keys/kid-twice-first.json",
+      "sha256": "be466833a0cbe5585fd03e13e705735ac76661cc7d21e975888b35bd51778711"
+    },
+    {
+      "path": "conformance/keys/kid-twice-second.json",
+      "sha256": "d50eeb041efa21417e8c01cbc6c728528a0855580519c93f7c504f55ee7ecb1c"
+    },
+    {
       "path": "conformance/keys/line-feed-x.json",
       "sha256": "f6575991475874ab5d6761078f8f49a3a89f833a29e2c86970195318bf6c28c3"
     },
     {
+      "path": "conformance/keys/mixed-order.json",
+      "sha256": "f4235cc04866686e40fdb21952a4d25681bd07c974157d436a7e02f2fa8a6f31"
+    },
+    {
+      "path": "conformance/keys/off-curve.json",
+      "sha256": "2750c3afd729264c6f4ddb0a4449d48473fd5d960a9f265b1c3fa997e6372393"
+    },
+    {
       "path": "conformance/keys/okp-y.json",
       "sha256": "1cc5468baaf04e19ea6871cebd930485531e61ece6a35e9b92c6cc3e15d3910b"
+    },
+    {
+      "path": "conformance/keys/p256-off-curve.json",
+      "sha256": "5092afb3a311367f1ec2bc06b24fad28e56d0d292753a5f6afcae0ab1bce7ff8"
     },
     {
       "path": "conformance/keys/test-keys.json",
@@ -104,8 +140,28 @@
       "sha256": "5d9f7dae72f6cbcc4e906ff83da47682e9f4057bff4698aa2ffdfdfa3110fbdb"
     },
     {
+      "path": "conformance/keys/weak-noncanonical.json",
+      "sha256": "3f90a7de6264868661de2c347f16ec93d732aeb2b997a7fa84662124ba852ade"
+    },
+    {
       "path": "conformance/keys/weak-order8.json",
       "sha256": "35dea5582dc844c37847ee415325f6951e0cad8775f719eea6f7c6e7be413854"
+    },
+    {
+      "path": "conformance/keys/with-rsa.json",
+      "sha256": "0703f6203d72284da6ce6bed52400c0659ab5dfb44bbc5148f05b5c598b79d93"
+    },
+    {
+      "path": "conformance/keys/x-31.json",
+      "sha256": "07b4babddb9be2abd2cc7181af06476afcde27eb74f310c17e6f2af6bedeb633"
+    },
+    {
+      "path": "conformance/keys/x-33.json",
+      "sha256": "39a2c30e69dcf5cc99362a338a2b317e89bb228b1511e0b20cd69d262b36f8a3"
+    },
+    {
+      "path": "conformance/keys/x-trailing.json",
+      "sha256": "b9c695716e5454d15e07c5964fcb442573b2c2d1d0efb5c8f9f6f83855bc3c0f"
     },
     {
       "path": "conformance/mandates/areas.json",
@@ -214,18 +270,18 @@
     },
     {
       "path": "conformance/selection-v0.json",
-      "sha256": "eeeb6b517b3235231d5bca82e94da26ba585c6a252e1e1368c6de832b130dbd9",
-      "cases": 31
+      "sha256": "929d1ac808b5056e9b391183c1ffbb58c3928a7eae877d1d1daec4d8a4501c86",
+      "cases": 35
     },
     {
       "path": "conformance/signed-v0.json",
-      "sha256": "60cc7aab8b3cbe109f781cc78d93bf9363162e9ec10e7c9e408b9ccf4e51f140",
-      "cases": 44
+      "sha256": "2adf2b093d3951d5c90bf456162751db75a5b08f8477e8d63ac54e72a5f4b345",
+      "cases": 75
     },
     {
       "path": "conformance/succession-v0.json",
-      "sha256": "fa238e39a66f0d372aa226565f330a6b0a84fc3bed34cc2228e9e1b9432873fd",
-      "cases": 23
+      "sha256": "79eaaea47888ee1a80b427a8636252f5bd1855e18f2f0ca4a0af7e6c1969a3fd",
+      "cases": 28
     },
     {
       "path": "data/corrections-v0.json",

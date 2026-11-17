@@ -1,0 +1,16 @@
+{
+  "keys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "kid": "test-ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+    },
+    {
+      "kty": "RSA",
+      "kid": "issuer-rsa",
+      "n": "0oI4ytEVeZH5XCPAMFg4xbfVj0rsgiGlYdcWEJVCAw24_CZIEaP3ug2WK5WuWy2pqS3_gxhFSF-szdnp4AGTzFwn6pY8oKDzxAdrKf14FZVfm40teoNCfIooYMLwlK3eZtaI_3Sr5KhR6Q8lED4tuIYMiqwaZT9uWxEYMoLicE-1td8E9JY2QCOUuUTKYIkoGXGazh4rrZJNcttn5MsKu4tJhA08nGowJBO57oT4HkCIXQp6CjpqRsCe29libXLN07oPPb1eQGneMsptjmGP3zGBq2SghMKx68vcv449nYnqZtBS9Li1A1KAvVv0hgMiZm624VJDB2CA_h41p9nISw",
+      "e": "AQAB"
+    }
+  ]
+}

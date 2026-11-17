@@ -421,7 +421,9 @@ is switched off; `issuer`, `version`, `created_by` and `created_at` differ. Ever
 difference is a **weakening**: a changed or added `allow` rule; a changed or removed `deny`
 or `ask` rule; an added `ask` rule with its own `approval`; a changed `approval`, `name` or
 `agent.display_name`; an `audience` added or changed; `expires` removed or moved later;
-`valid_from` moved earlier; a higher rate limit; or audit mode switched on (below). Rules
+`valid_from` moved earlier; a higher rate limit; or audit mode switched on (below). Earlier
+and later compare points in time (Section 3.1 item 0): the same point in time written with
+another offset is not moved. Rules
 are compared as wholes: a rule counts as changed when any of its members differs, `note`
 included, so a rule tightened in place (a constraint added, `allow_critical` removed) needs
 a confirmation too; an issuer narrows without one by removing the rule or adding a `deny`.
@@ -1095,9 +1097,14 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
 - The protected header is at most 256 bytes after base64url decoding, white space that JSON
   permits included; its two members need about a hundred. A verifier MUST reject a longer
   one.
-- An Ed25519 signature is verified with the equation of RFC 8032 section 5.1.7 without the
-  cofactor (`[S]B = R + [k]A'`), not with the cofactored one that the RFC also permits, so
-  that two verifiers never disagree about a signature.
+- A verifier MUST check an Ed25519 signature with the equation of RFC 8032 section 5.1.7
+  without the cofactor (`[S]B = R + [k]A'`), not with the cofactored one that the RFC also
+  permits, so that two verifiers never disagree about a signature; a library that verifies
+  with the cofactor, as those following ZIP 215 do, is not enough on its own. A key of mixed order (a point of the
+  group plus a point of small order) is a key like any other; the equation without the
+  cofactor decides whether a signature by it verifies. An `R` of small order (one of the
+  encodings below) is rejected, even where the equation holds: some libraries reject it and
+  others do not, and no honest signer produces one.
 - An Ed25519 public key of small order is not a key: with it, a signature verifies for every
   message of a class, for the identity with `S` = 0 for all of them, so anyone could sign in
   the name of its holder, and the holder could deny what it signed. A verifier MUST reject
@@ -1139,14 +1146,19 @@ key that was compromised may have signed it.
 How a verifier comes to trust the keys of an issuer is outside this specification
 (configuration, pairing, a JWK Set under the issuer's URL, …). Keys are exchanged as JWK or
 JWK Set (RFC 7517): `{"kty":"OKP","crv":"Ed25519","x":…}` or
-`{"kty":"EC","crv":"P-256","x":…,"y":…}`, each with a `kid`. The names of the members are
+`{"kty":"EC","crv":"P-256","x":…,"y":…}`, each with a `kid` of the form above. A `kid` occurs
+at most once in a key set: a key set in which a `kid` repeats verifies nothing (Section 10.2),
+whichever of the keys a verifier would otherwise have picked. The names of the members are
 case-sensitive: `X` is not `x`, but an unknown member, and unknown members are ignored (RFC
 7517 section 4), `y` of an Ed25519 key too. Three members restrict what a key is for: if
 present, `use` is `sig`, `key_ops` is an array that contains `verify`, and `alg` is the
 algorithm of the key's type (`EdDSA` for Ed25519, `ES256` for P-256); a key whose `use`,
 `key_ops` or `alg` says otherwise, is `null` or of another JSON type (an element of `key_ops`
 that is not a string included), cannot be used, and a key set with such a key verifies
-nothing (Section 10.2). `x` and `y` are
+nothing (Section 10.2). The same holds for a key of another type or curve and for a key
+that is not a point of the curve: RFC 7517 section 5 lets a reader skip such keys, but a
+verifier that skipped part of a key set would trust less or more than the household
+configured. `x` and `y` are
 base64url without padding and without any other character.
 A key with a member `d`, whatever its value, is a private key and is rejected (RFC 8037
 section 2). An issuer that becomes
@@ -2740,6 +2752,42 @@ behavior of the people in a household and MUST be protected like the devices the
 ## Changelog
 
 ### Unreleased
+
+- Rule-by-rule pass over the RFCs the specification references (#112):
+  `conformance/RFC-COVERAGE.md` lists, for RFC 7493, 8785, 3339, 9562, 7515, 7517, 7518, 8037
+  and 8032 and for Section 3.1 item 8, each rule with the cases that test it, or why the test
+  interface cannot test it, or why the specification deliberately does not follow it. New
+  cases:
+  - RFC 8785: member names in the order of their code units (`d55`), ±(2^53 − 1), the
+    exponent form `E+` and `-0` (`d56` to `d58`), and every kind of escape in an audit entry
+    (`a243`).
+  - RFC 3339: leap years by 4, 100 and 400 (`d59`, `i191`), the year 9999 (`d60`), hour 24,
+    minute 60, second 61, a decimal point without digits, an offset without a colon, a space
+    instead of `T`, a five-digit year, a lower-case `z`, month 13, April 31 and offset hour
+    24 (`i192` to `i202`); selection and succession compare points in time, whatever the
+    offset and to the nanosecond (`s32` to `s35`, `v24` to `v28`; Section 3.5 now says so).
+    RFC 9562: the `id` of an audit entry (`a244` to `a247`).
+  - Section 3.1 items 5 and 8: the size limit counted in bytes (`d61`, `i203`); lengths in
+    code points, not graphemes (`d62`, `i204`); the minimum and maximum of every displayed
+    text (`d63`, `i205` to `i211`); the first and the last code point of every forbidden range
+    (`i212` to `i289`), their neighbours (`d64`), and every `not_first` range at the beginning
+    and after a letter (`i290` to `i616`, `d65`).
+  - Section 7.1: keys of mixed order and `R` of mixed or small order, the cases where only
+    the cofactored equation holds (`g45` to `g49`); the identity as a key written with
+    y = p + 1 (`g50`); unused bits in the last character of a segment or of `x` (`g51` to
+    `g54`); a repeated header member (`g55`); the `kid` pattern (`g56` to `g58`); a `kid` twice
+    in a key set (`g59`, `g60`); a signature of 65 octets (`g61`); the header member `jwk`
+    (`g62`); keys of the wrong curve or length, beside an RSA key or off the curve (`g63` to
+    `g65`, `g70`, `g71`, `g74`); ES256 signatures with r = s = 0, of 65 and 63 octets, in DER,
+    with r = n and with s = 0 (`g66` to `g69`, `g72`, `g73`); `alg` in lower case (`g75`);
+    checkpoints with `none`, `crit`, the higher `s` and unused bits (`a239` to `a242`).
+  - Section 7.1 gains three rules, all already followed by the Go reference except the
+    first: an Ed25519 signature whose `R` is of small order is rejected (`g49`); a `kid`
+    repeats in no key set; a key set with a key of another type or curve, or off the curve,
+    verifies nothing (`g70`, `g71`, `g74`), where RFC 7517 section 5 would let a reader skip
+    it. A key of mixed order is a key; the equation without the cofactor decides, and a
+    verifier MUST use it (`g45`, `g46`). For users of the Go packages: `jws` rejects an `R`
+    of small order and checks that `R` is canonically encoded before the equation.
 
 - Differences between implementations and open questions of #112, each with cases:
   - Section 4 step 0 and Section 10.2: the point in time of a request follows the rules of

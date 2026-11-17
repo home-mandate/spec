@@ -158,7 +158,15 @@ func signInput(alg string, signer any, input []byte) ([]byte, error) {
 func verifyInput(alg string, key crypto.PublicKey, input, sig []byte) bool {
 	switch k := key.(type) {
 	case ed25519.PublicKey:
-		return alg == AlgEdDSA && len(sig) == ed25519.SignatureSize && usableEd25519(k) && ed25519.Verify(k, input, sig)
+		// R of small order is rejected as the key is (SPEC-v0 section 7.1): the standard
+		// library accepts it, other libraries do not, and two verifiers must agree. A
+		// non-canonical R never equals the R the standard library recomputes; the explicit
+		// check keeps that true should verification ever compare points instead of bytes.
+		if alg != AlgEdDSA || len(sig) != ed25519.SignatureSize || !usableEd25519(k) {
+			return false
+		}
+		r := sig[:ed25519.PublicKeySize]
+		return canonicalEd25519(r) && !smallOrderEd25519[[ed25519.PublicKeySize]byte(r)] && ed25519.Verify(k, input, sig)
 	case *ecdsa.PublicKey:
 		if alg != AlgES256 || len(sig) != 2*p256Bytes {
 			return false

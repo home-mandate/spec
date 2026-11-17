@@ -24,7 +24,8 @@ platform. Changes are judged by that goal first.
 
 - Open an issue that describes the problem before a larger change.
 - Every change to the evaluation rule or to validity comes with new or changed conformance
-  cases. A bug report is most useful as a failing case.
+  cases. A bug report is most useful as a failing case. A case for a rule of a referenced
+  RFC gets its entry in `conformance/RFC-COVERAGE.md`.
 - After changing a schema, an example or a conformance file run `make manifest`.
 - `make check` must pass: vet, staticcheck, tests with the race detector, coverage of at
   least 95 %, govulncheck. Before a release `make fuzz` and `make mutation` must pass too.
