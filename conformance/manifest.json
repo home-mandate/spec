@@ -3,8 +3,8 @@
   "files": [
     {
       "path": "conformance/audit-v0.json",
-      "sha256": "81913688bb7648da9bcf50e4f2248c9aa896a418c24480fc730e35da34be8579",
-      "cases": 228
+      "sha256": "54c86af2cbd89c3b4366f29dab3e4d997029ce2bb7d9c362c042e4d1d537cc1b",
+      "cases": 236
     },
     {
       "path": "conformance/audit-v1.json",
@@ -13,8 +13,8 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "a3a1b7ac74c8bddc8545683b47dcebcb4d1b16df8be8fa740ab7417fe8334611",
-      "cases": 255
+      "sha256": "255125c9991c76980bf23d1485496924e575b04199ab29878a79f8b712732834",
+      "cases": 256
     },
     {
       "path": "conformance/ct-v0.json",
@@ -23,13 +23,13 @@
     },
     {
       "path": "conformance/digest-v0.json",
-      "sha256": "4c8e2acb023f8e9a6edf778f716f017a380ef69f56468c2be9f02eb606e507db",
-      "cases": 52
+      "sha256": "19e13a6aac4a1e7530a0c0398ce5a5ed565fe6d38c96977b54e3daf50c0848e4",
+      "cases": 53
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "aab10849e2acfa33043134ec2b2eb3f2581e8646f1c1b3ba2191d431077ac596",
-      "cases": 175
+      "sha256": "767548f5436d71fa159152a401d0234f5859ffa9878f4edb67cc71016167dca2",
+      "cases": 190
     },
     {
       "path": "conformance/keys/case-keys.json",
@@ -142,7 +142,7 @@
     },
     {
       "path": "conformance/schema/audit-v0.schema.json",
-      "sha256": "7406b63673af2e2a34b21ad09e4d844c54eb7c38a1bfcaa7e328774a9352e321"
+      "sha256": "b94997b8d36ad9e7261b4d05072b1f551b178c620b9776df85c90b0e2c9b42ab"
     },
     {
       "path": "conformance/schema/audit-v1.schema.json",
@@ -150,7 +150,7 @@
     },
     {
       "path": "conformance/schema/cases-v0.schema.json",
-      "sha256": "b882beee2bc32fbc54e04323f9ed6a4325e5d7d09c76543a36d72c30d8fb1557"
+      "sha256": "d50afba62e3396b149eabfaf89228a5258fbe4af6dc70d4eed4658cac000c5a0"
     },
     {
       "path": "conformance/schema/ct-v0.schema.json",
@@ -158,11 +158,11 @@
     },
     {
       "path": "conformance/schema/digest-v0.schema.json",
-      "sha256": "01e03f19fca1bef2ae9f4bf565cceaadf52ba35901732661edc7fd5ae9f08785"
+      "sha256": "1ac432ffe5d538ee4ca12389d4c05c41c0cf09347cf94254f2f28c52c2aa5893"
     },
     {
       "path": "conformance/schema/invalid-v0.schema.json",
-      "sha256": "8cfb8436a63236d07793bebd0ed1d01f344f33c22013fe37cf038346f3cbb934"
+      "sha256": "edf7affa7aebc27aa5969b41038885ef6154fe802f6f2d42d09e9c157352f523"
     },
     {
       "path": "conformance/schema/manifest.schema.json",

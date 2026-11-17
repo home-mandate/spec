@@ -26,9 +26,12 @@ type auditCase struct {
 	EntryDigests []string          `json:"entry_digests"`
 	Entries      []json.RawMessage `json:"entries"`
 	JSONL        *string           `json:"jsonl"`
-	Keys         string            `json:"keys"`
-	LogID        string            `json:"log_id"`
-	Anchored     *int64            `json:"anchored"`
+	// The forms with bytes a JSON string cannot carry (SPEC-v0 section 10.2).
+	EntriesBase64 [][]byte `json:"entries_base64"`
+	JSONLBase64   []byte   `json:"jsonl_base64"`
+	Keys          string   `json:"keys"`
+	LogID         string   `json:"log_id"`
+	Anchored      *int64   `json:"anchored"`
 	// The findings of SPEC-v0 section 9.4; nil: none of that kind.
 	IntegrityBrokenAt   *int64 `json:"integrity_broken_at"`
 	ConformanceBrokenAt *int64 `json:"conformance_broken_at"`
@@ -48,8 +51,13 @@ func (c auditCase) verify() (audit.Result, error) {
 		}
 		return audit.VerifyAnchored(raw(c.Entries), audit.Anchor{Keys: keys, LogID: c.LogID})
 	}
-	if c.JSONL != nil {
+	switch {
+	case c.JSONL != nil:
 		return audit.VerifyJSONLines(strings.NewReader(*c.JSONL))
+	case c.JSONLBase64 != nil:
+		return audit.VerifyJSONLines(bytes.NewReader(c.JSONLBase64))
+	case c.EntriesBase64 != nil:
+		return audit.Verify(c.EntriesBase64)
 	}
 	return audit.Verify(raw(c.Entries))
 }
