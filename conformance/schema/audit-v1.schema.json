@@ -83,6 +83,11 @@
             "type": "integer",
             "minimum": 0,
             "description": "seq of the first entry of an audit version the verifier does not know (SPEC-v0 sections 9.4 and 14); absent if there is none."
+          },
+          "checkpoint_gap_at": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "For a valid log with a checkpoint: seq of the first entry at which the writer did not keep the cadence of checkpoints (SPEC-v0 section 9.5); absent if there is none."
           }
         },
         "if": {

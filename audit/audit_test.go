@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/iotest"
+	"time"
 
 	"github.com/home-mandate/spec"
 	"github.com/home-mandate/spec/audit"
@@ -268,7 +270,8 @@ func TestValidResultHasNoIndex(t *testing.T) {
 	c := loadCases(t)[0]
 	got, err := audit.Verify(raw(c.Entries))
 	none := audit.Finding{Index: -1}
-	want := audit.Result{Valid: true, Index: -1, Entries: len(c.Entries), FirstSeq: 1, Integrity: none, Conformance: none, UnknownVersion: none}
+	want := audit.Result{Valid: true, Index: -1, Entries: len(c.Entries), FirstSeq: 1, Integrity: none, Conformance: none, UnknownVersion: none,
+		CheckpointGap: none}
 	if err != nil || got != want {
 		t.Errorf("Verify = %+v, %v; want {Valid:true Index:-1 BrokenAt:0}", got, err)
 	}
@@ -373,6 +376,46 @@ func TestVerifyJSONLinesDoesNotKeepTheLog(t *testing.T) {
 	}
 }
 
+// An overlong line is skipped, not kept: reading it allocates no more than an entry may take.
+func TestAnOverlongLineIsNotKept(t *testing.T) {
+	const length = 64 << 20
+	// The schemas are compiled at the first verification; that is not what is measured.
+	if _, err := audit.VerifyJSONLines(strings.NewReader("")); err != nil {
+		t.Fatal(err)
+	}
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	got, err := audit.VerifyJSONLines(&spaces{remaining: length})
+	runtime.ReadMemStats(&after)
+	if err != nil || got.Valid {
+		t.Fatalf("VerifyJSONLines = %+v, %v", got, err)
+	}
+	if allocated := after.TotalAlloc - before.TotalAlloc; allocated > 8*audit.MaxEntryBytes {
+		t.Errorf("reading a line of %d bytes allocated %d bytes", length, allocated)
+	}
+}
+
+// spaces is a line of spaces of the given length and a line feed.
+type spaces struct{ remaining int }
+
+func (s *spaces) Read(p []byte) (int, error) {
+	if s.remaining < 0 {
+		return 0, io.EOF
+	}
+	if s.remaining == 0 {
+		s.remaining--
+		p[0] = '\n'
+		return 1, nil
+	}
+	n := min(len(p), s.remaining)
+	for i := range n {
+		p[i] = ' '
+	}
+	s.remaining -= n
+	return n, nil
+}
+
 // generatedLog produces a valid chain of emergency stop entries on the fly.
 type generatedLog struct {
 	t         *testing.T
@@ -459,14 +502,31 @@ func TestVersionsThatAreNoAuditVersion(t *testing.T) {
 	}
 }
 
-func TestAnOverlongLineEndsTheReading(t *testing.T) {
+func TestAnOverlongLineDoesNotEndTheReading(t *testing.T) {
+	log := chained(t, typeV1, typeV1, "https://home-mandate.org/audit/v2")
 	long := bytes.Repeat([]byte(" "), audit.MaxEntryBytes+3)
-	got, err := audit.VerifyJSONLines(bytes.NewReader(append(long, '\n')))
+	var in []byte
+	for _, line := range [][]byte{log[0], long, log[2]} {
+		in = append(append(in, line...), '\n')
+	}
+	// The last line has no line feed, which the exchange format permits.
+	got, err := audit.VerifyJSONLines(bytes.NewReader(in[:len(in)-1]))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Valid || got.Integrity.At != 0 || !got.Integrity.Found() || !got.Conformance.Found() {
-		t.Errorf("result = %+v", got)
+	want := struct{ integrity, conformance, unknown audit.Finding }{
+		audit.Finding{Index: 1, At: 0}, audit.Finding{Index: 1, At: 0}, audit.Finding{Index: 2, At: 3},
+	}
+	if got.Valid || got.Integrity != want.integrity || got.Conformance != want.conformance || got.UnknownVersion != want.unknown {
+		t.Errorf("result = %+v, want findings %+v", got, want)
+	}
+}
+
+func TestAReadErrorInsideALineIsAnError(t *testing.T) {
+	log := chained(t, typeV1)
+	r := io.MultiReader(bytes.NewReader(log[0]), iotest.ErrReader(errors.New("disk")))
+	if _, err := audit.VerifyJSONLines(r); err == nil {
+		t.Error("VerifyJSONLines with a reader that fails inside a line succeeded")
 	}
 }
 
@@ -544,5 +604,76 @@ func TestAFirstEntryWithoutDigestKeepsItsSeq(t *testing.T) {
 	}
 	if got.Integrity.Index != 0 || got.Integrity.At != 1 || got.Conformance.At != 1 {
 		t.Errorf("result = %+v", got)
+	}
+}
+
+// cadenceLog builds a log of ct.status entries and checkpoints: kinds holds "c" for a checkpoint
+// and "e" for any other entry, minutes the recorded_at of each, in minutes after the start.
+func cadenceLog(t *testing.T, kinds string, minutes []int) [][]byte {
+	t.Helper()
+	start := time.Date(2026, 11, 16, 10, 0, 0, 0, time.UTC)
+	var out [][]byte
+	prev := "null"
+	for i, k := range kinds {
+		at := start.Add(time.Duration(minutes[i]) * time.Minute).Format(time.RFC3339)
+		body := `"event":"ct.status","ct":{"status":"ok"}`
+		if k == 'c' {
+			body = `"event":"log.checkpoint","checkpoint":{"log_id":"0198f1c2-7c3a-7000-8000-00000000c0de","signature":"x..y"}`
+		}
+		e := []byte(fmt.Sprintf(`{"type":%q,"id":"01a0f64c-7140-7001-9007-%012d","seq":%d,"recorded_at":%q,%s,"principal":"household:hm-7f3a","prev":%s}`,
+			typeV1, i+1, i+1, at, body, prev))
+		d, err := audit.Digest(e)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out, prev = append(out, e), `"`+d+`"`
+	}
+	return out
+}
+
+func TestCheckpointGap(t *testing.T) {
+	const day = 24 * 60
+	many := func(n int) (string, []int) {
+		kinds, minutes := "ec", []int{0, 0}
+		for i := 0; i < n; i++ {
+			kinds += "e"
+			minutes = append(minutes, 1)
+		}
+		return kinds, minutes
+	}
+	k1000, m1000 := many(1000)
+	k1001, m1001 := many(1001)
+	for _, tc := range []struct {
+		name    string
+		kinds   string
+		minutes []int
+		gap     int64
+	}{
+		{"no checkpoint", "eee", []int{0, 2 * day, 4 * day}, 0},
+		{"within a day", "eceeec", []int{0, 0, 60, day - 1, day, day}, 0},
+		{"an entry past the day", "eceee", []int{0, 0, 60, day + 1, day + 2}, 4},
+		{"a checkpoint past the day", "ecec", []int{0, 0, 60, day + 1}, 4},
+		{"no entry within the day, then one and a checkpoint", "ecec", []int{0, 0, day + 1, 3 * day}, 0},
+		{"no entry within the day, then two", "ecee", []int{0, 0, day + 1, day + 2}, 4},
+		{"a checkpoint directly after a checkpoint", "ecc", []int{0, 0, 3 * day}, 0},
+		{"the first entry after a checkpoint may be late", "ece", []int{0, 0, 3 * day}, 0},
+		{"1000 entries", k1000, m1000, 0},
+		{"1001 entries", k1001, m1001, 1003},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := audit.Verify(cadenceLog(t, tc.kinds, tc.minutes))
+			if err != nil || !got.Valid {
+				t.Fatalf("Verify = %+v, %v", got, err)
+			}
+			if tc.gap == 0 && got.CheckpointGap.Found() || tc.gap != 0 && got.CheckpointGap.At != tc.gap {
+				t.Errorf("CheckpointGap = %+v, want seq %d", got.CheckpointGap, tc.gap)
+			}
+		})
+	}
+	// An invalid log reports no gap.
+	log := cadenceLog(t, "eceee", []int{0, 0, 60, day + 1, day + 2})
+	log[4] = bytes.Replace(log[4], []byte(`"seq":5`), []byte(`"seq":6`), 1)
+	if got, _ := audit.Verify(log); got.Valid || got.CheckpointGap.Found() {
+		t.Errorf("invalid log: %+v", got)
 	}
 }

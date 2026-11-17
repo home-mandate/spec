@@ -80,9 +80,13 @@ func VerifyJSONLinesAnchored(r io.Reader, anchor Anchor) (Result, error) {
 	return verifyLines(r, Options{Anchor: &anchor})
 }
 
-// checkpoint checks a log.checkpoint entry and reports whether it violates section 9.5.
+// checkpoint checks a log.checkpoint entry and reports whether it violates section 9.5. A
+// checkpoint without a log_id or a signature cannot be checked, with keys or without: it
+// breaks condition 4 like one whose signature does not verify.
 func (v *verifier) checkpoint(l link) (violation bool) {
 	switch {
+	case l.logID == "" || l.signature == "":
+		return true
 	case v.logID == "" && v.anchor != nil && v.anchor.LogID != "" && l.logID != v.anchor.LogID:
 		return true
 	case v.logID == "":

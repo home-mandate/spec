@@ -11,14 +11,15 @@ one source, and a source run by whoever runs the way in (the operator of a relay
 
 1. finds certificates by a name and by the wildcards that cover it (a search by the exact name
    alone does not meet the item);
-2. reports precertificates as well as certificates, with the time of the first log entry, the
-   names, the validity and the public key, or the certificate itself, from which these follow;
+2. reports precertificates as well as certificates, with the names, the validity and the
+   public key, or the certificate itself, from which these follow, and the time of the first log
+   entry or the certificate with its SCTs;
 3. can be queried by a household without an agreement of its own, at least once an hour.
 
 | Source | Provider | Search | Note |
 |---|---|---|---|
-| Cert Spotter API (`api.certspotter.com`) | SSLMate | by name, with `match_wildcards` | usable without a key within its published limits; prefer IPv6, because households behind carrier-grade NAT share an IPv4 address and its limits |
-| crt.sh | Sectigo | by name; wildcards by a second query for `*.` and the parent | may answer slowly or not at all; a failed query counts as no answer |
+| Cert Spotter API (`api.certspotter.com`) | SSLMate | by name, with `match_wildcards` | usable without a key within its published limits; prefer IPv6, because households behind carrier-grade NAT share an IPv4 address and its limits. It reports no time of the first log entry: take the earliest SCT of the certificate (`expand=cert_der`), as Section 11.7 item 7 allows |
+| crt.sh | Sectigo | by name; wildcards by a second query for `*.` and the parent | reports the time of the first log entry (`entry_timestamp`); may answer slowly or not at all; a failed query counts as no answer |
 
 The logs themselves are a source too, if the implementation reads every log that the browsers'
 log lists accept and verifies their signed tree heads. A single log is not: it sees only the

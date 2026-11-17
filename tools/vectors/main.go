@@ -13,6 +13,8 @@
 //	                            test key (SPEC-v0 section 9.5)
 //	vectors sign [-raw] <keys> <kid> <file>
 //	                            print a signed mandate (SPEC-v0 section 7), signed with a test key
+//	vectors ctcert              print the identity vectors of conformance/ct-v0.json
+//	                            (SPEC-v0 section 11.7 item 7)
 //
 // Run it from the repository root: go run ./tools/vectors <command>.
 package main
@@ -58,6 +60,8 @@ func run(args []string, dir string, stdin io.Reader, stdout io.Writer) error {
 		return runCheckpoint(args[1:], dir, stdout)
 	case "sign":
 		return runSign(args[1:], dir, stdout)
+	case "ctcert":
+		return runCTCert(stdout)
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }
