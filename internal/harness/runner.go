@@ -444,6 +444,8 @@ type auditCase struct {
 	IntegrityBrokenAt   *int64 `json:"integrity_broken_at"`
 	ConformanceBrokenAt *int64 `json:"conformance_broken_at"`
 	UnknownVersionAt    *int64 `json:"unknown_version_at"`
+	// CheckpointGapAt: SPEC-v0 section 9.5; absent: none.
+	CheckpointGapAt *int64 `json:"checkpoint_gap_at"`
 }
 
 func (r *runner) audit() error {
@@ -503,6 +505,11 @@ func auditOutcome(c auditCase, resp Response) (got, want string) {
 	// The findings are compared in every case: an implementation that does not report them
 	// fails the cases of an invalid log.
 	want += findings(c.IntegrityBrokenAt, c.ConformanceBrokenAt, c.UnknownVersionAt)
+	// The cadence of checkpoints is compared for a valid log only: an implementation that does
+	// not report it fails the cases of a gap.
+	if c.Expected == "valid" {
+		want += gapOf(c.CheckpointGapAt)
+	}
 
 	switch {
 	case resp.Valid == nil:
@@ -519,7 +526,19 @@ func auditOutcome(c auditCase, resp Response) (got, want string) {
 	if countEntries && *resp.Valid && resp.Entries != nil {
 		got += fmt.Sprintf(" entries=%d", *resp.Entries)
 	}
-	return got + findings(resp.IntegrityBrokenAt, resp.ConformanceBrokenAt, resp.UnknownVersionAt), want
+	got += findings(resp.IntegrityBrokenAt, resp.ConformanceBrokenAt, resp.UnknownVersionAt)
+	if c.Expected == "valid" {
+		got += gapOf(resp.CheckpointGapAt)
+	}
+	return got, want
+}
+
+// gapOf writes the checkpoint gap of SPEC-v0 section 9.5 for a comparison.
+func gapOf(at *int64) string {
+	if at == nil {
+		return " gap=-"
+	}
+	return fmt.Sprintf(" gap=%d", *at)
 }
 
 // findings writes the findings of SPEC-v0 section 9.4 for a comparison; an absent one is "-".

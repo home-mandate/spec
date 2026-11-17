@@ -130,4 +130,8 @@ type Response struct {
 	IntegrityBrokenAt   *int64 `json:"integrity_broken_at,omitempty"`
 	ConformanceBrokenAt *int64 `json:"conformance_broken_at,omitempty"`
 	UnknownVersionAt    *int64 `json:"unknown_version_at,omitempty"`
+	// CheckpointGapAt is, for a valid log with a checkpoint, the seq of the first entry at
+	// which the writer did not keep the cadence of checkpoints (SPEC-v0 section 9.5); absent
+	// if there is none.
+	CheckpointGapAt *int64 `json:"checkpoint_gap_at,omitempty"`
 }

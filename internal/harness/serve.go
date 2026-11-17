@@ -303,6 +303,7 @@ func verifyAudit(req Request) Response {
 	resp.IntegrityBrokenAt = findingAt(r.Integrity)
 	resp.ConformanceBrokenAt = findingAt(r.Conformance)
 	resp.UnknownVersionAt = findingAt(r.UnknownVersion)
+	resp.CheckpointGapAt = findingAt(r.CheckpointGap)
 	return resp
 }
 

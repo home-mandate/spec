@@ -30,7 +30,8 @@
         "agent.bound", "credentials.withdrawn",
         "cert.unexpected", "cert.acknowledged", "ct.status",
         "relay.paired", "relay.unpaired", "relay.status_changed", "relay.pins_changed",
-        "relay.protection_changed", "relay.caa_alarm", "relay.acme_account_changed"
+        "relay.protection_changed", "relay.caa_alarm", "relay.acme_account_changed", "relay.monitoring_status",
+        "relay.key_changed", "relay.replacement_pending", "relay.pin_mismatch"
       ]
     },
     "principal": { "type": "string", "pattern": "^(household|person):[A-Za-z0-9_-]{1,64}$" },
@@ -175,11 +176,12 @@
         "status": { "enum": ["executed", "denied", "failed"] },
         "denied_by": { "description": "Who or what denied: audit is a request the PEP did not execute because it could not record it (SPEC-v0 section 9).", "enum": ["mandate", "approval", "rate_limit", "emergency_stop", "authentication", "audit"] },
         "error": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
-        "duration_ms": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "count": {
           "description": "Number of consecutive requests of the agent that this entry stands for. Only with denied_by rate_limit (SPEC-v0 section 11.2).",
           "type": "integer",
-          "minimum": 2
+          "minimum": 2,
+          "maximum": 9007199254740991
         }
       },
       "allOf": [
@@ -288,12 +290,13 @@
       "else": { "not": { "required": ["kid"] } }
     },
     "config": {
-      "description": "Change to a setting that affects every evaluation, the anchoring of the log or remote access (SPEC-v0 sections 9.5, 11.4 and 11.7): the household time zone, the clock check, the checkpoint key, the public origin, remote access on or off, and whether tokens that are not bound are refused. previous_value, if present, differs from value.",
+      "description": "Change to a setting that affects every evaluation, the anchoring of the log or remote access (SPEC-v0 sections 9.5, 11.4 and 11.7): the household time zone, the clock check, the checkpoint key, the public origin, remote access on or off, whether tokens that are not bound are refused, the key agents are shown and a proxy the implementation trusts. previous_value, if present, differs from value. Without value, the setting was removed: only for the checkpoint key, the public origin, the key agents are shown and a trusted proxy, and only with previous_value.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["setting", "value"],
+      "required": ["setting"],
+      "anyOf": [ { "required": ["value"] }, { "required": ["previous_value"] } ],
       "properties": {
-        "setting": { "enum": ["timezone", "clock_check", "checkpoint_key", "public_origin", "remote_access", "unbound_tokens"] },
+        "setting": { "enum": ["timezone", "clock_check", "checkpoint_key", "public_origin", "remote_access", "unbound_tokens", "server_key", "trusted_proxy"] },
         "value": { "type": "string" },
         "previous_value": { "type": "string" }
       },
@@ -309,7 +312,13 @@
         { "if": { "properties": { "setting": { "const": "remote_access" } } },
           "then": { "properties": { "value": { "enum": ["on", "off"] }, "previous_value": { "enum": ["on", "off"] } } } },
         { "if": { "properties": { "setting": { "const": "unbound_tokens" } } },
-          "then": { "properties": { "value": { "enum": ["allowed", "refused"] }, "previous_value": { "enum": ["allowed", "refused"] } } } }
+          "then": { "properties": { "value": { "enum": ["allowed", "refused"] }, "previous_value": { "enum": ["allowed", "refused"] } } } },
+        { "if": { "properties": { "setting": { "const": "server_key" } } },
+          "then": { "properties": { "value": { "$ref": "#/$defs/sha256_b64url" }, "previous_value": { "$ref": "#/$defs/sha256_b64url" } } } },
+        { "if": { "properties": { "setting": { "const": "trusted_proxy" } } },
+          "then": { "properties": { "value": { "$ref": "#/$defs/proxy" }, "previous_value": { "$ref": "#/$defs/proxy" } } } },
+        { "if": { "properties": { "setting": { "enum": ["timezone", "clock_check", "remote_access", "unbound_tokens"] } } },
+          "then": { "required": ["value"] } }
       ]
     },
     "approver": {
@@ -339,14 +348,13 @@
       "required": ["scope", "cause"],
       "properties": {
         "scope": { "description": "all: of every agent; agent: of the agent the entry names.", "enum": ["all", "agent"] },
-        "cause": { "description": "emergency_stop: together with an emergency stop; public_origin: the public origin changed; user: a human withdrew them.", "enum": ["emergency_stop", "public_origin", "user"] }
+        "cause": { "description": "emergency_stop: together with an emergency stop; public_origin: the public origin changed; user: a human withdrew them; refresh_reuse: a refresh token was used a second time, which ends every token of its grant (SPEC-v0 section 11.7 item 6).", "enum": ["emergency_stop", "public_origin", "user", "refresh_reuse"] }
       }
     },
     "certificate": {
-      "description": "Only with cert.unexpected and cert.acknowledged: a certificate for the host of the public origin (SPEC-v0 section 11.7 item 7). names and issuer are taken from the certificate, which anyone may have obtained: they are recorded unchanged and shown as untrusted text (SPEC-v0 section 9.1).",
+      "description": "Only with cert.unexpected and cert.acknowledged: a certificate for the host of the public origin (SPEC-v0 section 11.7 item 7). names and issuer are taken from the certificate, which anyone may have obtained: they are recorded unchanged and shown as untrusted text (SPEC-v0 section 9.1). cert.acknowledged names either one certificate by its digest or, by public_key alone, every certificate for that key.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["digest"],
       "properties": {
         "digest": { "description": "SHA-256 of the DER of the TBSCertificate without the poison and the SCT list, base64url without padding.", "$ref": "#/$defs/sha256_b64url" },
         "status": { "description": "alarm: valid since monitoring began or later; not_yet_valid: its notBefore lies after the check; past_exposure: it expired before the check.", "enum": ["alarm", "not_yet_valid", "past_exposure"] },
@@ -377,9 +385,11 @@
         "operator": { "description": "The operator domain, as A-labels.", "$ref": "#/$defs/domain" },
         "home_id": { "description": "The home ID the operator assigned (RELAY-v0 section 2).", "type": "string", "pattern": "^[a-z2-7]{26}$" },
         "name": { "description": "relay.paired: the standard name; relay.protection_changed and relay.caa_alarm: the name concerned; for relay.caa_alarm at the apex, the apex of the name domain.", "$ref": "#/$defs/domain" },
-        "cause": { "description": "Only with relay.unpaired. local: the local administrator ended the pairing; operator: the operator or the household's portal did; replaced: another gateway took the installation over.", "enum": ["local", "operator", "replaced"] },
-        "status": { "description": "Only with relay.status_changed: the status of the installation the operator reports.", "enum": ["active", "paused", "blocked"] },
-        "previous_status": { "enum": ["active", "paused", "blocked"] },
+        "cause": { "description": "Only with relay.unpaired. local: the gateway ended the pairing at its administrator's request; operator: the operator answered unpaired (the household's portal, a replacement by another gateway, the end of the service); offline_too_long: the operator answered offline-too-long or the gateway's own limit passed; bad_signature: the operator answered bad-signature, also after a key change that could not be recovered (RELAY-v0 sections 5.1, 5.5 and 5.7).", "enum": ["local", "operator", "offline_too_long", "bad_signature"] },
+        "status": { "description": "relay.status_changed: the status of the installation the operator reports (active, paused, blocked); relay.monitoring_status: whether the check works (ok, unavailable).", "enum": ["active", "paused", "blocked", "ok", "unavailable"] },
+        "previous_status": { "enum": ["active", "paused", "blocked", "ok", "unavailable"] },
+        "check": { "description": "Only with relay.monitoring_status: the query of the CAA records or the read of the installation (RELAY-v0 section 6.7).", "enum": ["caa", "installation"] },
+        "until": { "description": "Only with relay.replacement_pending: the end of the waiting time the operator reports (RELAY-v0 sections 5.2 and 5.3).", "$ref": "#/$defs/date_time" },
         "source": { "description": "Only with relay.pins_changed. relay: announced over a tunnel authenticated with a stored pin; admin: taken by the local administrator after a warning (RELAY-v0 section 6.8).", "enum": ["relay", "admin"] },
         "active_pins": { "type": "integer", "minimum": 1, "maximum": 8 },
         "backup_pins": { "type": "integer", "minimum": 0, "maximum": 7 },
@@ -387,7 +397,7 @@
         "previous_level": { "enum": ["standard", "own_domain"] },
         "scope": { "description": "Only with relay.caa_alarm: the standard name or the apex of the name domain (RELAY-v0 section 6.7).", "enum": ["name", "apex"] },
         "account": { "description": "Only with relay.acme_account_changed: the ACME account URI the gateway reported (RELAY-v0 section 5.6).", "type": "string", "pattern": "^https://[!-~]{1,500}$" },
-        "change": { "description": "Only with relay.acme_account_changed. reported: the gateway reported the account; confirmed: the household confirmed a change of account.", "enum": ["reported", "confirmed"] }
+        "change": { "description": "Only with relay.acme_account_changed (RELAY-v0 section 5.6). reported: the gateway reported the account and it took effect; pending: the operator asks the household to confirm it; confirmed: the household confirmed it and it is in force; not_confirmed: after the waiting time the account in force is still the earlier one; foreign: an account is in force that the gateway never reported.", "enum": ["reported", "pending", "confirmed", "not_confirmed", "foreign"] }
       }
     },
     "prev": {
@@ -463,18 +473,20 @@
       "then": { "not": { "required": ["agent"] } } },
     { "if": { "required": ["credentials"], "properties": { "credentials": { "properties": { "cause": { "enum": ["emergency_stop", "public_origin"] } } } } },
       "then": { "properties": { "credentials": { "properties": { "scope": { "const": "all" } } } } } },
+    { "if": { "required": ["credentials"], "properties": { "credentials": { "properties": { "cause": { "const": "refresh_reuse" } } } } },
+      "then": { "properties": { "actor": { "properties": { "kind": { "const": "system" } } }, "credentials": { "properties": { "scope": { "const": "agent" } } } } } },
     { "if": { "required": ["credentials"], "properties": { "credentials": { "properties": { "cause": { "const": "user" } } } } },
       "then": { "properties": { "actor": { "properties": { "kind": { "const": "user" } } } } } },
     { "if": { "properties": { "event": { "const": "cert.unexpected" } } },
-      "then": { "required": ["certificate"], "properties": { "certificate": { "required": ["status", "names", "issuer", "public_key", "not_before", "not_after", "logged"] } } } },
+      "then": { "required": ["certificate"], "properties": { "certificate": { "required": ["digest", "status", "names", "issuer", "public_key", "not_before", "not_after", "logged"] } } } },
     { "if": { "properties": { "event": { "const": "cert.acknowledged" } } },
-      "then": { "required": ["actor", "certificate"], "properties": { "actor": { "properties": { "kind": { "const": "user" } } }, "certificate": { "maxProperties": 1 } } } },
+      "then": { "required": ["actor", "certificate"], "properties": { "actor": { "properties": { "kind": { "const": "user" } } }, "certificate": { "maxProperties": 1, "anyOf": [ { "required": ["digest"] }, { "required": ["public_key"] } ] } } } },
     { "if": { "properties": { "event": { "enum": ["cert.unexpected", "cert.acknowledged"] } } },
       "else": { "not": { "required": ["certificate"] } } },
     { "if": { "properties": { "event": { "const": "ct.status" } } },
       "then": { "required": ["ct"] },
       "else": { "not": { "required": ["ct"] } } },
-    { "if": { "properties": { "event": { "enum": ["relay.paired", "relay.unpaired", "relay.status_changed", "relay.pins_changed", "relay.protection_changed", "relay.caa_alarm", "relay.acme_account_changed"] } } },
+    { "if": { "properties": { "event": { "enum": ["relay.paired", "relay.unpaired", "relay.status_changed", "relay.pins_changed", "relay.protection_changed", "relay.caa_alarm", "relay.acme_account_changed", "relay.monitoring_status", "relay.key_changed", "relay.replacement_pending", "relay.pin_mismatch"] } } },
       "then": { "required": ["relay"] },
       "else": { "not": { "required": ["relay"] } } },
     { "if": { "properties": { "event": { "const": "relay.paired" } } },
@@ -482,7 +494,17 @@
     { "if": { "properties": { "event": { "const": "relay.unpaired" } } },
       "then": { "properties": { "relay": { "required": ["home_id", "cause"], "propertyNames": { "enum": ["operator", "home_id", "cause"] } } } } },
     { "if": { "properties": { "event": { "const": "relay.status_changed" } } },
-      "then": { "properties": { "relay": { "required": ["home_id", "status"], "propertyNames": { "enum": ["operator", "home_id", "status", "previous_status"] } } } } },
+      "then": { "properties": { "relay": { "required": ["home_id", "status"], "propertyNames": { "enum": ["operator", "home_id", "status", "previous_status"] },
+                                           "properties": { "status": { "enum": ["active", "paused", "blocked"] }, "previous_status": { "enum": ["active", "paused", "blocked"] } } } } } },
+    { "if": { "properties": { "event": { "const": "relay.monitoring_status" } } },
+      "then": { "properties": { "relay": { "required": ["check", "status"], "propertyNames": { "enum": ["operator", "check", "status", "previous_status"] },
+                                           "properties": { "status": { "enum": ["ok", "unavailable"] }, "previous_status": { "enum": ["ok", "unavailable"] } } } } } },
+    { "if": { "properties": { "event": { "const": "relay.key_changed" } } },
+      "then": { "properties": { "relay": { "required": ["home_id"], "propertyNames": { "enum": ["operator", "home_id"] } } } } },
+    { "if": { "properties": { "event": { "const": "relay.replacement_pending" } } },
+      "then": { "properties": { "relay": { "required": ["home_id", "until"], "propertyNames": { "enum": ["operator", "home_id", "until"] } } } } },
+    { "if": { "properties": { "event": { "const": "relay.pin_mismatch" } } },
+      "then": { "properties": { "relay": { "propertyNames": { "enum": ["operator"] } } } } },
     { "if": { "properties": { "event": { "const": "relay.pins_changed" } } },
       "then": { "properties": { "relay": { "required": ["source", "active_pins", "backup_pins"], "propertyNames": { "enum": ["operator", "source", "active_pins", "backup_pins"] } } } } },
     { "if": { "properties": { "event": { "const": "relay.protection_changed" } } },
@@ -530,9 +552,12 @@
                                                       "properties": { "resource": { "required": ["critical"], "properties": { "critical": { "const": true } } },
                                                                       "action": { "not": { "const": "read" } } } } } } } },
     { "if": { "required": ["evaluation", "result"],
+              "properties": { "evaluation": { "required": ["confirm"] }, "result": { "required": ["denied_by"], "properties": { "denied_by": { "const": "mandate" } } } },
+              "not": { "required": ["request"], "properties": { "request": { "required": ["group"] } } } },
+      "then": { "required": ["approval"] } },
+    { "if": { "required": ["evaluation", "result", "approval"],
               "properties": { "evaluation": { "required": ["confirm"] }, "result": { "required": ["denied_by"], "properties": { "denied_by": { "const": "mandate" } } } } },
-      "then": { "required": ["approval"],
-                "properties": { "approval": { "anyOf": [ { "properties": { "outcome": { "const": "approved" } } },
+      "then": { "properties": { "approval": { "anyOf": [ { "properties": { "outcome": { "const": "approved" } } },
                                                          { "required": ["cause"], "properties": { "cause": { "const": "revoked" } } } ] } } } },
     { "if": { "required": ["evaluation"], "properties": { "evaluation": { "required": ["enforced"], "not": { "required": ["confirm"] } } },
               "not": { "required": ["request"], "properties": { "request": { "required": ["group"] } } } },
@@ -562,6 +587,11 @@
       "type": "string",
       "maxLength": 270,
       "pattern": "^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(:[1-9][0-9]{0,4})?$"
+    },
+    "proxy": {
+      "description": "An IP address or a prefix in CIDR notation, in its canonical text form: IPv4 in dotted decimal without leading zeros, IPv6 as RFC 5952 section 4 writes it, a prefix without host bits. The pattern is a first check; the canonical form is a rule of SPEC-v0 section 9.1 that a verifier checks.",
+      "type": "string",
+      "pattern": "^[0-9a-f.:]{2,45}(/[0-9]{1,3})?$"
     },
     "setting_value": {
       "description": "The value of a setting: an IANA time zone name, on or off for the clock check, a key ID for the checkpoint key; printable ASCII without space.",

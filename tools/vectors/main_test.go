@@ -236,3 +236,33 @@ func TestSignProducesASignedMandate(t *testing.T) {
 		}
 	}
 }
+
+func TestCTCertPrintsTheVectorsOfTheCases(t *testing.T) {
+	var out bytes.Buffer
+	if err := run([]string{"ctcert"}, "../..", nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	var printed []identity
+	if err := json.Unmarshal(out.Bytes(), &printed); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile("../../conformance/ct-v0.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file struct {
+		Identities []identity `json:"identities"`
+	}
+	if err := json.Unmarshal(data, &file); err != nil {
+		t.Fatal(err)
+	}
+	if len(printed) != len(file.Identities) {
+		t.Fatalf("printed %d vectors, the cases have %d", len(printed), len(file.Identities))
+	}
+	for i, want := range file.Identities {
+		got := printed[i]
+		if got.ID != want.ID || got.Digest != want.Digest || !bytes.Equal(got.DER, want.DER) || got.Why != want.Why {
+			t.Errorf("vector %d: printed %s %s, the cases have %s %s; run go run ./tools/vectors ctcert", i, got.ID, got.Digest, want.ID, want.Digest)
+		}
+	}
+}

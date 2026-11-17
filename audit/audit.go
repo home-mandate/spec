@@ -14,9 +14,11 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
@@ -24,6 +26,7 @@ import (
 	"github.com/home-mandate/spec/ijson"
 	"github.com/home-mandate/spec/internal/origin"
 	"github.com/home-mandate/spec/jcs"
+	"github.com/home-mandate/spec/rfc3339"
 	"github.com/home-mandate/spec/schema"
 )
 
@@ -70,6 +73,12 @@ type Result struct {
 	// UnknownVersion: the first entry of an audit version this verifier does not know. The
 	// content of the entries from there on is not checked; the chain is.
 	UnknownVersion Finding
+
+	// CheckpointGap is, for a valid log with a checkpoint, the first entry at which the writer
+	// did not keep the cadence of checkpoints of SPEC-v0 section 9.5. It is no finding, and it
+	// means something only for a log whose checkpoints verify with keys: without keys anyone
+	// can write a checkpoint entry. Index is -1 if there is none.
+	CheckpointGap Finding
 }
 
 // Finding names the first entry of a kind of violation.
@@ -98,12 +107,12 @@ const (
 	typePrefix = "https://home-mandate.org/audit/v"
 	// newestVersion is the newest version this package reads and writes.
 	newestVersion = 1
-	// firstUniqueIDVersion is the first version in which the id of an entry must not repeat
-	// the id of an earlier entry of the log (SPEC-v0 section 9.4).
-	firstUniqueIDVersion = 1
-	// uuidLength is the length of a UUID in its text form, the form of the id of an entry.
-	uuidLength = 36
-	// maxVersionDigits bounds the number of a version that versionOf reads.
+	// firstStrictVersion is the first version to which no correction applies (SPEC-v0
+	// section 14): in an entry of it, a deviation that a correction tolerates in an earlier
+	// version breaks condition 1, and the entry keeps its digest and its place in the chain.
+	firstStrictVersion = 1
+	// maxVersionDigits bounds the number of a version, as the grammar of SPEC-v0 section 14
+	// does: a longer number names no audit version.
 	maxVersionDigits = 9
 )
 
@@ -200,6 +209,8 @@ type link struct {
 	logID      string // of a checkpoint
 	signature  string // of a checkpoint
 	recordedAt string // of a checkpoint, as written: the signature covers it
+	// at is the time recorded_at names; zero if it cannot be read.
+	at time.Time
 	// conforming: the entry is of a known version and keeps condition 1.
 	conforming bool
 }
@@ -254,11 +265,56 @@ type verifier struct {
 	checkpointBreak *Result
 	// known holds the vocabularies an unenforced deny is checked against.
 	known actionsByCategory
-	// ids holds the id of every entry read so far whose id can be read and has the length of
-	// a UUID: from audit/v1 on, an entry whose id an earlier entry has breaks condition 1
-	// (SPEC-v0 section 9.4). It grows with the log, about a hundred bytes per entry; an entry
-	// that is not I-JSON or not an object has no id that can be read and takes no part.
-	ids map[string]bool
+	// cadence follows the checkpoints for CheckpointGap.
+	cadence cadence
+}
+
+// The cadence of checkpoints a writer keeps (SPEC-v0 section 9.5, "The signer", item 3).
+const (
+	maxEntriesBetweenCheckpoints = 1000
+	maxTimeBetweenCheckpoints    = 24 * time.Hour
+)
+
+// cadence follows the entries since the last checkpoint.
+type cadence struct {
+	seen  bool      // a checkpoint has been read
+	at    time.Time // its recorded_at
+	since int       // entries after it that are no checkpoint
+	// firstLate: the first of them was recorded more than 24 hours after the checkpoint, so the
+	// next checkpoint was due at once.
+	firstLate bool
+	gap       Finding
+}
+
+// late reports whether t lies more than 24 hours after the last checkpoint.
+func (c *cadence) late(t time.Time) bool {
+	return !c.at.IsZero() && !t.IsZero() && t.Sub(c.at) > maxTimeBetweenCheckpoints
+}
+
+// next takes the next entry in file order. A checkpoint is due 24 hours after the previous
+// one if an entry was appended in that time, and at once if the first entry since came later;
+// and at the latest after 1000 further entries (SPEC-v0 section 9.5).
+func (c *cadence) next(index int, l link) {
+	checkpoint := l.event == eventCheckpoint
+	if c.seen {
+		switch {
+		case checkpoint:
+			if c.since > 0 && !c.firstLate && c.late(l.at) {
+				note(&c.gap, index, l.seq)
+			}
+		case c.since == 0:
+			c.firstLate = c.late(l.at)
+		case c.firstLate || c.late(l.at) || c.since >= maxEntriesBetweenCheckpoints:
+			note(&c.gap, index, l.seq)
+		}
+	}
+	if checkpoint {
+		c.seen, c.at, c.since, c.firstLate = true, l.at, 0, false
+		return
+	}
+	if c.seen {
+		c.since++
+	}
 }
 
 func newVerifier(opts Options) (*verifier, error) {
@@ -271,7 +327,7 @@ func newVerifier(opts Options) (*verifier, error) {
 		return nil, err
 	}
 	return &verifier{schemas: schemas, anchor: opts.Anchor, known: known, integrity: none, conformance: none, unknown: none,
-		ids: map[string]bool{}}, nil
+		cadence: cadence{gap: none}}, nil
 }
 
 // add checks the next entry. Every entry is read: the findings on integrity, conformance
@@ -310,6 +366,7 @@ func (v *verifier) add(entry []byte) (result Result, done bool) {
 			v.checkpointBreak = &r
 		}
 	}
+	v.cadence.next(index, l)
 	v.previous, v.lost = l, false
 	return Result{}, false
 }
@@ -341,6 +398,7 @@ func (v *verifier) finish() Result {
 		r = valid(v.count)
 		r.AnchoredSeq, r.LogID, r.FirstSeq = v.anchoredSeq, v.logID, v.first.seq
 		r.TruncationAnchored = v.startCovered && v.first.seq != 1 && v.coveredAt <= v.anchoredSeq
+		r.CheckpointGap = v.cadence.gap
 	}
 	r.Integrity, r.Conformance, r.UnknownVersion = v.integrity, v.conformance, v.unknown
 	return r
@@ -372,20 +430,13 @@ func (v *verifier) check(index int, entry []byte) (l link, linked bool) {
 	l.digest = digest
 	l.prev, _ = obj["prev"].(string)
 	version, isAudit := versionOf(obj)
-	// Only an id of the length of a UUID is kept: any other breaks the schema of every
-	// version anyway, and a long one would make the map as large as the log.
-	id, _ := obj["id"].(string)
-	repeated := v.ids[id]
-	if len(id) == uuidLength {
-		v.ids[id] = true
-	}
 	switch {
 	case !isAudit || version < v.newest:
 		// No audit version, or an older version after a newer one, known or not.
 		note(&v.conformance, index, l.seq)
 	case version > newestVersion:
 		note(&v.unknown, index, l.seq)
-	case conforms(v.schemas[version], v.known, value, obj) && !(version >= firstUniqueIDVersion && repeated):
+	case conforms(v.schemas[version], v.known, value, obj) && (version < firstStrictVersion || ijson.Check(entry) == nil):
 		l.conforming = true
 	default:
 		note(&v.conformance, index, l.seq)
@@ -397,6 +448,9 @@ func (v *verifier) check(index int, entry []byte) (l link, linked bool) {
 	// one that breaks a rule or is of an unknown version: the integrity of a log does not
 	// depend on whether its writer kept the rules (section 9.4).
 	l.event, _ = obj["event"].(string)
+	if recorded, ok := obj["recorded_at"].(string); ok {
+		l.at, _ = rfc3339.Parse(recorded)
+	}
 	if c, ok := obj["checkpoint"].(map[string]any); ok {
 		l.logID, _ = c["log_id"].(string)
 		l.signature, _ = c["signature"].(string)
@@ -414,7 +468,7 @@ func (v *verifier) check(index int, entry []byte) (l link, linked bool) {
 func conforms(compiled *jsonschema.Schema, known actionsByCategory, value any, obj map[string]any) bool {
 	return compiled.Validate(value) == nil && displayable(obj) && distinctFormerValues(obj) && distinctAreas(obj) &&
 		truncatesEarlier(obj) && exportsEarlier(obj) && enforcedConsistent(obj, known) && vocabularyConsistent(obj, known) &&
-		publicOriginValid(obj)
+		publicOriginValid(obj) && trustedProxyValid(obj)
 }
 
 // displayedFields are the members that user interfaces show to humans; the rule for
@@ -471,6 +525,31 @@ func publicOriginValid(obj map[string]any) bool {
 		}
 	}
 	return true
+}
+
+// trustedProxyValid reports whether a change of a trusted proxy names an address or a prefix
+// in its one canonical text form (SPEC-v0 section 9.1), which a pattern cannot fully express:
+// what netip writes back for it, IPv6 as RFC 5952 recommends, and a prefix without host bits.
+func trustedProxyValid(obj map[string]any) bool {
+	config, _ := obj["config"].(map[string]any)
+	if setting, _ := config["setting"].(string); setting != "trusted_proxy" {
+		return true
+	}
+	for _, key := range []string{"value", "previous_value"} {
+		if value, ok := config[key].(string); ok && !canonicalProxy(value) {
+			return false
+		}
+	}
+	return true
+}
+
+func canonicalProxy(value string) bool {
+	if strings.Contains(value, "/") {
+		p, err := netip.ParsePrefix(value)
+		return err == nil && p.Masked() == p && p.String() == value
+	}
+	a, err := netip.ParseAddr(value)
+	return err == nil && a.Zone() == "" && a.String() == value
 }
 
 // truncatesEarlier reports whether a log.truncated entry accounts only for entries before
@@ -548,16 +627,20 @@ func intField(obj map[string]any, key string) int64 {
 }
 
 func valid(entries int) Result {
-	return Result{Valid: true, Index: -1, Entries: entries, Integrity: none, Conformance: none, UnknownVersion: none}
+	return Result{Valid: true, Index: -1, Entries: entries, Integrity: none, Conformance: none, UnknownVersion: none,
+		CheckpointGap: none}
 }
 
 func broken(index int, seq int64) Result {
-	return Result{Index: index, BrokenAt: seq, Integrity: none, Conformance: none, UnknownVersion: none}
+	return Result{Index: index, BrokenAt: seq, Integrity: none, Conformance: none, UnknownVersion: none,
+		CheckpointGap: none}
 }
 
 // VerifyJSONLines verifies an audit log in the exchange format: one entry per line,
 // separated by line feeds, UTF-8, in ascending seq order (SPEC-v0 section 9.4). It
-// reads the log as a stream and does not keep it in memory.
+// reads the log as a stream and does not keep it in memory. It reads to the end of the
+// stream, whatever its size; a caller that reads a log from a source it does not trust
+// bounds the stream, for example with io.LimitReader.
 func VerifyJSONLines(r io.Reader) (Result, error) {
 	return verifyLines(r, Options{})
 }
@@ -567,22 +650,49 @@ func verifyLines(r io.Reader, opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	scanner := bufio.NewScanner(r)
-	// Room for an entry of the maximum size followed by a carriage return.
-	scanner.Buffer(make([]byte, 0, 4096), MaxEntryBytes+2)
-	for scanner.Scan() {
-		if result, done := v.add(scanner.Bytes()); done {
+	lines := bufio.NewReader(r)
+	for {
+		line, err := readEntry(lines)
+		if errors.Is(err, io.EOF) {
+			return v.finish(), nil
+		}
+		if err != nil {
+			return Result{}, fmt.Errorf("audit: read: %w", err)
+		}
+		if result, done := v.add(line); done {
 			return result, nil
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		if errors.Is(err, bufio.ErrTooLong) {
-			// The reader cannot go on: the rest of the log is not read. The line counts as an
-			// entry without a readable seq.
-			v.add(nil)
-			return v.finish(), nil
+}
+
+// readEntry reads the next line of the exchange format without its line feed and without a
+// carriage return before it. A line longer than an entry may be is read to its end and
+// returned as nil, an entry without a readable seq, so that the entries after it are still
+// read (SPEC-v0 section 9.4). io.EOF means there is no further line; a line feed after the
+// last entry starts none.
+func readEntry(r *bufio.Reader) ([]byte, error) {
+	var line []byte
+	tooLong := false
+	for {
+		chunk, err := r.ReadSlice('\n')
+		// Room for an entry of the maximum size, a carriage return and the line feed.
+		if !tooLong && len(line)+len(chunk) <= MaxEntryBytes+2 {
+			line = append(line, chunk...)
+		} else {
+			tooLong, line = true, nil
 		}
-		return Result{}, fmt.Errorf("audit: read: %w", err)
+		switch {
+		case errors.Is(err, bufio.ErrBufferFull):
+			continue
+		case errors.Is(err, io.EOF) && (len(line) > 0 || tooLong):
+			// The last line has no line feed.
+		case err != nil:
+			return nil, err
+		}
+		if tooLong {
+			return nil, nil
+		}
+		line = bytes.TrimSuffix(line, []byte("\n"))
+		return bytes.TrimSuffix(line, []byte("\r")), nil
 	}
-	return v.finish(), nil
 }

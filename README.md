@@ -28,6 +28,8 @@ has its own repository and versions and builds on Section 11.7 here.
 | `schema/audit-v0.schema.json` | JSON Schema of an audit log entry (Draft 2020-12) | Apache 2.0 |
 | `data/forbidden-codepoints-v0.json` | Code points not permitted in text displayed to humans (SPEC-v0 section 3.1 item 8), derived from Unicode 17.0.0 | Apache 2.0 |
 | `ct-sources.md` | Informative list of Certificate Transparency services (SPEC-v0 section 11.7 item 7) | CC BY 4.0 |
+| `pitfalls.md` | Informative list of mistakes implementers make with the libraries of their languages, with the cases that catch them | CC BY 4.0 |
+| `timezone-names.json` | Informative list of the time zone names of one release of the IANA database in the form of SPEC-v0 section 4.2 | Apache 2.0 |
 | `data/corrections-v0.json` | Deviations a verifier keeps accepting in existing audit logs (SPEC-v0 section 14) | Apache 2.0 |
 | `examples/` | Example mandates | Apache 2.0 |
 | `conformance/cases-v0.json` | Conformance cases | Apache 2.0 |
@@ -40,7 +42,7 @@ has its own repository and versions and builds on Section 11.7 here.
 | `conformance/digest-v0.json` | Digests of mandates (RFC 8785 + SHA-256) | Apache 2.0 |
 | `conformance/audit-v0.json` | Audit logs with the expected result of the hash chain verification | Apache 2.0 |
 | `conformance/origin-v0.json` | Public origins that are valid or invalid, and `htu` values of DPoP proofs that match or not (SPEC-v0 section 11.7) | Apache 2.0 |
-| `conformance/ct-v0.json` | Certificates in Certificate Transparency logs and whether an alarm is raised (SPEC-v0 section 11.7 item 7; the Relay Specification uses them too) | Apache 2.0 |
+| `conformance/ct-v0.json` | Certificates in Certificate Transparency logs and whether an alarm is raised, the state of monitoring, and the identity of certificates in DER (SPEC-v0 section 11.7 item 7; the Relay Specification uses them too) | Apache 2.0 |
 | `conformance/schema/` | JSON Schemas of the conformance files, so that they can be used without the Go code | Apache 2.0 |
 | `conformance/manifest.json` | All machine-readable files with SHA-256 and number of cases; `make manifest` rewrites it | Apache 2.0 |
 | `evaluator/` | Reference evaluator as a Go library (`github.com/home-mandate/spec/evaluator`), standard library only plus a JSON Schema validator | Apache 2.0 |

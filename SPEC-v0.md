@@ -217,7 +217,11 @@ A mandate is valid if it conforms to the schema **and** additionally:
    Implementations MUST use the list, not the character tables of their runtime, so that
    validity does not change with a Unicode version. The rule cannot prevent look-alike
    letters from different scripts (homoglyphs); user interfaces SHOULD therefore show the
-   `client_id` together with the `display_name`.
+   `client_id` together with the `display_name`. *Informative:* the rule also lets through
+   long runs of combining marks or variation selectors and strong right-to-left letters next
+   to digits, which forbidding now would make valid mandates invalid. Interfaces render
+   displayed text in an isolated direction context (as HTML `<bdi>` does) and cut it to a
+   fixed length.
 
 9. a rule with `allow_critical` lists its actions; it does not contain `"*"`. Whoever
    permits critical actions without an approval request names them, so that a later
@@ -244,8 +248,9 @@ A mandate is valid if it conforms to the schema **and** additionally:
 All numbers in a mandate are integers whose magnitude is at most 2^53 − 1; the schema
 permits nothing else.
 
-Implementations MAY reject JSON input with a nesting depth greater than 32 before
-validating it against the schema; valid mandates never reach this depth.
+JSON input with a nesting depth greater than 32 is not a valid mandate and has no canonical
+form here (Section 3.2): implementations reject it, MAY do so before validating it against the
+schema, and record no `digest` for it (Section 9.1). Valid mandates never reach this depth.
 
 Implementations MUST reject invalid mandates when they are stored. If an invalid mandate is
 nevertheless evaluated, the result MUST be `deny`.
@@ -601,7 +606,8 @@ time**: the point in time is converted to the household's time zone.
   without a `/` other than `UTC`, even where the database knows it (as a link in current
   releases: `EST5EDT`, `WET`, `HST`). Some time zone libraries match
   names without regard to case; an implementation that uses one MUST compare the spelling
-  itself (`Europe/BERLIN` is not a name of the database). Names of this form that the
+  itself (`Europe/BERLIN` is not a name of the database); `timezone-names.json` (informative)
+  lists the names of one release of the database in this form. Names of this form that the
   database defines as links to another zone (such as `US/Eastern`) are permitted.
   The rules of a zone change with the release of the database; implementations SHOULD keep
   it current, and two implementations can differ for points in time that a newer release
@@ -1102,7 +1108,10 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
   permits, so that two verifiers never disagree about a signature; a library that verifies
   with the cofactor, as those following ZIP 215 do, is not enough on its own. A key of mixed order (a point of the
   group plus a point of small order) is a key like any other; the equation without the
-  cofactor decides whether a signature by it verifies. An `R` of small order (one of the
+  cofactor decides whether a signature by it verifies. Keys A and A + T (T of small order)
+  have different bytes and are different keys, although a signature can verify under both by
+  chance: a key is identified by its bytes or its thumbprint (RFC 7638), never by the
+  signatures it verifies. An `R` of small order (one of the
   encodings below) is rejected, even where the equation holds: some libraries reject it and
   others do not, and no honest signer produces one.
 - An Ed25519 public key of small order is not a key: with it, a signature verifies for every
@@ -1243,7 +1252,8 @@ is given as `entries_base64` or `jsonl_base64` instead: the same in base64 with 
 Set) the signatures of checkpoints are verified (Section 9.5), optionally against the
 expected `log_id`; `anchored` is then the expected `seq` up to which a verified checkpoint
 covers the log. Every log states the findings of Section 9.4 it has: `integrity_broken_at`,
-`conformance_broken_at` and `unknown_version_at`, each absent if there is none. A log can
+`conformance_broken_at` and `unknown_version_at`, each absent if there is none, and a valid
+log its `checkpoint_gap_at` (Section 9.5), absent if there is none. A log can
 name an optional algorithm it needs in `requires` (Section 10.2).
 
 `conformance/audit-v1.json` contains audit logs of version 1 and logs that mix versions 0 and 1
@@ -1259,10 +1269,15 @@ they match (`expected`: `match` or `mismatch`).
 (`public_names`: the host of the public origin; a gateway paired with a relay monitors each of its
 public names, RELAY-v0 Section 6.7), the beginning of monitoring (`since`) and the time of the
 check (`now`), the keys agents are shown (`server_keys`: the current one, and earlier ones with
-the time each was replaced), the certificates acknowledged (by digest only) and the certificates
-found, each with its digest, its names, its validity, the SHA-256 digest of its public key and the
-time of its first log entry; and, for each certificate in the order given, the expected result:
-`alarm` (also for one that is not valid yet), `past-exposure` or `none`.
+the time each was replaced), the certificates acknowledged by digest and, optionally, the public
+keys acknowledged (`acknowledged_keys`) and the key read again from the public origin before an
+alarm (`presented_key`), and the certificates found, each with its digest, its names, its
+validity, the SHA-256 digest of its public key and the time of its first log entry; and, for each
+certificate in the order given, the expected result: `alarm` (also for one that is not valid yet),
+`past-exposure` or `none`. Its `monitoring` cases give the answers of the sources and the
+expected state of monitoring (`ok`, `limited` or `unavailable`, the event `ct.status`), and its
+`identities` give certificates in DER with their identity (Section 11.7 item 7), with the steps
+in the file's `description`.
 
 In addition to `cases` or `logs` respectively, every file has a `description`; every case has a
 unique `id` and optionally `why`.
@@ -1353,7 +1368,7 @@ with the events and members marked "(v1)"; an entry of version 0 MUST NOT carry 
 
 | Field | Contents |
 |---|---|
-| `id` | UUIDv7 (RFC 9562) |
+| `id` | UUIDv7 (RFC 9562), a new one for every entry. Nothing refers to an entry by its `id`, and a verifier does not check that it is unique (Section 9.4) |
 | `seq` | sequential number in the audit log, starting at 1, without gaps. Read by its value: `1`, `1.0` and `1e0` are the same number; writers SHOULD use the plain form |
 | `recorded_at` | point in time of the entry (RFC 3339, as in Section 3.1 item 0: no leap second, like every point in time in an entry) |
 | `event` | event type (Section 9.2) |
@@ -1367,7 +1382,7 @@ Depending on the event, the following are added:
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
 | `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked`; optionally `group`, a UUID (RFC 9562, lower case) that is the same in every `decision` entry of one request for several resources (Section 4.4) or for a renamed resource (Section 11.4) and appears in the entries of no other request |
-| `mandate` | `id` and `digest`. `previous_digest`, different from `digest`: required for `mandate.updated`, the version replaced; for `mandate.proposed` the version the implementation held when it recorded the proposal, in force or not (Section 3.5), absent if it held none; a `mandate.discarded` repeats the `digest` and `previous_digest` of its proposal (Section 11.6 item 4); absent with every other event. For `mandate.removed`, `digest` is that of the last version the implementation held; for `mandate.proposed` and `mandate.discarded`, `digest` is that of the proposed version. `cause`, required with `mandate.discarded` and `mandate.rejected` and absent otherwise: for `mandate.discarded` why the proposal did not take effect (`rejected`: a human declined it, `superseded`: another version took effect or a later proposal replaced it, `revoked`: the mandate was revoked, `expired`: the proposed version, or the proposal, expired first, Section 11.6 item 4); for `mandate.rejected` why a mandate from outside was not accepted (`invalid`: not a valid mandate or not canonical, or a signed mandate without `audience` or `expires`, Sections 3.1 and 7.1; `signature`: the signature does not verify, or the header or `kid` is not acceptable; `untrusted_issuer`: no trusted key for the issuer, the issuer may not issue for this principal or agent, or the mandate names another `audience`; `succession`: Section 3.5, a rollback included; `unsupported`: the implementation does not offer what the mandate needs, such as audit mode, Section 11.6, or a format major it does not support, Section 14). With `mandate.rejected`, `digest` is present if the document was a JSON object with a canonical form (Section 3.2: it is I-JSON) and `id` if it named one; if nothing could be read, the object has only `cause` (version 0) or `cause` and `received` (version 1). `received` (version 1), required with `mandate.rejected` and absent otherwise: `sha256:` and the SHA-256 of the bytes of the document exactly as they arrived, in lower-case hexadecimal: the file, or the body of the request after its transfer and content codings are removed (HTTP chunking, `Content-Encoding`), otherwise unchanged, with a byte order mark, every line ending and a final line break; for a signed mandate the compact JWS; for a mandate inside a larger JSON text (such as `authorization_details`, Section 7.2) the bytes of that value as they stand in the text, from its first to its last character, before any parsing; for an empty document the SHA-256 of zero bytes. A document longer than its limit (Sections 3.1 item 5 and 7.1) is read up to one byte beyond the limit and no further, and `received` covers what was read. Unlike `digest`, `received` exists for every document, JSON or not, so that a rejected document can be recognised again; it identifies bytes, never a version of a mandate: it is not a digest of Section 3.2, even where the two values are equal, and an implementation MUST NOT use it to match a mandate, a version or a confirmation. Whoever can read the log can test a guessed document against it, so `received` is as confidential as the document itself, which matters before a log is exported or shared (Section 13) |
+| `mandate` | `id` and `digest`. `previous_digest`, different from `digest`: required for `mandate.updated`, the version replaced; for `mandate.proposed` the version the implementation held when it recorded the proposal, in force or not (Section 3.5), absent if it held none; a `mandate.discarded` repeats the `digest` and `previous_digest` of its proposal (Section 11.6 item 4); absent with every other event. For `mandate.removed`, `digest` is that of the last version the implementation held; for `mandate.proposed` and `mandate.discarded`, `digest` is that of the proposed version. `cause`, required with `mandate.discarded` and `mandate.rejected` and absent otherwise: for `mandate.discarded` why the proposal did not take effect (`rejected`: a human declined it, `superseded`: another version took effect or a later proposal replaced it, `revoked`: the mandate was revoked, `expired`: the proposed version, or the proposal, expired first, Section 11.6 item 4); for `mandate.rejected` why a mandate from outside was not accepted (`invalid`: not a valid mandate or not canonical, or a signed mandate without `audience` or `expires`, Sections 3.1 and 7.1; `signature`: the signature does not verify, or the header or `kid` is not acceptable; `untrusted_issuer`: no trusted key for the issuer, the issuer may not issue for this principal or agent, or the mandate names another `audience`; `succession`: Section 3.5, a rollback included; `unsupported`: the implementation does not offer what the mandate needs, such as audit mode, Section 11.6, or a format major it does not support, Section 14). With `mandate.rejected`, `digest` is present if the document was a JSON object with a canonical form (Section 3.2: it is I-JSON) and `id` if it named one; if nothing could be read, the object has only `cause` (version 0) or `cause` and `received` (version 1). `received` (version 1), required with `mandate.rejected` and absent otherwise: `sha256:` and the SHA-256 of the bytes of the document exactly as they arrived, in lower-case hexadecimal: the file, or the body of the request after its transfer and content codings are removed (HTTP chunking, `Content-Encoding`), otherwise unchanged, with a byte order mark, every line ending and a final line break; for a signed mandate the compact JWS; for a mandate inside a larger JSON text (such as `authorization_details`, Section 7.2) the bytes of the document that carried it, the body or the file, not of the value alone; for an empty document the SHA-256 of zero bytes. A document longer than its limit (Sections 3.1 item 5 and 7.1) is read up to one byte beyond the limit and no further, and `received` covers what was read. The limit counts the bytes after the content coding is removed: a decoder stops at the limit plus one byte, so that a small compressed body cannot expand without bound, and a PEP MAY refuse any `Content-Encoding`. Unlike `digest`, `received` exists for every document, JSON or not, so that a rejected document can be recognised again; it identifies bytes, never a version of a mandate: it is not a digest of Section 3.2, even where the two values are equal, and an implementation MUST NOT use it to match a mandate, a version or a confirmation. Whoever can read the log can test a guessed document against it, so `received` is as confidential as the document itself, which matters before a log is exported or shared (Section 13) |
 | `vocabulary` | the vocabulary the evaluation used for the category of the resource (Section 5): `id` and `version` as in its file. Only with `decision` and `evaluation`, and not with `reason` `unknown_resource` or `unknown_category`: no vocabulary was used. For a category of Section 5, `id` is `https://home-mandate.org/vocabulary/v0`; for an extension category, the `id` of the extension (Section 5.1). The schema cannot see the vocabulary; a verifier MUST reject any other `id` for a category of Section 5, the `id` of Section 5 for an extension category and, for an extension whose vocabulary it knows, any `id` other than that vocabulary's, and an entry that violates this is invalid |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, `approval_timeout` (the timeout of the approval settings; required for `ask` and with `confirm`, absent otherwise), `enforced` (only `false`, Section 4.6) and `confirm` (only `true`, with `enforced`) |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, where it names an approver whose answer arrived after the timeout, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
@@ -1379,13 +1394,13 @@ Depending on the event, the following are added:
 | `template` | change to a template (Section 2): `change` (`stored`: created or changed, `removed`, `hidden`: no longer offered or accepted for creating mandates without being removed, `shown`: offered and accepted again), `name` (1 to 64 characters) and `digest`; for `stored` the digest of the new content, for `removed` that of the last content, for `hidden` and `shown` optionally that of the current content. `previous_digest` only for `stored` and only if the template had content before, different from `digest`. Digests are computed as in Section 3.2 over the template as the implementation stores it. Only with `template.changed` |
 | `approver` | change to the humans whom the implementation lets answer approval requests (Section 11.1): `change` (`added`, `removed`) and `id` (1 to 128 characters), the identifier of the approver in the user management, as in `approval.by`. Only with `approver.changed` |
 | `issuer` | change to the issuers the implementation trusts and to their keys (Section 7.1): `change` (`trusted`, `untrusted`, `key_added`, `key_removed`), `issuer` (as a mandate names it, Section 3.5, recorded as given) and, only with `key_added` and `key_removed`, `kid` (as in Section 7.1), required there. Only with `issuer.changed` |
-| `config` | change to a setting that affects every evaluation, the anchoring of the log or remote access: `setting` (`timezone`: the household time zone, Section 4.2; `clock_check`: whether the implementation denies requests while it believes its clock is wrong, Section 11.4; `checkpoint_key`: the key that signs checkpoints, Section 9.5; (v1) `public_origin`: the public origin, Section 11.7 item 1; (v1) `remote_access`: whether the implementation is reachable from outside, Section 11.7 item 8; (v1) `unbound_tokens`: whether tokens that are not bound are `allowed` or `refused`, Section 11.7 item 6), `value` (the IANA name, `on` or `off`, the `kid` as in Section 7.1, 1 to 64 printable ASCII characters without space; or the public origin in the form of Section 11.7 item 1, or `allowed` or `refused`) and `previous_value` (same form, different from `value`) if the setting had a value before. Only with `config.changed` |
+| `config` | change to a setting that affects every evaluation, the anchoring of the log or remote access: `setting` (`timezone`: the household time zone, Section 4.2; `clock_check`: whether the implementation denies requests while it believes its clock is wrong, Section 11.4; `checkpoint_key`: the key that signs checkpoints, Section 9.5; (v1) `public_origin`: the public origin, Section 11.7 item 1; (v1) `remote_access`: whether the implementation is reachable from outside, Section 11.7 item 8; (v1) `unbound_tokens`: whether tokens that are not bound are `allowed` or `refused`, Section 11.7 item 6; (v1) `server_key`: the key agents are shown, as the administrator configures it or as the implementation learns it from its public origin, Section 11.7 item 7; (v1) `trusted_proxy`: a proxy whose forwarded addresses the implementation takes, Section 11.7 item 4, one entry for each proxy), `value` (the IANA name, `on` or `off`, the `kid` as in Section 7.1, 1 to 64 printable ASCII characters without space; or the public origin in the form of Section 11.7 item 1, or `allowed` or `refused`; for `server_key` the SHA-256 of the SubjectPublicKeyInfo, base64url without padding; for `trusted_proxy` the IP address or the prefix in CIDR notation of the proxy, in its canonical text form: IPv4 in dotted decimal without leading zeros, IPv6 as RFC 5952 Section 4 writes it, and a prefix without host bits, so that the entry that removes a proxy names it as the entry that added it did) and `previous_value` (same form, different from `value`) if the setting had a value before. (v1) A setting that is removed (checkpoints no longer signed, the public origin, the configured `server_key` or a trusted proxy removed) is recorded with `previous_value` and without `value`; the household time zone, the clock check, `remote_access` and `unbound_tokens` always have a value. Only with `config.changed` |
 | `agent.binding` | (v1) whether the agent's tokens are bound to a key: `none` or `dpop` (Section 11.7 item 6). Optional with `agent.registered` and `agent.reconnected`, absent otherwise |
 | `binding` | (v1) the key the agent's tokens are bound to from now on: `method` (`dpop`) and `jkt` (the JWK SHA-256 thumbprint of the key, RFC 7638, base64url without padding). Only with `agent.bound` |
-| `credentials` | (v1) access and refresh tokens that lost their validity: `scope` (`all`: of every agent; `agent`: of the agent of the entry, which is then required) and `cause` (`emergency_stop`: with an emergency stop; `public_origin`: the public origin changed, Section 11.7 item 2; `user`: a human withdrew them). Only with `credentials.withdrawn` |
-| `certificate` | (v1) a certificate for the host of the public origin (Section 11.7 item 7): `digest` (SHA-256 of the DER of its TBSCertificate without the poison and the SCT list, base64url without padding) and, with `cert.unexpected`, `status` (`alarm`, `not_yet_valid` or `past_exposure`), `names` (the names of the certificate that match the host, 1 to 16), `issuer` (its distinguished name), `public_key` (SHA-256 of its SubjectPublicKeyInfo, base64url), `not_before`, `not_after` and `logged` (its first log entry). With `cert.acknowledged` only `digest`. Only with these two events |
+| `credentials` | (v1) access and refresh tokens that lost their validity: `scope` (`all`: of every agent; `agent`: of the agent of the entry, which is then required) and `cause` (`emergency_stop`: with an emergency stop; `public_origin`: the public origin changed, Section 11.7 item 2; `user`: a human withdrew them; (v1) `refresh_reuse`: a refresh token was used a second time, which ends every token of its grant, Section 11.7 item 6, scope `agent`, actor of kind `system`). Only with `credentials.withdrawn` |
+| `certificate` | (v1) a certificate for the host of the public origin (Section 11.7 item 7): `digest` (SHA-256 of the DER of its TBSCertificate without the poison and the SCT list, base64url without padding) and, with `cert.unexpected`, `status` (`alarm`, `not_yet_valid` or `past_exposure`), `names` (the names of the certificate that match the host, 1 to 16; where more match, the first 16 in the order of the certificate), `issuer` (its distinguished name, 1 to 1024 code points; a longer one is cut to its first 1023 code points followed by U+2026 `…`), `public_key` (SHA-256 of its SubjectPublicKeyInfo, base64url), `not_before`, `not_after` and `logged` (its first log entry). With `cert.acknowledged` either `digest` alone, for that certificate, or `public_key` alone, for every certificate for that key (Section 11.7 item 7). Only with these two events |
 | `ct` | (v1) the state of Certificate Transparency monitoring: `status` (`ok`: at least two independent sources answered within 24 hours; `limited`: only one; `unavailable`: none) and optionally `previous_status`, different from `status`. Only with `ct.status` |
-| `relay` | (v1) what a gateway paired with a relay records (the Home-Mandate Relay Specification, RELAY-v0): `operator` (the operator domain as A-labels) and, depending on the event, `home_id`, `name`, `cause`, `status`, `previous_status`, `source`, `active_pins`, `backup_pins`, `level`, `previous_level`, `scope`, `account` and `change`, as Section 9.2 lists them. Only with the `relay.*` events |
+| `relay` | (v1) what a gateway paired with a relay records (the Home-Mandate Relay Specification, RELAY-v0): `operator` (the operator domain as A-labels) and, depending on the event, `home_id`, `name`, `cause`, `status`, `previous_status`, `source`, `active_pins`, `backup_pins`, `level`, `previous_level`, `scope`, `account`, `change`, `check` and `until`, as Section 9.2 lists them. RELAY-v0 maps each of these events to the gateway event that triggers it, and its values are those of this table. Only with the `relay.*` events |
 
 `request` records the input to the evaluation as the PEP determined it, also when the
 evaluation found it invalid (`invalid_request`). Identifiers in it are therefore limited only
@@ -1431,7 +1446,9 @@ For `decision`, the following additionally applies:
   (v1) in an entry with `request.group`, the `result` can also be a denial other than by
   the rate limit, which comes before any evaluation: the request was denied as a whole,
   for another resource, by the approval or because its approval request was cancelled
-  (Section 4.4);
+  (Section 4.4); this holds with `confirm: true` as well, and then `denied_by: mandate`
+  needs no `approval` object, because nobody was asked; an `approval` object it has is, as
+  outside a group, `approved` or cancelled with `cause: revoked`;
 - `evaluation.enforced` appears only in `decision` entries with `mandate` and `request`,
   only as `false`, and only with `evaluation.decision: deny` and `reason` `no_match` or
   `rule`. An `allow` or an `ask` is never marked: an allow is executed anyway, and an
@@ -1457,8 +1474,8 @@ For `decision`, the following additionally applies:
   `confirm: true` whose evaluation before the execution gave a `deny` without
   `confirm: true`, recorded with the `evaluation` that was confirmed (`deny`,
   `enforced: false`, `confirm: true`). With `confirm: true`, `denied_by: mandate` appears
-  only so, or with `approval.outcome: cancelled` and `cause: revoked` (Section 11.6
-  item 1);
+  only so, with `approval.outcome: cancelled` and `cause: revoked` (Section 11.6
+  item 1), or (v1) without `approval` in an entry with `request.group` (Section 4.4);
 - `evaluation.reason` belongs to `evaluation.decision` as in the table of Section 4.1
   (`allow` only with `rule`, `ask` only with `rule` or `critical_demotion`);
 - `denied_by: audit` marks a request the PEP did not execute because it could not record
@@ -1500,6 +1517,13 @@ never the agent (Section 7.2). An agent can withdraw, but not grant: it MAY appe
 `actor` of `mandate.revoked` (its own mandate), `agent.revoked` (itself) and
 `emergency_stop.activated`, if the implementation lets it.
 
+(v1) An `agent.bound` entry has an `actor` of kind `agent` or `system`; a
+`credentials.withdrawn` entry one of kind `user` or `system`: `user` with `cause: user`,
+`system` with `cause: refresh_reuse`. Its `credentials.scope` is `all` with `emergency_stop`
+and `public_origin` and `agent` with `refresh_reuse`, and the entry names an `agent` exactly
+when the scope is `agent`. A `cert.acknowledged` and a `relay.paired` entry have an `actor`
+of kind `user`: only a human acknowledges a certificate or pairs with a relay.
+
 `actor.id`, `agent.display_name`, `approval.by`, `template.name` and `approver.id` are
 displayed text; Section 3.1 item 8
 applies to them, and an entry that violates it is invalid.
@@ -1528,23 +1552,27 @@ content.
 | `template.changed` | yes, if the implementation lets humans change templates | every template stored, removed, hidden or shown again |
 | `approver.changed` | yes, if the implementation keeps its own list of humans who may answer approval requests | every approver added to or removed from that list (Section 11.1) |
 | `issuer.changed` | yes, if the implementation accepts signed mandates (Section 7) | every issuer that becomes trusted or stops being trusted, and every key of an issuer added or removed (Section 7.1) |
-| `config.changed` | yes | every change to the household time zone, to the clock check (Section 11.4) and to the key that signs checkpoints (Section 9.5) |
+| `config.changed` | yes | every change to the household time zone, to the clock check (Section 11.4) and to the key that signs checkpoints (Section 9.5), and (v1) to the public origin, to remote access, to whether tokens that are not bound are refused, to the key agents are shown, and to the proxies the implementation trusts (Section 11.7); a setting that is removed is a change too |
 | `mandate.removed`, `agent.removed` | yes, if the implementation removes revoked mandates or agents | every revoked mandate or agent removed from the implementation's lists (Section 11.3) |
 | `mandate.proposed`, `mandate.discarded` | yes, if the implementation offers audit mode or accepts mandates from outside | every mandate that waits for a confirmation before it takes effect (Section 3.5: audit mode, a weakening, a revoked predecessor, unknown `approvers`), and every such proposal that does not take effect, each with the digest of the proposed version and, if one is stored, that of the stored version (Section 11.6 item 4) |
-| `mandate.rejected` | yes, if the implementation accepts mandates from outside (Sections 3.5 and 7) | every mandate from outside that was not accepted: invalid, not verifiable, from an untrusted issuer, against succession or unsupported |
+| `mandate.rejected` | yes, if the implementation accepts mandates from outside (Sections 3.5 and 7) | every mandate from outside that was not accepted: invalid, not verifiable, from an untrusted issuer, against succession or unsupported. A PEP MUST limit how many documents from outside it takes for checking from each source (an issuer, a channel, an upload), RECOMMENDED at most 60 an hour; a document beyond the limit is refused before it is read and gets no entry (Section 12.2) |
 | `agent.reconnected` | yes, if the implementation lets humans reconnect agents | every existing agent that receives new credentials instead of being admitted anew (Section 11.3) |
 | `auth.rejected` | no | rejected sign-in or invalid token |
-| `agent.bound` (v1) | yes, if the implementation binds tokens (Section 11.7 item 6) | an agent whose tokens are bound to a key for the first time, with `binding` |
-| `credentials.withdrawn` (v1) | yes, if the implementation withdraws credentials | access and refresh tokens that lose their validity together: with an emergency stop that withdraws them, during an active emergency stop, for a new public origin (Section 11.7 item 2), or because a human withdraws them, with `credentials` |
+| `agent.bound` (v1) | yes, if the implementation binds tokens (Section 11.7 item 6) | every new key an agent's tokens are bound to: the first, and the first after each reconnection, with `binding` |
+| `credentials.withdrawn` (v1) | yes, if the implementation withdraws credentials | access and refresh tokens that lose their validity together: with an emergency stop that withdraws them, during an active emergency stop, for a new public origin (Section 11.7 item 2), because a refresh token was used a second time (Section 11.7 item 6), or because a human withdraws them, with `credentials` |
 | `cert.unexpected` (v1) | yes, if the implementation is reachable from outside | a certificate that raises an alarm or is reported as a past exposure (Section 11.7 item 7): once for each certificate and `status`, not at every check |
-| `cert.acknowledged` (v1) | yes, if the implementation is reachable from outside | an administrator acknowledges a certificate (Section 11.7 item 7), with its `digest` only |
+| `cert.acknowledged` (v1) | yes, if the implementation is reachable from outside | an administrator acknowledges a certificate by its `digest` or a public key by `public_key` (Section 11.7 item 7) |
 | `ct.status` (v1) | yes, if the implementation is reachable from outside | every change of the state of Certificate Transparency monitoring between `ok`, `limited` and `unavailable` |
-| `relay.paired`, `relay.unpaired` (v1) | yes, if the implementation can be paired with a relay | a pairing (`home_id`, `name`: the standard name) and its end (`home_id`, `cause`: `local`, `operator` or `replaced`) |
+| `relay.paired`, `relay.unpaired` (v1) | yes, if the implementation can be paired with a relay | a pairing (`home_id`, `name`: the standard name) and its end (`home_id`, `cause`: `local` at the administrator's request, `operator` when the operator answered `unpaired`, which covers the household's portal, a replacement and the end of the service, `offline_too_long` or `bad_signature`) |
 | `relay.status_changed` (v1) | yes, if the implementation can be paired with a relay | every change of the status of the installation the operator reports (`status`: `active`, `paused`, `blocked`) |
 | `relay.pins_changed` (v1) | yes, if the implementation can be paired with a relay | new pins of the relay (`source`: `relay` over a pinned tunnel, `admin` after a warning; `active_pins`, `backup_pins`: how many) |
 | `relay.protection_changed` (v1) | yes, if the implementation can be paired with a relay | the protection level of a public name changes (`name`, `level`: `standard` or `own_domain`, `previous_level`) |
 | `relay.caa_alarm` (v1) | yes, if the implementation can be paired with a relay | the CAA records of the standard name or of the apex of the name domain differ from what is prescribed (`name`, `scope`: `name` or `apex`) |
-| `relay.acme_account_changed` (v1) | yes, if the implementation can be paired with a relay | the gateway reported its ACME account or the household confirmed a change of account (`account`, `change`: `reported` or `confirmed`) |
+| `relay.acme_account_changed` (v1) | yes, if the implementation can be paired with a relay | the ACME account of the gateway (`account`, `change`): reported and in force (`reported`), waiting for the household's confirmation (`pending`), confirmed and in force (`confirmed`), not confirmed in time (`not_confirmed`), or an account in force that the gateway never reported (`foreign`, an alarm) |
+| `relay.monitoring_status` (v1) | yes, if the implementation can be paired with a relay | every change of whether the query of the CAA records or the read of the installation works (`check`: `caa` or `installation`; `status`: `ok` or `unavailable`, after 24 hours without success; `previous_status`) |
+| `relay.key_changed` (v1) | yes, if the implementation can be paired with a relay | the gateway replaced its installation key (`home_id`) |
+| `relay.replacement_pending` (v1) | yes, if the implementation can be paired with a relay | the operator reports that another gateway is about to take the installation over (`home_id`, `until`: the end of the waiting time), once for each `until` |
+| `relay.pin_mismatch` (v1) | yes, if the implementation can be paired with a relay | the relay presents a key that matches no stored pin; once until a connection with a stored pin succeeds again |
 
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
 returns for `request` and the version `mandate.digest` under the vocabulary that
@@ -1571,7 +1599,10 @@ record it is logged with `denied_by: audit` (Section 9).
 ### 9.4 Hash chain and verification
 
 - Digest of an entry: `"sha256:" + hex(SHA-256(JCS(entry)))`, computed over the
-  complete entry including `prev`.
+  complete entry including `prev`. Every number in an entry is an integer of a magnitude below
+  2^53, as every schema of the audit format requires; an entry with any other number, such as
+  `120.5` or `9007199254740992`, has no digest, like one that is not I-JSON or is nested
+  deeper than 32 levels.
 - The `prev` of each entry is the digest of its predecessor; for the entry with `seq` 1,
   `prev` is `null`.
 - Before the entries up to and including `seq` n are deleted, a `log.truncated` entry
@@ -1585,18 +1616,18 @@ record it is logged with `denied_by: audit` (Section 9).
   counts as an entry that violates the schema.
 - An entry is at most 65 536 bytes: in the exchange format the line without its line feed
   and without a carriage return before it, white space around the value included. A longer
-  entry is not read; it counts as an entry that violates the schema.
+  entry is not read; it counts as an entry that violates the schema and has no readable `seq`,
+  so that it takes no part in the chain, and the reading goes on with the next line.
 
 An audit log is **valid** if, in file order:
 
 1. every entry conforms to the schema and to the rules of Section 9.1 that the schema
-   cannot express (displayed text, a former value that differs from the current one,
-   `enforced` against the vocabulary and `vocabulary` against the category), and the
-   `up_to_seq` of a `log.truncated` entry is
-   smaller than the entry's own `seq`; from audit/v1 on, also: the `id` of an entry repeats
-   the `id` of no earlier entry of the log, whatever that entry's version (an entry of
-   version 0 is not held to this, Section 14; an entry that is not I-JSON or not an object
-   has no `id` that can be read and is not compared);
+   cannot express: displayed text; a former value that differs from the current one; two
+   different sets of areas in `areas_changed`; `enforced` against the vocabulary and
+   `vocabulary` against the category; the `up_to_seq` of a `log.truncated` entry smaller
+   than the entry's own `seq`; the range of a `log.exported` entry before the entry itself;
+   the one form of a public origin (Section 11.7 item 1); (v1) the canonical form of a trusted
+   proxy; and (v1) no deviation that a correction tolerates in an earlier version (Section 14);
 2. the first entry either has `seq` 1, or a later `log.truncated` entry with
    `up_to_seq` = `seq` − 1 and `last_digest` = `prev` of the first entry is present;
 3. every subsequent entry has the `seq` of its predecessor plus 1 and its `prev` is the
@@ -1604,7 +1635,14 @@ An audit log is **valid** if, in file order:
 
 A new entry MUST be I-JSON (Section 3.1 item 1). An entry that is not I-JSON violates
 condition 1, except for a deviation listed as a correction (Section 14), which a verifier
-accepts in an existing log.
+accepts in an existing entry of a version the correction names; in an entry of a later
+version the deviation breaks condition 1, and the entry keeps its digest.
+
+A verifier does not check what the entries alone cannot show: that an entry was recorded
+before the execution (Section 9), that `evaluation` is what the mandate gives (Section 9.2),
+that the entries of one `request.group` carry the same `result` and that a `group` appears in
+no other request (Section 4.4), that every `id` is new, and that `recorded_at` and
+`request.time` are true. These are obligations of the writer.
 
 If an audit log is invalid, verification reports `broken_at`, determined condition by
 condition in the order given:
@@ -1636,12 +1674,16 @@ readable `seq`), or nothing if there is none:
   same reason, every entry with `event: log.checkpoint` is checked as a checkpoint
   (Section 9.5), and every `log.truncated` entry can account for a deleted beginning, whatever
   its version and whether or not it keeps the rules. A checkpoint that cannot be checked breaks
-  the integrity.
+  the integrity: one without a `log_id` or a `signature`, with keys or without, and with keys
+  one whose signature does not verify. A checkpoint signed with an algorithm of Section 7.1 that
+  the verifier does not implement, or with a key of a type it does not implement, is no finding:
+  the verifier states that it cannot check the log (Section 10.2: `unsupported`), and does not
+  call it damaged.
 - `conformance_broken_at`: an entry of a version the verifier knows that breaks condition 1, an
   entry whose `type` names no audit version, and an entry of an older version after one of a
   newer version, whether the verifier knows the newer one or not (Section 14).
-- `unknown_version_at`: an entry whose `type` names a version of the audit format
-  (`https://home-mandate.org/audit/v` and a version number) that the verifier does not know.
+- `unknown_version_at`: an entry whose `type` names a version of the audit format (by the
+  grammar of Section 14) that the verifier does not know.
   It checks the content of no entry from there on against condition 1, and the chain on.
 
 A log is valid exactly if there is no finding. An entry of an unknown version breaks condition 1
@@ -1680,8 +1722,12 @@ writer of the log cannot change it.
 ### 9.5 Checkpoints
 
 A checkpoint anchors the log: a signed statement that the log with a certain identifier
-had a certain entry at a certain position. The key that signs it MUST NOT be available to
-whoever can merely write the log file; the public key is kept outside the log.
+had a certain entry at a certain position. Where the platform offers a place for the key that
+whoever can merely write the log file cannot read (a hardware or operating system keystore, a
+separate process or machine), the key that signs checkpoints MUST be kept there. Where it does
+not, as in a container or an add-on whose process, log and key share one disk, the
+implementation MUST say so to the household: its checkpoints then show only that this process
+wrote the log. The public key is kept outside the log.
 
 A checkpoint is an entry with `event: log.checkpoint` and
 
@@ -1732,6 +1778,23 @@ A verifier that was given keys additionally reports
   not greater than the anchored `seq`). A `log.truncated` entry after the last checkpoint
   can have been written by anyone who can write the log.
 
+Every verifier, with keys or without, reports `checkpoint_gap_at` for a valid log that has a
+checkpoint: the `seq` of the first entry at which the writer is seen not to keep the cadence of
+item 3 of "The signer", counting from the first checkpoint of the log. After a checkpoint, by
+`recorded_at`, that is
+
+- the 1001st entry after it that is not a checkpoint;
+- if an entry was recorded within 24 hours of the checkpoint: the first entry recorded more
+  than 24 hours after it, a checkpoint included;
+- if the first entry after the checkpoint was recorded later than that: the entry after that
+  first one, unless it is a checkpoint.
+
+This is no finding and does not make the log invalid, but entries after a gap stayed
+unanchored longer than they should. It means something only for a log whose checkpoints verify
+with keys: without keys, anyone who can write the log can write a checkpoint entry. Before the
+first checkpoint nothing is checked, so a log without any checkpoint has no
+`checkpoint_gap_at`.
+
 Without keys, the signatures are not checked and nothing is anchored. An implementation
 MUST therefore write a checkpoint directly after every `log.truncated` entry, and a
 relying party SHOULD give the verifier the `log_id` it expects: without it, the log of
@@ -1749,9 +1812,11 @@ checkpoints (a part of the implementation, a separate process, a hardware key)
    log file: someone who can write the file but has no key could otherwise change the entries
    after the last checkpoint, recompute the chain, and have the next checkpoint anchor the
    forgery;
-2. MUST keep the highest `seq` it signed for a `log_id`, with its digest, where whoever can
-   write the log cannot change it, and MUST NOT sign a `seq` that is not higher. Two signed
-   digests for one position of one log would be two histories;
+2. MUST keep the highest `seq` it signed for a `log_id`, with its digest, with the key: where
+   whoever can write the log cannot change it, if the platform offers such a place, and MUST
+   NOT sign a `seq` that is not higher. Two signed digests for one position of one log would be
+   two histories. Where key and log share one disk, a restore of the whole disk resets this
+   too; only a copy outside the machine (below) shows it;
 3. signs often enough: an implementation that signs checkpoints MUST append one at the latest
    after 1000 further entries and at the latest 24 hours after the previous one, if entries
    were appended since; it MAY append them more often. The part of the log that is not
@@ -1770,8 +1835,18 @@ checkpoints signed before, nobody without the key can sign new ones, and the tim
 checkpoint names is part of what it signs. What it does not add: it does not prevent the removal of entries after the last checkpoint, and a verifier
 that does not know how far the log should reach cannot tell that the log and its last
 checkpoints were removed together. Implementations SHOULD write a checkpoint at regular
-intervals, and a party that relies on the log SHOULD keep the `log_id` and the highest
-anchored `seq` it has seen.
+intervals.
+
+A party that relies on the log SHOULD keep, outside the machine that writes it, the `log_id`,
+the public key and the `seq` and digest of the last checkpoint it saw, and check at the next
+verification that the log still holds an entry with that `seq` and that digest (or a
+`log.truncated` entry that accounts for it). The `seq` alone is not enough: a log rolled back
+and grown again past that `seq`, with another history under the same `log_id`, keeps it. A key
+that was replaced (`config.changed`, `checkpoint_key`) still verifies checkpoints that whoever
+holds it signs later; a relying party SHOULD NOT accept checkpoints of a replaced key that come
+after the entry recording its replacement. The conformance class `audit-anchored` tests that a
+verifier checks checkpoints; where the key is kept cannot be tested through the test
+interface.
 
 ## 10. Test interface
 
@@ -1819,7 +1894,7 @@ passed for its class, as for an operation it does not offer.
 | `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate, or of the revoked mandate the result names, Section 4.3) if there is one |
 | `succession` | `stored`, `offered`, optionally `stored_revoked` | `accept`; with `accept`, `confirm: true` if the successor takes effect only after a human confirmed it (Section 3.5) |
 | `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer) | `valid`; `digest` if valid |
-| `verify_audit` | `entries` (array of entry texts), `jsonl` (the exchange format), `entries_base64` or `jsonl_base64`; optionally `keys` and `log_id` | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given; `integrity_broken_at`, `conformance_broken_at` and `unknown_version_at` for each finding there is (Section 9.4) |
+| `verify_audit` | `entries` (array of entry texts), `jsonl` (the exchange format), `entries_base64` or `jsonl_base64`; optionally `keys` and `log_id` | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given; `integrity_broken_at`, `conformance_broken_at` and `unknown_version_at` for each finding there is (Section 9.4); `checkpoint_gap_at` if valid and there is a gap (Section 9.5) |
 | `entry_digest` | `entry` | `digest` |
 
 `request` is the input of the evaluation as the PEP determines it: `resource`
@@ -2205,7 +2280,9 @@ from its own `request`. The request is decided as Section 4.4 decides a request 
 several resources, with one difference: the former identifier is evaluated for the
 decision only. It is not shown to an approver as a resource of its own, nothing is executed
 on it, and the request counts once towards the rate limit; the action is executed, if at
-all, on the current identifier only.
+all, on the current identifier only. The entry of a former identifier carries the `result` of
+the request like every entry of its `group` (Section 4.4), `executed` included: it records what
+became of the request, not that anything ran on that identifier.
 
 ### 11.5 Telling the agent its limits
 
@@ -2315,10 +2392,13 @@ Agents that run in the cloud reach an implementation from the internet: through 
 household runs, through a relay (the Home-Mandate Relay Specification, RELAY-v0, in the
 repository home-mandate/relay-spec), or through a forwarded port. An implementation is
 **reachable from outside** when it accepts connections of agents under a name
-that can be reached from the internet. This section states what holds for such an implementation,
+or an address that can be reached from the internet, a port forwarded to an IP address
+included. This section states what holds for such an implementation,
 whichever way it is reached. An implementation that only its own network can reach conforms
 without it. One that is reachable from outside MUST meet it, and an implementation that does not
-meet it MUST NOT offer, in its setup or its documentation, to be reached from outside.
+meet it MUST NOT offer, in its setup or its documentation, to be reached from outside. Because
+an IP address is not a public origin (item 1), an implementation MUST NOT offer to be reached
+from outside under an address alone.
 
 1. **Public origin.** The **public origin** is the origin (RFC 6454) under which agents reach the
    implementation from outside. It is configured, by a human at the setup or by the way in (a relay
@@ -2326,10 +2406,13 @@ meet it MUST NOT offer, in its setup or its documentation, to be reached from ou
    `X-Forwarded-Host`, `X-Forwarded-Proto` or any other header. It is written in one form only:
    `https://`, the host, and `:` and the port only if the port is not 443, in decimal without a
    leading zero; no userinfo, path, query or fragment, not even a single `/`. The host is a DNS
-   name of at least two labels without a final dot; each label consists of lower-case letters,
-   digits and hyphens and neither begins nor ends with a hyphen, a label that is not ASCII is
-   written as its A-label, IDNA lookup (UTS 46, RFC 5891) maps the name to itself, and the last
-   label is not all digits. An IP address is not a public origin. An implementation has exactly
+   name of at least two labels without a final dot, at most 253 bytes long; each label is 1 to
+   63 bytes of lower-case letters, digits and hyphens and neither begins nor ends with a hyphen, a
+   label that is not ASCII is written as its A-label, and the last label is not all digits. A
+   label that begins with `xn--` decodes with Punycode (RFC 3492) to a label with a character
+   outside ASCII, and encoding that label gives the same `xn--` label back; an implementation MAY
+   in addition check the label with IDNA (UTS 46, RFC 5891) and refuse it if IDNA lookup does not
+   map it to itself. An IP address is not a public origin. An implementation has exactly
    one public origin at a time.
 2. **Issuer.** Where agents sign in with OAuth, the issuer identifier of the authorization server
    (RFC 8414) is the public origin, character for character. The authorization servers in the
@@ -2388,7 +2471,12 @@ meet it MUST NOT offer, in its setup or its documentation, to be reached from ou
      receive a token that is not bound. A household MAY refuse tokens that are not bound
      altogether (`config.changed`, `unbound_tokens`). A later version of this specification
      ends the transition.
-   - The first binding of an agent is recorded with `agent.bound`.
+   - An agent is bound to one key at a time. A grant with another key for an agent that is
+     already bound is refused until a human reconnects the agent (Section 11.3); the key of the
+     next grant after the reconnection binds it anew. Every new key of an agent, the first and
+     every one after a reconnection, is recorded with `agent.bound`.
+   - Where a refresh token that was replaced is presented again and ends the tokens of its grant
+     (the transition below), that end is recorded with `credentials.withdrawn` (`refresh_reuse`).
 
    *Informative:* for MCP, DPoP is the extension SEP-1932. A bound token is of no use to whoever
    steals it later; it does not protect against whoever ends the TLS connection while it is open
@@ -2405,10 +2493,22 @@ meet it MUST NOT offer, in its setup or its documentation, to be reached from ou
      the public origin, and their precertificates, by the public key that agents are shown: the
      key of the implementation, or, where a proxy of the household ends TLS (item 3), the key of
      that proxy. The current key counts always. An earlier key counts only for a certificate that
-     was logged before that key was replaced, going by the timestamp of its log entry; if the
-     certificate is in several logs, its first entry counts, and a certificate logged at the
-     moment the key was replaced is not recognised. An implementation that cannot learn the key
-     agents are shown recognises no certificate as its own.
+     was logged before that key was replaced, going by the time of its first log entry: as a
+     source reports it, or else the earliest timestamp of the SCTs embedded in the certificate, or
+     else the time the implementation first saw the certificate; a certificate logged at the
+     moment the key was replaced is not recognised. The implementation learns the key from the
+     certificate presented under the public origin, as an agent sees it; where it cannot, for
+     example behind the household's proxy, the administrator MAY configure the key
+     (`config.changed`, `server_key`). A certificate is logged when it is issued, before it is put
+     to use: before raising an alarm for a certificate that is not recognised, the implementation
+     reads the key presented under the public origin again, and recognises the certificate if
+     it matches. A learned key that differs from the current one is never taken silently: the
+     implementation shows the change to the administrator and records it with `config.changed`
+     (`server_key`, an `actor` of kind `system`). Whoever controls the path between the
+     implementation and its public origin can show it another key; the record makes that
+     visible, and a key the administrator configured is not replaced by one the implementation
+     reads. An implementation that can neither learn the key nor have it configured recognises
+     no certificate as its own.
    - **Alarm.** A certificate for the host that is not recognised, and that was valid at any time
      since monitoring began or is not valid yet, raises an alarm to the local administrator with
      its issuer, its names and its validity. A validity period, bounds included, that overlaps the
@@ -2419,18 +2519,29 @@ meet it MUST NOT offer, in its setup or its documentation, to be reached from ou
    - **Acknowledgement.** The administrator MAY acknowledge a certificate (for example the
      household's own wildcard certificate for its zone), which ends the alarm for that certificate
      only. A certificate is identified by the SHA-256 digest of the DER of its TBSCertificate with
-     the poison and the SCT list removed, so that a precertificate and its certificate are one; the
-     acknowledgement names this digest and nothing else (not a name, an issuer, a serial number or
-     a key), and it also ends the alarm for the precertificate.
+     the poison and the SCT list removed, so that a precertificate and its certificate are one
+     (`ct-v0.json` gives the steps and vectors; for a precertificate that a precertificate
+     signing certificate issued, the issuer and the authority key identifier are first replaced
+     by those of the final certificate, RFC 6962 Section 3.1); an acknowledgement by this digest ends the alarm
+     for the certificate and its precertificate, and names nothing else (not a name, an issuer or
+     a serial number). The administrator MAY instead acknowledge a public key (the SHA-256 of a
+     SubjectPublicKeyInfo): every certificate for that key then counts as the household's own,
+     those logged already and later ones, until the public origin changes. Whoever holds the
+     private key of such a certificate can serve the public origin, so an acknowledgement by key
+     is for a key the household holds, such as that of its own proxy.
    - **Sources.** The implementation queries at least two independent sources and takes every
      certificate that any of them reports. A source is a monitoring service, or the logs that the
      browsers' log lists accept, read by the implementation itself with their signed tree heads
      verified. Services of one provider count as one source. A source run by whoever runs the way
      in (the operator of a relay) does not count. The queries go directly over the household's own
-     connection to the internet, never through the relay or the tunnel. The implementation tells
-     its administrator that monitoring is limited when, for 24 hours, only one source has
-     answered, and that monitoring is not possible when none has. `ct-sources.md` lists services
-     (informative).
+     connection to the internet, never through the relay or the tunnel. A source has answered
+     when a query returned a complete result for the host, an empty one included; an error, a
+     timeout, a refusal or a rate limit is no answer. The implementation tells its administrator
+     that monitoring is limited when, for 24 hours, only one source has answered, and that
+     monitoring is not possible when none has. Monitoring fails open: while it is limited or not
+     possible, remote access goes on. Alarms and the state of monitoring go to the local
+     administrator, where the implementation shows its alarms, and an alarm stays until the
+     certificate is acknowledged or recognised. `ct-sources.md` lists services (informative).
    - **Record.** Alarms and past exposures are recorded with `cert.unexpected`, once for each
      certificate and status, acknowledgements with `cert.acknowledged`, and the state of
      monitoring with `ct.status` (Section 9.2).
@@ -2479,6 +2590,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Device or integration that chooses its own identifier, class or area** (a device paired, an integration that discovers devices or changes them in an update, a device that names itself like another) | A resource that newly comes under an `allow` rule is reported to the household and treated as critical until a human has seen it; an identifier a mandate names that the platform gives to another resource counts as a new resource (Section 3.4); a name that fits more than one resource is `unknown_resource` (Section 4) | A household that removes the marking without looking. The marking does not protect `read` or an `allow` rule with `allow_critical`; a new camera or presence sensor can be read at once under a `read` rule for its category. An implementation that cannot tell that the platform gave an identifier to another device |
 | **Controls the clock or the time zone** (time spoofed on the network, a member of the household who may change the configuration) | A clock behind the newest entry of the log stops every request; timeouts and the rate limit use a clock that never runs backwards (Section 11.4); a change of the time zone or of the clock check is recorded (`config.changed`) | A clock moved forward, or backward but still after the reference time, shifts validity periods and time windows within that range. A clock that ran forward stops the agents after its correction until a human confirms the time. A changed time zone moves every time window; the log shows it, it does not prevent it |
 | **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it; a later checkpoint anchors them only if its signer took the digest from the log file, which Section 9.5 forbids. A signer whose stored highest `seq` was reset, together with a restored log, can sign a second history. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only. Entries of an invented version leave the content of the log from there on unchecked; a verifier reports this (Section 9.4) and still checks the chain, so a change before them stays visible |
+| **Whoever can submit documents** (an issuer that is not trusted, an upload, a channel for mandates from outside) | Every rejected document is recorded (`mandate.rejected`), and the number of documents a PEP takes from each source is limited, so the entries do not grow without bound (Section 9.2) | A source over its limit is refused; whatever it submits then is not recorded. A household that is told of many rejections from one source learns of the attempt, not of each document |
 | **Failure of the audit log** (full or read-only storage, a crash between the command and the entry, a log removed while the PEP runs) | The PEP stores what it will record before it dispatches a command and denies when it cannot (`denied_by: audit`); an execution the process did not see end is recorded as `outcome_unknown` (Sections 9, 11.1 item 9) | A full disk stops the agents, not the household: the platform itself is unaffected. Whoever can fill the storage denies service to every agent; the entries that record it are written once the log can be written again |
 | **Agent, device or integration that writes into the log** (a resource, area or action name with a line feed, a control character, a direction-changing mark, a terminal escape sequence or markup) | Such a name matches nothing and is denied (Section 3.4); the entry records it as sent, and whatever renders entries for a human MUST show the values of `request` as a JSON string shows them, escapes included (Sections 9.1, 13); identifiers in mandates and in matched requests are ASCII | An interface, a consumer of an export or a verifier that ignores Section 9.1 shows a forged or hidden line, or runs an escape sequence in a terminal |
 | **Attacker who replays an old mandate** | `version` and succession (Section 3.5); signature of the issuer (Section 7); a signed mandate expires and names its `audience`, so it is not replayed at another verifier (Sections 3.5, 7.1) | Mandates without `version` are not ordered. The protection is the receiver's memory of the highest version; a receiver that lost it (new installation, restored backup) accepts an old signed mandate until it expires |
@@ -2520,6 +2632,9 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
   origin (Section 11.7).
 
 ### 12.4 Advice for implementers
+
+`pitfalls.md` (informative) lists mistakes that implementers have made with the libraries of
+their languages, each with the cases that catch it.
 
 - **Broad mandates.** `{"any": true}` with `"*"` and no `expires` is valid. Interfaces
   SHOULD warn before such a mandate is stored, SHOULD require a separate confirmation for
@@ -2616,6 +2731,13 @@ behavior of the people in a household and MUST be protected like the devices the
   be created only by a human and are recorded with `log.exported` (Section 9.2), with the
   range of entries they contained. An export carries the values of `request` as the agent
   sent them; whoever reads it treats them as untrusted text (Section 9.1).
+- **Digests.** Every digest in the log lets whoever reads it test a guess. `mandate.received`
+  covers whatever arrived, also input that is not a mandate, such as a short secret pasted into
+  the wrong field; it is as confidential as that input (Section 9.1), and an export or a shared
+  log carries it.
+- **Relays.** The `relay` member names the operator, the home ID and the public names of a
+  pairing (Section 9.1); together they identify the household's way in and its names in
+  Certificate Transparency logs.
 - **Agents.** What an agent learns through `read` leaves the household with the agent.
   A mandate is also a decision about which data an agent may see.
 - **Features.** What a resource can carry out is information about it, often about its
@@ -2659,6 +2781,15 @@ behavior of the people in a household and MUST be protected like the devices the
   that only makes documents valid that were invalid before, such as a new optional member of
   a mandate, is compatible; it is listed in the Changelog and keeps the `type`. The audit
   entry is the exception: every addition comes with a new version (bullet **Audit versions**).
+- **Obligations.** A release without a new major MAY ask more of implementations, as long as
+  no document changes its verdict: a SHOULD that becomes a MUST, a request form that is
+  narrowed (such as a `time` with `-00:00` or the year `0000`), or a check of signatures that
+  rejects what only a flawed or hostile signer produces (Section 7.1). A checkpoint signature
+  that an earlier release accepted and a later one rejects for such a reason was never a valid
+  signature of the log. An existing value of an audit entry MAY be used for a further case
+  where the verification of every existing log stays as it was (for example `denied_by: audit`
+  for a clock behind the log, Section 11.4); the `error` codes that tell such cases apart are
+  then RECOMMENDED. The Changelog lists these changes under "Upgrading".
 - **Audit versions.** A reader of an audit log never skips what it does not know: an
   implementation could otherwise write anything into a log and a verifier would let it pass.
   So every addition to the audit entry (a new event, a new member, a new value of a member)
@@ -2669,14 +2800,25 @@ behavior of the people in a household and MUST be protected like the devices the
   monitoring, token binding, withdrawn credentials and relays (Sections 9.2, 11.3, 11.7). A
   verifier that meets a version it does not know reports it as such (`unknown_version_at`,
   Section 9.4), and an implementation that shows the result follows Section 9.4: the log is
-  not shown as damaged. Rollout:
+  not shown as damaged. The `type` of an audit entry names a version exactly if it matches
+  `^https://home-mandate\.org/audit/v(0|[1-9][0-9]{0,8})$`; any other `type` names none. An
+  implementation **supports** a version when it writes it. Every later version keeps what a
+  verifier of an earlier one reads in entries of versions it does not know, and this cannot
+  change without a new major of the audit format: the exchange format (JSON Lines, UTF-8, the
+  limit of 65 536 bytes per entry), I-JSON, JCS and SHA-256 as the digest of an entry, `seq`,
+  `prev`, `id` as a string, the events `log.checkpoint` and `log.truncated`, the members
+  `checkpoint.log_id` and `checkpoint.signature` with the payload of Section 9.5 (whose `at` is
+  the entry's `recorded_at`), and `truncated.up_to_seq` and `truncated.last_digest`. Rollout:
   - An implementation MUST NOT write entries of a new version before its own verification,
     the display of its log and its export read them.
   - It SHOULD NOT write them before the reference verifiers of this repository and of
     spec-ts with that version are released, so that the tools households use can read them.
-  - An implementation that signs checkpoints MUST append a `log.checkpoint` immediately before
-    its first entry of a new version, so that the part before can be verified completely by
-    tools that know only the older version.
+  - An implementation that signs checkpoints MUST append a `log.checkpoint` of the older
+    version as the last entry before its first entry of the newer version, so that the part
+    before can be verified completely by tools that know only the older version.
+  - An obligation that only a newer version can record (in this release, those of Sections
+    4.4, 11.3 and 11.7 that audit/v1 records) is recorded once the implementation writes that
+    version; until then it records what its version can.
 - **Correction.** Implementations can turn out to have been more lenient than a rule. The
   rule is then enforced without making an unaltered log invalid, and the deviation is listed
   in `data/corrections-v0.json`. From that release on, an implementation MUST NOT write an
@@ -2696,7 +2838,10 @@ behavior of the people in a household and MUST be protected like the devices the
   - An implementation that supports a newer major or version MUST still read the documents of
     the older ones it supported before, and MUST write new audit entries in the newest version
     it supports and new checkpoints in the newest major. An audit log is not rewritten; it
-    continues in the newer version.
+    continues in the newer version. An implementation that finds entries of a newer version
+    in its log than it writes (it was downgraded) MUST NOT append to that log: it starts a new
+    log with a new `log_id`, its first entry with `seq` 1, and keeps the old one, as after a
+    restore (Section 9.5).
   - A verifier MUST accept an audit log whose earlier entries carry an older version than
     its later entries, provided every entry conforms to the schema of its own `type` and
     the chain (Section 9.4) holds across the change. An entry of an older version after an
@@ -2753,6 +2898,80 @@ behavior of the people in a household and MUST be protected like the devices the
 
 ### Unreleased
 
+- **Upgrading from v0.1.x.** No mandate and no audit log of version 0 changes its verdict
+  (Section 14). Implementations get new obligations, which Section 14 now allows in a release
+  without a new major (bullet **Obligations**): request times are narrower (`-00:00` and the
+  year `0000` are not readable), signatures that only a flawed or hostile signer produces are
+  rejected (Section 7.1), several SHOULDs became MUSTs, and an implementation that writes audit
+  version 1 records what Sections 4.4, 11.3 and 11.7 ask. Existing values of version 0 serve
+  further cases where no verification changes (`denied_by: audit` for a clock behind the log,
+  `cause: expired` for a proposal, `request.group` for a renamed resource), with the `error`
+  codes that tell them apart RECOMMENDED.
+- Audit version 1 before its release, and the text around it:
+  - A request for several resources denied as a whole can record an entry with
+    `confirm: true` and `denied_by: mandate` without an `approval` object; one it has is
+    approved or cancelled for a revocation, as outside a group (Section 9.1; `v149`, `v150`,
+    `v170`).
+  - A number that is not an integer of a magnitude below 2^53 gives an entry no digest
+    (Section 9.4); `duration_ms` and `count` have that maximum in the schema (`v151`,
+    `v152`).
+  - The correction for noncharacters applies to version 0 only: in a version 1 entry a
+    noncharacter is a conformance finding, and the entry keeps its digest (`v153`).
+  - A checkpoint without `log_id` or `signature` breaks the integrity, with keys or without
+    (`v154`, `v155`); a verifier that lacks the algorithm of a checkpoint reports that it
+    cannot check the log instead of calling it damaged (Section 9.4).
+  - A line longer than an entry may be does not end the reading of the exchange format
+    (`v156`).
+  - A verifier no longer reports a repeated `id`: nothing refers to an entry by its `id`, and
+    the check cost memory that grows with the log (`v139`, `v141` are valid now).
+  - New values: `config.changed` can record a removed setting (without `value`), the key
+    agents are shown (`server_key`) and a trusted proxy (`trusted_proxy`, in the canonical text
+    form of its address or prefix, `v171` to `v175`);
+    `credentials.withdrawn` the reuse of a refresh token (`refresh_reuse`); `cert.acknowledged`
+    a public key instead of a certificate; `agent.bound` every new key of an agent, which a
+    human must reconnect before another key binds it (Section 11.7 item 6).
+  - The `relay.*` events follow what a gateway can observe under RELAY-v0, which maps each of
+    them to its trigger: `relay.unpaired.cause` is `local`, `operator`, `offline_too_long` or
+    `bad_signature` (a replacement cannot be told apart and is no cause any more);
+    `relay.acme_account_changed.change` adds `pending`, `not_confirmed` and `foreign`; new
+    events `relay.monitoring_status`, `relay.key_changed`, `relay.replacement_pending` and
+    `relay.pin_mismatch` (Section 9.2; `v157`, `v158` to `v166`).
+  - Section 14 states the grammar of an audit version, what every later version keeps, what
+    "supports a version" means, which version the last checkpoint before a change of version
+    has, and that a downgraded writer starts a new log.
+  - Section 9.4 lists every rule of Section 9.1 a verifier checks beyond the schema and those
+    it cannot check.
+- Checkpoints (Section 9.5): the key is kept apart from the log where the platform allows it,
+  and an implementation says so where it does not; a relying party keeps the `seq` and the
+  digest of the last checkpoint it saw, not the `seq` alone, and does not accept checkpoints
+  of a replaced key; a verifier reports `checkpoint_gap_at` where a writer did not keep the
+  cadence, without making the log invalid (Section 10.2; `v167` to `v169`).
+- Section 11.7: reachable from outside includes a forwarded port to an IP address, and an
+  installation under an address alone is not offered; an `xn--` label must round-trip through
+  Punycode, and IDNA lookup is an option, not a requirement (`o03`, `o25`, `o26` unchanged);
+  the limits of 253 and 63 bytes are stated. Certificate Transparency behind the household's
+  own proxy: the key read again before an alarm, and recorded when it changes, a key the
+  administrator configures, an
+  acknowledgement by public key, the time of the first log entry from a source, from the
+  earliest SCT or from the first sight, what "answered" means, that monitoring fails open, and
+  where alarms go. `ct-v0.json` gains `acknowledged_keys` and `presented_key` (`t45` to
+  `t48`), cases for the state of monitoring (`m01` to `m06`) and certificates in DER with
+  their identity (`pre`, `cert`, `plain`); its description no longer claims how the test
+  values of digests and keys were derived.
+- `mandate.received` covers the document that carried a mandate, not the value inside a larger
+  JSON text; the limit counts bytes after the content coding is removed, and a PEP may refuse
+  any `Content-Encoding` (Section 9.1). A PEP limits how many documents from outside it takes
+  from each source, so that rejections cannot fill the log (Sections 9.2, 12.2). Section 13
+  covers `received` and the identifiers of a relay.
+- Smaller clarifications: the entry of a renamed resource's former identifier records the
+  result of the request (Section 11.4); a nesting depth beyond 32 has no canonical form
+  (Section 3.1); long issuer names in `cert.unexpected` are cut (Section 9.1); interfaces render
+  displayed text in an isolated direction context (Section 3.1 item 8); keys are identified by
+  their bytes, not by the signatures they verify (Section 7.1).
+- New informative files: `pitfalls.md`, mistakes implementers make with the libraries of their
+  languages, and `timezone-names.json`, the time zone names of tzdata 2026c in the form of
+  Section 4.2.
+
 - Rule-by-rule pass over the RFCs the specification references (#112):
   `conformance/RFC-COVERAGE.md` lists, for RFC 7493, 8785, 3339, 9562, 7515, 7517, 7518, 8037
   and 8032 and for Section 3.1 item 8, each rule with the cases that test it, or why the test
@@ -2806,10 +3025,8 @@ behavior of the people in a household and MUST be protected like the devices the
   - Section 9.1: the `digest` of a `mandate.rejected` needs a document with a canonical form.
     Section 7.2: how the signed form travels in `authorization_details` is not defined in
     this version.
-  - Audit version 1, which is not released yet (Sections 9.4 and 9.5): the `id` of an entry
-    does not repeat that of an earlier entry, a conformance finding (`v139`; version 0 is not
-    held to it, `a237`; a version 0 entry with the same `id` before a version 1 entry,
-    `v141`); `log_id` is a UUID of version 4 or 7, and a log with another one starts anew
+  - Audit version 1, which is not released yet (Sections 9.4 and 9.5): a writer gives every
+    entry a new `id`, and a verifier does not check it (`v139`, `v141`, `a237`); `log_id` is a UUID of version 4 or 7, and a log with another one starts anew
     when it switches to version 1 (`v140`); `seq` and `up_to_seq` are at most 2^53 − 1 in the
     schema, which only states what Section 9.4 says of a `seq` already; a `mandate.rejected`
     carries `received`, the SHA-256 of the bytes as they arrived, also for a document that is
