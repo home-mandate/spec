@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/home-mandate/spec/audit"
@@ -58,16 +57,21 @@ func Answer(req Request) Response {
 		return Response{Name: "Home-Mandate reference (Go)", Version: Version, Ops: []string{
 			OpValidate, OpEvaluate, OpSelect, OpSuccession, OpVerifySigned, OpVerifyAudit, OpEntryDigest}}
 	case OpValidate:
-		if req.Mandate == nil {
-			return missing("mandate")
+		doc, bad := document("mandate", req.Mandate, req.MandateBase64)
+		if bad != nil {
+			return *bad
 		}
-		m, err := evaluator.Parse([]byte(*req.Mandate))
+		m, err := evaluator.Parse(doc)
 		return Response{Valid: ptr(err == nil), Digest: m.Digest()}
 	case OpEvaluate:
-		if req.Mandate == nil || req.Request == nil {
-			return missing("mandate and request")
+		doc, bad := document("mandate", req.Mandate, req.MandateBase64)
+		if bad != nil {
+			return *bad
 		}
-		m, _ := evaluator.Parse([]byte(*req.Mandate)) // nil evaluates to invalid_mandate
+		if req.Request == nil {
+			return missing("request")
+		}
+		m, _ := evaluator.Parse(doc) // nil evaluates to invalid_mandate
 		er, ok := evaluation(*req.Request)
 		if !ok {
 			return invalidRequest(m)
@@ -92,6 +96,21 @@ func Answer(req Request) Response {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// document is the bytes of a document member: its text, or the bytes of its base64
+// alternative (SPEC-v0 section 10.2). A request carries exactly one of the two; bad is the
+// error response otherwise.
+func document(name string, text *string, b64 []byte) (doc []byte, bad *Response) {
+	switch {
+	case text != nil && b64 != nil:
+		return nil, &Response{Error: "both " + name + " and " + name + "_base64"}
+	case b64 != nil:
+		return b64, nil
+	case text != nil:
+		return []byte(*text), nil
+	}
+	return nil, ptr(missing(name))
+}
 
 func missing(what string) Response { return Response{Error: "missing " + what} }
 
@@ -243,17 +262,34 @@ func verifyAudit(req Request) Response {
 		}
 		anchor = &audit.Anchor{Keys: keys, LogID: req.LogID}
 	}
+	forms := 0
+	for _, given := range []bool{req.JSONL != nil, req.Entries != nil, req.JSONLBase64 != nil, req.EntriesBase64 != nil} {
+		if given {
+			forms++
+		}
+	}
+	if forms > 1 {
+		return Response{Error: "more than one of jsonl, entries, jsonl_base64 and entries_base64"}
+	}
+	list := entries(req.Entries)
+	if req.EntriesBase64 != nil {
+		list = req.EntriesBase64
+	}
+	isJSONL, jsonl := req.JSONL != nil || req.JSONLBase64 != nil, req.JSONLBase64
+	if req.JSONL != nil {
+		jsonl = []byte(*req.JSONL)
+	}
 	var r audit.Result
 	var err error
 	switch {
-	case req.JSONL != nil && anchor != nil:
-		r, err = audit.VerifyJSONLinesAnchored(strings.NewReader(*req.JSONL), *anchor)
-	case req.JSONL != nil:
-		r, err = audit.VerifyJSONLines(strings.NewReader(*req.JSONL))
+	case isJSONL && anchor != nil:
+		r, err = audit.VerifyJSONLinesAnchored(bytes.NewReader(jsonl), *anchor)
+	case isJSONL:
+		r, err = audit.VerifyJSONLines(bytes.NewReader(jsonl))
 	case anchor != nil:
-		r, err = audit.VerifyAnchored(entries(req.Entries), *anchor)
+		r, err = audit.VerifyAnchored(list, *anchor)
 	default:
-		r, err = audit.Verify(entries(req.Entries))
+		r, err = audit.Verify(list)
 	}
 	if err != nil {
 		return Response{Error: err.Error()}

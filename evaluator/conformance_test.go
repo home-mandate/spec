@@ -18,6 +18,7 @@ type mandateSource struct {
 	Mandate       string          `json:"mandate"`
 	MandateInline json.RawMessage `json:"mandate_inline"`
 	MandateRaw    *string         `json:"mandate_raw"`
+	MandateBase64 []byte          `json:"mandate_base64"`
 }
 
 func (s mandateSource) bytes(t *testing.T) []byte {
@@ -33,6 +34,8 @@ func (s mandateSource) bytes(t *testing.T) []byte {
 		return s.MandateInline
 	case s.MandateRaw != nil:
 		return []byte(*s.MandateRaw)
+	case s.MandateBase64 != nil:
+		return s.MandateBase64
 	}
 	t.Fatal("case has no mandate")
 	return nil

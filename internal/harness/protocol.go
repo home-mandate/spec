@@ -28,7 +28,12 @@ type Request struct {
 	// ID names the conformance case, for diagnostics only.
 	ID string `json:"id,omitempty"`
 
-	Mandate  *string         `json:"mandate,omitempty"`
+	Mandate *string `json:"mandate,omitempty"`
+	// MandateBase64 is the alternative to Mandate that carries the bytes of the document
+	// (SPEC-v0 section 10.2): bytes that are not UTF-8 cannot travel in a JSON string.
+	// encoding/json writes and reads []byte as base64 with padding (RFC 4648 section 4).
+	MandateBase64 []byte `json:"mandate_base64,omitempty"`
+
 	Mandates []StoredMandate `json:"mandates,omitempty"`
 	Subject  *Subject        `json:"subject,omitempty"`
 	Request  *Evaluation     `json:"request,omitempty"`
@@ -44,8 +49,12 @@ type Request struct {
 
 	JSONL   *string  `json:"jsonl,omitempty"`
 	Entries []string `json:"entries,omitempty"`
-	LogID   string   `json:"log_id,omitempty"`
-	Entry   *string  `json:"entry,omitempty"`
+	// JSONLBase64 and EntriesBase64 are the alternatives to JSONL and Entries that carry
+	// bytes, like MandateBase64.
+	JSONLBase64   []byte   `json:"jsonl_base64,omitempty"`
+	EntriesBase64 [][]byte `json:"entries_base64,omitempty"`
+	LogID         string   `json:"log_id,omitempty"`
+	Entry         *string  `json:"entry,omitempty"`
 }
 
 // StoredMandate is a mandate an implementation has stored, with its status.

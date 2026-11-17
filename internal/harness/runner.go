@@ -153,11 +153,24 @@ func (r *runner) record(class, file, id string, resp Response, err error, got, w
 	r.report.Failures = append(r.report.Failures, Failure{Class: class, File: file, ID: id, Got: got, Want: want})
 }
 
-// mandateSource is how conformance files refer to a mandate.
+// mandateSource is how conformance files refer to a mandate. MandateBase64 holds bytes
+// that a JSON string cannot carry; it goes to the implementation as mandate_base64.
 type mandateSource struct {
 	Mandate       string          `json:"mandate"`
 	MandateInline json.RawMessage `json:"mandate_inline"`
 	MandateRaw    *string         `json:"mandate_raw"`
+	MandateBase64 []byte          `json:"mandate_base64"`
+}
+
+// put sets the mandate of req in the form the case gives.
+func (s mandateSource) put(fsys fs.FS, req *Request) error {
+	if s.MandateBase64 != nil {
+		req.MandateBase64 = s.MandateBase64
+		return nil
+	}
+	text, err := s.text(fsys)
+	req.Mandate = &text
+	return err
 }
 
 func (s mandateSource) text(fsys fs.FS) (string, error) {
@@ -167,6 +180,10 @@ func (s mandateSource) text(fsys fs.FS) (string, error) {
 		return string(data), err
 	case s.MandateRaw != nil:
 		return *s.MandateRaw, nil
+	case s.MandateBase64 != nil:
+		// The HTTP binding passes mandates as text: it stores only valid mandates, and the
+		// bytes of a valid mandate are UTF-8.
+		return string(s.MandateBase64), nil
 	}
 	return string(s.MandateInline), nil
 }
@@ -281,11 +298,11 @@ const (
 func (r *runner) evaluation() error {
 	cases, err := load[evaluationCase](r.fsys, fileCases, "cases")
 	for _, c := range cases {
-		text, readErr := c.text(r.fsys)
-		if readErr != nil {
+		req := Request{Op: OpEvaluate, ID: c.ID, Request: c.request()}
+		if readErr := c.put(r.fsys, &req); readErr != nil {
 			return fmt.Errorf("conformance: case %s: %w", c.ID, readErr)
 		}
-		resp, doErr := r.impl.Do(Request{Op: OpEvaluate, ID: c.ID, Mandate: &text, Request: c.request()})
+		resp, doErr := r.impl.Do(req)
 		got, want := c.outcome(resp.Decision, resp.Reason, resp.RuleID, resp.ApprovalTimeout, resp.Enforced, resp.Confirm, nil)
 		r.record(ClassEvaluator, fileCases, c.ID, resp, doErr, got, want)
 	}
@@ -330,11 +347,11 @@ func (r *runner) digests() error {
 func (r *runner) validate(file string, want func(validityCase) string) error {
 	cases, err := load[validityCase](r.fsys, file, "cases")
 	for _, c := range cases {
-		text, readErr := c.text(r.fsys)
-		if readErr != nil {
+		req := Request{Op: OpValidate, ID: c.ID}
+		if readErr := c.put(r.fsys, &req); readErr != nil {
 			return fmt.Errorf("conformance: case %s: %w", c.ID, readErr)
 		}
-		resp, doErr := r.impl.Do(Request{Op: OpValidate, ID: c.ID, Mandate: &text})
+		resp, doErr := r.impl.Do(req)
 		r.record(ClassEvaluator, file, c.ID, resp, doErr, validity(resp), want(c))
 	}
 	return err
@@ -400,9 +417,12 @@ type auditCase struct {
 	EntryDigests []string          `json:"entry_digests"`
 	Entries      []json.RawMessage `json:"entries"`
 	JSONL        *string           `json:"jsonl"`
-	Keys         string            `json:"keys"`
-	LogID        string            `json:"log_id"`
-	Anchored     *int64            `json:"anchored"`
+	// The forms with bytes a JSON string cannot carry (SPEC-v0 section 10.2).
+	EntriesBase64 [][]byte `json:"entries_base64"`
+	JSONLBase64   []byte   `json:"jsonl_base64"`
+	Keys          string   `json:"keys"`
+	LogID         string   `json:"log_id"`
+	Anchored      *int64   `json:"anchored"`
 	// The findings of SPEC-v0 section 9.4; absent: none of that kind.
 	IntegrityBrokenAt   *int64 `json:"integrity_broken_at"`
 	ConformanceBrokenAt *int64 `json:"conformance_broken_at"`
@@ -422,7 +442,8 @@ func (r *runner) audit() error {
 func (r *runner) auditFile(file string) error {
 	cases, err := load[auditCase](r.fsys, file, "logs")
 	for _, c := range cases {
-		req := Request{Op: OpVerifyAudit, ID: c.ID, JSONL: c.JSONL, LogID: c.LogID}
+		req := Request{Op: OpVerifyAudit, ID: c.ID, JSONL: c.JSONL, LogID: c.LogID,
+			JSONLBase64: c.JSONLBase64, EntriesBase64: c.EntriesBase64}
 		for _, e := range c.Entries {
 			req.Entries = append(req.Entries, string(e))
 		}
@@ -458,9 +479,9 @@ func auditOutcome(c auditCase, resp Response) (got, want string) {
 		want = fmt.Sprintf("valid anchored=%d", *c.Anchored)
 	}
 	// A valid log is reported with the number of its entries (SPEC-v0 section 9.4).
-	countEntries := c.Expected == "valid" && c.JSONL == nil
+	countEntries := c.Expected == "valid" && c.JSONL == nil && c.JSONLBase64 == nil
 	if countEntries {
-		want += fmt.Sprintf(" entries=%d", len(c.Entries))
+		want += fmt.Sprintf(" entries=%d", len(c.Entries)+len(c.EntriesBase64))
 	}
 	// The findings are compared in every case: an implementation that does not report them
 	// fails the cases of an invalid log.

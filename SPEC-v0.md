@@ -1180,7 +1180,9 @@ Fields of a case:
 
 `conformance/invalid-v0.json` contains mandates that are invalid per Section 3.1 and
 MUST be rejected (`mandate_inline`, or `mandate_raw` as a string if the
-error cannot be represented as a JSON object, such as duplicate keys).
+error cannot be represented as a JSON object, such as duplicate keys, or `mandate_base64` if
+it lies in the bytes, such as bytes that are not UTF-8: the bytes in base64 with padding,
+RFC 4648 section 4).
 
 `conformance/selection-v0.json` contains cases for Section 4.3: `mandates` (the stored
 mandates, each as `mandate_inline` with an optional `revoked`), `subject` (`client_id` and
@@ -1200,14 +1202,16 @@ for), `expected` (`valid` or `invalid`) and, for `valid`, the `digest` of the ma
 verifier under test counts as `hm-verifier:conf-0001`, the `audience` of the cases. The
 keys in `conformance/keys/` are test keys whose private parts are public.
 
-`conformance/digest-v0.json` contains, under `cases`, mandates (`mandate`, `mandate_inline` or
-`mandate_raw`) with their expected digest `digest` (Section 3.2).
+`conformance/digest-v0.json` contains, under `cases`, mandates (`mandate`, `mandate_inline`,
+`mandate_raw` or `mandate_base64`) with their expected digest `digest` (Section 3.2).
 
 `conformance/audit-v0.json` contains, under `logs`, audit logs: `entries` (the entries in
 file order), `expected` (`valid` or `invalid`), for `invalid` the expected position
 `broken_at` (Section 9.4) and optionally `entry_digests` (the digest of each entry, for
 debugging). Instead of `entries`, a log can be given as `jsonl`: the exchange format
-(Section 9.4) as one string, for cases about line separators. With `keys` (path to a JWK
+(Section 9.4) as one string, for cases about line separators. For cases about bytes, a log
+is given as `entries_base64` or `jsonl_base64` instead: the same in base64 with padding
+(RFC 4648 section 4). With `keys` (path to a JWK
 Set) the signatures of checkpoints are verified (Section 9.5), optionally against the
 expected `log_id`; `anchored` is then the expected `seq` up to which a verified checkpoint
 covers the log. Every log states the findings of Section 9.4 it has: `integrity_broken_at`,
@@ -1756,15 +1760,29 @@ Mandates, audit entries and logs are passed as JSON **text inside a string**, so
 arrive byte for byte (duplicate keys, number spellings and line separators are part of the
 cases).
 
+Bytes that are not UTF-8 cannot travel inside a JSON string, but Section 3.1 item 1 and
+Section 9.4 make them invalid (RFC 7493 section 2.1). For these cases, the members `mandate`
+(of `validate` and `evaluate`), `jsonl` and `entries` (of `verify_audit`) each have an
+alternative: `mandate_base64`, `jsonl_base64` and `entries_base64` (an array of strings, one
+per entry), the bytes of the document in base64 with padding (RFC 4648 section 4). The other
+operations and members have no such form. The test tool sends at least one byte (an empty
+document is sent as text) and canonical base64: no white space or line breaks, padding bits
+zero (RFC 4648 sections 3.3 and 3.5). A request carries one form of a member, never both; a
+request with both, or with a value that is not base64, is malformed and is answered with an
+`error`. The implementation reads the decoded bytes as it reads a document from storage or
+from the network, without decoding them in any other way first. An implementation that does
+not accept the base64 form answers `{"error": "unsupported"}`; the case then counts as not
+passed for its class, as for an operation it does not offer.
+
 | `op` | Request members | Response members |
 |---|---|---|
 | `capabilities` | – | `name`, `version`, `ops` (the operations offered) |
-| `validate` | `mandate` | `valid`; `digest` if valid |
-| `evaluate` | `mandate`, `request` | `decision`, `reason`, `rule_id` if Section 4.1 provides one, `approval_timeout` and `approvers` for `ask` and for a result that requires a confirmation, `mandate_digest` unless absent per Section 4.1, `enforced: false` for a `deny` that is not enforced (Section 4.6), `confirm: true` for one that requires a confirmation |
+| `validate` | `mandate` or `mandate_base64` | `valid`; `digest` if valid |
+| `evaluate` | `mandate` or `mandate_base64`, `request` | `decision`, `reason`, `rule_id` if Section 4.1 provides one, `approval_timeout` and `approvers` for `ask` and for a result that requires a confirmation, `mandate_digest` unless absent per Section 4.1, `enforced: false` for a `deny` that is not enforced (Section 4.6), `confirm: true` for one that requires a confirmation |
 | `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate, or of the revoked mandate the result names, Section 4.3) if there is one |
 | `succession` | `stored`, `offered`, optionally `stored_revoked` | `accept`; with `accept`, `confirm: true` if the successor takes effect only after a human confirmed it (Section 3.5) |
 | `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer) | `valid`; `digest` if valid |
-| `verify_audit` | `entries` (array of entry texts) or `jsonl` (the exchange format); optionally `keys` and `log_id` | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given; `integrity_broken_at`, `conformance_broken_at` and `unknown_version_at` for each finding there is (Section 9.4) |
+| `verify_audit` | `entries` (array of entry texts), `jsonl` (the exchange format), `entries_base64` or `jsonl_base64`; optionally `keys` and `log_id` | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given; `integrity_broken_at`, `conformance_broken_at` and `unknown_version_at` for each finding there is (Section 9.4) |
 | `entry_digest` | `entry` | `digest` |
 
 `request` is the input of the evaluation as the PEP determines it: `resource`
@@ -2687,6 +2705,15 @@ behavior of the people in a household and MUST be protected like the devices the
 ## Changelog
 
 ### Unreleased
+
+- Section 10.2: the members `mandate`, `jsonl` and `entries` of the test interface have an
+  alternative in base64 (`mandate_base64`, `jsonl_base64`, `entries_base64`), for documents
+  whose bytes are not UTF-8; an implementation without it answers `unsupported`, and the case
+  counts as not passed. New cases for RFC 7493 section 2.1: an invalid byte, a cut-off
+  sequence, overlong encodings, a code point above U+10FFFF, surrogates encoded directly
+  (CESU-8), UTF-16 and UTF-32 (`i176` to `i190`, `a231` to `a236`), and valid documents in
+  base64 (`d54`, `c256`, `a229`, `a230`). As for any case, an answer `unsupported`
+  counts as not passed, so the classes evaluator and audit need the base64 form.
 
 - Clarifications, none of which changes a format or a result: Section 4.2 says what skipped
   local times do to a window, that a rule for every time of day has no `time_window`, and

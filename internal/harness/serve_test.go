@@ -314,3 +314,56 @@ func TestVerifySignedWithAKeySetThatCannotBeUsedIsInvalid(t *testing.T) {
 		}
 	}
 }
+
+// The base64 forms of the document members carry bytes a JSON string cannot carry (SPEC-v0
+// section 10.2): the implementation reads exactly those bytes, and a request carries one form.
+func TestDocumentsInBase64(t *testing.T) {
+	text := example(t)
+	eval := &harness.Evaluation{Resource: harness.Resource{EntityID: "light.kitchen", Category: "light"}, Action: "turn_on", Time: "2026-10-12T19:00:00+02:00"}
+	r := ask(t,
+		harness.Request{Op: harness.OpValidate, Mandate: text},
+		harness.Request{Op: harness.OpValidate, MandateBase64: []byte(*text)},
+		harness.Request{Op: harness.OpValidate, MandateBase64: append([]byte(*text), 0xff)},
+		harness.Request{Op: harness.OpEvaluate, Mandate: text, Request: eval},
+		harness.Request{Op: harness.OpEvaluate, MandateBase64: []byte(*text), Request: eval},
+	)
+	if r[0].Valid == nil || !*r[0].Valid || r[1].Valid == nil || !*r[1].Valid || r[1].Digest != r[0].Digest {
+		t.Errorf("validate: text %+v, base64 %+v; want the same valid digest", r[0], r[1])
+	}
+	if r[2].Valid == nil || *r[2].Valid {
+		t.Errorf("validate with the byte FF after the mandate = %+v, want invalid", r[2])
+	}
+	if r[3].Decision == "" || r[4].Decision != r[3].Decision || r[4].Reason != r[3].Reason || r[4].MandateDigest != r[3].MandateDigest {
+		t.Errorf("evaluate: text %+v, base64 %+v; want the same result", r[3], r[4])
+	}
+
+	entry := []byte(`{"a":"\xff"}`)
+	empty := ""
+	for name, req := range map[string]harness.Request{
+		"validate with both forms":       {Op: harness.OpValidate, Mandate: text, MandateBase64: []byte(*text)},
+		"evaluate with both forms":       {Op: harness.OpEvaluate, Mandate: text, MandateBase64: []byte(*text), Request: eval},
+		"evaluate in base64, no request": {Op: harness.OpEvaluate, MandateBase64: []byte(*text)},
+		"jsonl and jsonl_base64":         {Op: harness.OpVerifyAudit, JSONL: &empty, JSONLBase64: []byte{}},
+		"entries and entries_base64":     {Op: harness.OpVerifyAudit, Entries: []string{"{}"}, EntriesBase64: [][]byte{entry}},
+		"jsonl_base64 and entries":       {Op: harness.OpVerifyAudit, JSONLBase64: []byte{}, Entries: []string{"{}"}},
+	} {
+		if r := harness.Answer(req); r.Error == "" || r.Error == harness.ErrorUnsupported {
+			t.Errorf("%s: response %+v, want an error", name, r)
+		}
+	}
+
+	// An empty jsonl_base64 is an empty log. The test tool never sends an empty base64 form
+	// (SPEC-v0 section 10.2): on the wire, omitempty drops it.
+	if got := harness.Answer(harness.Request{Op: harness.OpVerifyAudit, JSONLBase64: []byte{}}); got.Valid == nil || !*got.Valid || got.Entries == nil || *got.Entries != 0 {
+		t.Errorf("empty log in base64 = %+v, want valid with 0 entries", got)
+	}
+	r = ask(t,
+		harness.Request{Op: harness.OpVerifyAudit, JSONLBase64: append(entry, '\n')},
+		harness.Request{Op: harness.OpVerifyAudit, EntriesBase64: [][]byte{entry}},
+	)
+	for i, got := range r {
+		if got.Valid == nil || *got.Valid || got.BrokenAt == nil || *got.BrokenAt != 0 {
+			t.Errorf("log %d with the byte FF = %+v, want invalid at 0", i+1, got)
+		}
+	}
+}
