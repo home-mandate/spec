@@ -592,8 +592,10 @@ time**: the point in time is converted to the household's time zone.
   case-sensitive: `UTC` or the form `Area/Location` (e.g. `Europe/Berlin`,
   `America/Argentina/Buenos_Aires`, `Etc/GMT+9`), where each part begins with an uppercase letter
   and contains only `A–Z`, `a–z`, `0–9`, `_`, `-`, `+`; at most 64 characters.
-  Other names (including `Local`, `localtime`, `GMT` or abbreviations such as `CET`) and names that the
-  implementation does not know result in `invalid_request`. Some time zone libraries match
+  Other names and names that the implementation does not know result in `invalid_request`.
+  Other names include `Local`, `localtime`, `GMT`, abbreviations such as `CET` and every name
+  without a `/` other than `UTC`, even where the database knows it (as a link in current
+  releases: `EST5EDT`, `WET`, `HST`). Some time zone libraries match
   names without regard to case; an implementation that uses one MUST compare the spelling
   itself (`Europe/BERLIN` is not a name of the database). Names of this form that the
   database defines as links to another zone (such as `US/Eastern`) are permitted.
@@ -610,7 +612,12 @@ time**: the point in time is converted to the household's time zone.
   `"06:00-22:00"` matches 06:00 through 21:59. If the start is greater than the end, the
   window spans midnight: `"22:00-06:00"` matches from 22:00 and before 06:00.
   During daylight saving time transitions, the clock time displayed in the household counts;
-  an hour that occurs twice matches both times.
+  an hour that occurs twice matches both times. Local times that are skipped do not occur: a
+  window that lies entirely within them never matches on that day (`02:00-03:00` in
+  `Europe/Berlin` on the last Sunday of March), and a window that begins within them matches
+  from the end of the gap (`02:30-03:30` from 03:00 in the same example).
+  A rule that applies at every time of day has no `time_window`; a window whose start equals
+  its end makes the mandate invalid (Section 3.1 item 3).
 - `weekdays`: list of `mon` … `sun`. The weekday of the point in time in local time is
   decisive, including for windows spanning midnight (Friday 22:00 to Saturday 02:00 with
   `weekdays: ["fri"]` matches only until midnight).
@@ -1317,7 +1324,7 @@ with the events and members marked "(v1)"; an entry of version 0 MUST NOT carry 
 | `seq` | sequential number in the audit log, starting at 1, without gaps. Read by its value: `1`, `1.0` and `1e0` are the same number; writers SHOULD use the plain form |
 | `recorded_at` | point in time of the entry (RFC 3339, as in Section 3.1 item 0: no leap second, like every point in time in an entry) |
 | `event` | event type (Section 9.2) |
-| `principal` | principal. An entry that is about one principal names it; an entry that concerns the implementation as a whole (for example `log.*`, `config.changed`, `issuer.changed`, `emergency_stop.*`, `directory.changed`, the events of Section 11.7) names the household principal (`household:…`) the implementation serves. An implementation that serves more than one household MUST keep one log for each household |
+| `principal` | principal. An entry that is about one principal names it; an entry that concerns the implementation as a whole (for example `log.*`, `config.changed`, `issuer.changed`, `emergency_stop.*`, `directory.changed`, `template.changed`, `approver.changed`, `agent.registered`, `auth.rejected`, the events of Section 11.7) names the household principal (`household:…`) the implementation serves. An implementation that serves more than one household MUST keep one log for each household |
 | `prev` | digest of the previous entry (Section 9.4); `null` for the first entry |
 
 Depending on the event, the following are added:
@@ -1466,6 +1473,12 @@ applies to them, and an entry that violates it is invalid.
 
 Entries MUST NOT contain tokens, nonces, credentials or the content of a mandate or of a
 template.
+
+This version defines no format for templates (Section 2), so the digests in `template` are
+computed over whatever form an implementation stores. They show that and when a template
+changed and can be compared between entries of the same implementation while it stores
+templates in the same form, not between implementations; the log does not reveal the
+content.
 
 ### 9.2 Events
 
@@ -2495,6 +2508,14 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
   mandate that stays in audit mode for long, and SHOULD show the requests that were not
   enforced, so that they become rules or audit mode is switched off. What must stay
   protected during a trial is marked critical in the directory (Section 4, step 5).
+- **`deny` and `ask` with conditions.** A rule with conditions does not match outside them
+  (Section 4.2), and that holds for `deny` and `ask` as well: `deny` with `22:00-06:00`
+  does not apply by day, and `22:00-02:00` with `weekdays: ["fri"]` does not apply on
+  Saturday from 00:00 to 01:59, because the weekday of the point in time decides. Other
+  rules or the default decide then. This is defined behavior, not a gap in the evaluation.
+  Interfaces SHOULD show, for a `deny` or `ask` rule with conditions, when it does not
+  apply, and SHOULD warn when such a rule combines a window that spans midnight with
+  `weekdays`.
 - **Size and time.** Implementations SHOULD bound the size of inputs before parsing them
   (Section 3.1 item 5, nesting depth) and SHOULD verify signatures and schemas before any
   further processing.
@@ -2667,6 +2688,14 @@ behavior of the people in a household and MUST be protected like the devices the
 
 ### Unreleased
 
+- Clarifications, none of which changes a format or a result: Section 4.2 says what skipped
+  local times do to a window, that a rule for every time of day has no `time_window`, and
+  that names without a `/` other than `UTC` are not time zone names here even where the
+  database knows them (`EST5EDT`); Section 9.1 says that template digests can be compared
+  only within one implementation; Section 9.1 names more implementation-wide events in the
+  row `principal`; Section 12.4 explains `deny` and `ask` rules with conditions and
+  recommends that interfaces show when they do not apply. New cases `c252` to `c255` and
+  the mandate `conformance/mandates/dst-gap.json`.
 - Section 3.4: a resource that newly comes under an `allow` rule because a device was
   paired or the platform changed its category or areas is reported to the household and,
   by default, treated as critical until a human has seen it; an identifier that the platform
