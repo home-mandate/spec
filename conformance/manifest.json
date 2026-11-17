@@ -280,8 +280,8 @@
     },
     {
       "path": "conformance/succession-v0.json",
-      "sha256": "fa238e39a66f0d372aa226565f330a6b0a84fc3bed34cc2228e9e1b9432873fd",
-      "cases": 23
+      "sha256": "79eaaea47888ee1a80b427a8636252f5bd1855e18f2f0ca4a0af7e6c1969a3fd",
+      "cases": 28
     },
     {
       "path": "data/corrections-v0.json",

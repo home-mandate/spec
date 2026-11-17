@@ -421,7 +421,9 @@ is switched off; `issuer`, `version`, `created_by` and `created_at` differ. Ever
 difference is a **weakening**: a changed or added `allow` rule; a changed or removed `deny`
 or `ask` rule; an added `ask` rule with its own `approval`; a changed `approval`, `name` or
 `agent.display_name`; an `audience` added or changed; `expires` removed or moved later;
-`valid_from` moved earlier; a higher rate limit; or audit mode switched on (below). Rules
+`valid_from` moved earlier; a higher rate limit; or audit mode switched on (below). Earlier
+and later compare points in time (Section 3.1 item 0): the same point in time written with
+another offset is not moved. Rules
 are compared as wholes: a rule counts as changed when any of its members differs, `note`
 included, so a rule tightened in place (a constraint added, `allow_critical` removed) needs
 a confirmation too; an issuer narrows without one by removing the rule or adding a `deny`.
@@ -2762,8 +2764,9 @@ behavior of the people in a household and MUST be protected like the devices the
   - RFC 3339: leap years by 4, 100 and 400 (`d59`, `i191`), the year 9999 (`d60`), hour 24,
     minute 60, second 61, a decimal point without digits, an offset without a colon, a space
     instead of `T`, a five-digit year, a lower-case `z`, month 13, April 31 and offset hour
-    24 (`i192` to `i202`); selection compares points in time, whatever the offset and to the
-    nanosecond (`s32` to `s35`). RFC 9562: the `id` of an audit entry (`a244` to `a247`).
+    24 (`i192` to `i202`); selection and succession compare points in time, whatever the
+    offset and to the nanosecond (`s32` to `s35`, `v24` to `v28`; Section 3.5 now says so).
+    RFC 9562: the `id` of an audit entry (`a244` to `a247`).
   - Section 3.1 items 5 and 8: the size limit counted in bytes (`d61`, `i203`); lengths in
     code points, not graphemes (`d62`, `i204`); the minimum and maximum of every displayed
     text (`d63`, `i205` to `i211`); the first and the last code point of every forbidden range

@@ -11,7 +11,7 @@ conformance cases cover each rule. Every rule has one of four entries:
 - **Not followed**: the specification deliberately does something else. The reason is given.
 
 Case IDs refer to the files in this directory: `c` cases-v0, `d` digest-v0, `i` invalid-v0,
-`s` selection-v0, `g` signed-v0, `a` audit-v0, `v1xx` audit-v1. The file belongs to issue
+`s` selection-v0, `g` signed-v0, `a` audit-v0, `v01` to `v99` succession-v0, `v1xx` audit-v1. The file belongs to issue
 #112 and is kept up to date with the cases; a rule without an entry here is a gap.
 
 ## RFC 7493: The I-JSON Message Format
@@ -72,7 +72,7 @@ from v0.2 on, to the `time` of a request (Section 10.2).
 | 5.7 second 60 only for a leap second | Narrower: no leap seconds (Section 3.1 item 0). Cases: `i26`, `a221` to `a223`; second 61: `i194` |
 | 4.3 offset `-00:00`, unknown local offset | Not followed: forbidden, because it says nothing about the local time a window needs. Cases: `i61`, `i62`, `c259`; `+00:00` is permitted: `d20`, `c262` |
 | 5.6 year 0000 | Narrower: forbidden (Section 3.1 item 0). Cases: `i60`, `c258`; the earliest point in time: `c257`; the latest: `d60` |
-| 5.1 comparison as text only when the offsets are the same | Narrower: always as points in time, to the nanosecond (Section 3.1 item 0). Cases: `c18` to `c22`, `s10` to `s12`, `s32` to `s35`, `d19` |
+| 5.1 comparison as text only when the offsets are the same | Narrower: always as points in time, to the nanosecond (Section 3.1 item 0). Cases: evaluation `c18` to `c22`; selection `s10` to `s12`, `s32` to `s35`; succession, where `expires` and `valid_from` move earlier or later (Section 3.5), `v24` to `v28`; `d19` |
 
 ## RFC 9562: Universally Unique IDentifiers (UUIDs)
 
