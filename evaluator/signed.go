@@ -227,7 +227,10 @@ func Narrows(stored, offered *Mandate) bool {
 // audit mode ("enforce": false) and no mandate in audit mode is in force for it. stored
 // is the mandate the implementation holds under the same id, with its status, and at is
 // the point in time; stored counts only if it is valid, active and valid at at (SPEC-v0
-// section 4, step 1); a zero at skips the check of the validity period. A predecessor that is revoked, expired or not yet valid counts as
+// section 4, step 1). A zero at skips the check of the validity period: unlike a request,
+// where the zero time is 0001-01-01T00:00:00Z, it is meant only for a check that has no
+// point in time, such as the succession check of SPEC-v0 section 3.5; a caller that has
+// one MUST pass it, or a predecessor that expired would count as in force. A predecessor that is revoked, expired or not yet valid counts as
 // none, and offered then arrives as if from outside. Such a mandate takes effect only
 // after a human of the household confirmed exactly this version (its digest), and every
 // approver is notified, also for a signed successor that passed CheckSuccessor (SPEC-v0

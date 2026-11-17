@@ -62,7 +62,10 @@ type (
 		Properties map[string]json.RawMessage `json:"properties,omitempty"`
 	}
 	authzenResource struct {
-		ID string `json:"id"`
+		// Type is required by AuthZEN; the PDP takes the category from the state the
+		// control resource set (SPEC-v0 section 10.3).
+		Type string `json:"type"`
+		ID   string `json:"id"`
 	}
 	authzenResponse struct {
 		Decision bool `json:"decision"`
@@ -153,7 +156,7 @@ func (r *runner) pdpCase(ctx context.Context, pdp PDP, file string, c evaluation
 		err = pdp.call(ctx, http.MethodPost, strings.TrimSuffix(pdp.AuthZEN, "/")+"/access/v1/evaluation", authzenRequest{
 			Subject:  authzenSubject{Type: "agent", ID: c.Subject.ClientID, Properties: map[string]string{"principal": c.Subject.Principal}},
 			Action:   authzenAction{Name: c.Action, Properties: c.Parameters},
-			Resource: authzenResource{ID: c.Resource.EntityID},
+			Resource: authzenResource{Type: resourceType(c.Resource), ID: c.Resource.EntityID},
 		}, &resp)
 	}
 	// selected is visible through AuthZEN as mandate_id in the response context.
@@ -192,4 +195,13 @@ func (p PDP) call(ctx context.Context, method, url string, body, out any) error 
 		return nil
 	}
 	return json.Unmarshal(data, out)
+}
+
+// resourceType is the resource.type the tool sends: the category of the resource, or
+// unknown for a resource the directory does not contain (SPEC-v0 section 10.3).
+func resourceType(r Resource) string {
+	if r.Category == "" {
+		return "unknown"
+	}
+	return r.Category
 }

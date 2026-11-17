@@ -197,6 +197,8 @@ type signedCase struct {
 	Issuer   string `json:"issuer"`
 	Expected string `json:"expected"`
 	Digest   string `json:"digest"`
+	// Requires names an optional algorithm the case needs; the reference supports both.
+	Requires string `json:"requires"`
 	Why      string `json:"why"`
 }
 

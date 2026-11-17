@@ -35,10 +35,16 @@ func TestParseRejects(t *testing.T) {
 	}
 }
 
-func TestParseLeavesTheNarrowerRulesToTheSchema(t *testing.T) {
-	// They fit the grammar of RFC 3339. Whether they count for the time of a request is
-	// open (home-mandate/spec#112); this pins that nothing changes by accident.
-	for _, s := range []string{"0000-01-01T00:00:00Z", "2026-10-12T04:30:00-00:00", "2026-10-12T04:30:00.1234567891Z"} {
+func TestParseAppliesTheRulesOfSection3_1(t *testing.T) {
+	// They fit the grammar of RFC 3339 but not SPEC-v0 section 3.1 item 0, which applies to
+	// the time of a request as well (home-mandate/spec#112).
+	for _, s := range []string{"0000-01-01T00:00:00Z", "0000-12-31T23:59:59+01:00", "2026-10-12T04:30:00-00:00", "2026-10-12T04:30:00.1234567891Z"} {
+		if got, err := Parse(s); err == nil {
+			t.Errorf("Parse(%s) = %v, want an error", s, got)
+		}
+	}
+	// The limits themselves: nine fractional digits, the year 0001, the offsets +00:00 and Z.
+	for _, s := range []string{"2026-10-12T04:30:00.123456789Z", "0001-01-01T00:00:00Z", "2026-10-12T04:30:00+00:00"} {
 		if _, err := Parse(s); err != nil {
 			t.Errorf("Parse(%s) = %v", s, err)
 		}

@@ -98,6 +98,11 @@ const (
 	typePrefix = "https://home-mandate.org/audit/v"
 	// newestVersion is the newest version this package reads and writes.
 	newestVersion = 1
+	// firstUniqueIDVersion is the first version in which the id of an entry must not repeat
+	// the id of an earlier entry of the log (SPEC-v0 section 9.4).
+	firstUniqueIDVersion = 1
+	// uuidLength is the length of a UUID in its text form, the form of the id of an entry.
+	uuidLength = 36
 	// maxVersionDigits bounds the number of a version that versionOf reads.
 	maxVersionDigits = 9
 )
@@ -249,6 +254,11 @@ type verifier struct {
 	checkpointBreak *Result
 	// known holds the vocabularies an unenforced deny is checked against.
 	known actionsByCategory
+	// ids holds the id of every entry read so far whose id can be read and has the length of
+	// a UUID: from audit/v1 on, an entry whose id an earlier entry has breaks condition 1
+	// (SPEC-v0 section 9.4). It grows with the log, about a hundred bytes per entry; an entry
+	// that is not I-JSON or not an object has no id that can be read and takes no part.
+	ids map[string]bool
 }
 
 func newVerifier(opts Options) (*verifier, error) {
@@ -260,7 +270,8 @@ func newVerifier(opts Options) (*verifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &verifier{schemas: schemas, anchor: opts.Anchor, known: known, integrity: none, conformance: none, unknown: none}, nil
+	return &verifier{schemas: schemas, anchor: opts.Anchor, known: known, integrity: none, conformance: none, unknown: none,
+		ids: map[string]bool{}}, nil
 }
 
 // add checks the next entry. Every entry is read: the findings on integrity, conformance
@@ -361,13 +372,20 @@ func (v *verifier) check(index int, entry []byte) (l link, linked bool) {
 	l.digest = digest
 	l.prev, _ = obj["prev"].(string)
 	version, isAudit := versionOf(obj)
+	// Only an id of the length of a UUID is kept: any other breaks the schema of every
+	// version anyway, and a long one would make the map as large as the log.
+	id, _ := obj["id"].(string)
+	repeated := v.ids[id]
+	if len(id) == uuidLength {
+		v.ids[id] = true
+	}
 	switch {
 	case !isAudit || version < v.newest:
 		// No audit version, or an older version after a newer one, known or not.
 		note(&v.conformance, index, l.seq)
 	case version > newestVersion:
 		note(&v.unknown, index, l.seq)
-	case conforms(v.schemas[version], v.known, value, obj):
+	case conforms(v.schemas[version], v.known, value, obj) && !(version >= firstUniqueIDVersion && repeated):
 		l.conforming = true
 	default:
 		note(&v.conformance, index, l.seq)

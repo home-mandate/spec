@@ -5,10 +5,10 @@ package evaluator_test
 import (
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/home-mandate/spec"
 	"github.com/home-mandate/spec/evaluator"
+	"github.com/home-mandate/spec/rfc3339"
 )
 
 type selectionCase struct {
@@ -43,13 +43,24 @@ type selectionCase struct {
 func TestConformanceSelection(t *testing.T) {
 	for _, c := range loadCases[selectionCase](t, spec.SelectionCasesPath, "cases") {
 		t.Run(c.ID, func(t *testing.T) {
-			at, err := time.Parse(time.RFC3339, c.Time)
-			if err != nil {
-				t.Fatalf("case time: %v", err)
-			}
 			stored := make([]evaluator.Stored, len(c.Mandates))
 			for i, s := range c.Mandates {
 				stored[i] = evaluator.NewStored(s.MandateInline, statusOf(s.Revoked))
+			}
+			at, err := rfc3339.Parse(c.Time)
+			if err != nil {
+				// A PEP cannot pass such a request on (SPEC-v0 section 10.2): the result is
+				// invalid_request after the selection, and without a point in time only a
+				// sole candidate is selected (Section 4.3 step 3).
+				candidates := evaluator.Candidates(stored, c.Subject.ClientID, c.Subject.Principal)
+				wantSelected := ""
+				if len(candidates) == 1 {
+					wantSelected = candidates[0].Mandate().ID()
+				}
+				if c.Expected != "deny" || c.Reason != "invalid_request" || c.Selected == nil && wantSelected != "" || c.Selected != nil && *c.Selected != wantSelected {
+					t.Errorf("case with a time that is no timestamp expects (%s, %s, %v), want (deny, invalid_request, %q)", c.Expected, c.Reason, c.Selected, wantSelected)
+				}
+				return
 			}
 			selected, got := evaluator.SelectAndEvaluate(stored, c.Subject.ClientID, c.Subject.Principal, evaluator.Request{
 				Resource: evaluator.Resource{EntityID: c.Resource.EntityID, Category: c.Resource.Category, Areas: c.Resource.Areas, Critical: c.Resource.Critical},

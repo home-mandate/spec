@@ -232,11 +232,18 @@ func verify(head string, payload []byte, sig string, keys Keys) (string, error) 
 
 // parseHeader accepts exactly the members alg and kid. Anything else, such as crit,
 // b64, jwk or jku, would change how the signature must be checked.
+// maxHeaderBytes bounds the protected header after base64url decoding (SPEC-v0 section
+// 7.1): its two members need about 100 bytes, and a verifier reads no more than this.
+const maxHeaderBytes = 256
+
 func parseHeader(head string) (protectedHeader, error) {
 	var h protectedHeader
 	encoded, err := decodeSegment(head)
 	if err != nil {
 		return h, fmt.Errorf("%w: header: %w", ErrMalformed, err)
+	}
+	if len(encoded) > maxHeaderBytes {
+		return h, fmt.Errorf("%w: header of %d bytes, at most %d", ErrMalformed, len(encoded), maxHeaderBytes)
 	}
 	if err := ijson.Check(encoded); err != nil {
 		return h, fmt.Errorf("%w: header: %w", ErrMalformed, err)
@@ -265,6 +272,72 @@ type jwk struct {
 	Kid string `json:"kid"`
 	X   string `json:"x"`
 	Y   string `json:"y,omitempty"`
+}
+
+// restrictions are the members of RFC 7517 section 4 that limit what a key is for. A key
+// that names another purpose or algorithm cannot be used (SPEC-v0 section 7.1).
+type restrictions struct {
+	Use    *string   `json:"use"`
+	KeyOps *[]string `json:"key_ops"`
+	Alg    *string   `json:"alg"`
+}
+
+// check reports whether the restrictions allow verifying with a key of type kty and
+// curve crv: use is "sig", key_ops contains "verify", alg is the algorithm of the type.
+func (r restrictions) check(kty, crv string) error {
+	if r.Use != nil && *r.Use != "sig" {
+		return fmt.Errorf("use %s, not sig", quote(*r.Use))
+	}
+	if r.KeyOps != nil && !slices.Contains(*r.KeyOps, "verify") {
+		return errors.New("key_ops without verify")
+	}
+	if r.Alg != nil && *r.Alg != algorithmOf(kty, crv) {
+		return fmt.Errorf("alg %s for key type %s", quote(*r.Alg), quote(kty))
+	}
+	return nil
+}
+
+// algorithmOf is the algorithm of SPEC-v0 section 7.1 for a key type and curve.
+func algorithmOf(kty, crv string) string {
+	switch {
+	case kty == "OKP" && crv == "Ed25519":
+		return AlgEdDSA
+	case kty == "EC" && crv == "P-256":
+		return AlgES256
+	}
+	return ""
+}
+
+// readRestrictions reads use, key_ops and alg by their exact names; a member of the wrong
+// JSON type is an error.
+func readRestrictions(members map[string]json.RawMessage) (restrictions, error) {
+	var r restrictions
+	for name, field := range map[string]any{"use": &r.Use, "key_ops": &r.KeyOps, "alg": &r.Alg} {
+		raw, ok := members[name]
+		if !ok {
+			continue
+		}
+		if string(raw) == "null" {
+			return restrictions{}, fmt.Errorf("member %s is null", name)
+		}
+		if name == "key_ops" {
+			// encoding/json reads a null element of a []string as "": every element must be a string.
+			var items []json.RawMessage
+			if err := json.Unmarshal(raw, &items); err != nil {
+				return restrictions{}, fmt.Errorf("member %s: %w", name, err)
+			}
+			for _, item := range items {
+				var op string
+				if err := json.Unmarshal(item, &op); err != nil || string(item) == "null" {
+					return restrictions{}, fmt.Errorf("member %s: an element is not a string", name)
+				}
+			}
+		}
+		if err := json.Unmarshal(raw, field); err != nil {
+			return restrictions{}, fmt.Errorf("member %s: %w", name, err)
+		}
+	}
+	return r, nil
 }
 
 type jwks struct {
@@ -312,13 +385,21 @@ func ParseJWKS(data []byte) (Keys, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: key %s: %w", ErrKey, quote(k.Kid), err)
 		}
+		r, err := readRestrictions(members)
+		if err == nil {
+			err = r.check(k.Kty, k.Crv)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("%w: key %s: %w", ErrKey, quote(k.Kid), err)
+		}
 		keys[k.Kid] = key
 	}
 	return keys, nil
 }
 
 // readJWK reads the members of a key by their exact names. A member that is absent stays
-// empty and every other member is ignored (RFC 7517 section 4).
+// empty; use, key_ops and alg are checked by readRestrictions, and every other member is
+// ignored (RFC 7517 section 4), y of an Ed25519 key too.
 func readJWK(members map[string]json.RawMessage) (jwk, error) {
 	var k jwk
 	for name, field := range map[string]*string{"kty": &k.Kty, "crv": &k.Crv, "kid": &k.Kid, "x": &k.X, "y": &k.Y} {

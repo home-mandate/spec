@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"math/big"
 	"os"
@@ -534,19 +535,21 @@ func TestErrorsQuoteOnlyAPrefix(t *testing.T) {
 	ed := rfcKey(t)
 	keys := Keys{"ed-1": ed.Public()}
 	long := strings.Repeat("A", 5000)
+	// A header is at most 256 bytes (SPEC-v0 section 7.1): its values are quoted from there.
+	mid := strings.Repeat("A", 100)
 	control := strings.Repeat(`\u0001`, 5000) // every byte quotes to \x01, four bytes
 	errs := map[string]func() error{
 		"Sign kid": func() error { _, err := SignDetached([]byte("x"), long, ed); return err },
 		"Verify alg": func() error {
-			_, err := VerifyDetached(header(t, `{"alg":"`+long+`","kid":"ed-1"}`)+"..AA", nil, keys)
+			_, err := VerifyDetached(header(t, `{"alg":"`+mid+`","kid":"ed-1"}`)+"..AA", nil, keys)
 			return err
 		},
 		"Verify kid": func() error {
-			_, err := VerifyDetached(header(t, `{"alg":"EdDSA","kid":"`+long+`"}`)+"..AA", nil, keys)
+			_, err := VerifyDetached(header(t, `{"alg":"EdDSA","kid":"`+mid+`"}`)+"..AA", nil, keys)
 			return err
 		},
 		"Verify dup key": func() error {
-			_, err := VerifyDetached(header(t, `{"`+long+`":1,"`+long+`":2}`)+"..AA", nil, keys)
+			_, err := VerifyDetached(header(t, `{"`+mid+`":1,"`+mid+`":2}`)+"..AA", nil, keys)
 			return err
 		},
 		"ParseJWKS kid": func() error {
@@ -579,6 +582,90 @@ func TestErrorsQuoteOnlyAPrefix(t *testing.T) {
 		}
 		if len(err.Error()) > maxErrorBytes {
 			t.Errorf("%s: err of %d bytes: %.200s", name, len(err.Error()), err)
+		}
+	}
+}
+
+// The protected header is at most 256 bytes after decoding (SPEC-v0 section 7.1); white
+// space JSON permits counts.
+func TestHeaderOfAtMost256Bytes(t *testing.T) {
+	ed := rfcKey(t)
+	keys := Keys{"ed-1": ed.Public()}
+	payload := []byte("x")
+	minimal := `{"alg":"EdDSA","kid":"ed-1"}`
+	for size, want := range map[int]bool{maxHeaderBytes: true, maxHeaderBytes + 1: false} {
+		head := minimal[:len(minimal)-1] + strings.Repeat(" ", size-len(minimal)) + "}"
+		encoded := header(t, head)
+		sig, err := signInput(AlgEdDSA, ed, signingInput(encoded, payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = VerifyDetached(encoded+".."+b64.EncodeToString(sig), payload, keys)
+		if got := err == nil; got != want {
+			t.Errorf("header of %d bytes: verified %t, want %t (%v)", len(head), got, want, err)
+		}
+	}
+}
+
+// use, key_ops and alg restrict a key (RFC 7517 section 4): a key restricted to another
+// purpose or algorithm cannot be used, and the key set with it verifies nothing (SPEC-v0
+// sections 7.1 and 10.2). Every other member is ignored, y of an Ed25519 key too.
+func TestParseJWKSRestrictions(t *testing.T) {
+	ed := rfcKey(t)
+	payload := []byte("x")
+	detached, err := SignDetached(payload, "k", ed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	okp := `"kty":"OKP","crv":"Ed25519","kid":"k","x":"` + rfc8037Public + `"`
+	ec := ecKey(t)
+	ecSet, err := MarshalJWKS(Keys{"e": ec.Public()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed struct{ Keys []map[string]string }
+	if err := json.Unmarshal(ecSet, &parsed); err != nil || len(parsed.Keys) != 1 {
+		t.Fatal(err)
+	}
+	compact, _ := json.Marshal(parsed.Keys[0])
+	ecMembers := strings.TrimSuffix(strings.TrimPrefix(string(compact), `{`), `}`)
+	for extra, want := range map[string]bool{
+		`"use":"sig"`:                 true,
+		`"key_ops":["verify"]`:        true,
+		`"key_ops":["sign","verify"]`: true,
+		`"alg":"EdDSA"`:               true,
+		`"use":"sig","key_ops":["verify"],"alg":"EdDSA"`: true,
+		`"y":"` + rfc8037Public + `"`:                    true,
+		`"ext":true,"x5u":"https://example.org/"`:        true,
+		`"use":"enc"`:               false,
+		`"use":"SIG"`:               false,
+		`"use":1`:                   false,
+		`"use":null`:                false,
+		`"key_ops":["sign"]`:        false,
+		`"key_ops":[]`:              false,
+		`"key_ops":"verify"`:        false,
+		`"key_ops":[1]`:             false,
+		`"key_ops":[null,"verify"]`: false,
+		`"alg":null`:                false,
+		`"key_ops":null`:            false,
+		`"alg":"ES256"`:             false,
+		`"alg":"none"`:              false,
+		`"alg":"eddsa"`:             false,
+	} {
+		keys, err := ParseJWKS([]byte(`{"keys":[{` + okp + `,` + extra + `}]}`))
+		if got := err == nil; got != want {
+			t.Errorf("key with %s: accepted %t, want %t (%v)", extra, got, want, err)
+			continue
+		}
+		if want {
+			if _, err := VerifyDetached(detached, payload, keys); err != nil {
+				t.Errorf("key with %s does not verify: %v", extra, err)
+			}
+		}
+	}
+	for extra, want := range map[string]bool{`"alg":"ES256"`: true, `"alg":"EdDSA"`: false} {
+		if _, err := ParseJWKS([]byte(`{"keys":[{` + ecMembers + `,` + extra + `}]}`)); (err == nil) != want {
+			t.Errorf("P-256 key with %s: accepted %t, want %t (%v)", extra, err == nil, want, err)
 		}
 	}
 }

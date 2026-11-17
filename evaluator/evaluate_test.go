@@ -83,17 +83,15 @@ func TestEvaluateNilMandateIsDenied(t *testing.T) {
 func TestEvaluateInvalidRequest(t *testing.T) {
 	m := mandateWithRules(t, `[{"id":"r-all","resource":{"any":true},"actions":["*"],"decision":"allow"}]`)
 	missingCategory := request("", "flur", "turn_on")
-	zeroTime := request("light", "flur", "turn_on")
-	zeroTime.Time = time.Time{}
 	unknownZone := request("light", "flur", "turn_on")
 	unknownZone.TimeZone = "Mars/Olympus_Mons"
-	for name, req := range map[string]evaluator.Request{
-		"zero time": zeroTime, "unknown zone": unknownZone,
-	} {
-		t.Run(name, func(t *testing.T) {
-			assertDecision(t, evaluator.Evaluate(m, req), evaluator.Deny, evaluator.ReasonInvalidRequest, "")
-		})
-	}
+	assertDecision(t, evaluator.Evaluate(m, unknownZone), evaluator.Deny, evaluator.ReasonInvalidRequest, "")
+	// The zero time is 0001-01-01T00:00:00Z, a point in time before every mandate: a PEP
+	// that forgets the time gets a deny, as for any time before valid_from
+	// (home-mandate/spec#112).
+	zeroTime := request("light", "flur", "turn_on")
+	zeroTime.Time = time.Time{}
+	assertDecision(t, evaluator.Evaluate(m, zeroTime), evaluator.Deny, evaluator.ReasonNotYetValid, "")
 	// A resource the PEP did not find in its directory has no category.
 	assertDecision(t, evaluator.Evaluate(m, missingCategory), evaluator.Deny, evaluator.ReasonUnknownResource, "")
 	missingCategory.TimeZone = "Mars/Olympus_Mons"

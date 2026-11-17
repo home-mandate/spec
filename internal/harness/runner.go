@@ -59,6 +59,10 @@ type ClassResult struct {
 	Failed   int  `json:"failed"`
 	Skipped  int  `json:"skipped"`
 	Conforms bool `json:"conforms"`
+	// NotApplicable counts the cases that require an optional algorithm the implementation
+	// does not support (SPEC-v0 section 10.2, member requires). They are not in Cases and
+	// do not count against the class.
+	NotApplicable int `json:"not_applicable,omitempty"`
 }
 
 // Failure is one case that did not yield the expected result.
@@ -135,7 +139,17 @@ func (r *runner) class(name string) *ClassResult {
 
 // record counts one case: got and want are compared as text.
 func (r *runner) record(class, file, id string, resp Response, err error, got, want string) {
+	r.recordRequiring("", class, file, id, resp, err, got, want)
+}
+
+// recordRequiring is record for a case that requires an optional algorithm (requires): an
+// implementation without it answers unsupported, and the case does not count.
+func (r *runner) recordRequiring(requires, class, file, id string, resp Response, err error, got, want string) {
 	c := r.class(class)
+	if requires != "" && err == nil && resp.Error == ErrorUnsupported {
+		c.NotApplicable++
+		return
+	}
 	c.Cases++
 	switch {
 	case err != nil:
@@ -393,6 +407,7 @@ func (r *runner) signed() error {
 		Issuer   string `json:"issuer"`
 		Expected string `json:"expected"`
 		Digest   string `json:"digest"`
+		Requires string `json:"requires"`
 	}
 	cases, err := load[signedCase](r.fsys, fileSigned, "cases")
 	for _, c := range cases {
@@ -405,7 +420,7 @@ func (r *runner) signed() error {
 		if c.Expected == "valid" {
 			want = "valid " + c.Digest
 		}
-		r.record(ClassSignatures, fileSigned, c.ID, resp, doErr, validity(resp), want)
+		r.recordRequiring(c.Requires, ClassSignatures, fileSigned, c.ID, resp, doErr, validity(resp), want)
 	}
 	return err
 }
@@ -423,6 +438,8 @@ type auditCase struct {
 	Keys          string   `json:"keys"`
 	LogID         string   `json:"log_id"`
 	Anchored      *int64   `json:"anchored"`
+	// Requires names an optional algorithm the case needs (SPEC-v0 section 10.2).
+	Requires string `json:"requires"`
 	// The findings of SPEC-v0 section 9.4; absent: none of that kind.
 	IntegrityBrokenAt   *int64 `json:"integrity_broken_at"`
 	ConformanceBrokenAt *int64 `json:"conformance_broken_at"`
@@ -461,7 +478,7 @@ func (r *runner) auditFile(file string) error {
 		}
 		resp, doErr := r.impl.Do(req)
 		got, want := auditOutcome(c, resp)
-		r.record(class, file, c.ID, resp, doErr, got, want)
+		r.recordRequiring(c.Requires, class, file, c.ID, resp, doErr, got, want)
 		for i, digest := range c.EntryDigests {
 			entry := string(c.Entries[i])
 			resp, doErr := r.impl.Do(Request{Op: OpEntryDigest, ID: c.ID, Entry: &entry})

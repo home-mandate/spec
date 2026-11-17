@@ -161,10 +161,12 @@ func (p *referencePDP) handler() http.Handler {
 				Properties map[string]json.RawMessage `json:"properties"`
 			} `json:"action"`
 			Resource struct {
-				ID string `json:"id"`
+				Type string `json:"type"`
+				ID   string `json:"id"`
 			} `json:"resource"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// AuthZEN requires resource.type (SPEC-v0 section 10.3); a strict PDP refuses without it.
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Resource.Type == "" {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
