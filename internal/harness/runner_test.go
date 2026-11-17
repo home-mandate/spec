@@ -197,6 +197,38 @@ func TestUnsupportedOperationsAreSkippedAndDoNotConform(t *testing.T) {
 	}
 }
 
+// An implementation without ES256, which SPEC-v0 section 7.1 makes optional, answers the
+// cases marked requires: ES256 with unsupported; they do not count against the class. Any
+// other case it answers so still does.
+func TestCasesOfAnOptionalAlgorithmDoNotCount(t *testing.T) {
+	withoutES256 := func(unsupported ...string) faulty {
+		return faulty{func(req harness.Request, r harness.Response) (harness.Response, error) {
+			for _, id := range unsupported {
+				if req.ID == id {
+					return harness.Response{Error: harness.ErrorUnsupported}, nil
+				}
+			}
+			return r, nil
+		}}
+	}
+	report, err := harness.Run(spec.FS(), withoutES256("g02", "a42"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, class := range []string{harness.ClassSignatures, harness.ClassAnchored} {
+		if c := report.Classes[class]; !c.Conforms || c.NotApplicable != 1 || c.Skipped != 0 {
+			t.Errorf("%s = %+v, want conforming with one case not applicable", class, c)
+		}
+	}
+	report, err = harness.Run(spec.FS(), withoutES256("g02", "g12"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := report.Classes[harness.ClassSignatures]; c.Conforms || c.NotApplicable != 1 || c.Skipped != 1 {
+		t.Errorf("signatures = %+v, want g12 skipped and the class not conforming", c)
+	}
+}
+
 func TestRunFailsWithoutCasesOrCapabilities(t *testing.T) {
 	if _, err := harness.Run(fstest.MapFS{}, harness.Local{}); err == nil {
 		t.Error("Run without a manifest succeeded")

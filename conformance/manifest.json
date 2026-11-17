@@ -3,18 +3,18 @@
   "files": [
     {
       "path": "conformance/audit-v0.json",
-      "sha256": "54c86af2cbd89c3b4366f29dab3e4d997029ce2bb7d9c362c042e4d1d537cc1b",
-      "cases": 236
+      "sha256": "1357b7e226c650ea0b07f1176eeac9126359d544bcc3be10b60bea0ef5e69d9b",
+      "cases": 237
     },
     {
       "path": "conformance/audit-v1.json",
-      "sha256": "f86b46c24ccff81f0dc20c46d74fb2acae41f4d2d9dbb60e86bcc85766a4a758",
-      "cases": 38
+      "sha256": "28a442353a04cf970edf79a23f0c82b633f65dba4d1b16fa17dadcace08fab20",
+      "cases": 41
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "255125c9991c76980bf23d1485496924e575b04199ab29878a79f8b712732834",
-      "cases": 256
+      "sha256": "17b277604cdb5f9bb85ecef5face69902c7fc83af561fce7717206c0a0e9437d",
+      "cases": 262
     },
     {
       "path": "conformance/ct-v0.json",
@@ -30,6 +30,14 @@
       "path": "conformance/invalid-v0.json",
       "sha256": "767548f5436d71fa159152a401d0234f5859ffa9878f4edb67cc71016167dca2",
       "cases": 190
+    },
+    {
+      "path": "conformance/keys/alg-eddsa.json",
+      "sha256": "8d3b8f37f7f8e31c9d033c394ae4f9701ae387c9cc45d862471a2a7751b0afe4"
+    },
+    {
+      "path": "conformance/keys/alg-es256.json",
+      "sha256": "6ffabb65e684d2bc499acebe3b2e70e825d8b03b7c69eabca01e132b6a4a11fc"
     },
     {
       "path": "conformance/keys/case-keys.json",
@@ -60,8 +68,20 @@
       "sha256": "d2ae0e43fafca47ba76835405d5593b5ac2736b582cb91a1d4bd7dd03513692b"
     },
     {
+      "path": "conformance/keys/key-ops-sign.json",
+      "sha256": "8f415eebac255afbce879f184525bbee90c1c4c9f2b282d68a199c62f786b42f"
+    },
+    {
+      "path": "conformance/keys/key-ops-verify.json",
+      "sha256": "be7f4cfcd246fc1b8457983faf976a8cd02197d9eed62741659bde8b4b77f040"
+    },
+    {
       "path": "conformance/keys/line-feed-x.json",
       "sha256": "f6575991475874ab5d6761078f8f49a3a89f833a29e2c86970195318bf6c28c3"
+    },
+    {
+      "path": "conformance/keys/okp-y.json",
+      "sha256": "1cc5468baaf04e19ea6871cebd930485531e61ece6a35e9b92c6cc3e15d3910b"
     },
     {
       "path": "conformance/keys/test-keys.json",
@@ -70,6 +90,14 @@
     {
       "path": "conformance/keys/test-keys.private.json",
       "sha256": "3fafab652d26ca9c76b8138f2136a999d3bf216fa68dee7d60fa78a959971c1b"
+    },
+    {
+      "path": "conformance/keys/use-enc.json",
+      "sha256": "ddd77addc09c8823c472c7911cabbc64f2d8c562d9ac1c32216409613ac33471"
+    },
+    {
+      "path": "conformance/keys/use-sig.json",
+      "sha256": "b47495c3752e306f65d10f1e78f2b110d2d1d248b81f246230c33e623cd7412a"
     },
     {
       "path": "conformance/keys/weak-identity.json",
@@ -142,7 +170,7 @@
     },
     {
       "path": "conformance/schema/audit-v0.schema.json",
-      "sha256": "b94997b8d36ad9e7261b4d05072b1f551b178c620b9776df85c90b0e2c9b42ab"
+      "sha256": "d60ef4e00140961916d5b28e4ebff25a44541cccc7aff9933f7ab101ee03e323"
     },
     {
       "path": "conformance/schema/audit-v1.schema.json",
@@ -178,7 +206,7 @@
     },
     {
       "path": "conformance/schema/signed-v0.schema.json",
-      "sha256": "e53155a3df14741ad1e127f718054a6c296b8c8b92cf67468fc758861faf527b"
+      "sha256": "e24c331a25fd67f82d7cd4950386e761994438b0e7050433d77d3f8e45bfa5fa"
     },
     {
       "path": "conformance/schema/succession-v0.schema.json",
@@ -186,13 +214,13 @@
     },
     {
       "path": "conformance/selection-v0.json",
-      "sha256": "c63ce631f2dd364c3f4a14dc1f29b174151ff6bdea2340feeaf746a62c5842c9",
-      "cases": 29
+      "sha256": "eeeb6b517b3235231d5bca82e94da26ba585c6a252e1e1368c6de832b130dbd9",
+      "cases": 31
     },
     {
       "path": "conformance/signed-v0.json",
-      "sha256": "6dd1fd392557ae7488257345f37bf24b21dbb5e137cc4bf886f0453d09f1032e",
-      "cases": 35
+      "sha256": "60cc7aab8b3cbe109f781cc78d93bf9363162e9ec10e7c9e408b9ccf4e51f140",
+      "cases": 44
     },
     {
       "path": "conformance/succession-v0.json",
@@ -225,7 +253,7 @@
     },
     {
       "path": "schema/audit-v1.schema.json",
-      "sha256": "2b4d520cae4d7c2c497c58922c3d9a5d2347bbfe0eb774edff4a8018680341b2"
+      "sha256": "2953e8ccf1591bc5b8d555bf46518a903794caf0fc83b7187735347472bf1e5d"
     },
     {
       "path": "schema/mandate-v0.schema.json",

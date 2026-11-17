@@ -29,11 +29,9 @@ var (
 func cachedZoneCount() int { return int(cachedZones.Load()) }
 
 // localTime converts at to household local time (SPEC-v0 section 4.2).
-// If zone is empty, the offset of at applies. ok is false for the zero time or an unknown zone.
+// If zone is empty, the offset of at applies. ok is false for an unknown zone. The zero
+// time is a point in time like any other, 0001-01-01T00:00:00Z (home-mandate/spec#112).
 func localTime(at time.Time, zone string) (time.Time, bool) {
-	if at.IsZero() {
-		return time.Time{}, false
-	}
 	if zone == "" {
 		return at, true
 	}

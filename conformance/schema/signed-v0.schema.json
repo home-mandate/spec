@@ -48,6 +48,12 @@
               "invalid"
             ]
           },
+          "requires": {
+            "enum": [
+              "ES256"
+            ],
+            "description": "An optional algorithm the case needs (SPEC-v0 sections 7.1 and 10.2): an implementation without it answers unsupported, and the case does not count for its class."
+          },
           "digest": {
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$",

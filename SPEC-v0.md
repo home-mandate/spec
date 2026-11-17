@@ -493,7 +493,9 @@ more than one resource: the result is `deny` with `unknown_resource` as well.
      value, a parameter is one the action does not declare, a parameter the action
      requires is missing, or of the alternatives the action requires one of, none is
      present whole, more than one is, or a part of one (Sections 4.5 and 5), the point in
-     time or the time zone is invalid or unknown, or the status is neither `active` nor
+     time or the time zone is invalid or unknown (a point in time follows the rules of
+     Section 3.1 item 0, as in a document; `0001-01-01T00:00:00Z` is a point in time like
+     any other), or the status is neither `active` nor
      `revoked`. The checks against the vocabulary (declared, type, range, permitted
      values, required, alternatives) presuppose a category and an action of a vocabulary
      the implementation knows; for any other request only the number, the names and the
@@ -1090,6 +1092,12 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
   p = 2^255 − 19), because libraries differ on what else they accept. `alg` MUST match the
   type of the key `kid` names: `EdDSA` an Ed25519 key, `ES256` a P-256 key. A verifier
   MUST reject everything else, even if the signature would verify.
+- The protected header is at most 256 bytes after base64url decoding, white space that JSON
+  permits included; its two members need about a hundred. A verifier MUST reject a longer
+  one.
+- An Ed25519 signature is verified with the equation of RFC 8032 section 5.1.7 without the
+  cofactor (`[S]B = R + [k]A'`), not with the cofactored one that the RFC also permits, so
+  that two verifiers never disagree about a signature.
 - An Ed25519 public key of small order is not a key: with it, a signature verifies for every
   message of a class, for the identity with `S` = 0 for all of them, so anyone could sign in
   the name of its holder, and the holder could deny what it signed. A verifier MUST reject
@@ -1133,7 +1141,13 @@ How a verifier comes to trust the keys of an issuer is outside this specificatio
 JWK Set (RFC 7517): `{"kty":"OKP","crv":"Ed25519","x":…}` or
 `{"kty":"EC","crv":"P-256","x":…,"y":…}`, each with a `kid`. The names of the members are
 case-sensitive: `X` is not `x`, but an unknown member, and unknown members are ignored (RFC
-7517 section 4). `x` and `y` are base64url without padding and without any other character.
+7517 section 4), `y` of an Ed25519 key too. Three members restrict what a key is for: if
+present, `use` is `sig`, `key_ops` is an array that contains `verify`, and `alg` is the
+algorithm of the key's type (`EdDSA` for Ed25519, `ES256` for P-256); a key whose `use`,
+`key_ops` or `alg` says otherwise, is `null` or of another JSON type (an element of `key_ops`
+that is not a string included), cannot be used, and a key set with such a key verifies
+nothing (Section 10.2). `x` and `y` are
+base64url without padding and without any other character.
 A key with a member `d`, whatever its value, is a private key and is rejected (RFC 8037
 section 2). An issuer that becomes
 trusted or stops being trusted, and every key of an issuer that is added or removed, is
@@ -1150,7 +1164,8 @@ A mandate can be represented as an `authorization_details` object (RFC 9396) wit
 `type: "https://home-mandate.org/mandate/v0"`, e.g. in token introspection or when an agent
 proposes a desired mandate at sign-in. The human always chooses the mandate; a proposal by
 the agent is only a pre-filled default and is never evaluated. Where the object leaves the
-party that issued it, the signed form of Section 7.1 is used.
+party that issued it, the signed form of Section 7.1 is used; how the signed form is carried
+inside `authorization_details` is not defined in this version.
 
 ## 8. Conformance and certification
 
@@ -1167,7 +1182,7 @@ Fields of a case:
 | `resource` | yes | `entity_id`, `category`, `areas` (an array, Section 3.4) of the resource as the PEP resolved it, and optionally `critical: true` if the directory marks it as critical; without `category` the directory does not contain it |
 | `action` | yes | requested action |
 | `parameters` | no | parameters of the action (Section 4.5), each an integer or a string; a value that is neither (a fraction, for example) stands for a request the PEP cannot express, the expected result is then `invalid_request` |
-| `time` | yes | point in time per RFC 3339 |
+| `time` | yes | point in time by the rules of Section 3.1 item 0; one that does not follow them stands for a request the PEP cannot express, the expected result is then `invalid_request` |
 | `timezone` | no | household time zone (IANA); if absent, the offset in `time` applies |
 | `revoked` | no | `true`: status `revoked`; if the field is absent or `false`: status `active` |
 | `expected` | yes | `allow`, `ask` or `deny` |
@@ -1198,7 +1213,8 @@ successor takes effect only after a human confirmed it.
 
 `conformance/signed-v0.json` contains cases for Section 7.1: `jws` (the signed mandate),
 `keys` (path to the JWK Set the verifier trusts), `issuer` (the issuer the keys are trusted
-for), `expected` (`valid` or `invalid`) and, for `valid`, the `digest` of the mandate. The
+for), `expected` (`valid` or `invalid`), for `valid` the `digest` of the mandate, and
+optionally `requires`, an optional algorithm the case needs (Section 10.2). The
 verifier under test counts as `hm-verifier:conf-0001`, the `audience` of the cases. The
 keys in `conformance/keys/` are test keys whose private parts are public.
 
@@ -1215,7 +1231,8 @@ is given as `entries_base64` or `jsonl_base64` instead: the same in base64 with 
 Set) the signatures of checkpoints are verified (Section 9.5), optionally against the
 expected `log_id`; `anchored` is then the expected `seq` up to which a verified checkpoint
 covers the log. Every log states the findings of Section 9.4 it has: `integrity_broken_at`,
-`conformance_broken_at` and `unknown_version_at`, each absent if there is none.
+`conformance_broken_at` and `unknown_version_at`, each absent if there is none. A log can
+name an optional algorithm it needs in `requires` (Section 10.2).
 
 `conformance/audit-v1.json` contains audit logs of version 1 and logs that mix versions 0 and 1
 (Section 14), in the same form. Entries of version 2 stand for a version a verifier does not
@@ -1338,7 +1355,7 @@ Depending on the event, the following are added:
 | `actor` | who triggered a change: `kind` (`user`, `agent`, `system`) and `id` |
 | `agent` | `client_id`, optionally `display_name` |
 | `request` | input to the evaluation: `resource` (`entity_id`, optionally `category`, `areas` as in Section 3.4 and `critical`), `action`, `time`, optionally `parameters` (each an integer or a string, Section 4.5), `timezone` and `revoked`; optionally `group`, a UUID (RFC 9562, lower case) that is the same in every `decision` entry of one request for several resources (Section 4.4) or for a renamed resource (Section 11.4) and appears in the entries of no other request |
-| `mandate` | `id` and `digest`. `previous_digest`, different from `digest`: required for `mandate.updated`, the version replaced; for `mandate.proposed` the version the implementation held when it recorded the proposal, in force or not (Section 3.5), absent if it held none; a `mandate.discarded` repeats the `digest` and `previous_digest` of its proposal (Section 11.6 item 4); absent with every other event. For `mandate.removed`, `digest` is that of the last version the implementation held; for `mandate.proposed` and `mandate.discarded`, `digest` is that of the proposed version. `cause`, required with `mandate.discarded` and `mandate.rejected` and absent otherwise: for `mandate.discarded` why the proposal did not take effect (`rejected`: a human declined it, `superseded`: another version took effect or a later proposal replaced it, `revoked`: the mandate was revoked, `expired`: the proposed version, or the proposal, expired first, Section 11.6 item 4); for `mandate.rejected` why a mandate from outside was not accepted (`invalid`: not a valid mandate or not canonical, or a signed mandate without `audience` or `expires`, Sections 3.1 and 7.1; `signature`: the signature does not verify, or the header or `kid` is not acceptable; `untrusted_issuer`: no trusted key for the issuer, the issuer may not issue for this principal or agent, or the mandate names another `audience`; `succession`: Section 3.5, a rollback included; `unsupported`: the implementation does not offer what the mandate needs, such as audit mode, Section 11.6, or a format major it does not support, Section 14). With `mandate.rejected`, `digest` is present if the document was a JSON object (Section 3.2) and `id` if it named one; if nothing could be read, the object has only `cause` |
+| `mandate` | `id` and `digest`. `previous_digest`, different from `digest`: required for `mandate.updated`, the version replaced; for `mandate.proposed` the version the implementation held when it recorded the proposal, in force or not (Section 3.5), absent if it held none; a `mandate.discarded` repeats the `digest` and `previous_digest` of its proposal (Section 11.6 item 4); absent with every other event. For `mandate.removed`, `digest` is that of the last version the implementation held; for `mandate.proposed` and `mandate.discarded`, `digest` is that of the proposed version. `cause`, required with `mandate.discarded` and `mandate.rejected` and absent otherwise: for `mandate.discarded` why the proposal did not take effect (`rejected`: a human declined it, `superseded`: another version took effect or a later proposal replaced it, `revoked`: the mandate was revoked, `expired`: the proposed version, or the proposal, expired first, Section 11.6 item 4); for `mandate.rejected` why a mandate from outside was not accepted (`invalid`: not a valid mandate or not canonical, or a signed mandate without `audience` or `expires`, Sections 3.1 and 7.1; `signature`: the signature does not verify, or the header or `kid` is not acceptable; `untrusted_issuer`: no trusted key for the issuer, the issuer may not issue for this principal or agent, or the mandate names another `audience`; `succession`: Section 3.5, a rollback included; `unsupported`: the implementation does not offer what the mandate needs, such as audit mode, Section 11.6, or a format major it does not support, Section 14). With `mandate.rejected`, `digest` is present if the document was a JSON object with a canonical form (Section 3.2: it is I-JSON) and `id` if it named one; if nothing could be read, the object has only `cause` |
 | `vocabulary` | the vocabulary the evaluation used for the category of the resource (Section 5): `id` and `version` as in its file. Only with `decision` and `evaluation`, and not with `reason` `unknown_resource` or `unknown_category`: no vocabulary was used. For a category of Section 5, `id` is `https://home-mandate.org/vocabulary/v0`; for an extension category, the `id` of the extension (Section 5.1). The schema cannot see the vocabulary; a verifier MUST reject any other `id` for a category of Section 5, the `id` of Section 5 for an extension category and, for an extension whose vocabulary it knows, any `id` other than that vocabulary's, and an entry that violates this is invalid |
 | `evaluation` | result per Section 4.1: `decision`, `reason`, `rule_id`, `approval_timeout` (the timeout of the approval settings; required for `ask` and with `confirm`, absent otherwise), `enforced` (only `false`, Section 4.6) and `confirm` (only `true`, with `enforced`) |
 | `approval` | outcome of an approval request: `outcome` (`approved`, `rejected`, `timeout`, `invalid_response`, `cancelled`), `at`, `by` (who responded; required for `approved`, `rejected` and `invalid_response`, optional for `timeout`, where it names an approver whose answer arrived after the timeout, absent for `cancelled`), optionally `via` (the channel the answer came through, an implementation-defined lowercase code such as `push` or `ui`; only together with `by`); `cause` (why the request ended without an answer: `withdrawn`, `revoked`, `emergency_stop`, `interrupted`, Section 11.1) only with `cancelled` and required there |
@@ -1564,7 +1581,10 @@ An audit log is **valid** if, in file order:
    cannot express (displayed text, a former value that differs from the current one,
    `enforced` against the vocabulary and `vocabulary` against the category), and the
    `up_to_seq` of a `log.truncated` entry is
-   smaller than the entry's own `seq`;
+   smaller than the entry's own `seq`; from audit/v1 on, also: the `id` of an entry repeats
+   the `id` of no earlier entry of the log, whatever that entry's version (an entry of
+   version 0 is not held to this, Section 14; an entry that is not I-JSON or not an object
+   has no `id` that can be read and is not compared);
 2. the first entry either has `seq` 1, or a later `log.truncated` entry with
    `up_to_seq` = `seq` − 1 and `last_digest` = `prev` of the first entry is present;
 3. every subsequent entry has the `seq` of its predecessor plus 1 and its `prev` is the
@@ -1661,7 +1681,12 @@ It covers the log up to and including its predecessor: the entry with `seq` − 
 digest is the checkpoint's `prev`. A checkpoint therefore never has `seq` 1.
 
 - `log_id` is a UUID in lower case that the implementation chooses once per audit log.
-  Every checkpoint of a log carries the same `log_id`; two logs never share one.
+  Every checkpoint of a log carries the same `log_id`; two logs never share one. From
+  audit/v1 on it is a UUID of version 4 or 7 with the variant of RFC 9562 (the schema of
+  version 1 says so). A log whose `log_id` is of another version cannot carry a checkpoint
+  of version 1 that keeps the rules, because the `log_id` never changes within a log: an
+  implementation that writes version 1 for such a log starts a new log with a new `log_id`,
+  its first entry with `seq` 1, as after a restore (see "The signer").
 - `signature` is a JWS in compact serialization with **detached payload**
   (RFC 7515 appendix F, `header..signature`), with the header and algorithms of
   Section 7.1. The payload is the canonical form (RFC 8785) of
@@ -1788,8 +1813,9 @@ passed for its class, as for an operation it does not offer.
 `request` is the input of the evaluation as the PEP determines it: `resource`
 (`entity_id`, optionally `category`, `areas` (an array), `critical`), `action`, optionally `parameters`
 (an object of names and values, each a JSON number or string), `time`, optionally `timezone`
-and `revoked`. A `time` that is no RFC 3339 timestamp or a parameter that is neither an
-integer nor a string yields `deny` with `invalid_request`, as do a parameter the action
+and `revoked`. A `time` that does not follow Section 3.1 item 0 (RFC 3339 and the narrower
+rules there: no year `0000`, no offset `-00:00`, at most 9 fractional digits) or a parameter
+that is neither an integer nor a string yields `deny` with `invalid_request`, as do a parameter the action
 does not declare and a missing required parameter (Section 4, step 0). A string is never read as a
 number: `"50"` is the string `50`. For `select`, a `subject` whose `client_id` is empty or
 whose `principal` does not match the pattern of `principal` yields `deny` with
@@ -1804,8 +1830,13 @@ A request with a member that this section does not define is malformed and is an
 an `error`, so that a former member name (such as `area`) is never evaluated as if it were
 absent. For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
 cases of that operation then count as not passed for their class. Any other `error` is a
-failed case. A `time` that is not RFC 3339 by its grammar, such as an offset of `+24:00`, a comma
-before the fraction or a one-digit hour, is not readable. `verify_signed` with a key set in which a
+failed case. A `time` that does not follow Section 3.1 item 0, such as an offset of `+24:00`, a
+comma before the fraction, a one-digit hour or the offset `-00:00`, is not readable.
+
+A case can require an algorithm that Section 7.1 makes optional: its member `requires` names
+it (`ES256`). An implementation without that algorithm answers the case with
+`{"error": "unsupported"}`; the case then does not count for its class, and the report lists
+it as not applicable. Every other case it answers so counts as not passed. `verify_signed` with a key set in which a
 key cannot be used answers `{"valid": false}`; `verify_audit` answers with an `error`, because it
 cannot report on the log.
 
@@ -1834,9 +1865,13 @@ directory, the point in time the PDP uses as its clock, and the household time z
 (absent: the offset of `time` applies). The answer is a 2xx status. Then the tool sends the
 request of the case to `POST <authzen>/access/v1/evaluation` with `subject` (type `agent`,
 `id`, `properties.principal`), `action` (`name`, `properties` for parameters) and
-`resource.id` only: category, areas, the critical marking and the time zone come from the
-state the control resource set, so `resource.type`, `resource.properties` and `context`
-are not sent. It compares `decision` and, in the response context, `outcome`, `reason`,
+`resource` with `id` and `type`, which AuthZEN requires: the category of the case, or
+`unknown` for a resource the directory does not contain. Category, areas, the critical
+marking and the time zone come from the state the control resource set, so the PDP ignores
+`resource.type`, and `resource.properties` and `context` are not sent. The control resource
+also accepts a state whose `time` does not follow Section 3.1 item 0: the PDP then answers
+every request as Section 10.2 says for such a `time`, `deny` with `invalid_request`, after the
+selection, which selects only a sole candidate. It compares `decision` and, in the response context, `outcome`, `reason`,
 `rule_id`, `approval_timeout`, `enforced`, `confirm` and `mandate_id`: against `selected`
 of a selection case, and against the `id` of the stored mandate of an evaluation case.
 
@@ -2705,6 +2740,34 @@ behavior of the people in a household and MUST be protected like the devices the
 ## Changelog
 
 ### Unreleased
+
+- Differences between implementations and open questions of #112, each with cases:
+  - Section 4 step 0 and Section 10.2: the point in time of a request follows the rules of
+    Section 3.1 item 0, as in a document, so the year `0000`, the offset `-00:00` and more than
+    9 fractional digits are `invalid_request`; `0001-01-01T00:00:00Z` is a point in time like
+    any other (`c257` to `c262`). Without a readable point in time, a selection with two
+    candidates is `invalid_request`, not `ambiguous_mandate` (`s30`, `s31`).
+  - Section 7.1: the protected header is at most 256 bytes; Ed25519 signatures are verified
+    without the cofactor; `use`, `key_ops` and `alg` of a key restrict it, and `y` of an
+    Ed25519 key is an unknown member (`g36` to `g44`).
+  - Section 10.2: cases that need ES256, which is optional, say so in `requires` (`g02`,
+    `a42`); an implementation without ES256 answers them `unsupported`, and they do not
+    count.
+  - Section 10.3: the test tool sends `resource.type`, which AuthZEN requires; the control
+    resource accepts a state with a `time` that is not readable.
+  - Section 9.1: the `digest` of a `mandate.rejected` needs a document with a canonical form.
+    Section 7.2: how the signed form travels in `authorization_details` is not defined in
+    this version.
+  - Audit version 1, which is not released yet (Sections 9.4 and 9.5): the `id` of an entry
+    does not repeat that of an earlier entry, a conformance finding (`v139`; version 0 is not
+    held to it, `a237`; a version 0 entry with the same `id` before a version 1 entry,
+    `v141`); `log_id` is a UUID of version 4 or 7, and a log with another one starts anew
+    when it switches to version 1 (`v140`); `seq` and `up_to_seq` are at most 2^53 − 1 in the
+    schema, which only states what Section 9.4 says of a `seq` already.
+  - For users of the Go packages: `rfc3339.Parse` applies Section 3.1 item 0, so
+    `audit.SignCheckpoint` and the harness refuse such times as well; `evaluator.Evaluate`
+    reads the zero `time.Time` as 0001-01-01T00:00:00Z (`not_yet_valid`, before:
+    `invalid_request`).
 
 - Section 10.2: the members `mandate`, `jsonl` and `entries` of the test interface have an
   alternative in base64 (`mandate_base64`, `jsonl_base64`, `entries_base64`), for documents

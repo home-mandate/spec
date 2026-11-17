@@ -127,9 +127,6 @@ func TestLocalTimeRejects(t *testing.T) {
 			t.Errorf("localTime accepted zone %q", zone)
 		}
 	}
-	if _, ok := localTime(time.Time{}, ""); ok {
-		t.Error("localTime accepted the zero time")
-	}
 }
 
 func TestValidZoneName(t *testing.T) {

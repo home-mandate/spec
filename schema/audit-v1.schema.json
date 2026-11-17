@@ -13,7 +13,7 @@
       "type": "string",
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
     },
-    "seq": { "type": "integer", "minimum": 1 },
+    "seq": { "description": "At most 2^53 − 1, the largest integer every JSON parser reads exactly (SPEC-v0 section 9.4).", "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
     "recorded_at": { "$ref": "#/$defs/date_time" },
     "event": {
       "enum": [
@@ -204,7 +204,7 @@
       "additionalProperties": false,
       "required": ["up_to_seq", "last_digest"],
       "properties": {
-        "up_to_seq": { "type": "integer", "minimum": 1 },
+        "up_to_seq": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
         "last_digest": { "$ref": "#/$defs/digest" }
       }
     },
@@ -215,9 +215,9 @@
       "required": ["log_id", "signature"],
       "properties": {
         "log_id": {
-          "description": "Identifier of the audit log, a UUID in lower case; the same in every checkpoint of the log.",
+          "description": "Identifier of the audit log, a UUID of version 4 or 7 with the variant of RFC 9562, in lower case; the same in every checkpoint of the log (SPEC-v0 section 9.5).",
           "type": "string",
-          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         },
         "signature": {
           "description": "Compact JWS with detached payload (RFC 7515 appendix F), algorithm EdDSA or ES256.",

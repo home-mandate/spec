@@ -438,6 +438,237 @@
       "entries": [
         {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "deny", "enforced": false, "reason": "no_match", "rule_id": null}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1381", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T09:31:00+01:00", "request": {"action": "turn_on", "resource": {"category": "switch", "critical": false, "entity_id": "switch.hall"}, "time": "2026-11-16T09:30:00+01:00", "timezone": "Europe/Berlin"}, "result": {"denied_by": "approval", "status": "denied"}, "seq": 1, "type": "https://home-mandate.org/audit/v1"}
       ]
+    },
+    {
+      "id": "v139",
+      "why": "two entries of version 1 with the same id: from audit/v1 on, the id of an entry does not repeat that of an earlier entry, so the second breaks condition 1, a conformance finding; the chain is intact (SPEC-v0 section 9.4)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "agent": {
+            "binding": "dpop",
+            "client_id": "hm-client:voice-7c21e9a4",
+            "display_name": "Voice assistant"
+          },
+          "event": "agent.registered",
+          "id": "01a0f64c-7140-7001-9007-0000000b1001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-16T10:00:00Z",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "id": "gateway",
+            "kind": "system"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "binding": {
+            "jkt": "kPYe4TclFMsM9R3f6RaAkkZMqT6s7tBIqzemuT4FtJA",
+            "method": "dpop"
+          },
+          "event": "agent.bound",
+          "id": "01a0f64c-7140-7001-9007-0000000b1001",
+          "prev": "sha256:f79c4fb1bce03bb92f1e9132bd776cf237459b4641af29421a370286b9e1d381",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-16T10:01:00Z",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "config": {
+            "setting": "public_origin",
+            "value": "https://home.example.net"
+          },
+          "event": "config.changed",
+          "id": "01a0f64c-7140-7001-9007-0000000b1003",
+          "prev": "sha256:98a3c2e2e992dc9cf086fd349f41b1ddb4f8fd836b0a59469bdbf917d40efcd6",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-16T10:02:00Z",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v140",
+      "why": "checkpoints of version 1 whose log_id is a UUID of version 1: from audit/v1 on, a log_id is a UUID of version 4 or 7 (SPEC-v0 section 9.5), so the first breaks condition 1; without keys the signatures are not checked (SPEC-v0 sections 9.4 and 9.5)",
+      "expected": "invalid",
+      "broken_at": 3,
+      "conformance_broken_at": 3,
+      "entries": [
+        {
+          "actor": {
+            "id": "user-1",
+            "kind": "user"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4",
+            "display_name": "Voice assistant"
+          },
+          "event": "agent.registered",
+          "id": "01a0f64c-7140-7001-9007-0000000b1001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-16T10:00:00Z",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "allow",
+            "reason": "rule",
+            "rule_id": "r-lights"
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000000b1002",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:f6ddade88bc2adf0354635e2cd7d32871bf7c69db73efc06824fd5b31b28522c",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-16T10:01:00Z",
+          "request": {
+            "action": "turn_on",
+            "resource": {
+              "areas": [
+                "living_room"
+              ],
+              "category": "light",
+              "entity_id": "light.living_room"
+            },
+            "time": "2026-11-16T10:01:00Z"
+          },
+          "result": {
+            "duration_ms": 120,
+            "status": "executed"
+          },
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0",
+          "vocabulary": {
+            "id": "https://home-mandate.org/vocabulary/v0",
+            "version": "0.1.0"
+          }
+        },
+        {
+          "checkpoint": {
+            "log_id": "0198f1c2-7c3a-1000-8000-00000000c0de",
+            "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..LEQNdI8OahVxFipK3n4LwozuqaToHVubGR0RLnC4Efbrk61U46T1OiQo_IcoOdnqB1Xiy8J4KqOpb5ZombZoDQ"
+          },
+          "event": "log.checkpoint",
+          "id": "01a0f64c-7140-7001-9007-0000000b1003",
+          "prev": "sha256:c7e7b43135e350a73bc21e97016479eb9b4525d5e96f3c5bcc5d8af0ef4a335a",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-16T10:02:00Z",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "evaluation": {
+            "decision": "allow",
+            "reason": "rule",
+            "rule_id": "r-lights"
+          },
+          "event": "decision",
+          "id": "01a0f64c-7140-7001-9007-0000000b1004",
+          "mandate": {
+            "digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3",
+            "id": "m-voice-assistant"
+          },
+          "prev": "sha256:a8fff4826b6d7ee4a05277cfdea12fc2827ca4fad5157c1d445f371137b782f7",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-16T10:03:00Z",
+          "request": {
+            "action": "turn_on",
+            "resource": {
+              "areas": [
+                "living_room"
+              ],
+              "category": "light",
+              "entity_id": "light.living_room"
+            },
+            "time": "2026-11-16T10:03:00Z"
+          },
+          "result": {
+            "duration_ms": 120,
+            "status": "executed"
+          },
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v1",
+          "vocabulary": {
+            "id": "https://home-mandate.org/vocabulary/v0",
+            "version": "0.1.0"
+          }
+        },
+        {
+          "checkpoint": {
+            "log_id": "0198f1c2-7c3a-1000-8000-00000000c0de",
+            "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..-yaoU-hmc03deJ_20PJL6OIAq1tbeAHNwjflnZiRmadsPRAWCwQzA26xNAMpz3B5AqAStzUZNnYyFTZUODNeDw"
+          },
+          "event": "log.checkpoint",
+          "id": "01a0f64c-7140-7001-9007-0000000b1005",
+          "prev": "sha256:80e93e1d423b5196cbd4709f1696c71548dcd41c4badeb6c9217b0aae3704539",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-16T10:04:00Z",
+          "seq": 5,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v141",
+      "why": "an entry of version 1 with the id of an earlier entry of version 0: the rule of version 1 compares with every earlier entry, whatever its version, so the second breaks condition 1 (SPEC-v0 section 9.4)",
+      "expected": "invalid",
+      "broken_at": 2,
+      "conformance_broken_at": 2,
+      "entries": [
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.released",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10001",
+          "prev": "sha256:922570af4fd40b679677f1e2549a54702e5d38919e92a23c9b29ce5818aee74d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
     }
   ]
 }

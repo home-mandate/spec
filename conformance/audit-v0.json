@@ -3544,6 +3544,7 @@
       "id": "a42",
       "why": "checkpoint signed with ES256",
       "expected": "valid",
+      "requires": "ES256",
       "keys": "conformance/keys/test-keys.json",
       "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
       "anchored": 2,
@@ -6368,6 +6369,52 @@
         "eyJhY3RvciI6eyJraW5kIjoidXNlciIsImlkIjoidXNlci3/MSJ9LCJldmVudCI6ImVtZXJnZW5jeV9zdG9wLmFjdGl2YXRlZCIsImlkIjoiMDFhMGY2NGMtNzE0MC03MDAxLTkwMDctMDAwMGEwZDEwMDAxIiwicHJldiI6bnVsbCwicHJpbmNpcGFsIjoiaG91c2Vob2xkOmhtLTdmM2EiLCJyZWNvcmRlZF9hdCI6IjIwMjYtMTAtMDFUMDk6MDE6MDArMDI6MDAiLCJzZXEiOjEsInR5cGUiOiJodHRwczovL2hvbWUtbWFuZGF0ZS5vcmcvYXVkaXQvdjAifQ==",
         "eyJhY3RvciI6eyJraW5kIjoidXNlciIsImlkIjoidXNlci0xIn0sImV2ZW50IjoiZW1lcmdlbmN5X3N0b3AucmVsZWFzZWQiLCJpZCI6IjAxYTBmNjRjLTcxNDAtNzAwMS05MDA3LTAwMDBhMGQxMDAwMiIsInByZXYiOiJzaGEyNTY6OTIyNTcwYWY0ZmQ0MGI2Nzk2NzdmMWUyNTQ5YTU0NzAyZTVkMzg5MTllOTJhMjNjOWIyOWNlNTgxOGFlZTc0ZCIsInByaW5jaXBhbCI6ImhvdXNlaG9sZDpobS03ZjNhIiwicmVjb3JkZWRfYXQiOiIyMDI2LTEwLTAxVDA5OjAyOjAwKzAyOjAwIiwic2VxIjoyLCJ0eXBlIjoiaHR0cHM6Ly9ob21lLW1hbmRhdGUub3JnL2F1ZGl0L3YwIn0=",
         "eyJhY3RvciI6eyJraW5kIjoidXNlciIsImlkIjoidXNlci0xIn0sImV2ZW50IjoiZW1lcmdlbmN5X3N0b3AuYWN0aXZhdGVkIiwiaWQiOiIwMWEwZjY0Yy03MTQwLTcwMDEtOTAwNy0wMDAwYTBkMTAwMDMiLCJwcmV2Ijoic2hhMjU2OmMyYmM3ZjAxZDhlMmNkYWQwMjM4MDhmOWE4OWU3ZjMyOTkyYzE3MjllZjUyODdlYjNlMTAwYTY1NTZhMjE1MDQiLCJwcmluY2lwYWwiOiJob3VzZWhvbGQ6aG0tN2YzYSIsInJlY29yZGVkX2F0IjoiMjAyNi0xMC0wMVQwOTowMzowMCswMjowMCIsInNlcSI6MywidHlwZSI6Imh0dHBzOi8vaG9tZS1tYW5kYXRlLm9yZy9hdWRpdC92MCJ9"
+      ]
+    },
+    {
+      "id": "a237",
+      "why": "two entries of version 0 with the same id: valid, because the rule that an id does not repeat starts with audit/v1 and version 0 stays as it is (SPEC-v0 sections 9.4 and 14)",
+      "expected": "valid",
+      "entries": [
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.released",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10001",
+          "prev": "sha256:922570af4fd40b679677f1e2549a54702e5d38919e92a23c9b29ce5818aee74d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "emergency_stop.activated",
+          "id": "01a0f64c-7140-7001-9007-0000a0d10003",
+          "prev": "sha256:345ade8de0667e0a020598c5d28567dc94a69911a3bdcc94ec498a9f3457ff5c",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v0"
+        }
       ]
     }
   ]
