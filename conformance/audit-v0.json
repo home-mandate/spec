@@ -6416,6 +6416,105 @@
           "type": "https://home-mandate.org/audit/v0"
         }
       ]
+    },
+    {
+      "id": "a238",
+      "why": "mandate.rejected of version 0 with received: the member exists only from version 1 on, so the entry breaks condition 1 (SPEC-v0 sections 9.1 and 14)",
+      "expected": "invalid",
+      "broken_at": 4,
+      "conformance_broken_at": 4,
+      "entries": [
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.proposed",
+          "id": "01a0f64c-7140-7001-9007-0000a2380001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "mandate.discarded",
+          "id": "01a0f64c-7140-7001-9007-0000a2380002",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "cause": "superseded"
+          },
+          "prev": "sha256:bcc72031550e635643250cd2d022f2b638c2477fcdb7b5c6bf2931f150011136",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000a2380003",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "cause": "signature"
+          },
+          "prev": "sha256:2beb7fbbf32375c589765017fd90bd0d9f887e06fdfc078ca729c23267265e07",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000a2380004",
+          "mandate": {
+            "cause": "invalid",
+            "received": "sha256:74651f46fbce3b6ea51ba1968c8ca3ece21a0fa5345576c27d2b6f0049143b5a"
+          },
+          "prev": "sha256:07e15c3b169ea82ee063888132e3518ae6ac872f330c553ef2de521645f4b86d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:00+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000a2380005",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "cause": "succession"
+          },
+          "prev": "sha256:b06062902c14e677386aa92fa23f74df9de3a27189715b46f9f2c2d2c0ac6ac9",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:05:00+02:00",
+          "seq": 5,
+          "type": "https://home-mandate.org/audit/v0"
+        }
+      ]
     }
   ]
 }

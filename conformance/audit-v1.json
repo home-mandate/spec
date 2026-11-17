@@ -669,6 +669,703 @@
           "type": "https://home-mandate.org/audit/v1"
         }
       ]
+    },
+    {
+      "id": "v142",
+      "why": "mandate.rejected of version 1, each with received, the SHA-256 of the bytes as they arrived: a signed mandate whose signature does not verify (with digest, which differs from received), bytes that are not JSON (only cause and received) and a JSON object with a duplicate key, which has no canonical form and so no digest (SPEC-v0 section 9.1)",
+      "expected": "valid",
+      "entries": [
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.proposed",
+          "id": "01a0f64c-7140-7001-9007-0000b1420001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "mandate.discarded",
+          "id": "01a0f64c-7140-7001-9007-0000b1420002",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "cause": "superseded"
+          },
+          "prev": "sha256:edc71015c0f6189800480b35f37905b63aa4c2d84380eb8db8a90c4c0fdffff7",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1420003",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "cause": "signature",
+            "received": "sha256:4a1b32e2559d48de2efb1556c20ab643851e69a1d129c586038eae8dc0dc02a7"
+          },
+          "prev": "sha256:435c2ea4538ea2843336a42f85a8791993f07af270c15b14e5ab974190de4317",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1420004",
+          "mandate": {
+            "cause": "invalid",
+            "received": "sha256:74651f46fbce3b6ea51ba1968c8ca3ece21a0fa5345576c27d2b6f0049143b5a"
+          },
+          "prev": "sha256:6a3a7d5cef99542f4047b279eecd2683f59f2b5736de5bdf195c96c43d6a1ca2",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:00+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1420005",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "cause": "succession",
+            "received": "sha256:608ff10b4f3e34eeae0314b84281b355175cb6deb8645913239d06a5eca7b39e"
+          },
+          "prev": "sha256:8011ed18a66d088970a46088d029031e27f2c873b9d385411495dd8fa2394e9c",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:05:00+02:00",
+          "seq": 5,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v143",
+      "why": "mandate.rejected of version 1 without received: required in version 1, so the entry breaks condition 1 (SPEC-v0 sections 9.1 and 9.4)",
+      "expected": "invalid",
+      "broken_at": 4,
+      "conformance_broken_at": 4,
+      "entries": [
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.proposed",
+          "id": "01a0f64c-7140-7001-9007-0000b1430001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "mandate.discarded",
+          "id": "01a0f64c-7140-7001-9007-0000b1430002",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "cause": "superseded"
+          },
+          "prev": "sha256:3dac887f5127b37f9169eeb7b167e197bc1afc4238b56be050b09ed6eb5af040",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1430003",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "cause": "signature",
+            "received": "sha256:4a1b32e2559d48de2efb1556c20ab643851e69a1d129c586038eae8dc0dc02a7"
+          },
+          "prev": "sha256:8383bca2b06a81b80cb5bb24a2d3218e7119bab5fea1f67a8c26c12324ad1c25",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1430004",
+          "mandate": {
+            "cause": "invalid"
+          },
+          "prev": "sha256:fb4015b63651d713f889a8e09114599ff71f2c111d47edd3ce7531c456a8956c",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:00+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1430005",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "cause": "succession",
+            "received": "sha256:608ff10b4f3e34eeae0314b84281b355175cb6deb8645913239d06a5eca7b39e"
+          },
+          "prev": "sha256:b7c9e5efddc9b26a785653d15883bb664dfc214ee47e07255cd085d9a5256d5f",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:05:00+02:00",
+          "seq": 5,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v144",
+      "why": "mandate.proposed with received: only mandate.rejected has it (SPEC-v0 section 9.1)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "conformance_broken_at": 1,
+      "entries": [
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.proposed",
+          "id": "01a0f64c-7140-7001-9007-0000b1440001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "received": "sha256:2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "mandate.discarded",
+          "id": "01a0f64c-7140-7001-9007-0000b1440002",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "cause": "superseded"
+          },
+          "prev": "sha256:d2f05478b1923a19dd9d583d8bca73fda828491887a65adf3cdbb3a449c08eb8",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1440003",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "cause": "signature",
+            "received": "sha256:4a1b32e2559d48de2efb1556c20ab643851e69a1d129c586038eae8dc0dc02a7"
+          },
+          "prev": "sha256:5943975a0b3837518e9c0e73586be4f4bd104e7c8453be88cde08d9c8ac27e01",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1440004",
+          "mandate": {
+            "cause": "invalid",
+            "received": "sha256:74651f46fbce3b6ea51ba1968c8ca3ece21a0fa5345576c27d2b6f0049143b5a"
+          },
+          "prev": "sha256:6cc273de8262253be931ac329de072cc6799bef4c21a345a6f2f3b9a467d1f70",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:00+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1440005",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "cause": "succession",
+            "received": "sha256:608ff10b4f3e34eeae0314b84281b355175cb6deb8645913239d06a5eca7b39e"
+          },
+          "prev": "sha256:ef26b27ad3050a065044ef65e1636e6998aa0eda3ea930083a4c328e6de0952c",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:05:00+02:00",
+          "seq": 5,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v145",
+      "why": "received with upper-case hexadecimal digits: a digest is written in lower case (SPEC-v0 section 9.1)",
+      "expected": "invalid",
+      "broken_at": 4,
+      "conformance_broken_at": 4,
+      "entries": [
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.proposed",
+          "id": "01a0f64c-7140-7001-9007-0000b1450001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "mandate.discarded",
+          "id": "01a0f64c-7140-7001-9007-0000b1450002",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "cause": "superseded"
+          },
+          "prev": "sha256:1d7aa4045fa88f6fe5269bc407f03d55ee3eabb45db410a7550f98bd7c5e16fa",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1450003",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "cause": "signature",
+            "received": "sha256:4a1b32e2559d48de2efb1556c20ab643851e69a1d129c586038eae8dc0dc02a7"
+          },
+          "prev": "sha256:b80e34c3d1ccee0bf000130c6e70f7c63d5686179d36cf335cc8b367973a9895",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1450004",
+          "mandate": {
+            "cause": "invalid",
+            "received": "sha256:74651F46FBCE3B6EA51BA1968C8CA3ECE21A0FA5345576C27D2B6F0049143B5A"
+          },
+          "prev": "sha256:6d7c4791e7b92d1bc90482fe40664fc443e9b542aa5fba4be83308ea6a5a9737",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:00+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1450005",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "cause": "succession",
+            "received": "sha256:608ff10b4f3e34eeae0314b84281b355175cb6deb8645913239d06a5eca7b39e"
+          },
+          "prev": "sha256:f49a2f9455fc2a0c7ddd28794f95d9a6a0a2b999def1cd927963c37932602090",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:05:00+02:00",
+          "seq": 5,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v146",
+      "why": "received with another algorithm (sha512): received is SHA-256 in this version (SPEC-v0 section 9.1)",
+      "expected": "invalid",
+      "broken_at": 4,
+      "conformance_broken_at": 4,
+      "entries": [
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.proposed",
+          "id": "01a0f64c-7140-7001-9007-0000b1460001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "mandate.discarded",
+          "id": "01a0f64c-7140-7001-9007-0000b1460002",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "cause": "superseded"
+          },
+          "prev": "sha256:808595807530ec69b0b056d53c75fc22ccde7cc955ff4a512fda3291d7b1d7ec",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1460003",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "cause": "signature",
+            "received": "sha256:4a1b32e2559d48de2efb1556c20ab643851e69a1d129c586038eae8dc0dc02a7"
+          },
+          "prev": "sha256:0c9ee2af8ad43259f5bf2e87fea5765ec31be0771b030da8ae1bad684ec10b75",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1460004",
+          "mandate": {
+            "cause": "invalid",
+            "received": "sha512:5659c719c70dd3773759a59b17831a37cb54641e3dbf701f8c99ab9fce4d2b09c2ec4dc755634c5de9c44ade41736e32d2b43b7cdef0a50ba6f795bc592eadc7"
+          },
+          "prev": "sha256:d27509b823221b761de223dc6605927aa5aefdc51ad33afe399d78c25a0f71d1",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:00+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1460005",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "cause": "succession",
+            "received": "sha256:608ff10b4f3e34eeae0314b84281b355175cb6deb8645913239d06a5eca7b39e"
+          },
+          "prev": "sha256:32edc568990b38ef8f0493dd729b62bb2b4a58ee2c540907b07f8256ceb8d8b6",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:05:00+02:00",
+          "seq": 5,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v147",
+      "why": "received with 63 hexadecimal digits instead of 64 (SPEC-v0 section 9.1)",
+      "expected": "invalid",
+      "broken_at": 4,
+      "conformance_broken_at": 4,
+      "entries": [
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.proposed",
+          "id": "01a0f64c-7140-7001-9007-0000b1470001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "mandate.discarded",
+          "id": "01a0f64c-7140-7001-9007-0000b1470002",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "cause": "superseded"
+          },
+          "prev": "sha256:3a1450dc9d3755acd7be0e9f5bc1f3a4f2aa70201de808b4056f5e8366638b91",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1470003",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "cause": "signature",
+            "received": "sha256:4a1b32e2559d48de2efb1556c20ab643851e69a1d129c586038eae8dc0dc02a7"
+          },
+          "prev": "sha256:2bb7323cc1099e7b080fa923eb05a9df67181e51fa1c9a1e405e1bf7dca7122d",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1470004",
+          "mandate": {
+            "cause": "invalid",
+            "received": "sha256:74651f46fbce3b6ea51ba1968c8ca3ece21a0fa5345576c27d2b6f0049143b5"
+          },
+          "prev": "sha256:408f9411d53fd8e5a4a3c1433ada059fdd95fda3491aee677eb793cf272a27bd",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:00+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "agent": {
+            "client_id": "hm-client:voice-7c21e9a4"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1470005",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "cause": "succession",
+            "received": "sha256:608ff10b4f3e34eeae0314b84281b355175cb6deb8645913239d06a5eca7b39e"
+          },
+          "prev": "sha256:c4524568e04aa37e59d80457a7c699020b7316bba6b70904b43ead0d31e53233",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:05:00+02:00",
+          "seq": 5,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v148",
+      "why": "a log that switches from version 0 to version 1: the mandate.rejected entries of version 0 have no received and stay valid, the one of version 1 has it (SPEC-v0 sections 9.1 and 14)",
+      "expected": "valid",
+      "entries": [
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.proposed",
+          "id": "01a0f64c-7140-7001-9007-0000b1480001",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:01:00+02:00",
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "user",
+            "id": "user-1"
+          },
+          "event": "mandate.discarded",
+          "id": "01a0f64c-7140-7001-9007-0000b1480002",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "cause": "superseded"
+          },
+          "prev": "sha256:091c96463c435f4ec4e8e051f36c5547b6faec68e44c5a39d2590d49e441aa27",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:02:00+02:00",
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1480003",
+          "mandate": {
+            "id": "m-voice-assistant",
+            "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "cause": "signature"
+          },
+          "prev": "sha256:32fa86c9b87fb0a419e19ee1db4b9bfa84acb8a3202fb97d82b6c49a31fbe29f",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:03:00+02:00",
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1480004",
+          "mandate": {
+            "cause": "invalid"
+          },
+          "prev": "sha256:23d6390032603b8dd800cf4da465c549cc000037659853cf96ee656734c50ca8",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:00+02:00",
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v0"
+        },
+        {
+          "actor": {
+            "kind": "system",
+            "id": "issuer-sync"
+          },
+          "event": "mandate.rejected",
+          "id": "01a0f64c-7140-7001-9007-0000b1480005",
+          "mandate": {
+            "cause": "invalid",
+            "received": "sha256:74651f46fbce3b6ea51ba1968c8ca3ece21a0fa5345576c27d2b6f0049143b5a"
+          },
+          "prev": "sha256:d9f587f4ad2f854ffb3943312871417819ede870399c4a1a7050e3e59834b9ac",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-10-01T09:04:00+02:00",
+          "seq": 5,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
     }
   ]
 }
