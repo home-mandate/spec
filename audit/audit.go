@@ -24,6 +24,7 @@ import (
 
 	"github.com/home-mandate/spec/displaytext"
 	"github.com/home-mandate/spec/ijson"
+	"github.com/home-mandate/spec/internal/errquote"
 	"github.com/home-mandate/spec/internal/jsonnum"
 	"github.com/home-mandate/spec/internal/origin"
 	"github.com/home-mandate/spec/jcs"
@@ -39,7 +40,9 @@ const MaxEntryBytes = 64 << 10
 
 const eventTruncated = "log.truncated"
 
-// Result is the outcome of a verification (SPEC-v0 section 9.4).
+// Result is the outcome of a verification (SPEC-v0 section 9.4). It means something only
+// when the verification returned no error: the zero value, which comes with an error, reads
+// as an invalid log broken at its first entry and is no verdict.
 type Result struct {
 	Valid bool
 	// Index is the position of the first violating entry in file order, starting at 0;
@@ -230,9 +233,7 @@ func verifyEntries(entries [][]byte, opts Options) (Result, error) {
 		return Result{}, err
 	}
 	for _, e := range entries {
-		if r, done := v.add(e); done {
-			return r, nil
-		}
+		v.add(e)
 	}
 	return v.finish(), nil
 }
@@ -269,6 +270,8 @@ type verifier struct {
 	known actionsByCategory
 	// cadence follows the checkpoints for CheckpointGap.
 	cadence cadence
+	// lastFound: an entry or a log.truncated entry stands for Anchor.LastSeen.
+	lastFound bool
 }
 
 // The cadence of checkpoints a writer keeps (SPEC-v0 section 9.5, "The signer", item 3).
@@ -333,20 +336,23 @@ func newVerifier(opts Options) (*verifier, error) {
 	if err != nil {
 		return nil, err
 	}
+	if a := opts.Anchor; a != nil && a.LastSeen != nil && (a.LastSeen.Seq < 1 || !digestPattern.MatchString(a.LastSeen.Digest)) {
+		return nil, fmt.Errorf("audit: the last entry seen needs a seq of at least 1 and a digest, got %d and %s",
+			a.LastSeen.Seq, errquote.Quote(a.LastSeen.Digest))
+	}
 	return &verifier{schemas: schemas, anchor: opts.Anchor, known: known}, nil
 }
 
 // add checks the next entry. Every entry is read: the findings on integrity, conformance
-// and unknown versions each need the whole log. done is never true; it is kept so that a
-// caller can stop early in a later version.
-func (v *verifier) add(entry []byte) (result Result, done bool) {
+// and unknown versions each need the whole log.
+func (v *verifier) add(entry []byte) {
 	index := v.count
 	v.count++
 	l, linked := v.check(index, entry)
 	if !linked {
 		note(&v.integrity, index, l.seq)
 		v.lost = true
-		return Result{}, false
+		return
 	}
 	switch {
 	case index == 0:
@@ -372,12 +378,47 @@ func (v *verifier) add(entry []byte) (result Result, done bool) {
 			v.checkpointBreak = &r
 		}
 	}
+	if v.anchor != nil && v.anchor.LastSeen != nil && v.lastSeen(l) {
+		v.breakCheckpoint(index, l.seq)
+	}
 	v.cadence.next(index, l)
 	v.previous, v.lost = l, false
-	return Result{}, false
+}
+
+// lastSeen checks an entry against the position the relying party saw last (Anchor.LastSeen):
+// the entry at that seq has its digest, or a log.truncated entry accounts for it. It reports
+// whether the entry contradicts the position.
+func (v *verifier) lastSeen(l link) (contradicts bool) {
+	last := v.anchor.LastSeen
+	switch {
+	case l.seq == last.Seq:
+		v.lastFound = true
+		return l.digest != last.Digest
+	case l.event == eventTruncated && l.upToSeq >= last.Seq:
+		v.lastFound = true
+		return l.upToSeq == last.Seq && l.lastDigest != last.Digest
+	}
+	return false
+}
+
+// breakCheckpoint records a violation of condition 4 at an entry.
+func (v *verifier) breakCheckpoint(index int, seq int64) {
+	note(&v.integrity, index, seq)
+	if v.checkpointBreak == nil {
+		r := broken(index, seq)
+		v.checkpointBreak = &r
+	}
 }
 
 func (v *verifier) finish() Result {
+	if v.anchor != nil && v.anchor.LastSeen != nil && !v.lastFound {
+		// The log ends before the position the relying party saw: it was cut or rolled back.
+		if v.count == 0 {
+			// Every entry is gone: the most complete rollback.
+			return Result{Index: 0, BrokenAt: 0, Integrity: &Finding{Index: 0, At: 0}}
+		}
+		v.breakCheckpoint(v.count-1, v.previous.seq)
+	}
 	if v.count > 0 && v.first.seq != 1 && !v.startCovered && !v.lostFirst() {
 		// Condition 2 is about the first entry: it comes before every other break of integrity.
 		v.integrity = &Finding{Index: 0, At: v.first.seq}
@@ -669,9 +710,7 @@ func verifyLines(r io.Reader, opts Options) (Result, error) {
 		if err != nil {
 			return Result{}, fmt.Errorf("audit: read: %w", err)
 		}
-		if result, done := v.add(line); done {
-			return result, nil
-		}
+		v.add(line)
 	}
 }
 

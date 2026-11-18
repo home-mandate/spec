@@ -34,7 +34,11 @@ type auditCase struct {
 	JSONLBase64   []byte   `json:"jsonl_base64"`
 	Keys          string   `json:"keys"`
 	LogID         string   `json:"log_id"`
-	Anchored      *int64   `json:"anchored"`
+	LastSeen      *struct {
+		Seq    int64  `json:"seq"`
+		Digest string `json:"digest"`
+	} `json:"last_seen"`
+	Anchored *int64 `json:"anchored"`
 	// The findings of SPEC-v0 section 9.4; nil: none of that kind.
 	IntegrityBrokenAt   *int64 `json:"integrity_broken_at"`
 	ConformanceBrokenAt *int64 `json:"conformance_broken_at"`
@@ -54,7 +58,11 @@ func (c auditCase) verify() (audit.Result, error) {
 		if err != nil {
 			return audit.Result{}, err
 		}
-		return audit.VerifyAnchored(raw(c.Entries), audit.Anchor{Keys: keys, LogID: c.LogID})
+		anchor := audit.Anchor{Keys: keys, LogID: c.LogID}
+		if c.LastSeen != nil {
+			anchor.LastSeen = &audit.Position{Seq: c.LastSeen.Seq, Digest: c.LastSeen.Digest}
+		}
+		return audit.VerifyAnchored(raw(c.Entries), anchor)
 	}
 	switch {
 	case c.JSONL != nil:

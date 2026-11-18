@@ -4,8 +4,10 @@ package audit_test
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ed25519"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -48,7 +50,7 @@ func (b *logBuilder) stop() {
 }
 
 // checkpoint appends a checkpoint over everything written so far.
-func (b *logBuilder) checkpoint(logID, kid string, signer any) {
+func (b *logBuilder) checkpoint(logID, kid string, signer crypto.Signer) {
 	b.t.Helper()
 	sig, err := audit.SignCheckpoint(logID, int64(len(b.entries)), b.prev, testRecordedAt, kid, signer)
 	if err != nil {
@@ -206,7 +208,9 @@ func TestSignCheckpointRejectsBadInput(t *testing.T) {
 		"bad digest": func() (string, error) {
 			return audit.SignCheckpoint(testLogID, 1, "sha256:x", testRecordedAt, "k", testSigner())
 		},
-		"bad key": func() (string, error) { return audit.SignCheckpoint(testLogID, 1, good, testRecordedAt, "k", "key") },
+		"bad key": func() (string, error) {
+			return audit.SignCheckpoint(testLogID, 1, good, testRecordedAt, "k", foreignSigner{})
+		},
 	} {
 		if _, err := call(); err == nil {
 			t.Errorf("%s: accepted", name)
@@ -239,5 +243,42 @@ func TestResultReportsWhereTheLogStarts(t *testing.T) {
 	anchored, _ := audit.VerifyAnchored(b.entries[2:], anchor())
 	if !anchored.Valid || anchored.FirstSeq != 3 || !anchored.TruncationAnchored {
 		t.Errorf("after a checkpoint: %+v, want the truncation anchored", anchored)
+	}
+}
+
+// foreignSigner is a crypto.Signer of a type the package does not sign with.
+type foreignSigner struct{}
+
+func (foreignSigner) Public() crypto.PublicKey { return nil }
+
+func (foreignSigner) Sign(io.Reader, []byte, crypto.SignerOpts) ([]byte, error) { return nil, nil }
+
+// The position seen last: a seq below 1 or a malformed digest is an error of the caller, and
+// a log that ends before the position is broken at its last entry, by index and seq.
+func TestLastSeen(t *testing.T) {
+	b := &logBuilder{t: t}
+	b.stop()
+	b.stop()
+	b.checkpoint(testLogID, "log-key-1", testSigner())
+	first, err := audit.Digest(b.entries[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	with := func(seq int64, digest string) audit.Anchor {
+		a := anchor()
+		a.LastSeen = &audit.Position{Seq: seq, Digest: digest}
+		return a
+	}
+	if got, err := audit.VerifyAnchored(b.entries, with(1, first)); err != nil || !got.Valid {
+		t.Errorf("seq 1 with its digest: %+v, %v; want valid", got, err)
+	}
+	for _, bad := range []audit.Anchor{with(0, first), with(-1, first), with(1, "sha256:x"), with(1, "")} {
+		if _, err := audit.VerifyAnchored(b.entries, bad); err == nil {
+			t.Errorf("LastSeen %+v accepted", *bad.LastSeen)
+		}
+	}
+	got, err := audit.VerifyAnchored(b.entries, with(9, first))
+	if err != nil || got.Valid || got.Index != 2 || got.BrokenAt != 3 || !got.Integrity.Found() || got.Integrity.Index != 2 {
+		t.Errorf("a log that ends before seq 9: %+v, %v; want broken at index 2, seq 3", got, err)
 	}
 }

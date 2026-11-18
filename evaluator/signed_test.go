@@ -83,6 +83,9 @@ func TestSignAndParseSigned(t *testing.T) {
 	if m.Digest() != plain.Digest() || m.Version() != 3 {
 		t.Errorf("signed mandate: digest %s version %d, want %s and 3", m.Digest(), m.Version(), plain.Digest())
 	}
+	if m.AcceptedKid() != "issuer-key-1" || plain.AcceptedKid() != "" {
+		t.Errorf("AcceptedKid = %q and %q, want issuer-key-1 and none", m.AcceptedKid(), plain.AcceptedKid())
+	}
 }
 
 func TestSignRejects(t *testing.T) {

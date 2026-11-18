@@ -261,6 +261,11 @@ func verifyAudit(req Request) Response {
 			return Response{Error: "keys: " + err.Error()}
 		}
 		anchor = &audit.Anchor{Keys: keys, LogID: req.LogID}
+		if req.LastSeen != nil {
+			anchor.LastSeen = &audit.Position{Seq: req.LastSeen.Seq, Digest: req.LastSeen.Digest}
+		}
+	} else if req.LastSeen != nil {
+		return Response{Error: "last_seen without keys"}
 	}
 	forms := 0
 	for _, given := range []bool{req.JSONL != nil, req.Entries != nil, req.JSONLBase64 != nil, req.EntriesBase64 != nil} {

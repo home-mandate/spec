@@ -4,6 +4,7 @@ package evaluator
 
 import (
 	"bytes"
+	"crypto"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -46,7 +47,7 @@ func Canonical(data []byte) ([]byte, error) {
 // Sign returns a signed mandate (SPEC-v0 section 7): the compact JWS over the canonical
 // form of a valid mandate that names its issuer and version. signer is an
 // ed25519.PrivateKey or an *ecdsa.PrivateKey on P-256.
-func Sign(mandate []byte, kid string, signer any) (string, error) {
+func Sign(mandate []byte, kid string, signer crypto.Signer) (string, error) {
 	m, err := Parse(mandate)
 	if err != nil {
 		return "", err
@@ -64,6 +65,8 @@ func Sign(mandate []byte, kid string, signer any) (string, error) {
 // ParseSigned verifies a signed mandate and returns the mandate. The signature must be
 // made with a key trusted for the issuer the mandate names, and the payload must be
 // the canonical form of the mandate, so that one mandate has exactly one signed form.
+// AcceptedKid of the result names the key it was accepted by, which a verifier remembers
+// (SPEC-v0 section 7.1).
 func ParseSigned(compact string, trusted Issuers) (*Mandate, error) {
 	issuer, err := unverifiedIssuer(compact)
 	if err != nil {
@@ -73,7 +76,7 @@ func ParseSigned(compact string, trusted Issuers) (*Mandate, error) {
 	if !ok || issuer == "" {
 		return nil, fmt.Errorf("%w: issuer %s is not trusted", ErrSignature, errquote.Quote(issuer))
 	}
-	payload, _, err := jws.Verify(compact, keys)
+	payload, kid, err := jws.Verify(compact, keys)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrSignature, err)
 	}
@@ -94,7 +97,15 @@ func ParseSigned(compact string, trusted Issuers) (*Mandate, error) {
 	if err := signable(m); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrSignature, err)
 	}
+	m.kid = kid
 	return m, nil
+}
+
+// AcceptedKid returns the key ID by which ParseSigned accepted the mandate: a verifier
+// remembers it, so that every mandate accepted only by a key loses its effect when the key
+// stops being trusted (SPEC-v0 section 7.1). It is empty for a mandate that was not signed.
+func (m *Mandate) AcceptedKid() string {
+	return m.kid
 }
 
 // signable reports why a valid mandate cannot be a signed mandate: it needs issuer and

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
@@ -56,7 +57,7 @@ func resolve(dir, path string) string {
 	return filepath.Join(dir, path)
 }
 
-func privateKey(path, kid string) (any, error) {
+func privateKey(path, kid string) (crypto.Signer, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read keys: %w", err)

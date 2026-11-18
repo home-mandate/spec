@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/home-mandate/spec/internal/errquote"
+	"io"
 	"math/big"
 	"os"
 	"runtime"
@@ -70,7 +71,7 @@ func TestSignAndVerifyDetached(t *testing.T) {
 	ed, ec := rfcKey(t), ecKey(t)
 	keys := Keys{"ed-1": ed.Public(), "ec-1": ec.Public()}
 	payload := []byte(`{"a":1}`)
-	for kid, signer := range map[string]any{"ed-1": ed, "ec-1": ec} {
+	for kid, signer := range map[string]crypto.Signer{"ed-1": ed, "ec-1": ec} {
 		detached, err := SignDetached(payload, kid, signer)
 		if err != nil {
 			t.Fatalf("%s: %v", kid, err)
@@ -171,7 +172,7 @@ func TestSignRejects(t *testing.T) {
 	if _, err := SignDetached([]byte("x"), "k", p384); err == nil {
 		t.Error("P-384 key accepted")
 	}
-	if _, err := SignDetached([]byte("x"), "k", "not a key"); err == nil {
+	if _, err := SignDetached([]byte("x"), "k", foreignSigner{}); err == nil {
 		t.Error("unsupported key type accepted")
 	}
 }
@@ -187,7 +188,7 @@ func TestParseJWKS(t *testing.T) {
 		t.Fatalf("ParseJWKS = %v, %v", keys, err)
 	}
 	payload := []byte("x")
-	for kid, signer := range map[string]any{"ed-1": ed, "ec-1": ec} {
+	for kid, signer := range map[string]crypto.Signer{"ed-1": ed, "ec-1": ec} {
 		detached, _ := SignDetached(payload, kid, signer)
 		if _, err := VerifyDetached(detached, payload, keys); err != nil {
 			t.Errorf("%s: key from the set does not verify: %v", kid, err)
@@ -528,7 +529,7 @@ func TestSignRejectsUnusableKeys(t *testing.T) {
 	p256 := func(d *big.Int, public ecdsa.PublicKey) *ecdsa.PrivateKey {
 		return &ecdsa.PrivateKey{PublicKey: public, D: d}
 	}
-	signers := map[string]any{
+	signers := map[string]crypto.Signer{
 		"P-256 without D":         p256(nil, ec.PublicKey),
 		"P-256 without X and Y":   p256(ec.D, ecdsa.PublicKey{Curve: elliptic.P256()}),
 		"P-256 with D zero":       p256(big.NewInt(0), ec.PublicKey),
@@ -835,3 +836,10 @@ func TestALongInputIsRejectedBeforeSplitting(t *testing.T) {
 		t.Errorf("four parts: %v, want ErrMalformed", err)
 	}
 }
+
+// foreignSigner is a crypto.Signer of a type the package does not sign with.
+type foreignSigner struct{}
+
+func (foreignSigner) Public() crypto.PublicKey { return nil }
+
+func (foreignSigner) Sign(io.Reader, []byte, crypto.SignerOpts) ([]byte, error) { return nil, nil }

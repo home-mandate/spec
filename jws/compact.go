@@ -60,7 +60,7 @@ func SigningInput(header string, payload []byte) []byte {
 // the compact JWS. alg is the algorithm of signer, as SignerAlgorithm returns it, and a key
 // that SignerAlgorithm refuses or that alg does not fit gives ErrKey; the header is the
 // caller's and has to name that alg.
-func SignCompact(header, payload []byte, alg string, signer any) (string, error) {
+func SignCompact(header, payload []byte, alg string, signer crypto.Signer) (string, error) {
 	signerAlg, _, err := SignerAlgorithm(signer)
 	if err != nil {
 		return "", err
@@ -129,7 +129,7 @@ func KeyAlgorithm(key crypto.PublicKey) (alg string, ok bool) {
 // SignerAlgorithm returns the algorithm and the public key of a private key: an
 // ed25519.PrivateKey of 64 bytes, or an *ecdsa.PrivateKey on P-256 whose scalar fits its
 // public key. Any other key gives ErrKey.
-func SignerAlgorithm(signer any) (alg string, public crypto.PublicKey, err error) {
+func SignerAlgorithm(signer crypto.Signer) (alg string, public crypto.PublicKey, err error) {
 	switch key := signer.(type) {
 	case ed25519.PrivateKey:
 		if len(key) != ed25519.PrivateKeySize {

@@ -83,6 +83,25 @@
             "type": "string",
             "description": "Expected identifier of the log; only with keys."
           },
+          "last_seen": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "seq",
+              "digest"
+            ],
+            "properties": {
+              "seq": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            },
+            "description": "Only with keys: the position a relying party saw covered by the last checkpoint it verified; the log must still hold an entry with that seq and digest, or a log.truncated entry that accounts for it (SPEC-v0 section 9.5)."
+          },
           "anchored": {
             "type": "integer",
             "minimum": 0,

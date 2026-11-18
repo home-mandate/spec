@@ -251,3 +251,21 @@ func TestParseDigestIgnoresKeyOrderAndWhitespace(t *testing.T) {
 		t.Error("different content produced the same digest")
 	}
 }
+
+// An error of Parse never echoes more than errquote.MaxErrorBytes of what it was given, so a
+// sender cannot fill logs or responses through the errors (SPEC-v0 section 7.1).
+func TestParseErrorsAreBounded(t *testing.T) {
+	long := strings.Repeat("x", 200_000)
+	for name, data := range map[string][]byte{
+		"rule id": mandateReplacing(`"id":"r-1"`, `"id":"`+long+`"`),
+		"action":  mandateReplacing(`"actions":["turn_on"]`, `"actions":["`+long+`"]`),
+	} {
+		_, err := evaluator.Parse(data)
+		if err == nil || len(err.Error()) > 515 {
+			t.Errorf("%s: error of %d bytes", name, len(fmt.Sprint(err)))
+		}
+		if !errors.Is(err, evaluator.ErrSchema) && !errors.Is(err, evaluator.ErrSemantic) && !errors.Is(err, evaluator.ErrMalformed) {
+			t.Errorf("%s: %v lost its kind", name, err)
+		}
+	}
+}
