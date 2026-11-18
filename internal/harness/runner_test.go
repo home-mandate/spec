@@ -217,7 +217,7 @@ func TestCasesOfAnOptionalAlgorithmDoNotCount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for class, notApplicable := range map[string]int{harness.ClassSignatures: 10, harness.ClassAnchored: 2} {
+	for class, notApplicable := range map[string]int{harness.ClassSignatures: 10, harness.ClassAnchored: 3} {
 		if c := report.Classes[class]; !c.Conforms || c.NotApplicable != notApplicable || c.Skipped != 0 {
 			t.Errorf("%s = %+v, want conforming with %d cases not applicable", class, c, notApplicable)
 		}

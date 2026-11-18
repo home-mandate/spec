@@ -39,6 +39,8 @@ type auditCase struct {
 	IntegrityBrokenAt   *int64 `json:"integrity_broken_at"`
 	ConformanceBrokenAt *int64 `json:"conformance_broken_at"`
 	UnknownVersionAt    *int64 `json:"unknown_version_at"`
+	// CheckpointGapAt: SPEC-v0 section 9.5; nil: none.
+	CheckpointGapAt *int64 `json:"checkpoint_gap_at"`
 }
 
 // verify runs the case through the entry point its form calls for.
@@ -127,7 +129,7 @@ func TestConformanceAuditLogs(t *testing.T) {
 			for name, f := range map[string]struct {
 				got  *audit.Finding
 				want *int64
-			}{"integrity": {got.Integrity, c.IntegrityBrokenAt}, "conformance": {got.Conformance, c.ConformanceBrokenAt}, "unknown version": {got.UnknownVersion, c.UnknownVersionAt}} {
+			}{"integrity": {got.Integrity, c.IntegrityBrokenAt}, "conformance": {got.Conformance, c.ConformanceBrokenAt}, "unknown version": {got.UnknownVersion, c.UnknownVersionAt}, "checkpoint gap": {got.CheckpointGap, c.CheckpointGapAt}} {
 				switch {
 				case f.want == nil && f.got.Found():
 					t.Errorf("%s finding at seq %d, want none", name, f.got.At)
