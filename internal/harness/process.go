@@ -65,6 +65,9 @@ func (p *Process) Do(req Request) (Response, error) {
 		}
 		return Response{}, errors.New("conformance: the implementation closed its output")
 	}
+	if err := exactResponse(p.stdout.Bytes(), req.Op); err != nil {
+		return Response{}, fmt.Errorf("conformance: response: %w", err)
+	}
 	var resp Response
 	if err := json.Unmarshal(p.stdout.Bytes(), &resp); err != nil {
 		return Response{}, fmt.Errorf("conformance: response is not JSON: %w", err)

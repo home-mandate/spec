@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/home-mandate/spec/audit"
@@ -90,7 +91,10 @@ func Answer(req Request) Response {
 			return missing("entry")
 		}
 		digest, err := audit.Digest([]byte(*req.Entry))
-		return Response{Valid: ptr(err == nil), Digest: digest}
+		if err != nil {
+			return Response{Error: "entry without a digest: " + err.Error()}
+		}
+		return Response{Digest: digest}
 	}
 	return Response{Error: ErrorUnsupported}
 }
@@ -245,7 +249,7 @@ func succession(req Request) Response {
 
 func verifySigned(req Request) Response {
 	// A key set with a key that cannot be used verifies nothing (SPEC-v0 section 10.2).
-	keys, err := jws.ParseJWKS(req.Keys)
+	keys, err := jws.ParseJWKS([]byte(req.Keys))
 	if err != nil {
 		return Response{Valid: ptr(false)}
 	}
@@ -256,7 +260,7 @@ func verifySigned(req Request) Response {
 func verifyAudit(req Request) Response {
 	var anchor *audit.Anchor
 	if len(req.Keys) > 0 {
-		keys, err := jws.ParseJWKS(req.Keys)
+		keys, err := jws.ParseJWKS([]byte(req.Keys))
 		if err != nil {
 			return Response{Error: "keys: " + err.Error()}
 		}
@@ -344,5 +348,36 @@ func decodeRequest(line []byte) (Request, error) {
 	if dec.More() {
 		return Request{}, errors.New("harness: more than one JSON value on a line")
 	}
+	if err := membersOfOp(line, req.Op); err != nil {
+		return Request{}, err
+	}
 	return req, nil
+}
+
+// opMembers are the members each operation defines besides op and id (SPEC-v0 section 10.2).
+// A member that another operation defines is as malformed as an unknown one.
+var opMembers = map[string][]string{
+	OpCapabilities: nil,
+	OpValidate:     {"mandate", "mandate_base64"},
+	OpEvaluate:     {"mandate", "mandate_base64", "request"},
+	OpSelect:       {"mandates", "subject", "request"},
+	OpSuccession:   {"stored", "offered", "stored_revoked"},
+	OpVerifySigned: {"jws", "issuer", "keys"},
+	OpVerifyAudit:  {"entries", "jsonl", "entries_base64", "jsonl_base64", "keys", "log_id", "last_seen"},
+	OpEntryDigest:  {"entry"},
+}
+
+// membersOfOp reports a top-level member of a request that its operation does not define.
+// An operation the protocol does not know is left to Answer, which answers unsupported.
+func membersOfOp(line []byte, op string) error {
+	allowed, known := opMembers[op]
+	if !known {
+		return nil
+	}
+	return eachMember(line, func(name string, _ []byte) error {
+		if name == "op" || name == "id" || slices.Contains(allowed, name) {
+			return nil
+		}
+		return fmt.Errorf("harness: member %q is not one of %s", name, op)
+	})
 }

@@ -34,6 +34,7 @@ implementation as a whole follows the specification does.
 | 7.1 | Configure the keys of an issuer before any mandate is verified, never fetch them from a location a mandate names; decide per issuer for which principals and agents it may issue |
 | 7.1 | Remember by which `kid` each stored mandate was accepted; when a key stops being trusted, every mandate accepted only by it loses its effect or is confirmed again by a human |
 | 7.1 | Record every issuer and key that is trusted, untrusted, added or removed (`issuer.changed`); a key whose bytes change under its `kid` is removed and added |
+| 7.1 | Never sign mandates and checkpoints with the same key; which optional algorithms (ES256) the implementation supports |
 
 ## Audit log (Section 9)
 
@@ -61,10 +62,18 @@ implementation as a whole follows the specification does.
 | 11.7 | If reachable from outside: the channel outside the implementation's own pages through which an alarm and the state `unavailable` of Certificate Transparency monitoring reach every administrator, and that an alarm stays shown across restarts until acknowledged; a key presented under the public origin that differs from the current one is taken only when the administrator accepts it |
 | 11.8 | What `read` returns |
 
+## Test interface (Section 10)
+
+| Section | Obligation |
+|---|---|
+| 10.1 | The test interface is not offered in operation: not in a release build, or only after an explicit start option that is off by default; its state never mixes with the household's mandates and log |
+| 10.3 | The control resource of the HTTP binding requires authentication, except where Section 10.3 allows otherwise in a test run |
+
 ## Versions (Section 14)
 
 | Section | Obligation |
 |---|---|
+| 14 | Which audit versions the implementation writes, and since which release |
 | 14 | Write a new audit version only once the implementation's own verification, display and export read it; a checkpoint of the older version before the first entry of the newer one; never append to a log that holds entries of a newer version than the implementation writes |
 | 14 | Do not write entries with a deviation listed in `data/corrections-v0.json` |
 

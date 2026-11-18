@@ -144,7 +144,7 @@ Section 7.1 (signed mandates) and Section 9.5 (checkpoints, detached payload).
 
 | Rule | Entry |
 |---|---|
-| 5.1.3 decoding: y < p | Cases: `g21` (R), `g50` (the key; the equation holds, so only this check rejects it). Not testable for a key of prime order written with y ≥ p: nobody can sign for such a key, so every verifier rejects its signatures for another reason |
+| 5.1.3 decoding: y < p | Cases: `g21` (R), `g50` (the key; the equation holds, so only this check rejects it). Not testable for a key of prime order written with y ≥ p: such an encoding exists only for a point whose y is below 19, and nobody knows the private key of one, so no signature by it can be made |
 | 5.1.3 decoding: a point exists for y | Cases: `g71`; next to the signing key, the set stays usable: `g99` |
 | 5.1.3 decoding: x = 0 with the sign bit set | Cases: those encodings are in the list of Section 7.1 and rejected as keys of small order (`g34` shows the list at work) |
 | 5.1.7 S < L | Cases: `g19` |

@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -196,6 +197,9 @@ func (p PDP) call(ctx context.Context, method, url string, body, out any) error 
 	}
 	if out == nil {
 		return nil
+	}
+	if err := exactNames(data, reflect.TypeOf(out)); err != nil {
+		return fmt.Errorf("%s %s: %w", method, url, err)
 	}
 	return json.Unmarshal(data, out)
 }

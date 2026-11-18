@@ -15,7 +15,7 @@ import (
 var timeZoneName = regexp.MustCompile(`^(UTC|[A-Z][A-Za-z0-9_+-]*(/[A-Z][A-Za-z0-9_+-]*)+)$`)
 
 func TestTheInformativeListOfTimeZoneNames(t *testing.T) {
-	data, err := os.ReadFile("timezone-names.json")
+	data, err := os.ReadFile("data/timezone-names.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -21,7 +21,7 @@ const (
 // ErrorUnsupported is the error of an operation the implementation does not offer.
 const ErrorUnsupported = "unsupported"
 
-// Request is one line the test tool writes. Mandates, audit entries and logs are
+// Request is one line the test tool writes. Mandates, audit entries, logs and key sets are
 // passed as JSON text in a string, so that they reach the implementation byte for byte.
 type Request struct {
 	Op string `json:"op"`
@@ -43,9 +43,11 @@ type Request struct {
 	StoredRevoked bool    `json:"stored_revoked,omitempty"`
 	Offered       *string `json:"offered,omitempty"`
 
-	JWS    string          `json:"jws,omitempty"`
-	Issuer string          `json:"issuer,omitempty"`
-	Keys   json.RawMessage `json:"keys,omitempty"`
+	JWS    string `json:"jws,omitempty"`
+	Issuer string `json:"issuer,omitempty"`
+	// Keys is a JWK Set as JSON text, like a mandate: its bytes are what some cases are about
+	// (SPEC-v0 section 10.2).
+	Keys string `json:"keys,omitempty"`
 
 	JSONL   *string  `json:"jsonl,omitempty"`
 	Entries []string `json:"entries,omitempty"`
