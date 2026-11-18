@@ -155,3 +155,76 @@ func FuzzHTUMatches(f *testing.F) {
 		}
 	})
 }
+
+// The bounds of the character classes and lengths of Section 11.7 item 1, one value at each
+// edge.
+func TestValidAtTheEdges(t *testing.T) {
+	label63 := strings.Repeat("a", 63)
+	host253 := strings.Repeat(label63+".", 3) + strings.Repeat("b", 61)
+	for value, want := range map[string]bool{
+		"https://home.a":             true,
+		"https://home.z":             true,
+		"https://a9.z0":              true,
+		"https://09.example":         true,
+		"https://home.0xa":           false,
+		"https://home.0xf":           false,
+		"https://home.0x0":           false,
+		"https://home.example:1":     true,
+		"https://home.example:9":     true,
+		"https://home.example:65535": true,
+		"https://home.example:65536": false,
+		"https://home.example:1a":    false,
+		"https://home.example:/":     false,
+		"https://" + label63 + ".z":  true,
+		"https://" + label63 + "a.z": false,
+		"https://" + host253:         true,
+		"https://" + host253 + "b":   false,
+		"https://xn--a.example":      true, // decodes to U+0080, outside ASCII
+		"https://h`.example":         false,
+		"https://h{.example":         false,
+		"https://h/.example":         false,
+		"https://h:.example":         false,
+	} {
+		if got := origin.Valid(value) == nil; got != want {
+			t.Errorf("Valid(%q) = %v, want %v", value, origin.Valid(value), want)
+		}
+	}
+}
+
+// The edges of percent-decoding, hexadecimal digits, ports and userinfo in the comparison of
+// htu (RFC 3986 Section 6.2.2).
+func TestHTUAtTheEdges(t *testing.T) {
+	const base = "https://home.example"
+	for _, tc := range []struct {
+		htu, url string
+		want     bool
+	}{
+		{base + "/%30%39%41%5A%61%7A%2D%2E%5F%7E", base + "/09AZaz-._~", true},
+		{base + "/%2F", base + "//", false},
+		{base + "/%3A", base + "/:", false},
+		{base + "/%40", base + "/%40", true},
+		{base + "/%5B", base + "/%5B", true},
+		{base + "/%60", base + "/%60", true},
+		{base + "/%7B", base + "/%7B", true},
+		{base + "/a%2f", base + "/a%2F", true},
+		{base + "/a%2F", base + "/a%2F", true},
+		{base + "/a%af", base + "/a%AF", true},
+		{base + "/a%g0", base + "/a%g0", false},
+		{base + "/a%G0", base + "/a%G0", false},
+		{base + "/a%/0", base + "/a%/0", false},
+		{base + "/a%:0", base + "/a%:0", false},
+		{base + "/a%@0", base + "/a%@0", false},
+		{base + "/a%`0", base + "/a%`0", false},
+		{base + "/a%2", base + "/a%2", false},
+		{base + ":8443/mcp", base + ":8443/mcp", true},
+		{base + ":8443/mcp", base + "/mcp", false},
+		{"https://u@home.example/mcp", base + "/mcp", false},
+	} {
+		if got := origin.HTUMatches(tc.htu, tc.url); got != tc.want {
+			t.Errorf("HTUMatches(%q, %q) = %v, want %v", tc.htu, tc.url, got, tc.want)
+		}
+	}
+	if origin.Valid("https://home.example:10") != nil {
+		t.Error("port 10 refused")
+	}
+}
