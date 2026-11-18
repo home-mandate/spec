@@ -2888,6 +2888,213 @@
           "type": "https://home-mandate.org/audit/v1"
         }
       ]
+    },
+    {
+      "id": "v176",
+      "why": "what a gateway paired with a relay refuses: a pairing response that fails a check, a set of pins it ignores for each reason, and metadata whose pins share none with the stored ones (SPEC-v0 section 9.2, RELAY-v0)",
+      "expected": "valid",
+      "entries": [
+        {
+          "event": "relay.pairing_refused",
+          "id": "01a0f64c-7140-7001-9007-0000b1760001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:00:00Z",
+          "relay": {
+            "operator": "relay.example.net",
+            "check": "name"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "event": "relay.pairing_refused",
+          "id": "01a0f64c-7140-7001-9007-0000b1760002",
+          "prev": "sha256:20deceb5dd47fdf318542a003e89190801d2b566a22291491c6cf70696accd55",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:01:00Z",
+          "relay": {
+            "operator": "relay.example.net",
+            "check": "certificate"
+          },
+          "seq": 2,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "event": "relay.pins_ignored",
+          "id": "01a0f64c-7140-7001-9007-0000b1760003",
+          "prev": "sha256:eb02ad70d92987c14d050756be42615f3baa0a84f4f25707bb147eadacef4c11",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:02:00Z",
+          "relay": {
+            "operator": "relay.example.net",
+            "reason": "rules"
+          },
+          "seq": 3,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "event": "relay.pins_ignored",
+          "id": "01a0f64c-7140-7001-9007-0000b1760004",
+          "prev": "sha256:9d8fea495611b6f37d393cc2a30c957d14c38ab1541d038db79e50e1a9a174c8",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:03:00Z",
+          "relay": {
+            "operator": "relay.example.net",
+            "reason": "connection_pin"
+          },
+          "seq": 4,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "event": "relay.pins_ignored",
+          "id": "01a0f64c-7140-7001-9007-0000b1760005",
+          "prev": "sha256:cbd7cde8a8fac6721a2a993deaf324ad0370517ad737361af485f699f0688c43",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:04:00Z",
+          "relay": {
+            "operator": "relay.example.net",
+            "reason": "storage"
+          },
+          "seq": 5,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "event": "relay.pins_ignored",
+          "id": "01a0f64c-7140-7001-9007-0000b1760006",
+          "prev": "sha256:7acd6f73d56ad0443fd42fc13c95d66f702003ed01bd5b9f38f0a9e67d524c85",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:05:00Z",
+          "relay": {
+            "operator": "relay.example.net",
+            "reason": "limit"
+          },
+          "seq": 6,
+          "type": "https://home-mandate.org/audit/v1"
+        },
+        {
+          "event": "relay.metadata_pins_unknown",
+          "id": "01a0f64c-7140-7001-9007-0000b1760007",
+          "prev": "sha256:a65ff5c8f67dc19e4a625fe08537e0e674074cff62e98c82d6bfe86fbff9d3a8",
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:06:00Z",
+          "relay": {
+            "operator": "relay.example.net"
+          },
+          "seq": 7,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v177",
+      "why": "relay.pairing_refused names the check that failed (SPEC-v0 section 9.2)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "conformance_broken_at": 1,
+      "entries": [
+        {
+          "event": "relay.pairing_refused",
+          "id": "01a0f64c-7140-7001-9007-0000b1770001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:00:00Z",
+          "relay": {
+            "operator": "relay.example.net"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v178",
+      "why": "relay.pairing_refused knows only the checks name and certificate (SPEC-v0 section 9.2)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "conformance_broken_at": 1,
+      "entries": [
+        {
+          "event": "relay.pairing_refused",
+          "id": "01a0f64c-7140-7001-9007-0000b1780001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:00:00Z",
+          "relay": {
+            "operator": "relay.example.net",
+            "check": "caa"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v179",
+      "why": "relay.monitoring_status knows only the checks caa and installation (SPEC-v0 section 9.2)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "conformance_broken_at": 1,
+      "entries": [
+        {
+          "event": "relay.monitoring_status",
+          "id": "01a0f64c-7140-7001-9007-0000b1790001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:00:00Z",
+          "relay": {
+            "operator": "relay.example.net",
+            "check": "certificate",
+            "status": "unavailable"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v180",
+      "why": "relay.pins_ignored knows only the reasons rules, connection_pin, storage and limit (SPEC-v0 section 9.2)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "conformance_broken_at": 1,
+      "entries": [
+        {
+          "event": "relay.pins_ignored",
+          "id": "01a0f64c-7140-7001-9007-0000b1800001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:00:00Z",
+          "relay": {
+            "operator": "relay.example.net",
+            "reason": "expired"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
+    },
+    {
+      "id": "v181",
+      "why": "relay.metadata_pins_unknown names only the operator (SPEC-v0 section 9.2)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "conformance_broken_at": 1,
+      "entries": [
+        {
+          "event": "relay.metadata_pins_unknown",
+          "id": "01a0f64c-7140-7001-9007-0000b1810001",
+          "prev": null,
+          "principal": "household:hm-7f3a",
+          "recorded_at": "2026-11-18T10:00:00Z",
+          "relay": {
+            "operator": "relay.example.net",
+            "reason": "rules"
+          },
+          "seq": 1,
+          "type": "https://home-mandate.org/audit/v1"
+        }
+      ]
     }
   ]
 }
