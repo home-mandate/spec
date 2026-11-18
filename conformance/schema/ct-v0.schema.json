@@ -108,8 +108,7 @@
                 "names",
                 "not_before",
                 "not_after",
-                "public_key",
-                "logged"
+                "public_key"
               ],
               "properties": {
                 "id": {
@@ -142,10 +141,38 @@
                   "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
                 },
                 "logged": {
+                  "description": "The time of its first log entry as a source reports it.",
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+                },
+                "earliest_sct": {
+                  "description": "The earliest timestamp of the SCTs embedded in it; counts if logged is absent.",
+                  "type": "string",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+                },
+                "first_seen": {
+                  "description": "When the implementation first saw it; counts if logged and earliest_sct are absent.",
                   "type": "string",
                   "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
                 }
-              }
+              },
+              "anyOf": [
+                {
+                  "required": [
+                    "logged"
+                  ]
+                },
+                {
+                  "required": [
+                    "earliest_sct"
+                  ]
+                },
+                {
+                  "required": [
+                    "first_seen"
+                  ]
+                }
+              ]
             }
           },
           "expected": {

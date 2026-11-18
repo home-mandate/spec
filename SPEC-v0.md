@@ -1305,7 +1305,8 @@ the time each was replaced), the certificates acknowledged by digest and, option
 keys acknowledged (`acknowledged_keys`) and the key presented under the public origin at the time
 of the check (`presented_key`, which recognises nothing unless it is the current key), and the
 certificates found, each with its digest, its names, its
-validity, the SHA-256 digest of its public key and the time of its first log entry; and, for each
+validity, the SHA-256 digest of its public key and the time of its first log entry (`logged`
+as a source reports it, or else `earliest_sct` or `first_seen`); and, for each
 certificate in the order given, the expected result: `alarm` (also for one that is not valid yet),
 `past-exposure` or `none`. Its `monitoring` cases give the answers of the sources and the
 expected state of monitoring (`ok`, `limited` or `unavailable`, the event `ct.status`), and its
@@ -3155,6 +3156,21 @@ behavior of the people in a household and MUST be protected like the devices the
     Cases `v182` to `v211` and `v214` to `v222`: proxies, `auth`, `bound`, `caa_identity`, the
     eight pairs, the version grammar, a checkpoint signed with ES256 and one with an unknown
     `alg`, the cadence, an anchored truncation and the `actor` of relay events.
+- Signatures, key sets and the public origin before the release:
+  - Section 7.1 says that `k` is the hash reduced modulo L, as `g45` requires; that the unused
+    bits of base64url are zero for segments and keys; and that the header is read as JSON, so
+    its members may stand in either order and are compared after their escapes are resolved
+    (`g106`, `g107`).
+  - A key set is configuration (Section 14, bullet **Key sets**); "Upgrading" lists the rules
+    that changed in both directions. An Ed25519 key may name its algorithm `Ed25519` (RFC 9864,
+    `g103`). A key set with a noncharacter verifies nothing, as I-JSON requires (`g102`). A
+    well-formed P-256 key for a verifier without ES256 keeps every rule but the curve point
+    (`g104`). A key set of exactly 65 536 bytes is usable (`g105`).
+  - A log verifier MUST NOT apply IDNA to a public origin, only the Punycode round trip (`o26`,
+    `v212`, `v213`); the last label of a public origin contains a letter and is not `0x`
+    followed by hexadecimal digits (`o39` to `o43`).
+  - `ct-v0.json` gives a certificate's time also by its earliest SCT or by when it was first
+    seen (`t50` to `t52`).
 - Signatures and key sets (Section 7.1):
   - A key whose point is not on its curve verifies nothing and leaves its key set usable,
     for Ed25519 and P-256 alike; a key of another type or curve, a private key, a key a
