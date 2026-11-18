@@ -144,7 +144,7 @@ func TestRestoreCountsEarlierRequests(t *testing.T) {
 	l := ratelimit.New(c.Now)
 	// After a restart, an implementation restores the requests of the last hour, for
 	// example from its audit log; older ones are ignored.
-	l.Restore("m-1", []time.Time{c.now.Add(-2 * time.Hour), c.now.Add(-30 * time.Minute), c.now.Add(-time.Minute)})
+	l.Restore("m-1", []time.Time{c.now.Add(-2 * time.Hour), c.now.Add(-30 * time.Minute), c.now.Add(-time.Minute)}, 3)
 	if !l.Allow("m-1", 3) {
 		t.Error("third request within the hour denied")
 	}
@@ -194,5 +194,82 @@ func TestIdleKeysAreDropped(t *testing.T) {
 	l.Allow("m-1", 5) // any call sweeps what has expired
 	if got := l.Keys(); got != 1 {
 		t.Errorf("Keys() after the window = %d, want 1", got)
+	}
+}
+
+// A request for several resources counts once for each, all or nothing (SPEC-v0 section 11.2):
+// if the limit leaves no room for all of them, the whole request is denied and counts nothing.
+func TestAllowNCountsAllOrNothing(t *testing.T) {
+	c := newClock()
+	l := ratelimit.New(c.Now)
+	if !l.AllowN("m-1", 3, 5) {
+		t.Fatal("three of five denied")
+	}
+	if l.AllowN("m-1", 3, 5) {
+		t.Fatal("three more allowed, with room for two")
+	}
+	if !l.AllowN("m-1", 2, 5) {
+		t.Fatal("the denied request counted: two more denied")
+	}
+	if l.Allow("m-1", 5) {
+		t.Error("a sixth request allowed")
+	}
+}
+
+func TestAllowNOfNothingDenies(t *testing.T) {
+	l := ratelimit.New(newClock().Now)
+	for _, n := range []int{0, -1} {
+		if l.AllowN("m-1", n, 5) {
+			t.Errorf("AllowN(%d) allowed", n)
+		}
+	}
+	if !l.AllowN("m-1", 5, 5) || l.Keys() != 1 {
+		t.Error("the full limit at once denied, or a denied request kept a key")
+	}
+}
+
+// Restore keeps at most perHour times, the latest ones: they are the ones that still count
+// longest, and a long list from outside cannot grow the state.
+func TestRestoreKeepsAtMostTheLimit(t *testing.T) {
+	c := newClock()
+	l := ratelimit.New(c.Now)
+	var earlier []time.Time
+	for i := range 1000 {
+		earlier = append(earlier, c.now.Add(-time.Duration(1000-i)*time.Second))
+	}
+	l.Restore("m-1", earlier, 2)
+	if l.Allow("m-1", 2) {
+		t.Fatal("a request allowed after the limit was restored")
+	}
+	// The two latest restored requests lie 1 and 2 seconds back; the earlier ones are gone.
+	c.advance(time.Hour - 3*time.Second)
+	if l.Allow("m-1", 2) {
+		t.Fatal("allowed while both kept requests are less than an hour old")
+	}
+	c.advance(time.Second)
+	if !l.Allow("m-1", 2) {
+		t.Error("denied after the older kept request expired")
+	}
+}
+
+func TestRestoreIgnoresANonPositiveLimit(t *testing.T) {
+	c := newClock()
+	l := ratelimit.New(c.Now)
+	l.Restore("m-1", []time.Time{c.now.Add(-time.Minute)}, 0)
+	if l.Keys() != 0 {
+		t.Error("a restore with limit 0 kept times")
+	}
+}
+
+// The idle keys are dropped as soon as a full window has passed since the last sweep.
+func TestIdleKeysAreDroppedAfterExactlyAWindow(t *testing.T) {
+	c := newClock()
+	l := ratelimit.New(c.Now)
+	l.Allow("m-1", 5)
+	l.Allow("m-2", 5)
+	c.advance(time.Hour)
+	l.Allow("m-1", 5)
+	if got := l.Keys(); got != 1 {
+		t.Errorf("Keys() = %d, want 1", got)
 	}
 }
