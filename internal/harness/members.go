@@ -5,25 +5,59 @@ package harness
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 )
 
 // exactMembers checks a request line against the protocol before it is decoded: every member
 // name is spelled exactly as the protocol defines it, and no member occurs twice in an
 // object. encoding/json alone matches names without regard to case and keeps the last of a
-// repeated member (SPEC-v0 section 10.2). What the protocol carries as raw JSON, such as a key
-// set, is passed on unchecked: its content is what a case is about.
+// repeated member (SPEC-v0 section 10.2). What the protocol carries as raw JSON, such as the
+// parameters of a request, is passed on unchecked: its content is what a case is about.
 func exactMembers(line []byte) error {
 	return membersOf(line, reflect.TypeFor[Request](), false)
 }
 
-// exactResponse checks a response line of the process binding as exactMembers checks a
-// request: a member the protocol does not define, a name in another case or a member that
-// occurs twice fails the case (SPEC-v0 section 10.2).
-func exactResponse(line []byte) error {
-	return membersOf(line, reflect.TypeFor[Response](), false)
+// responseMembers are the members of the response to each operation (SPEC-v0 section 10.2).
+var responseMembers = map[string][]string{
+	OpCapabilities: {"name", "version", "ops"},
+	OpValidate:     {"valid", "digest"},
+	OpEvaluate:     {"decision", "reason", "rule_id", "approval_timeout", "approvers", "mandate_digest", "enforced", "confirm"},
+	OpSelect:       {"decision", "reason", "rule_id", "approval_timeout", "approvers", "mandate_digest", "enforced", "confirm", "selected"},
+	OpSuccession:   {"accept", "confirm"},
+	OpVerifySigned: {"valid", "digest"},
+	OpVerifyAudit: {"valid", "entries", "broken_at", "anchored", "integrity_broken_at", "conformance_broken_at",
+		"unknown_version_at", "checkpoint_gap_at"},
+	OpEntryDigest: {"digest"},
+}
+
+// exactResponse checks a response line of the process binding to an operation as
+// exactMembers checks a request: a member the operation does not define, a name in another
+// case, a member that occurs twice or is null fails the case, and error stands alone (SPEC-v0
+// section 10.2).
+func exactResponse(line []byte, op string) error {
+	if err := membersOf(line, reflect.TypeFor[Response](), false); err != nil {
+		return err
+	}
+	allowed := responseMembers[op]
+	var names []string
+	err := eachMember(line, func(name string, value []byte) error {
+		if string(bytes.TrimSpace(value)) == "null" {
+			return fmt.Errorf("harness: member %q is null", name)
+		}
+		if name != "error" && !slices.Contains(allowed, name) {
+			return fmt.Errorf("harness: member %q is not one of the response to %s", name, op)
+		}
+		names = append(names, name)
+		return nil
+	})
+	if err == nil && slices.Contains(names, "error") && len(names) > 1 {
+		return errors.New("harness: error with other members")
+	}
+	return err
 }
 
 // exactNames checks a response of another protocol, such as AuthZEN, that may carry members

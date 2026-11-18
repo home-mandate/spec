@@ -67,7 +67,7 @@ implementation as a whole follows the specification does.
 | Section | Obligation |
 |---|---|
 | 10.1 | The test interface is not offered in operation: not in a release build, or only after an explicit start option that is off by default; its state never mixes with the household's mandates and log |
-| 10.3 | The control resource of the HTTP binding is authenticated and reachable only by the test tool |
+| 10.3 | The control resource of the HTTP binding requires authentication, except where Section 10.3 allows otherwise in a test run |
 
 ## Versions (Section 14)
 

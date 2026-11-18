@@ -65,7 +65,7 @@ func (p *Process) Do(req Request) (Response, error) {
 		}
 		return Response{}, errors.New("conformance: the implementation closed its output")
 	}
-	if err := exactResponse(p.stdout.Bytes()); err != nil {
+	if err := exactResponse(p.stdout.Bytes(), req.Op); err != nil {
 		return Response{}, fmt.Errorf("conformance: response: %w", err)
 	}
 	var resp Response

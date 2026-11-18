@@ -10,15 +10,26 @@ import (
 // A response of the process binding is read as strictly as a request (SPEC-v0 section 10.2):
 // a name in another case, an unknown member or a member twice fails the case.
 func TestResponsesAreReadExactly(t *testing.T) {
-	for line, ok := range map[string]bool{
-		`{"valid":true}`:                     true,
-		`{"valid":true,"digest":"sha256:x"}`: true,
-		`{"Valid":true}`:                     false,
-		`{"valid":true,"valid":false}`:       false,
-		`{"valid":true,"extra":1}`:           false,
+	for _, tc := range []struct {
+		op, line string
+		ok       bool
+	}{
+		{OpValidate, `{"valid":true}`, true},
+		{OpValidate, `{"valid":true,"digest":"sha256:x"}`, true},
+		{OpValidate, `{"error":"unsupported"}`, true},
+		{OpValidate, `{"Valid":true}`, false},
+		{OpValidate, `{"valid":true,"valid":false}`, false},
+		{OpValidate, `{"valid":true,"extra":1}`, false},
+		{OpValidate, `{"valid":true,"decision":"allow"}`, false},
+		{OpValidate, `{"valid":null}`, false},
+		{OpValidate, `{"error":"x","valid":false}`, false},
+		{OpValidate, `{"valid":true,"id":"c01"}`, false},
+		{OpEntryDigest, `{"digest":"sha256:x"}`, true},
+		{OpEntryDigest, `{"valid":false}`, false},
+		{OpVerifyAudit, `{"valid":true,"entries":2,"checkpoint_gap_at":3}`, true},
 	} {
-		if err := exactResponse([]byte(line)); (err == nil) != ok {
-			t.Errorf("%s: err = %v, want ok %v", line, err, ok)
+		if err := exactResponse([]byte(tc.line), tc.op); (err == nil) != tc.ok {
+			t.Errorf("%s %s: err = %v, want ok %v", tc.op, tc.line, err, tc.ok)
 		}
 	}
 }

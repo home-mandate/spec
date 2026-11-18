@@ -21,7 +21,7 @@ const (
 // ErrorUnsupported is the error of an operation the implementation does not offer.
 const ErrorUnsupported = "unsupported"
 
-// Request is one line the test tool writes. Mandates, audit entries and logs are
+// Request is one line the test tool writes. Mandates, audit entries, logs and key sets are
 // passed as JSON text in a string, so that they reach the implementation byte for byte.
 type Request struct {
 	Op string `json:"op"`

@@ -191,8 +191,8 @@ func TestRequestsWithMissingOrBrokenMembers(t *testing.T) {
 		}
 	}
 	entry := "{"
-	if r := harness.Answer(harness.Request{Op: harness.OpEntryDigest, Entry: &entry}); r.Valid == nil || *r.Valid {
-		t.Errorf("digest of a broken entry = %+v", r)
+	if r := harness.Answer(harness.Request{Op: harness.OpEntryDigest, Entry: &entry}); r.Error == "" || r.Digest != "" || r.Valid != nil {
+		t.Errorf("digest of a broken entry = %+v, want an error alone", r)
 	}
 }
 

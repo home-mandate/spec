@@ -1357,7 +1357,8 @@ A claim of conformance names the version (the tag of this repository), the class
 manifest (`conformance/manifest.json`, by its SHA-256) and the optional algorithms of
 Section 7.1 the implementation does not support: "conforms to `signatures` without ES256"
 says what "conforms to `signatures`" alone would hide. The report of the test tool contains
-all four and can be published. A formal certification program will follow only
+the manifest, the classes and the algorithms not supported, and the release of the tool names
+the version; together they can be published. A formal certification program will follow only
 once the specification is frozen.
 
 ### 8.2 Ways of testing
@@ -2024,10 +2025,11 @@ step 3), several candidates cannot be told apart.
 A request with a member that this section does not define for its operation (`op` and `id`
 are defined for every one) is malformed and is answered with an `error`, so that a former
 member name (such as `area`), or a member of another operation, is never evaluated as if it
-were absent. A response has the members the table names for its operation, or `error`,
-spelled exactly and each once; the test tool reads it as strictly as a harness reads a
-request, and a response with another member, a name in another case (`"Valid"`) or a member
-twice fails the case. For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
+were absent. A response has only the members the table names for its operation, spelled
+exactly, each at most once and none of them `null`, or `error` alone; it does not repeat `id`.
+The test tool reads it as strictly as a harness reads a request: a response with another
+member, a member of another operation, a name in another case (`"Valid"`), a member twice or
+`null`, or `error` beside other members fails the case. For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
 cases of that operation then count as not passed for their class. Any other `error` is a
 failed case. A `time` that does not follow Section 3.1 item 0, such as an offset of `+24:00`, a
 comma before the fraction, a one-digit hour or the offset `-00:00`, is not readable.
@@ -3129,9 +3131,10 @@ behavior of the people in a household and MUST be protected like the devices the
     `checkpoint_gap_at`; the classes `audit` and `audit-anchored` include `audit-v1.json`, so
     a verifier of version 0 alone can no longer claim them;
   - `mandate_base64`, `jsonl_base64` and `entries_base64` carry bytes; `keys` is JSON text in
-    a string; `verify_audit` takes `last_seen`;
+    a string;
   - member names are compared exactly, a member of another operation is malformed, and the
-    test tool reads responses as strictly;
+    test tool reads responses as strictly: only the members of the operation, no `null`, no
+    `id`, `error` alone; `entry_digest` answers an `error` for an entry without a digest;
   - cases with `requires` are not applicable to an implementation without that algorithm,
     and the report lists them;
   - the HTTP binding sends `resource.type`.

@@ -126,14 +126,16 @@ uses them alone gives other verdicts than the cases:
 
 - **Duplicate names:** `JSON.parse` and Python's `json.loads` keep the last of a repeated member.
   Use `object_pairs_hook` in Python, or a reader that sees every member, as spec-ts does.
-- **Exact values of numbers:** both read numbers as binary floating point, so
-  `50.00000000000000000001` becomes `50` and `1e-400` becomes `0`. Section 3.2 canonicalizes a
+- **Exact values of numbers:** both read a number with a fraction or an exponent as binary
+  floating point (JavaScript every number), so `50.00000000000000000001` becomes `50` and
+  `1e-400` becomes `0`; Python reads integers exactly. Section 3.2 canonicalizes a
   number by its exact value; read numbers as text first (`parse_float=decimal.Decimal`, or the
   `reviver` with its source text where the runtime offers it).
 - **A lone surrogate:** both accept `"\ud800"`. I-JSON does not.
 - **`NaN` and `Infinity`:** Python accepts them unless `parse_constant` refuses them.
-- **Bytes:** Python's `json.loads(bytes)` guesses UTF-16 or UTF-32 from the first bytes; decode
-  as UTF-8 yourself, strictly, and refuse a byte order mark. Cases: `i176` to `i190`.
+- **Bytes:** Python's `json.loads(bytes)` guesses UTF-16 or UTF-32 from the first bytes, skips a
+  UTF-8 byte order mark and lets surrogates encoded in UTF-8 (`ED A0 80`) through; decode as
+  UTF-8 yourself, strictly, and refuse a byte order mark. Cases: `i176` to `i190`.
 
 ## ES256 signatures
 

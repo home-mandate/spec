@@ -91,7 +91,10 @@ func Answer(req Request) Response {
 			return missing("entry")
 		}
 		digest, err := audit.Digest([]byte(*req.Entry))
-		return Response{Valid: ptr(err == nil), Digest: digest}
+		if err != nil {
+			return Response{Error: "entry without a digest: " + err.Error()}
+		}
+		return Response{Digest: digest}
 	}
 	return Response{Error: ErrorUnsupported}
 }
