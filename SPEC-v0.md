@@ -658,7 +658,9 @@ time**: the point in time is converted to the household's time zone.
   point in time in local time lies in one of the ranges: in `Europe/Berlin`,
   `2026-12-23T23:30:00Z` is on the 24th. A range of one day has `from` equal to `to`. Points
   in time that a rule needs exactly, such as the arrival and departure of a guest, are its
-  period (Section 4, step 2), not dates.
+  period (Section 4, step 2), not dates. Dates are compared as dates, not as text: in local
+  time a point in time of the year 9999 can fall on a day of the year 10000, and one of the
+  year 1 on a day before it, and such a day lies in no range (`c314` to `c316`).
 - `weekdays`: list of `mon` … `sun`. The weekday of the point in time in local time is
   decisive, including for windows spanning midnight (Friday 22:00 to Saturday 02:00 with
   `weekdays: ["fri"]` matches only until midnight).
@@ -1839,9 +1841,10 @@ condition in the order given:
 - otherwise the `seq` of the first entry in file order that violates condition 3 (and then
   condition 4 of Section 9.5).
 
-If the entry that `broken_at` names has no `seq` that can be read as an integer (it has no
-digest, or its `seq` is missing, not an integer or of a magnitude of 2^53 or more),
-`broken_at` is `0`.
+If the entry that `broken_at` names has no `seq` that can be read as an integer (it cannot be
+read at all, as an entry longer than 65 536 bytes or one that is no JSON object, or its `seq`
+is missing, not an integer or of a magnitude of 2^53 or more), `broken_at` is `0`. An entry
+without a digest whose `seq` can be read is named by that `seq` (`v151`, `v152`).
 
 An audit log without entries is valid. Verification reports the number of entries, because
 an empty log proves nothing: a log that was emptied looks the same.
@@ -1971,8 +1974,8 @@ Verification (Section 9.4) gains a fourth condition, checked after the chain:
    replaced log pass. `broken_at` is the `seq` of whichever comes first in file order: a
    checkpoint that violates this, the entry or `log.truncated` entry at that position whose
    digest differs, or a `log.truncated` entry that accounts for the position without being
-   anchored; for a log that has none of them, the `seq` of its last entry, and `0` for a log
-   without entries (`v229`).
+   anchored; for a log that has none of them, the `seq` of its last entry that takes part in
+   the chain, and `0` for a log without entries (`v229`).
 
 A verifier that was given keys additionally reports
 
@@ -3326,7 +3329,9 @@ behavior of the people in a household and MUST be protected like the devices the
   - cases with `requires` are not applicable to an implementation without that algorithm,
     and the report lists them;
   - `select` with a time that is not readable and two candidates answers `invalid_request`
-    without `selected` (`s30`, `s31`);
+    without `selected` (`s30`, `s31`), and with only revoked mandates `revoked` (`s36`, `s37`);
+  - `entry_digest` answers an `error` for an entry with a number that floating point rounds to
+    an integer, such as `1.00000000000000000001` (`v236`);
   - the HTTP binding sends `resource.type`;
   - `evaluate` and `select` answer `limited_rules` for an `allow` with any (Section 4.1).
 
@@ -3453,6 +3458,24 @@ behavior of the people in a household and MUST be protected like the devices the
   the `allow`. A PEP never executes a response with `denied_by`; one that does not know the
   member denies because of `decision: false`. The reference PDP of the test interface counts
   for each state it is given. Before, Section 6 did not say who enforces N in this setup.
+- Before the fourth release candidate, found by the TypeScript implementation:
+  - Selection with a point in time that cannot be read (Section 10.2): without a candidate
+    that is not revoked, the revoked mandates yield `revoked`, naming the mandate if it is
+    exactly one, as in Section 4.3 step 2; the reference answered `no_mandate`. The Go API has
+    `evaluator.SelectWithoutTime` (`s36`, `s37`).
+  - `conditions.dates` are compared as dates: the reference compared their text, so that a
+    point in time of the year 9999 that falls on 10000-01-01 in local time matched a range up
+    to 1999-12-31 (Section 4.2, `c314` to `c316`).
+  - A number that is not an integer gives an entry no digest also when floating point rounds
+    it to one, such as `1.00000000000000000001`: the reference read it as 1 (Section 9.4,
+    `v236`). The verdict was invalid before as well, because the schema refuses the entry; the
+    finding `integrity_broken_at` and the answer of `entry_digest` change.
+  - A `recorded_at` of `0001-01-01T00:00:00Z` is a point in time like any other in the
+    cadence of checkpoints and for a time that runs backwards; the reference took it for one
+    that cannot be read (Sections 3.1 item 0 and 9.5, `v235`).
+  - Text: `broken_at` is `0` only for an entry whose `seq` cannot be read, not for every entry
+    without a digest (Section 9.4); condition 4 names the last entry that takes part in the
+    chain (Section 9.5). Neither changes a result of the reference.
 - Before the release candidate:
   - Condition 4 of Section 9.5: a `log.truncated` entry accounts for the position a relying
     party saw last only if a verified checkpoint anchors it; otherwise a replaced log would pass

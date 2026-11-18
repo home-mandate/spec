@@ -51,16 +51,19 @@ func TestConformanceSelection(t *testing.T) {
 			}
 			at, err := rfc3339.Parse(c.Time)
 			if err != nil {
-				// A PEP cannot pass such a request on (SPEC-v0 section 10.2): the result is
-				// invalid_request after the selection, and without a point in time only a
-				// sole candidate is selected (Section 4.3 step 3).
-				candidates := evaluator.Candidates(stored, c.Subject.ClientID, c.Subject.Principal)
-				wantSelected := ""
-				if len(candidates) == 1 {
-					wantSelected = candidates[0].Mandate().ID()
+				// A PEP cannot pass such a request on (SPEC-v0 section 10.2): the selection
+				// comes first, then invalid_request; without a point in time only a sole
+				// candidate is selected (Section 4.3 step 3).
+				selected, got := evaluator.SelectWithoutTime(stored, c.Subject.ClientID, c.Subject.Principal)
+				if string(got.Decision) != c.Expected || string(got.Reason) != c.Reason {
+					t.Errorf("got (%s, %s), want (%s, %s): %s", got.Decision, got.Reason, c.Expected, c.Reason, c.Why)
 				}
-				if c.Expected != "deny" || c.Reason != "invalid_request" || c.Selected == nil && wantSelected != "" || c.Selected != nil && *c.Selected != wantSelected {
-					t.Errorf("case with a time that is no timestamp expects (%s, %s, %v), want (deny, invalid_request, %q)", c.Expected, c.Reason, c.Selected, wantSelected)
+				wantSelected := ""
+				if c.Selected != nil {
+					wantSelected = *c.Selected
+				}
+				if selected.ID() != wantSelected || got.MandateDigest != selected.Digest() {
+					t.Errorf("selected %q with digest %q, want %q", selected.ID(), got.MandateDigest, wantSelected)
 				}
 				return
 			}

@@ -168,10 +168,17 @@ func (p period) contains(t time.Time) bool {
 	return (!p.hasFrom || !t.Before(p.from)) && (!p.hasUntil || t.Before(p.until))
 }
 
-// dateRange is a range of calendar dates, both inclusive, as YYYY-MM-DD; the text form
-// orders like the dates.
+// dateRange is a range of calendar dates, both inclusive, as the numbers of dayNumber, so
+// that dates compare as dates: as text, "10000-01-01" would come before "1999-12-31".
 type dateRange struct {
-	from, to string
+	from, to int
+}
+
+// dayNumber is a calendar date as year*10000 + month*100 + day. A local date can lie beyond
+// the years of a mandate: in the year 10000, or before the year 1 (the year 0 and earlier),
+// and then lies in no range of dates (SPEC-v0 section 4.2).
+func dayNumber(t time.Time) int {
+	return t.Year()*10000 + int(t.Month())*100 + t.Day()
 }
 
 // constraint restricts one parameter of the action (SPEC-v0 section 4.5): an integer
@@ -588,7 +595,9 @@ func (r *rule) setConditions(rr rawRule) error {
 		if err := checkDates(d.From, d.To); err != nil {
 			return fmt.Errorf("rule %q: %w", rr.ID, err)
 		}
-		r.dates = append(r.dates, dateRange{from: d.From, to: d.To})
+		from, _ := time.Parse(dateLayout, d.From) // checkDates has read both
+		to, _ := time.Parse(dateLayout, d.To)
+		r.dates = append(r.dates, dateRange{from: dayNumber(from), to: dayNumber(to)})
 	}
 	return nil
 }

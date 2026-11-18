@@ -8,13 +8,13 @@
     },
     {
       "path": "conformance/audit-v1.json",
-      "sha256": "8e728019af74ff04f7f317458c448678f25251834e3183afabf6818e5406ce7a",
-      "cases": 134
+      "sha256": "73c15eba0f0daf371b2ea345f8dae9de8c9a6e3bc911628a80c31297abf439b8",
+      "cases": 136
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "adcea2c4896df4c48378d97cfd8812bf7021243eed207cb3a917557423d0ce40",
-      "cases": 313
+      "sha256": "6629f383d07f047178695a6efdefcdd0f423c63d3f51e44933008b030c9ead65",
+      "cases": 316
     },
     {
       "path": "conformance/ct-v0.json",
@@ -390,8 +390,8 @@
     },
     {
       "path": "conformance/selection-v0.json",
-      "sha256": "ced85ccd699181c1a96188d0fb1abfa4219a34b621ce32c469d83dcbfc6e71ae",
-      "cases": 35
+      "sha256": "e9010016ac5a1a5d72106a39cc74c6a417236708bdb87d006992654ae86bb964",
+      "cases": 37
     },
     {
       "path": "conformance/signed-v0.json",

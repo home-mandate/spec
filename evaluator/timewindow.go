@@ -101,7 +101,7 @@ func (r rule) conditionsMet(local time.Time) bool {
 		return false
 	}
 	if r.dates != nil {
-		day := local.Format(dateLayout)
+		day := dayNumber(local)
 		return slices.ContainsFunc(r.dates, func(d dateRange) bool { return d.from <= day && day <= d.to })
 	}
 	return true

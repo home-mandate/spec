@@ -151,3 +151,28 @@ func SelectAndEvaluate(stored []Stored, clientID, principal string, req Request)
 	req.Status = selected.status
 	return selected.mandate, Evaluate(selected.mandate, req)
 }
+
+// SelectWithoutTime answers a selection for a request whose point in time cannot be read, as
+// a PEP that cannot express the request answers it (SPEC-v0 section 10.2): the selection comes
+// first, then invalid_request. Without a point in time nothing is current: a sole candidate is
+// selected, several cannot be told apart (invalid_request without a mandate), and without any
+// candidate the revoked mandates of the agent and principal yield revoked, as in
+// SelectAndEvaluate. An invalid sole candidate is invalid_mandate.
+func SelectWithoutTime(stored []Stored, clientID, principal string) (*Mandate, Result) {
+	invalid := Result{Decision: Deny, Reason: ReasonInvalidRequest}
+	if !ValidSubject(clientID, principal) {
+		return nil, invalid
+	}
+	candidates := Candidates(stored, clientID, principal)
+	switch {
+	case len(candidates) == 0:
+		return revokedOnly(stored, clientID, principal)
+	case len(candidates) > 1:
+		return nil, invalid
+	case candidates[0].mandate == nil:
+		return nil, Result{Decision: Deny, Reason: ReasonInvalidMandate}
+	}
+	m := candidates[0].mandate
+	invalid.MandateDigest = m.digest
+	return m, invalid
+}
