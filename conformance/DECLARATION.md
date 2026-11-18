@@ -24,6 +24,7 @@ implementation as a whole follows the specification does.
 | 4 | Resolve the resource the agent names to its identifier in the directory; deny with `unknown_resource` when a name fits more than one resource |
 | 4 | Let the household mark resources as critical |
 | 4.4 | Execute a request for several resources on exactly the resources evaluated, each named to the platform; record each as its own `decision` entry, with one `request.group` where one entry records the outcome of the whole request |
+| 4.4 | Resolve a group whose members the platform reports to them and execute on the members; treat a group whose members are unknown as critical |
 
 ## Signed mandates and the PDP (Sections 6 and 7)
 

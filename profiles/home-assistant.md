@@ -25,6 +25,22 @@
 | `script` | `script.*` |
 | `other` | all other domains |
 
+## Groups
+
+A group of Home Assistant stands for its members (SPEC-v0 section 4.4): an implementation
+resolves it and evaluates and executes the request on every member.
+
+| Group | Members |
+|---|---|
+| The group helper: `light.*`, `cover.*`, `switch.*`, `fan.*`, `lock.*`, `media_player.*`, `binary_sensor.*` and `sensor.*` created as a group | the attribute `entity_id` of its state |
+| `group.*` (the older groups, which can mix domains) | the attribute `entity_id` of its state |
+| A group of an integration (for example a Hue room or a Zigbee group as `light.*`) that lists no members in an attribute `entity_id` | not known: the entity counts as critical |
+
+An entity of the group helper can be told by the attribute `entity_id` in its state, a list of
+entity IDs. A member that is itself a group is resolved again. A household that wants an agent
+to act on a group's members only within limits writes rules for the members; a rule for the
+group's own entity ID no longer decides for them.
+
 ## What an entity can do
 
 Home Assistant reports the features of an entity in its state: the attribute

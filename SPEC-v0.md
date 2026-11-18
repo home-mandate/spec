@@ -716,9 +716,23 @@ if the set differs in any way (a resource added, removed or replaced), nothing i
 executed, not even for the resources that were confirmed, and executing the new set needs
 a new request and a new confirmation (Section 11.1 item 6).
 
-A resource whose activation acts on other resources (a scene, a script, a group that the
-platform executes itself) is evaluated as the resource it is; this is why `scene.activate`
-and `script.run` are critical.
+A resource whose activation acts on other resources (a scene, a script) is evaluated as the
+resource it is; this is why `scene.activate` and `script.run` are critical. A **group** is
+different, because it stands for its members and its category need not be theirs: a group
+of covers that holds a garage door is a `cover`, whose `open` is not critical, while the
+door's `open` is. So:
+
+- A group whose members the PEP knows from the platform MUST be resolved to its members
+  and evaluated as a request for every one of them (this section), and executed on the
+  members, never on the group: a member added later is then never acted on without an
+  evaluation of its own. A member that is itself a group is resolved in the same way; a
+  group that contains itself, directly or through others, is denied with `invalid_request`.
+- A group whose members the PEP cannot know counts as critical (Section 4, step 5), like a
+  scene or a script, whatever its category: a rule that allows it needs `allow_critical`, or a
+  human confirms each request.
+
+The profiles (`profiles/`, informative) say how each platform tells a group and its
+members.
 
 ### 4.5 Parameters and constraints
 
@@ -3177,6 +3191,8 @@ behavior of the people in a household and MUST be protected like the devices the
     without `selected` (`s30`, `s31`);
   - the HTTP binding sends `resource.type`.
 
+  A PEP resolves groups to their members, or treats them as critical (Section 4.4).
+
   Implementations get new obligations, which Section 14 now allows in a release
   without a new major (bullet **Obligations**): request times are narrower (`-00:00` and the
   year `0000` are not readable), signatures that only a flawed or hostile signer produces are
@@ -3247,6 +3263,11 @@ behavior of the people in a household and MUST be protected like the devices the
   - A verifier MAY report a `recorded_at` that runs backwards, informatively; the Go reference
     does (`audit.Result.TimeBackwards`). A retention of at least 90 days is RECOMMENDED
     (Section 9.3).
+- Groups (Section 4.4): a group whose members the PEP knows from the platform MUST be resolved
+  to them, evaluated and executed on every member; a group whose members it cannot know counts
+  as critical. A group of covers that held a garage door let an agent open the door with a rule
+  for blinds. The Home Assistant profile says how its groups are told and resolved. This is a
+  new obligation of a PEP; no document changes its verdict.
 - Before the release candidate:
   - Condition 4 of Section 9.5: a `log.truncated` entry accounts for the position a relying
     party saw last only if a verified checkpoint anchors it; otherwise a replaced log would pass
