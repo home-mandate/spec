@@ -13,8 +13,8 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "bdfddea8564628aa6e8d3c579033cf417c1144c14e449cfbb1095ef16e9a4c8a",
-      "cases": 276
+      "sha256": "6083bc395da39ef10ef387a65467ee71681c99c005363ac43e01da0bea3371f5",
+      "cases": 297
     },
     {
       "path": "conformance/ct-v0.json",
@@ -28,8 +28,8 @@
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "a6a27c0d169171a21cfbfdc67ffee0c8d595664bce6c16970b67e92e300cdfe0",
-      "cases": 616
+      "sha256": "3cda78dcc0f6c9bd7425f39e5a9daeab77460e1fe34202641dfe3c2fb6926b06",
+      "cases": 644
     },
     {
       "path": "conformance/keys/alg-ed25519.json",
@@ -400,8 +400,8 @@
     },
     {
       "path": "conformance/succession-v0.json",
-      "sha256": "79eaaea47888ee1a80b427a8636252f5bd1855e18f2f0ca4a0af7e6c1969a3fd",
-      "cases": 28
+      "sha256": "a2d6703c32b6ceec768b5bf491add786651fe4f70b69876638101f19537c8d21",
+      "cases": 31
     },
     {
       "path": "data/corrections-v0.json",
@@ -437,7 +437,7 @@
     },
     {
       "path": "schema/mandate-v0.schema.json",
-      "sha256": "ff4969674b4854f208bb8a534b17369b3633d7fe6ba07a15ae1c27a114d06237"
+      "sha256": "13fde1e4bd3308c883f2c2eabced58db1d13f27e2545211040fe7b6b32f266eb"
     },
     {
       "path": "schema/vocabulary-v0.schema.json",

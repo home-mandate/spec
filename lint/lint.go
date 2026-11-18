@@ -27,12 +27,16 @@ const (
 	NoExpiry = "no_expiry"
 	// CriticalNoExpiry: allow_critical in a mandate without expires.
 	CriticalNoExpiry = "critical_no_expiry"
-	// ConditionalRestriction: a deny or ask with conditions does not apply outside them.
+	// ConditionalRestriction: a deny or ask with conditions or a period of its own does not
+	// apply outside them.
 	ConditionalRestriction = "conditional_restriction"
 	// AreaOnlyRestriction: a deny or ask by area alone stops when a resource leaves the area.
 	AreaOnlyRestriction = "area_only_restriction"
 	// AuditModeLong: audit mode without expires, or for longer than MaxAuditMode.
 	AuditModeLong = "audit_mode_long"
+	// NoneOfOpen: none_of on a string parameter permits every value a later vocabulary or a
+	// device adds.
+	NoneOfOpen = "none_of_open"
 )
 
 // MaxAuditMode is how long audit mode may last before the linter warns.
@@ -64,8 +68,13 @@ type rule struct {
 	} `json:"resource"`
 	Actions       []string        `json:"actions"`
 	Decision      string          `json:"decision"`
+	ValidFrom     string          `json:"valid_from"`
+	Expires       string          `json:"expires"`
 	Conditions    json.RawMessage `json:"conditions"`
 	AllowCritical bool            `json:"allow_critical"`
+	Constraints   map[string]struct {
+		NoneOf []json.RawMessage `json:"none_of"`
+	} `json:"constraints"`
 }
 
 type mandate struct {
@@ -122,13 +131,34 @@ func ruleFindings(r rule) []Finding {
 		add(ReadAny, "allows read on every resource, presence sensors and cameras included; allow read per category")
 	}
 	restricts := r.Decision == "deny" || r.Decision == "ask"
-	if restricts && len(r.Conditions) > 0 {
-		add(ConditionalRestriction, "a rule with conditions does not apply outside them, so this restriction is lifted there")
+	if restricts && (len(r.Conditions) > 0 || r.ValidFrom != "" || r.Expires != "") {
+		add(ConditionalRestriction, "a rule with conditions or a period of its own does not apply outside them, so this restriction is lifted there")
 	}
 	if restricts && r.Resource.Area != "" && r.Resource.Category == "" && r.Resource.EntityID == "" {
 		add(AreaOnlyRestriction, "a restriction by area alone stops when a resource leaves the area; name the category or the resource")
 	}
+	for _, name := range sortedKeys(r.Constraints) {
+		if list := r.Constraints[name].NoneOf; len(list) > 0 && isString(list[0]) {
+			add(NoneOfOpen, "none_of on "+name+" also permits every value a later vocabulary or a device adds; one_of names a closed list")
+		}
+	}
 	return out
+}
+
+// isString reports whether a JSON value is a string; the mandate is valid, so a list holds
+// values of one type.
+func isString(v json.RawMessage) bool {
+	return len(v) > 0 && v[0] == '"'
+}
+
+// sortedKeys returns the keys of m in order, so that findings come in a stable order.
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 // shortEnough reports whether audit mode ends within MaxAuditMode of the start of the mandate.

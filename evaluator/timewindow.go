@@ -4,6 +4,7 @@ package evaluator
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -98,6 +99,10 @@ func (r rule) conditionsMet(local time.Time) bool {
 	}
 	if r.weekdays != 0 && !r.weekdays.contains(local.Weekday()) {
 		return false
+	}
+	if r.dates != nil {
+		day := local.Format(dateLayout)
+		return slices.ContainsFunc(r.dates, func(d dateRange) bool { return d.from <= day && day <= d.to })
 	}
 	return true
 }

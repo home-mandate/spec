@@ -143,8 +143,9 @@ Mandate
 │   ├── actions[] actions from the vocabulary or "*"
 │   ├── decision  allow | ask | deny
 │   ├── note?     displayed text for interfaces, see Section 3.1 item 8
-│   ├── conditions? { time_window, weekdays }
-│   ├── constraints? { <parameter>: { min, max } or { one_of } }   only with allow, see Section 4.5
+│   ├── valid_from?, expires?   the rule's own period, see Section 4, step 2
+│   ├── conditions? { time_window, weekdays, dates }
+│   ├── constraints? { <parameter>: { min, max } or { one_of } or { none_of } }   only with allow, see Section 4.5
 │   ├── approval?   { timeout, approvers }   only with ask
 │   └── allow_critical?  true, required for allow on critical actions; not together with "*"
 ├── default       always "deny" in v0
@@ -164,13 +165,16 @@ A mandate is valid if it conforms to the schema **and** additionally:
    (implementations MUST validate `format`, not merely treat it as an annotation), written
    with an upper-case `T` and either `Z` or a numeric offset. Not permitted are: leap seconds
    (`:60`), more than 9 fractional digits, the year `0000` and the offset `-00:00`.
-   Timestamps are compared as points in time with nanosecond precision;
+   Timestamps are compared as points in time with nanosecond precision. All fields with
+   `format: date` (the dates of `conditions.dates`) are calendar dates of RFC 3339
+   (`full-date`, `2026-12-24`) of a day that exists, not in the year `0000`;
 1. it is I-JSON as defined in RFC 7493: valid UTF-8, no lone surrogates (e.g. a
    standalone `\ud800`), no noncharacters (U+FDD0 to U+FDEF and the last two code points of
    every plane) in a member name or string value, encoded directly or as an escape, no JSON
    object with a duplicate key, exactly one JSON value;
 2. all rule `id`s within the mandate are distinct;
-3. for every `time_window`, start and end are distinct;
+3. for every `time_window`, start and end are distinct; for every range of `dates`, `from` is
+   not after `to`;
 4. every action of a rule is `"*"` or belongs to the vocabulary:
    - if the rule's `resource` names a category from Section 5, to that category's
      vocabulary (e.g. `unlock` with `category: light` is invalid);
@@ -187,7 +191,7 @@ A mandate is valid if it conforms to the schema **and** additionally:
    verifier of a signed mandate counts its canonical payload (Section 7.1). Lengths of
    strings in the schemas (`maxLength`, `minLength`) count Unicode code points, not bytes
    and not UTF-16 code units;
-6. `expires`, if present, is later than `valid_from`;
+6. `expires`, if present, is later than `valid_from`; the same holds for a rule that has both;
 7. every `approval.timeout` is between 10 seconds and 1 hour (both inclusive). A timeout
    has the form `PT[nH][nM][nS]` with at least one component, in this order, each `n` a
    decimal number of 1 to 5 digits (`PT2M`, `PT1M30S`, `PT1H`). Its value is the sum of the
@@ -233,7 +237,7 @@ A mandate is valid if it conforms to the schema **and** additionally:
     constraint fits: in the vocabulary of the rule's category or, if the rule names no
     category, in at least one category from Section 5. A constraint fits a parameter if
     it gives `min` or `max` only for an integer parameter, and if every value of its
-    `one_of` has the type of the parameter and, for a string parameter with permitted
+    `one_of` or `none_of` has the type of the parameter and, for a string parameter with permitted
     values, is one of them, compared exactly and case-sensitive (Section 4.5). Rules for
     an extension category are not checked. A constraint on a `deny` or `ask` rule would
     fail open where the parameter is not required or has alternatives: a request without
@@ -430,8 +434,9 @@ or `ask` rule; an added `ask` rule with its own `approval`; a changed `approval`
 and later compare points in time (Section 3.1 item 0): the same point in time written with
 another offset is not moved. Rules
 are compared as wholes: a rule counts as changed when any of its members differs, `note`
-included, so a rule tightened in place (a constraint added, `allow_critical` removed) needs
-a confirmation too; an issuer narrows without one by removing the rule or adding a `deny`.
+included, so a rule tightened in place (a constraint added, `allow_critical` removed, an
+`expires` of its own moved earlier) needs a confirmation too, and so does a rule whose own
+period is extended; an issuer narrows without one by removing the rule or adding a `deny`.
 An added `ask` rule without its own `approval` narrows because it lets the agent ask for
 more, never do more, and the approvers stay those of the mandate. A weakening successor,
 and every successor of a mandate that the household revoked, MUST NOT take effect before a
@@ -516,8 +521,15 @@ more than one resource: the result is `deny` with `unknown_resource` as well.
    It is valid for points in time `t` with `valid_from ≤ t < expires` (without `expires`:
    `valid_from ≤ t`). Points in time are compared, not clock times.
 2. Collect all rules whose `resource` matches the resource **and** whose `actions` contain the
-   action **and** whose `conditions` are satisfied at the point in time **and** whose
-   `constraints` are satisfied by the parameters (Section 4.5).
+   action **and** whose own period contains the point in time **and** whose `conditions` are
+   satisfied at the point in time **and** whose `constraints` are satisfied by the parameters
+   (Section 4.5).
+   - A rule's period is given by its own `valid_from` and `expires`, each optional: the rule
+     matches for points in time `t` with `valid_from ≤ t` and `t < expires`, as a mandate is
+     valid in step 1, and a bound it does not give does not restrict. Outside its period a rule
+     does not match; other rules and the default decide, and there is no reason code of its
+     own. A guest who may open the gate for one weekend gets a rule with a period, and the
+     rule stops matching without a new version of the mandate.
    - `resource` matches if **all** specified fields match
      (e.g. `category: light` and `area: living_room` = lights in the living room).
      `area` matches if it is in the resource's set of areas; a resource without areas
@@ -628,6 +640,12 @@ time**: the point in time is converted to the household's time zone.
   from the end of the gap (`02:30-03:30` from 03:00 in the same example).
   A rule that applies at every time of day has no `time_window`; a window whose start equals
   its end makes the mandate invalid (Section 3.1 item 3).
+- `dates`: list of 1 to 16 ranges `{ "from": "2026-12-24", "to": "2027-01-06" }` of calendar
+  dates, both inclusive, without duplicates. The condition is satisfied if the date of the
+  point in time in local time lies in one of the ranges: in `Europe/Berlin`,
+  `2026-12-23T23:30:00Z` is on the 24th. A range of one day has `from` equal to `to`. Points
+  in time that a rule needs exactly, such as the arrival and departure of a guest, are its
+  period (Section 4, step 2), not dates.
 - `weekdays`: list of `mon` … `sun`. The weekday of the point in time in local time is
   decisive, including for windows spanning midnight (Friday 22:00 to Saturday 02:00 with
   `weekdays: ["fri"]` matches only until midnight).
@@ -787,19 +805,23 @@ Fahrenheit), and a household that wants to bound ranges constrains `temperature_
 above its upper end is valid, the platform decides what it does with it, and a rule bounds
 each end on its own.
 
-A constraint has one of two forms:
+A constraint has one of three forms:
 
 - a **range** for an integer parameter: `min`, `max` or both. A limit that is not given
   does not restrict;
 - a **list** of permitted values for an integer or a string parameter: `one_of` with 1 to
   32 distinct values of the parameter's type. It does not appear together with `min` or
-  `max`.
+  `max`;
+- a **list** of excluded values for an integer or a string parameter: `none_of` with 1 to
+  32 distinct values of the parameter's type. It does not appear together with `min`, `max`
+  or `one_of`.
 
 A rule with `constraints` matches only if the request carries **every** named parameter
-and each value `v` satisfies its constraint: `min ≤ v ≤ max` for a range; for a list, `v`
-equals one of the values exactly (an integer never equals a string). A request without
-the parameter does not match the rule. Parameters that no constraint names do not
-influence the evaluation.
+and each value `v` satisfies its constraint: `min ≤ v ≤ max` for a range; for `one_of`, `v`
+equals one of the values exactly (an integer never equals a string); for `none_of`, `v` has
+the type of the values and equals none of them, so that a list that does not fit the
+parameter permits nothing. A request without the parameter does not match the rule.
+Parameters that no constraint names do not influence the evaluation.
 
 ```json
 { "id": "r-heating", "resource": { "category": "climate" }, "actions": ["set_temperature"],
@@ -809,6 +831,8 @@ influence the evaluation.
 ```
 
 The second rule lets the agent switch the heating to `heat` or `auto`, but never `off`.
+`{ "mode": { "none_of": ["off"] } }` lets it switch to every mode except `off`, also to
+`emergency_heat` and to every mode a later vocabulary adds (Section 12.4).
 
 A constraint may name values outside the range that the vocabulary gives an integer
 parameter: a `one_of` value, a `min` or a `max` beyond it is valid in a mandate. Such a
@@ -2882,7 +2906,7 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
   category makes the wrong vocabulary and the wrong rules apply, a wrong set of areas the
   wrong rules by `area`. Devices and integrations feed it; Section 3.4 says what happens
   when a resource comes under a rule that way;
-- **the clock and the time zone**: validity periods and time windows depend on them
+- **the clock and the time zone**: validity periods, dates and time windows depend on them
   (Section 11.4);
 - **the user management**: it decides who an approver is and authenticates the person;
 - **the approval channel**: it reaches the approver and nobody else can answer on it;
@@ -2893,6 +2917,12 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
   credential for the platform (an API token, a user account) and cannot create or change
   what executes on the platform: scripts, automations, rules, scenes, adapters,
   integrations, code. Whatever the agent can do past the PEP, no mandate limits;
+- **one agent, one credential**: every agent acts with credentials of its own, under a mandate
+  of its own. This version knows no delegation. An agent that instructs other agents acts
+  under its own mandate only, and the agents it instructs need theirs. An agent that passes
+  its credentials on, or lets another agent act with them, breaks the only path: the mandate
+  then binds software the household never admitted, and the audit log names an agent that
+  did not act;
 - **the keys**: of issuers (Section 7) and of the audit log (Section 9.5);
 - **the end of TLS**: for an implementation reachable from outside, whoever ends the agents' TLS
   connections, the implementation or the household's proxy, and holds the key of the public
@@ -2904,8 +2934,9 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
 their languages, each with the cases that catch it. The package `lint` and the command `mandate-lint`
 of this repository report the patterns below that a mandate shows by itself (a rule for every
 resource and action, `"*"`, `read` on `any`, `allow_critical` or a broad mandate without
-`expires`, `deny` or `ask` with conditions or by area alone, audit mode for longer than 30
-days); a user interface can show them before a mandate is stored.
+`expires`, `deny` or `ask` with conditions, with a period of their own or by area alone,
+`none_of` on a string parameter, audit mode for longer than 30 days); a user interface can
+show them before a mandate is stored.
 
 - **Broad mandates.** `{"any": true}` with `"*"` and no `expires` is valid. Interfaces
   SHOULD warn before such a mandate is stored, SHOULD require a separate confirmation for
@@ -2966,7 +2997,14 @@ days); a user interface can show them before a mandate is stored.
   rules or the default decide then. This is defined behavior, not a gap in the evaluation.
   Interfaces SHOULD show, for a `deny` or `ask` rule with conditions, when it does not
   apply, and SHOULD warn when such a rule combines a window that spans midnight with
-  `weekdays`.
+  `weekdays`. The same holds for `dates` and for a rule's own period (Section 4, step 2): a
+  `deny` with an `expires` stops restricting at that point in time, and a broader `allow`
+  decides from then on.
+- **Excluded values.** `none_of` permits every value it does not list: for a string
+  parameter also every value that a later vocabulary adds (Section 14) and, for a parameter
+  without permitted values such as `select.option`, every option a device offers later.
+  `{"none_of": ["off"]}` on `climate.set_mode` also permits `emergency_heat`. A household
+  that wants a closed list uses `one_of`, and interfaces SHOULD say so.
 - **Size and time.** Implementations SHOULD bound the size of inputs before parsing them
   (Section 3.1 item 5, nesting depth) and SHOULD verify signatures and schemas before any
   further processing.
@@ -3221,6 +3259,12 @@ behavior of the people in a household and MUST be protected like the devices the
 
   A PEP resolves groups to their members, or treats them as critical (Section 4.4).
 
+  Mandates can carry new members: a rule's own `valid_from` and `expires`, `conditions.dates`
+  and the constraint `none_of`. An implementation of v0.1.x, or of `v0.2.0-rc.2` or earlier,
+  treats a mandate that uses one of them as invalid and denies everything for its agent
+  (Section 14, bullet **Unknown members**), so an issuer uses them only with a verifier of
+  v0.2.0. A mandate without them is evaluated as before.
+
   Implementations get new obligations, which Section 14 now allows in a release
   without a new major (bullet **Obligations**): request times are narrower (`-00:00` and the
   year `0000` are not readable), signatures that only a flawed or hostile signer produces are
@@ -3310,6 +3354,16 @@ behavior of the people in a household and MUST be protected like the devices the
     numbers, options and range setpoints.
 - A mandate linter: package `lint` and command `mandate-lint` report the risky patterns of
   Section 12.4 as warnings, which change no verdict.
+- A rule's own period (Section 4, step 2): `valid_from` and `expires` on a rule, points in time
+  as for the mandate; outside its period the rule does not match, without a reason code of its
+  own (cases `c277` to `c284`, `i617` to `i623`).
+- `conditions.dates` (Section 4.2): 1 to 16 ranges of calendar dates in household local time,
+  both inclusive (cases `c285` to `c292`, `i624` to `i633`).
+- The constraint `none_of` (Section 4.5): the excluded values of a parameter; a value of
+  another type never satisfies it. Section 12.4 and the linter warn that it permits every value
+  a later vocabulary or a device adds (cases `c293` to `c297`, `i634` to `i644`).
+- Section 12.3: every agent acts with credentials of its own under a mandate of its own; this
+  version knows no delegation.
 - Before the release candidate:
   - Condition 4 of Section 9.5: a `log.truncated` entry accounts for the position a relying
     party saw last only if a verified checkpoint anchors it; otherwise a replaced log would pass

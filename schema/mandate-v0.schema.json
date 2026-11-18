@@ -87,6 +87,13 @@
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$",
       "not": { "anyOf": [ { "pattern": "^0000[!-~]*$" }, { "pattern": "^[!-~]*-00:00$" } ] }
     },
+    "date": {
+      "description": "A calendar date according to RFC 3339 (full-date), not in year 0000. Asserting format is required, so that a day that does not exist is rejected (SPEC-v0 sections 3.1 item 0 and 4.2).",
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "not": { "pattern": "^0000-[0-9]{2}-[0-9]{2}$" }
+    },
     "category": {
       "anyOf": [
         { "enum": ["light", "switch", "climate", "cover", "gate", "lock", "alarm", "camera", "media", "sensor", "scene", "script", "other", "fan", "valve", "vacuum", "siren", "number", "select"] },
@@ -132,6 +139,22 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": { "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] }
+        },
+        "dates": {
+          "description": "Ranges of calendar dates in household local time, both ends inclusive; from is not after to (SPEC-v0 sections 3.1 item 3 and 4.2).",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "to"],
+            "properties": {
+              "from": { "$ref": "#/$defs/date" },
+              "to": { "$ref": "#/$defs/date" }
+            }
+          }
         }
       }
     },
@@ -181,6 +204,24 @@
                 ]
               }
             }
+          },
+          {
+            "description": "The excluded values of an integer or string parameter, all of the same type; not together with min, max or one_of. A request matches only with a value of that type that is none of them.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["none_of"],
+            "properties": {
+              "none_of": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 32,
+                "uniqueItems": true,
+                "anyOf": [
+                  { "items": { "$ref": "#/$defs/limit" } },
+                  { "items": { "$ref": "#/$defs/text" } }
+                ]
+              }
+            }
           }
         ]
       }
@@ -204,6 +245,8 @@
           "description": "Optional explanation of the rule for user interfaces and confirmations (by which rule); displayed text (SPEC-v0 section 3.1 item 8), not part of the evaluation.",
           "type": "string", "minLength": 1, "maxLength": 200
         },
+        "valid_from": { "$ref": "#/$defs/date_time", "description": "The rule matches only from this point in time on (SPEC-v0 section 4, step 2)." },
+        "expires": { "$ref": "#/$defs/date_time", "description": "The rule matches only before this point in time; later than the rule's valid_from (SPEC-v0 section 3.1 item 6)." },
         "conditions": { "$ref": "#/$defs/conditions" },
         "constraints": { "$ref": "#/$defs/constraints" },
         "approval": { "$ref": "#/$defs/approval" },
