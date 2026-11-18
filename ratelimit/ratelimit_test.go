@@ -3,6 +3,7 @@
 package ratelimit_test
 
 import (
+	"math"
 	"math/rand"
 	"slices"
 	"testing"
@@ -271,5 +272,28 @@ func TestIdleKeysAreDroppedAfterExactlyAWindow(t *testing.T) {
 	l.Allow("m-1", 5)
 	if got := l.Keys(); got != 1 {
 		t.Errorf("Keys() = %d, want 1", got)
+	}
+}
+
+// A count near the largest int cannot overflow the check: it is denied, and quickly.
+func TestAllowNOfAHugeCountDenies(t *testing.T) {
+	l := ratelimit.New(newClock().Now)
+	l.Allow("m-1", 5)
+	if l.AllowN("m-1", math.MaxInt, 5) {
+		t.Error("math.MaxInt allowed")
+	}
+}
+
+// A restored time in the future counts as now: it expires an hour from now.
+func TestRestoreCapsFutureTimes(t *testing.T) {
+	c := newClock()
+	l := ratelimit.New(c.Now)
+	l.Restore("m-1", []time.Time{c.now.Add(240 * time.Hour)}, 1)
+	if l.Allow("m-1", 1) {
+		t.Fatal("allowed with the restored request in the window")
+	}
+	c.advance(time.Hour)
+	if !l.Allow("m-1", 1) {
+		t.Error("a future time blocked the key beyond an hour")
 	}
 }

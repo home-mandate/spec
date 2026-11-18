@@ -18,7 +18,8 @@ const Window = time.Hour
 // Limiter holds the allowed requests of the last hour per key. The key identifies what
 // the limit applies to, for example the ID of the mandate. The caller bounds the number of
 // keys: a key it derives from what an agent sends (a client ID, a principal) would let the
-// agent grow the state. Keys without a request in the last hour are dropped.
+// agent grow the state. Keys without a request in the last hour are dropped within the next
+// hour.
 type Limiter struct {
 	now func() time.Time
 
@@ -56,14 +57,12 @@ func (l *Limiter) AllowN(key string, n, perHour int) bool {
 	defer l.mu.Unlock()
 	l.sweep(now)
 	times := current(l.allowed[key], now)
-	if len(times)+n > perHour {
+	if n > perHour-len(times) {
 		l.keep(key, times)
 		return false
 	}
-	for range n {
-		times = insert(times, now)
-	}
-	l.allowed[key] = times
+	i, _ := slices.BinarySearchFunc(times, now, func(a, b time.Time) int { return a.Compare(b) })
+	l.allowed[key] = slices.Insert(times, i, slices.Repeat([]time.Time{now}, n)...)
 	return true
 }
 
@@ -97,14 +96,22 @@ func (l *Limiter) Keys() int {
 
 // Restore counts requests that were allowed earlier, for example before a restart, as
 // SPEC-v0 section 11.2 requires: without it a restart would give every agent a fresh limit.
-// It keeps at most perHour times for the key, the latest, so that a long list cannot grow
-// the state.
+// It is meant for a fresh Limiter: the times are added to those the key already holds. A
+// time after now counts as now, so that a wrong stored time cannot block the key beyond an
+// hour. It keeps at most perHour times for the key, the latest, so that a long list cannot
+// grow the state.
 func (l *Limiter) Restore(key string, earlier []time.Time, perHour int) {
 	now := l.now()
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	times := append(slices.Clone(l.allowed[key]), current(slices.Clone(earlier), now)...)
+	restored := current(slices.Clone(earlier), now)
+	for i, t := range restored {
+		if t.After(now) {
+			restored[i] = now
+		}
+	}
+	times := append(slices.Clone(l.allowed[key]), restored...)
 	slices.SortFunc(times, func(a, b time.Time) int { return a.Compare(b) })
 	times = times[max(len(times)-max(perHour, 0), 0):]
 	l.keep(key, times)
@@ -121,9 +128,4 @@ func (l *Limiter) Forget(key string) {
 func current(times []time.Time, now time.Time) []time.Time {
 	cutoff := now.Add(-Window)
 	return slices.DeleteFunc(times, func(t time.Time) bool { return !t.After(cutoff) })
-}
-
-func insert(times []time.Time, t time.Time) []time.Time {
-	i, _ := slices.BinarySearchFunc(times, t, func(a, b time.Time) int { return a.Compare(b) })
-	return slices.Insert(times, i, t)
 }

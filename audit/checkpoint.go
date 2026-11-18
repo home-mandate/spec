@@ -34,14 +34,16 @@ type Anchor struct {
 	// checkpoint, so that a log signed with the same key for another household verifies too
 	// (SPEC-v0 section 9.5).
 	LogID string
-	// Last is the position the relying party saw covered by the last checkpoint it verified;
-	// nil if it kept none. The log must still hold an entry with that seq and digest, or a
-	// log.truncated entry that accounts for it: the seq alone does not show a log that was
-	// rolled back and grew again (SPEC-v0 section 9.5).
-	Last *Position
+	// LastSeen is the entry the relying party saw covered by the last checkpoint it verified
+	// (the checkpoint's seq - 1 and its prev); nil if it kept none. The log must still hold an
+	// entry with that seq and digest, or a log.truncated entry that accounts for it: the seq
+	// alone does not show a log that was rolled back and grew again (SPEC-v0 section 9.5). A
+	// LastSeen with a seq below 1 or a digest that is not "sha256:" and 64 hexadecimal digits
+	// in lower case makes the verification fail with an error.
+	LastSeen *Position
 }
 
-// Position is an entry of a log by its seq and its digest.
+// Position names an entry of a log by its seq and its digest.
 type Position struct {
 	Seq    int64
 	Digest string

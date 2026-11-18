@@ -24,6 +24,7 @@ import (
 
 	"github.com/home-mandate/spec/displaytext"
 	"github.com/home-mandate/spec/ijson"
+	"github.com/home-mandate/spec/internal/errquote"
 	"github.com/home-mandate/spec/internal/jsonnum"
 	"github.com/home-mandate/spec/internal/origin"
 	"github.com/home-mandate/spec/jcs"
@@ -269,7 +270,7 @@ type verifier struct {
 	known actionsByCategory
 	// cadence follows the checkpoints for CheckpointGap.
 	cadence cadence
-	// lastFound: an entry or a log.truncated entry stands for Anchor.Last.
+	// lastFound: an entry or a log.truncated entry stands for Anchor.LastSeen.
 	lastFound bool
 }
 
@@ -335,6 +336,10 @@ func newVerifier(opts Options) (*verifier, error) {
 	if err != nil {
 		return nil, err
 	}
+	if a := opts.Anchor; a != nil && a.LastSeen != nil && (a.LastSeen.Seq < 1 || !digestPattern.MatchString(a.LastSeen.Digest)) {
+		return nil, fmt.Errorf("audit: the last entry seen needs a seq of at least 1 and a digest, got %d and %s",
+			a.LastSeen.Seq, errquote.Quote(a.LastSeen.Digest))
+	}
 	return &verifier{schemas: schemas, anchor: opts.Anchor, known: known}, nil
 }
 
@@ -373,18 +378,18 @@ func (v *verifier) add(entry []byte) {
 			v.checkpointBreak = &r
 		}
 	}
-	if v.anchor != nil && v.anchor.Last != nil && v.lastSeen(l) {
+	if v.anchor != nil && v.anchor.LastSeen != nil && v.lastSeen(l) {
 		v.breakCheckpoint(index, l.seq)
 	}
 	v.cadence.next(index, l)
 	v.previous, v.lost = l, false
 }
 
-// lastSeen checks an entry against the position the relying party saw last (Anchor.Last):
+// lastSeen checks an entry against the position the relying party saw last (Anchor.LastSeen):
 // the entry at that seq has its digest, or a log.truncated entry accounts for it. It reports
 // whether the entry contradicts the position.
 func (v *verifier) lastSeen(l link) (contradicts bool) {
-	last := v.anchor.Last
+	last := v.anchor.LastSeen
 	switch {
 	case l.seq == last.Seq:
 		v.lastFound = true
@@ -406,8 +411,12 @@ func (v *verifier) breakCheckpoint(index int, seq int64) {
 }
 
 func (v *verifier) finish() Result {
-	if v.count > 0 && v.anchor != nil && v.anchor.Last != nil && !v.lastFound {
+	if v.anchor != nil && v.anchor.LastSeen != nil && !v.lastFound {
 		// The log ends before the position the relying party saw: it was cut or rolled back.
+		if v.count == 0 {
+			// Every entry is gone: the most complete rollback.
+			return Result{Index: 0, BrokenAt: 0, Integrity: &Finding{Index: 0, At: 0}}
+		}
 		v.breakCheckpoint(v.count-1, v.previous.seq)
 	}
 	if v.count > 0 && v.first.seq != 1 && !v.startCovered && !v.lostFirst() {

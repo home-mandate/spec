@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/home-mandate/spec/internal/errquote"
 	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/home-mandate/spec/ijson"
+	"github.com/home-mandate/spec/internal/errquote"
 	"github.com/home-mandate/spec/internal/jsonnum"
 	"github.com/home-mandate/spec/jcs"
 	"github.com/home-mandate/spec/schema"

@@ -262,7 +262,7 @@ func verifyAudit(req Request) Response {
 		}
 		anchor = &audit.Anchor{Keys: keys, LogID: req.LogID}
 		if req.LastSeen != nil {
-			anchor.Last = &audit.Position{Seq: req.LastSeen.Seq, Digest: req.LastSeen.Digest}
+			anchor.LastSeen = &audit.Position{Seq: req.LastSeen.Seq, Digest: req.LastSeen.Digest}
 		}
 	} else if req.LastSeen != nil {
 		return Response{Error: "last_seen without keys"}

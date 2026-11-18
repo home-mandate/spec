@@ -90,7 +90,8 @@ type protectedHeader struct {
 }
 
 // Sign returns the compact JWS of payload: header.payload.signature. signer is an
-// ed25519.PrivateKey or an *ecdsa.PrivateKey on P-256.
+// ed25519.PrivateKey or an *ecdsa.PrivateKey on P-256; any other crypto.Signer, such as a key
+// in a hardware module, gives ErrKey.
 func Sign(payload []byte, kid string, signer crypto.Signer) (string, error) {
 	head, sig, err := sign(payload, kid, signer)
 	if err != nil {

@@ -1845,9 +1845,10 @@ Verification (Section 9.4) gains a fourth condition, checked after the chain:
    by the last checkpoint it verified (its `seq` and digest, below), the log holds an entry
    with that `seq` and that digest, or a `log.truncated` entry that accounts for it (its
    `up_to_seq` is that `seq` and its `last_digest` that digest, or its `up_to_seq` is
-   greater). `broken_at` is the `seq` of the first checkpoint that violates this, of the entry
-   or `log.truncated` entry at that position whose digest differs, or, for a log that has
-   neither, of its last entry.
+   greater, which binds no digest: the entries it accounts for are gone). `broken_at` is the
+   `seq` of whichever comes first in file order: a checkpoint that violates this, or the entry
+   or `log.truncated` entry at that position whose digest differs; for a log that has neither,
+   the `seq` of its last entry, and `0` for a log without entries.
 
 A verifier that was given keys additionally reports
 
@@ -1942,7 +1943,7 @@ A party that relies on the log SHOULD keep, outside the machine that writes it, 
 the public key and the position the last checkpoint it saw covers (the checkpoint's `seq` − 1
 and its `prev`), and check at the next verification that the log still holds an entry with
 that `seq` and that digest (or a `log.truncated` entry that accounts for it); condition 4
-checks it when the verifier is given that position (`v223` to `v226`). The `seq` alone is not enough: a log rolled back
+checks it when the verifier is given that position (`v223` to `v228`). The `seq` alone is not enough: a log rolled back
 and grown again past that `seq`, with another history under the same `log_id`, keeps it. A key
 that was replaced (`config.changed`, `checkpoint_key`) still verifies checkpoints that whoever
 holds it signs later; a relying party SHOULD NOT accept checkpoints of a replaced key that come
@@ -3181,9 +3182,10 @@ behavior of the people in a household and MUST be protected like the devices the
   - `audit.Anchor.Last` is the position a relying party saw last; condition 4 of Section 9.5
     checks it, and the test interface carries it as `last_seen`.
   - The signing functions take a `crypto.Signer` instead of `any`. The errors of
-    `evaluator.Parse` are cut to 512 bytes. The documentation says what the zero value of
+    `evaluator.Parse` are cut to 512 bytes and a mark. The documentation says what the zero value of
     `audit.Result` means, what an empty `Anchor.LogID` accepts, and when
-    `ReferencePDP.Mutate` may be set.
+    `ReferencePDP.Mutate` may be set. A position seen last with a `seq` below 1 or a malformed
+    digest is an error of the verification, not a finding (`v223` to `v228`).
 - Signatures, key sets and the public origin before the release:
   - Section 7.1 says that `k` is the hash reduced modulo L, as `g45` requires; that the unused
     bits of base64url are zero for segments and keys; and that the header is read as JSON, so

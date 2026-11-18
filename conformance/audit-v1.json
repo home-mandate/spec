@@ -4599,6 +4599,34 @@
         {"actor": {"id": "retention", "kind": "system"}, "event": "log.truncated", "id": "01a0f64c-7140-7001-9007-0000b2260007", "prev": "sha256:db33d6dc50a374ad1cae0e3e64b69fc3fc2a18bbad99a0b05823dc5394363c09", "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:01:00Z", "seq": 7, "truncated": {"last_digest": "sha256:3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a", "up_to_seq": 5}, "type": "https://home-mandate.org/audit/v1"},
         {"checkpoint": {"log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..fT_PoOEuMcx2kKOBUvJk7oJFcCXbhRlAqHBEoE11VuxxOd7BjXw9rEx_TdthoXVibp2zI4SH0DH3ZWVeqwo8Ag"}, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000b2260008", "prev": "sha256:de15d78c72cb67919860ce234633fcb8f5f01460e8138238be57329b7291453a", "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:02:00Z", "seq": 8, "type": "https://home-mandate.org/audit/v1"}
       ]
+    },
+    {
+      "id": "v227",
+      "why": "a log without entries, while the relying party saw a checkpoint cover seq 2: every entry was removed, the most complete rollback; broken_at is 0 (SPEC-v0 section 9.5)",
+      "expected": "invalid",
+      "last_seen": {"seq": 2, "digest": "sha256:5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b"},
+      "broken_at": 0,
+      "integrity_broken_at": 0,
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "entries": [
+
+      ]
+    },
+    {
+      "id": "v228",
+      "why": "a log.truncated entry that accounts for exactly the position the relying party saw, but with another last_digest: the deleted history was another one (SPEC-v0 section 9.5)",
+      "expected": "invalid",
+      "last_seen": {"seq": 2, "digest": "sha256:5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b"},
+      "broken_at": 4,
+      "integrity_broken_at": 4,
+      "keys": "conformance/keys/test-keys.json",
+      "log_id": "0198f1c2-7c3a-7000-8000-00000000c0de",
+      "entries": [
+        {"auth": {"reason": "unknown"}, "event": "auth.rejected", "id": "01a0f64c-7140-7001-9007-0000b2280003", "prev": "sha256:3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a", "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:00:00Z", "result": {"denied_by": "authentication", "status": "denied"}, "seq": 3, "type": "https://home-mandate.org/audit/v1"},
+        {"actor": {"id": "retention", "kind": "system"}, "event": "log.truncated", "id": "01a0f64c-7140-7001-9007-0000b2280004", "prev": "sha256:27539ee365222d831cedb3b1b14244f8db16e5f53bc0d8ea271ee840381bbd4e", "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:01:00Z", "seq": 4, "truncated": {"last_digest": "sha256:3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a", "up_to_seq": 2}, "type": "https://home-mandate.org/audit/v1"},
+        {"checkpoint": {"log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..EF0jO_gHNcMdJJoVBIH8ULoKZ2kGoJ0dxzb8hHexKYr5DvoadN0r8lVotpKtQ01gqtpZ_iXXjt0b5KRPf5w6BA"}, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000b2280005", "prev": "sha256:a57df2158a0ba0eea3b78fcdf4e28525c53f267413d09d34aa09a01d251e1f7f", "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:02:00Z", "seq": 5, "type": "https://home-mandate.org/audit/v1"}
+      ]
     }
   ]
 }

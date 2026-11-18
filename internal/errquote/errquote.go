@@ -24,8 +24,8 @@ func Quote(s string) string {
 // MaxErrorBytes bounds the whole text of an error that Bound returns.
 const MaxErrorBytes = 512
 
-// Bound returns err with its text cut to MaxErrorBytes bytes, at a character boundary and
-// marked with "...", for an error that may echo untrusted values from places that do not
+// Bound returns err with its text cut to at most MaxErrorBytes bytes, at a character
+// boundary, followed by the mark "...", for an error that may echo untrusted values from places that do not
 // quote them (a schema validator, for example). errors.Is and errors.As still see err. A nil
 // err stays nil.
 func Bound(err error) error {

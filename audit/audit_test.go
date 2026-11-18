@@ -60,7 +60,7 @@ func (c auditCase) verify() (audit.Result, error) {
 		}
 		anchor := audit.Anchor{Keys: keys, LogID: c.LogID}
 		if c.LastSeen != nil {
-			anchor.Last = &audit.Position{Seq: c.LastSeen.Seq, Digest: c.LastSeen.Digest}
+			anchor.LastSeen = &audit.Position{Seq: c.LastSeen.Seq, Digest: c.LastSeen.Digest}
 		}
 		return audit.VerifyAnchored(raw(c.Entries), anchor)
 	}
