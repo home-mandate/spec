@@ -13,8 +13,8 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "17b277604cdb5f9bb85ecef5face69902c7fc83af561fce7717206c0a0e9437d",
-      "cases": 262
+      "sha256": "bdfddea8564628aa6e8d3c579033cf417c1144c14e449cfbb1095ef16e9a4c8a",
+      "cases": 276
     },
     {
       "path": "conformance/ct-v0.json",
@@ -433,11 +433,11 @@
     },
     {
       "path": "schema/audit-v1.schema.json",
-      "sha256": "44faa1dc7867b654f3472dd40aa40742303403deadb7d9efef718f8721425343"
+      "sha256": "220fa6c0a933ac91595eca1862ab29e2eb07fb5a1b63899965817889ca0244a1"
     },
     {
       "path": "schema/mandate-v0.schema.json",
-      "sha256": "6b1452c1070780ce841d0158116bf4cf2fa08a41e2fc966ac359636ddb72c7b7"
+      "sha256": "ff4969674b4854f208bb8a534b17369b3633d7fe6ba07a15ae1c27a114d06237"
     },
     {
       "path": "schema/vocabulary-v0.schema.json",
@@ -445,7 +445,7 @@
     },
     {
       "path": "vocabulary/v0.json",
-      "sha256": "954b4dfc9ccec520c4d2c90dc55a74e8eec67790a643c1c91719904d338b3222"
+      "sha256": "3b1eb5328aff9e77e0b8023168b6ed0db0a0de089811015f42fe90fc5ee7860c"
     }
   ]
 }

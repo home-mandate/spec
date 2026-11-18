@@ -200,6 +200,9 @@ func TestSpecParameterTableMatchesV0(t *testing.T) {
 						quoted[i] = "`" + v + "`"
 					}
 					rest = strings.Join(quoted, ", ")
+					if len(p.Values) == 0 {
+						rest = "any, 1 to 64 printable ASCII characters without space"
+					}
 				} else if p.Minimum != nil && p.Maximum != nil {
 					rest = fmt.Sprintf("%d to %d", *p.Minimum, *p.Maximum)
 				}

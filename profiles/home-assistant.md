@@ -14,13 +14,19 @@
 | `light` | `light.*` |
 | `switch` | `switch.*` |
 | `climate` | `climate.*` |
-| `cover` | `cover.*` except device class `garage` or `gate` |
-| `gate` | `cover.*` with device class `garage` or `gate` |
+| `cover` | `cover.*` except device class `door`, `garage` or `gate`; for device class `window` and `shutter` an implementation suggests marking the resource critical |
+| `gate` | `cover.*` with device class `door`, `garage` or `gate`: physical access, whatever the integration calls it |
 | `lock` | `lock.*` |
 | `alarm` | `alarm_control_panel.*` |
 | `camera` | `camera.*` |
 | `media` | `media_player.*` |
-| `sensor` | `sensor.*`, `binary_sensor.*` |
+| `sensor` | `sensor.*`, `binary_sensor.*`, `person.*`, `device_tracker.*`; presence (`person.*`, `device_tracker.*`, device class `presence` or `occupancy`) is personal data (SPEC-v0 section 13), and an implementation never allows `read` on it through a rule for `any` |
+| `fan` | `fan.*` |
+| `valve` | `valve.*` |
+| `vacuum` | `vacuum.*` |
+| `siren` | `siren.*` |
+| `number` | `number.*`, `input_number.*` |
+| `select` | `select.*`, `input_select.*` |
 | `scene` | `scene.*` |
 | `script` | `script.*` |
 | `other` | all other domains |
@@ -54,6 +60,10 @@ section 11.1 item 11), for example:
 | `cover` | `open`, `close`, `stop`, `set_position` | `CoverEntityFeature.OPEN`, `CLOSE`, `STOP`, `SET_POSITION` |
 | `gate` | `open`, `close` | `CoverEntityFeature.OPEN`, `CLOSE` |
 | `light` | `set` (brightness) | a color mode in `supported_color_modes` other than `onoff` |
+| `light` | `set` (`color_temp_kelvin`; `hue` and `saturation`) | `color_temp` in `supported_color_modes`; `hs`, `xy`, `rgb`, `rgbw` or `rgbww` |
+| `cover` | `set_tilt` | `CoverEntityFeature.SET_TILT_POSITION` |
+| `fan` | `set_speed` | `FanEntityFeature.SET_SPEED` |
+| `media` | `next`, `previous` | `MediaPlayerEntityFeature.NEXT_TRACK`, `PREVIOUS_TRACK` |
 | `climate` | `set_temperature` | `ClimateEntityFeature.TARGET_TEMPERATURE` |
 | `climate` | `set_mode` | the mode among the entity's `hvac_modes` (see Climate modes) |
 | `media` | `turn_on`, `turn_off`, `play`, `pause`, `set_volume` | `MediaPlayerEntityFeature.TURN_ON`, `TURN_OFF`, `PLAY`, `PAUSE`, `VOLUME_SET` |
@@ -155,3 +165,20 @@ the temperature, is a second action, `set_mode`: the implementation evaluates bo
 executes the call only if both are permitted, as for a request for several resources
 (SPEC-v0 section 4.4); one `deny` denies the call, one `ask` needs a confirmation that
 names both. An implementation MAY instead refuse combined calls and ask the agent for two.
+
+### Numbers and options
+
+- **`number.set`:** `value` is the value in thousandths of the unit the entity states in
+  `unit_of_measurement` (`number.set_value` with `value` / 1000). A value that is not a multiple
+  of the entity's `step`, or lies outside its `min` and `max`, is a request the entity cannot
+  carry out (SPEC-v0 section 11.1 item 11).
+- **`select.set`:** `option` is the option as Home Assistant writes it in the attribute
+  `options`, if it has no space and is printable ASCII; otherwise its slug (lower case, every run
+  of other characters as `_`). Two options with the same slug make the entity unusable for
+  `select.set`. `select.select_option` receives the option as it is.
+- **`climate.set_temperature` with a range:** `temperature_low` and `temperature_high` map to
+  `target_temp_low` and `target_temp_high` of `climate.set_temperature`, in hundredths of a
+  degree.
+- **`fan.set_speed`:** `speed` maps to `percentage` of `fan.set_percentage`.
+- **`cover.set_tilt`:** `tilt` maps to `tilt_position` of `cover.set_cover_tilt_position`.
+

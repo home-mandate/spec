@@ -2,20 +2,26 @@
   "$schema": "https://home-mandate.org/vocabulary/v0/vocabulary.schema.json",
   "description": "Vocabulary v0 of the Home-Mandate Specification (SPEC-v0.md section 5): categories, their actions, which actions are critical and which parameters an action has, of which type and in which unit or with which permitted values. Normative.",
   "id": "https://home-mandate.org/vocabulary/v0",
-  "version": "v0.1",
+  "version": "v0.2",
   "categories": {
-    "light": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}, "set": {"parameters": {"brightness": {"type": "integer", "unit": "percent", "minimum": 0, "maximum": 100}}}}},
+    "light": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}, "set": {"parameters": {"brightness": {"type": "integer", "unit": "percent", "minimum": 0, "maximum": 100}, "color_temp_kelvin": {"type": "integer", "unit": "kelvin", "minimum": 1000, "maximum": 12000}, "hue": {"type": "integer", "unit": "degree", "minimum": 0, "maximum": 359}, "saturation": {"type": "integer", "unit": "percent", "minimum": 0, "maximum": 100}}}}},
     "switch": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}}},
     "climate": {"actions": {"read": {}, "set_temperature": {"parameters": {"temperature": {"type": "integer", "unit": "0.01 degree Celsius"}, "temperature_f": {"type": "integer", "unit": "0.01 degree Fahrenheit"}, "temperature_low": {"type": "integer", "unit": "0.01 degree Celsius", "description": "Lower end of a range setpoint, with temperature_high."}, "temperature_high": {"type": "integer", "unit": "0.01 degree Celsius", "description": "Upper end of a range setpoint, with temperature_low."}, "temperature_low_f": {"type": "integer", "unit": "0.01 degree Fahrenheit", "description": "Lower end of a range setpoint, with temperature_high_f."}, "temperature_high_f": {"type": "integer", "unit": "0.01 degree Fahrenheit", "description": "Upper end of a range setpoint, with temperature_low_f."}}, "required_one_of": [["temperature"], ["temperature_f"], ["temperature_low", "temperature_high"], ["temperature_low_f", "temperature_high_f"]]}, "set_mode": {"parameters": {"mode": {"type": "string", "values": ["off", "auto", "cool", "heat", "emergency_heat", "precooling", "fan_only", "dry", "sleep"], "required": true}}}}},
-    "cover": {"actions": {"read": {}, "open": {}, "close": {}, "stop": {}, "set_position": {"parameters": {"position": {"type": "integer", "unit": "percent open", "minimum": 0, "maximum": 100, "required": true}}}}},
+    "cover": {"actions": {"read": {}, "open": {}, "close": {}, "stop": {}, "set_position": {"parameters": {"position": {"type": "integer", "unit": "percent open", "minimum": 0, "maximum": 100, "required": true}}}, "set_tilt": {"parameters": {"tilt": {"type": "integer", "unit": "percent open", "minimum": 0, "maximum": 100, "required": true}}}}},
     "gate": {"actions": {"read": {}, "open": {"critical": true}, "close": {}}},
     "lock": {"actions": {"read": {}, "lock": {}, "unlock": {"critical": true}, "open": {"critical": true}}},
     "alarm": {"actions": {"read": {}, "arm": {"parameters": {"mode": {"type": "string", "values": ["home", "away", "night", "vacation", "custom_bypass"], "required": true, "description": "The arming mode; the modes of the platform map to these values (profiles)."}}}, "disarm": {"critical": true}}},
     "camera": {"actions": {"read": {}, "snapshot": {"critical": true}}},
-    "media": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}, "play": {}, "pause": {}, "set_volume": {"parameters": {"volume": {"type": "integer", "unit": "percent", "minimum": 0, "maximum": 100, "required": true}}}}},
+    "media": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}, "play": {}, "pause": {}, "set_volume": {"parameters": {"volume": {"type": "integer", "unit": "percent", "minimum": 0, "maximum": 100, "required": true}}}, "next": {}, "previous": {}}},
     "sensor": {"actions": {"read": {}}},
     "scene": {"actions": {"read": {}, "activate": {"critical": true}}},
     "script": {"actions": {"read": {}, "run": {"critical": true}}},
-    "other": {"actions": {"read": {}, "set": {"critical": true}}}
+    "other": {"actions": {"read": {}, "set": {"critical": true}}},
+    "fan": {"actions": {"read": {}, "turn_on": {}, "turn_off": {}, "set_speed": {"parameters": {"speed": {"type": "integer", "unit": "percent", "minimum": 0, "maximum": 100, "required": true}}}}},
+    "valve": {"actions": {"read": {}, "open": {"critical": true}, "close": {}}},
+    "vacuum": {"actions": {"read": {}, "start": {}, "stop": {}, "return_home": {}}},
+    "siren": {"actions": {"read": {}, "turn_on": {"critical": true}, "turn_off": {}}},
+    "number": {"actions": {"read": {}, "set": {"parameters": {"value": {"type": "integer", "unit": "0.001 of the unit of the resource", "required": true}}}}},
+    "select": {"actions": {"read": {}, "set": {"parameters": {"option": {"type": "string", "required": true}}}}}
   }
 }

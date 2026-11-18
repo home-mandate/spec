@@ -20,6 +20,9 @@ Not verified against an implementation.
 | `lock` | Door Lock |
 | `camera` | Camera |
 | `sensor` | sensor device types (Contact, Occupancy, Temperature, …) |
+| `fan` | Fan |
+| `valve` | Water Valve |
+| `vacuum` | Robotic Vacuum Cleaner |
 | `other` | all other device types |
 
 ## Parameters

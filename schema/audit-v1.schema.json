@@ -657,7 +657,7 @@
     "category": {
       "description": "A category of SPEC-v0 section 5 or an extension category (section 5.1), as in a mandate.",
       "anyOf": [
-        { "enum": ["light", "switch", "climate", "cover", "gate", "lock", "alarm", "camera", "media", "sensor", "scene", "script", "other"] },
+        { "enum": ["light", "switch", "climate", "cover", "gate", "lock", "alarm", "camera", "media", "sensor", "scene", "script", "other", "fan", "valve", "vacuum", "siren", "number", "select"] },
         { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}:[a-z][a-z0-9_]{0,31}$" }
       ]
     },
