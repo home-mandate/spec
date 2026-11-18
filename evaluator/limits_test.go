@@ -5,6 +5,7 @@ package evaluator_test
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/home-mandate/spec/evaluator"
 )
@@ -70,5 +71,28 @@ func TestLimitsAuditMode(t *testing.T) {
 		"constraints":{"temperature":{"min":1600,"max":2300}}}]`)
 	if got := m.Limits(request("climate", "", "set_temperature")); got != nil {
 		t.Errorf("Limits in audit mode = %v, want nil", got)
+	}
+}
+
+// RuleLimits and MaxActionsPerHour give a PEP what it counts (SPEC-v0 section 11.2).
+func TestRuleLimitsAndN(t *testing.T) {
+	m := mandateWithRules(t, `[
+		{"id":"r-light","resource":{"category":"light"},"actions":["turn_on"],"decision":"allow"},
+		{"id":"r-garage","resource":{"entity_id":"light.garage"},"actions":["turn_on"],"decision":"allow",
+		 "limits":{"max_actions_per_hour":2,"max_actions_per_day":5,"min_interval":"PT1M"}}]`)
+	if got, ok := m.RuleLimits("r-garage"); !ok || got != (evaluator.RuleLimits{PerHour: 2, PerDay: 5, MinInterval: time.Minute}) {
+		t.Errorf("RuleLimits(r-garage) = %+v, %v", got, ok)
+	}
+	for _, id := range []string{"r-light", "r-none"} {
+		if got, ok := m.RuleLimits(id); ok || got != (evaluator.RuleLimits{}) {
+			t.Errorf("RuleLimits(%s) = %+v, %v", id, got, ok)
+		}
+	}
+	var none *evaluator.Mandate
+	if _, ok := none.RuleLimits("r-garage"); ok || none.MaxActionsPerHour() != 0 {
+		t.Error("a nil mandate has limits")
+	}
+	if m.MaxActionsPerHour() <= 0 {
+		t.Errorf("MaxActionsPerHour = %d", m.MaxActionsPerHour())
 	}
 }

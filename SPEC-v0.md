@@ -147,10 +147,11 @@ Mandate
 │   ├── conditions? { time_window, weekdays, dates }
 │   ├── constraints? { <parameter>: { min, max } or { one_of } or { none_of } }   only with allow, see Section 4.5
 │   ├── approval?   { timeout, approvers }   only with ask
+│   ├── limits?     { max_actions_per_hour?, max_actions_per_day?, min_interval? }   only with allow, see Section 11.2
 │   └── allow_critical?  true, required for allow on critical actions; not together with "*"
 ├── default       always "deny" in v0
 ├── approval      default for ask: { timeout, approvers }
-├── limits        { max_actions_per_hour }
+├── limits        { max_actions_per_hour }   N, see Section 11.2
 ├── valid_from, expires?
 ├── issuer?, version?   only together, see Section 3.5
 ├── audience?     the verifier the mandate is for; required in a signed mandate, see Section 3.5
@@ -248,6 +249,12 @@ A mandate is valid if it conforms to the schema **and** additionally:
 11. `enforce`, if present, is `false` (audit mode, Section 4.6). A mandate that enforces
     has no `enforce` member: `true` would be a second form of the same mandate with a
     different digest, and is invalid. `enforce` is a member of the mandate, not of a rule.
+
+12. a rule's own `limits` appear only in rules with `decision: allow` and have at least one
+    member: `max_actions_per_hour` (1 to 1000), `max_actions_per_day` (1 to 24 000) and
+    `min_interval`, a duration of the form of `approval.timeout` (item 7) from 1 second to
+    24 hours, both inclusive (Section 11.2). On a `deny` or `ask` rule they would bound how
+    often a restriction applies, which is no restriction.
 
 All numbers in a mandate are integers whose magnitude is at most 2^53 − 1; the schema
 permits nothing else.
@@ -435,8 +442,8 @@ and later compare points in time (Section 3.1 item 0): the same point in time wr
 another offset is not moved. Rules
 are compared as wholes: a rule counts as changed when any of its members differs, `note`
 included, so a rule tightened in place (a constraint added, `allow_critical` removed, an
-`expires` of its own moved earlier) needs a confirmation too, and so does a rule whose own
-period is extended; an issuer narrows without one by removing the rule or adding a `deny`.
+`expires` of its own moved earlier, a limit of its own added or lowered) needs a
+confirmation too, and so does a rule whose own period is extended; an issuer narrows without one by removing the rule or adding a `deny`.
 An added `ask` rule without its own `approval` narrows because it lets the agent ask for
 more, never do more, and the approvers stay those of the mandate. A weakening successor,
 and every successor of a mandate that the household revoked, MUST NOT take effect before a
@@ -560,7 +567,9 @@ gets the denial. Whoever sets something broadly to `ask` and allows individual i
 When in doubt, the safer side always wins, in audit mode as well: a `deny` that is not
 enforced never takes away a confirmation that a matching `ask` rule asks for.
 
-`limits` are not part of the evaluation. The PEP enforces the rate limit (Section 11.2).
+The limits of the mandate and of its rules are not part of the evaluation: the result names
+the rules whose limits apply (`limited_rules`, Section 4.1), and the rate limits are enforced
+per Section 11.2, by the PEP or by a PDP apart from it (Section 6).
 
 ### 4.1 Result
 
@@ -599,6 +608,10 @@ In addition to the decision, the evaluation returns:
 - **`enforced`:** `false` if the result is a `deny` that is not enforced (step 6,
   Section 4.6); then `reason` is `no_match` or `rule`. Every other result is enforced and
   has no `enforced`.
+- **`limited_rules`:** for an `allow`, the `id`s of all matching rules that carry `limits` of
+  their own, in document order; every one of them is an `allow` rule. They need not include
+  the rule that `rule_id` names: a broader rule without limits that comes first decides, and
+  the limits of a narrower one still apply (Section 11.2). Every other result has none.
 - **`confirm`:** `true` if the result is a `deny` that is not enforced and requires a
   confirmation (step 6, Section 4.6); then `enforced` is `false` and `reason` is `rule`.
   Every other result has no `confirm`; for an `ask` the confirmation follows from the
@@ -872,7 +885,7 @@ as in a mandate without `enforce`:
 - every `deny` before the rules: an invalid mandate, an invalid request, an unknown
   resource, category or action, a revoked mandate and one that is not yet valid or has
   expired (steps 0 and 1), as well as `no_mandate` and `ambiguous_mandate` (Section 4.3);
-- every denial outside the evaluation: the rate limit, the emergency stop, the
+- every denial outside the evaluation: the rate limits, the emergency stop, the
   authentication of the agent, and an approval that was not given (Section 11).
 
 The PEP executes a request whose result is not enforced as it executes an `allow`, and
@@ -1044,7 +1057,8 @@ context:
 
 `reason` is REQUIRED, as are `mandate_id` (the `id` of the evaluated mandate, or of the
 revoked mandate the result names, Section 4.3) and
-`mandate_digest` unless Section 4.1 says the digest is absent: a PEP with a separate PDP
+`mandate_digest` unless Section 4.1 says the digest is absent, except in a response that a
+rate limit denied before the evaluation (**Rate limits**, below): a PEP with a separate PDP
 records both in the audit entry (Section 9.1) and need not resolve the `id` from the
 digest. `rule_id` is included when Section 4.1 provides for it. For `outcome: ask`, `approval_timeout` and
 `approvers` (the approval settings per Section 4.1) are REQUIRED, so that a PEP can obtain
@@ -1067,6 +1081,34 @@ that is not enforced (audit mode, Section 4.6) and absent otherwise:
                "approval_timeout": "PT1M", "approvers": ["parent-1"],
                "mandate_id": "m-trial", "mandate_digest": "sha256:5b1e…" } }
 ```
+
+**Rate limits.** A PDP apart from its PEP holds the mandates and enforces the rate limits of
+Section 11.2: N, the limits of the rules, and the limit for requests without a single valid
+mandate. The PEP enforces none of them. The PDP counts a request when it answers it, before
+the PEP executes it, and keeps the counts across a restart: it cannot count them again from
+the log, which the PEP keeps. A request that a rate limit denies is answered with
+`decision: false` and `denied_by: "rate_limit"` in the context:
+
+```json
+{ "decision": false,
+  "context": { "denied_by": "rate_limit",
+               "mandate_id": "m-voice-assistant", "mandate_digest": "sha256:9f2c…" } }
+```
+
+- N and the limit without a mandate apply before the evaluation: the context has neither
+  `outcome` nor `reason` nor any other member of an evaluation, and `mandate_id` and
+  `mandate_digest` only if a single valid mandate was selected.
+- The limits of a rule apply after an evaluation that allowed: the context is that of the
+  `allow` (`outcome: allow`, `reason`, `rule_id`, `mandate_id`, `mandate_digest`) with
+  `denied_by` added.
+
+A PEP MUST NOT execute a request whose response carries `denied_by`, whatever the other
+members say. It records the request with `result.denied_by: rate_limit` and, if the context
+has an `outcome`, with that evaluation (Section 9.1). A PEP that does not know `denied_by`
+denies because of `decision: false`. A request for several resources reaches the PDP as one
+evaluation per resource (Section 4.4), so the PDP cannot count it all or nothing: what it
+allowed before a limit denied one of the resources stays counted, and the PEP denies the whole
+request. The PDP then counts more than the request used, never less.
 
 Field mapping:
 
@@ -1092,7 +1134,8 @@ per Section 4.3; if there is none for the agent and principal, the result is `de
 `reason: no_mandate`, or `revoked` if they have only revoked mandates; `mandate_id` and
 `mandate_digest` then name the revoked mandate if it is exactly one valid one.
 
-- `outcome: allow` → `decision: true`
+- `outcome: allow` → `decision: true`, unless a rate limit denied the request (`denied_by`,
+  above): then `decision: false`, and the PEP MUST NOT execute the action
 - `outcome: ask` → `decision: false`; the PEP MUST obtain a confirmation per Section 11.1 and
   MUST NOT execute the action unless the response is positive
 - `outcome: deny` → `decision: false`; with `enforced: false`, the PEP executes the action
@@ -2077,7 +2120,7 @@ passed for its class, as for an operation it does not offer.
 |---|---|---|
 | `capabilities` | – | `name`, `version`, `ops` (the operations offered) |
 | `validate` | `mandate` or `mandate_base64` | `valid`; `digest` if valid |
-| `evaluate` | `mandate` or `mandate_base64`, `request` | `decision`, `reason`, `rule_id` if Section 4.1 provides one, `approval_timeout` and `approvers` for `ask` and for a result that requires a confirmation, `mandate_digest` unless absent per Section 4.1, `enforced: false` for a `deny` that is not enforced (Section 4.6), `confirm: true` for one that requires a confirmation |
+| `evaluate` | `mandate` or `mandate_base64`, `request` | `decision`, `reason`, `rule_id` if Section 4.1 provides one, `approval_timeout` and `approvers` for `ask` and for a result that requires a confirmation, `mandate_digest` unless absent per Section 4.1, `enforced: false` for a `deny` that is not enforced (Section 4.6), `confirm: true` for one that requires a confirmation, `limited_rules` (an array of rule `id`s, Section 4.1) for an `allow` with any |
 | `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate, or of the revoked mandate the result names, Section 4.3) if there is one |
 | `succession` | `stored`, `offered`, optionally `stored_revoked` | `accept`; with `accept`, `confirm: true` if the successor takes effect only after a human confirmed it (Section 3.5) |
 | `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer, as JSON text) | `valid`; `digest` if valid |
@@ -2392,6 +2435,35 @@ act or decide.
   each resource, from the entries whose `recorded_at` lies in the last hour (`result.count`
   included).
 - A change of N applies to the next request.
+
+**Limits of a rule.** An `allow` rule can carry limits of its own, in addition to N (Section 3.1
+item 12): "at most three unlocks a day", "the heating at most every ten minutes".
+
+- They are checked after the evaluation, and only for a result `allow`: every rule that
+  `limited_rules` names (Section 4.1) must leave room; otherwise the request is denied with
+  `denied_by: rate_limit`. Its entry keeps the evaluation as it was, and its `error` is
+  RECOMMENDED to be `rule_limit` (case `v234`). A request that N denied is not evaluated, so
+  the limits of its rules neither apply nor count.
+- `max_actions_per_hour` and `max_actions_per_day` bound the requests the rule lets through in
+  every period of 3600 and of 86 400 seconds; `min_interval` is the shortest time between two
+  of them. A request for several resources counts once for every resource it evaluates towards
+  the two counts, and once towards `min_interval`: the thermostats of one request do not
+  count against each other. If one rule leaves no room for all of them, the whole request is
+  denied, and no rule counts it.
+- Only requests that pass every limit count. The count belongs to the mandate `id` and the
+  rule `id`, like N to the mandate, and MUST survive a restart; it is kept before the request
+  is executed. The log lets an implementation count again: evaluating the request of an entry
+  under the version it names gives its `limited_rules` (Section 9.2), and every entry with an
+  `allow` that the rate limit did not deny counted.
+- A result `ask`, from an `ask` rule or a critical demotion, is decided by a human: the limits
+  of `allow` rules do not apply to it. A `deny` that is not enforced (Section 4.6) has no
+  `limited_rules` either.
+- In audit mode the limits apply as N does: an `allow` of a mandate in audit mode is enforced,
+  and so are the limits of its rules.
+
+**Who counts.** The PEP enforces N, the limits of the rules and the limit without a mandate
+when it evaluates itself. With a PDP apart from it, the PDP enforces all three and answers a
+denial with `denied_by` (Section 6); the PEP enforces none of them.
 
 So that an agent cannot fill the audit log with denials, consecutive requests of one agent
 that the rate limit denies MAY be recorded as a single `decision` entry whose
@@ -3255,12 +3327,13 @@ behavior of the people in a household and MUST be protected like the devices the
     and the report lists them;
   - `select` with a time that is not readable and two candidates answers `invalid_request`
     without `selected` (`s30`, `s31`);
-  - the HTTP binding sends `resource.type`.
+  - the HTTP binding sends `resource.type`;
+  - `evaluate` and `select` answer `limited_rules` for an `allow` with any (Section 4.1).
 
   A PEP resolves groups to their members, or treats them as critical (Section 4.4).
 
-  Mandates can carry new members: a rule's own `valid_from` and `expires`, `conditions.dates`
-  and the constraint `none_of`. An implementation of v0.1.x, or of `v0.2.0-rc.2` or earlier,
+  Mandates can carry new members: a rule's own `valid_from`, `expires` and `limits`,
+  `conditions.dates` and the constraint `none_of`. An implementation of v0.1.x, or of `v0.2.0-rc.2` or earlier,
   treats a mandate that uses one of them as invalid and denies everything for its agent
   (Section 14, bullet **Unknown members**), so an issuer uses them only with a verifier of
   v0.2.0. A mandate without them is evaluated as before.
@@ -3366,6 +3439,20 @@ behavior of the people in a household and MUST be protected like the devices the
   returns them in `Limit.NoneOf`, which a caller does not read as unbounded.
 - Section 12.3: every agent acts with credentials of its own under a mandate of its own; this
   version knows no delegation.
+- Limits of a rule (Sections 3.1 item 12, 4.1 and 11.2): an `allow` rule can carry
+  `max_actions_per_hour`, `max_actions_per_day` and `min_interval` of its own, in addition to
+  N. The evaluation names the matching `allow` rules with limits (`limited_rules`), and after
+  an `allow` every one of them must leave room; otherwise the request is denied with
+  `denied_by: rate_limit`, its entry keeps the evaluation, and `error` `rule_limit` is
+  RECOMMENDED. No change to the audit format. `ratelimit.RuleLimiter` counts them, all or
+  nothing over the rules and the resources (cases `c301` to `c313`, `i646` to `i662`, `v32`, `v234`).
+- Rate limits with a PDP apart from its PEP (Sections 6 and 11.2): the PDP enforces N, the
+  limits of the rules and the limit without a mandate, since it holds the mandates; the PEP
+  enforces none of them. A denial is `decision: false` with `denied_by: "rate_limit"` in the
+  context: before the evaluation without `outcome` and `reason`, after it with the context of
+  the `allow`. A PEP never executes a response with `denied_by`; one that does not know the
+  member denies because of `decision: false`. The reference PDP of the test interface counts
+  for each state it is given. Before, Section 6 did not say who enforces N in this setup.
 - Before the release candidate:
   - Condition 4 of Section 9.5: a `log.truncated` entry accounts for the position a relying
     party saw last only if a verified checkpoint anchors it; otherwise a replaced log would pass

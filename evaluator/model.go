@@ -141,6 +141,19 @@ type rule struct {
 	// dates are the ranges of calendar dates of conditions.dates (SPEC-v0 section 4.2); nil
 	// means no condition.
 	dates []dateRange
+	// limits are the rule's own limits (SPEC-v0 section 11.2); nil if it has none.
+	limits *RuleLimits
+}
+
+// RuleLimits are the limits a rule sets of its own (SPEC-v0 section 11.2), in addition to
+// the limit of the mandate. A zero field does not limit; at least one is set.
+type RuleLimits struct {
+	// PerHour bounds the requests the rule lets through in every period of 3600 seconds.
+	PerHour int
+	// PerDay bounds them in every period of 86 400 seconds.
+	PerDay int
+	// MinInterval is the shortest time between two requests the rule lets through.
+	MinInterval time.Duration
 }
 
 // period is a validity period: valid for points in time t with from ≤ t < until, where a
@@ -224,11 +237,16 @@ type rawRule struct {
 		Area     string `json:"area"`
 		Any      bool   `json:"any"`
 	} `json:"resource"`
-	Actions    []string `json:"actions"`
-	Decision   string   `json:"decision"`
-	Note       string   `json:"note"`
-	ValidFrom  string   `json:"valid_from"`
-	Expires    string   `json:"expires"`
+	Actions   []string `json:"actions"`
+	Decision  string   `json:"decision"`
+	Note      string   `json:"note"`
+	ValidFrom string   `json:"valid_from"`
+	Expires   string   `json:"expires"`
+	Limits    *struct {
+		MaxActionsPerHour json.Number `json:"max_actions_per_hour"`
+		MaxActionsPerDay  json.Number `json:"max_actions_per_day"`
+		MinInterval       string      `json:"min_interval"`
+	} `json:"limits"`
 	Conditions *struct {
 		TimeWindow string   `json:"time_window"`
 		Weekdays   []string `json:"weekdays"`
@@ -417,6 +435,9 @@ func buildRule(rr rawRule) (rule, error) {
 		r.approval = &a
 	}
 	if err := r.setPeriod(rr); err != nil {
+		return rule{}, err
+	}
+	if err := r.setLimits(rr); err != nil {
 		return rule{}, err
 	}
 	if err := r.setConditions(rr); err != nil {
@@ -672,6 +693,65 @@ const maxTimeoutDigits = 5
 // parseApprovalTimeout reads PT[nH][nM][nS] with at least one component and checks the
 // limits of 10 s to 1 h.
 func parseApprovalTimeout(s string) (time.Duration, error) {
+	total, err := parseDuration(s)
+	if err != nil {
+		return 0, err
+	}
+	if total < minApprovalTimeout || total > maxApprovalTimeout {
+		return 0, fmt.Errorf("%w: timeout %q outside 10s..1h", ErrSemantic, s)
+	}
+	return total, nil
+}
+
+// Limits of a rule's min_interval (SPEC-v0 section 3.1 item 12).
+const (
+	minRuleInterval = time.Second
+	maxRuleInterval = 24 * time.Hour
+)
+
+// setLimits reads the rule's own limits (SPEC-v0 section 3.1 item 12). The schema already
+// restricts them to allow rules and bounds the counts; the interval is checked here.
+func (r *rule) setLimits(rr rawRule) error {
+	if rr.Limits == nil {
+		return nil
+	}
+	if r.decision != Allow {
+		return fmt.Errorf("%w: rule %q: limits only on an allow rule", ErrSemantic, rr.ID)
+	}
+	var limits RuleLimits
+	for _, count := range []struct {
+		raw    json.Number
+		target *int
+	}{{rr.Limits.MaxActionsPerHour, &limits.PerHour}, {rr.Limits.MaxActionsPerDay, &limits.PerDay}} {
+		if count.raw == "" {
+			continue
+		}
+		n, ok := integerValue(count.raw)
+		if !ok || n < 1 {
+			return fmt.Errorf("%w: rule %q: limit %s", ErrSchema, rr.ID, count.raw)
+		}
+		*count.target = int(n)
+	}
+	if rr.Limits.MinInterval != "" {
+		interval, err := parseDuration(rr.Limits.MinInterval)
+		if err != nil {
+			return fmt.Errorf("rule %q: min_interval: %w", rr.ID, err)
+		}
+		if interval < minRuleInterval || interval > maxRuleInterval {
+			return fmt.Errorf("%w: rule %q: min_interval %q outside 1s..24h", ErrSemantic, rr.ID, rr.Limits.MinInterval)
+		}
+		limits.MinInterval = interval
+	}
+	if limits == (RuleLimits{}) {
+		return fmt.Errorf("%w: rule %q: limits without a member", ErrSemantic, rr.ID)
+	}
+	r.limits = &limits
+	return nil
+}
+
+// parseDuration reads PT[nH][nM][nS] with at least one component, each of 1 to 5 digits,
+// in this order; its value is the sum of the components.
+func parseDuration(s string) (time.Duration, error) {
 	rest, ok := strings.CutPrefix(s, "PT")
 	if !ok || rest == "" {
 		return 0, fmt.Errorf("%w: timeout %q", ErrSchema, s)
@@ -691,10 +771,29 @@ func parseApprovalTimeout(s string) (time.Duration, error) {
 	if rest != "" {
 		return 0, fmt.Errorf("%w: timeout %q", ErrSchema, s)
 	}
-	if total < minApprovalTimeout || total > maxApprovalTimeout {
-		return 0, fmt.Errorf("%w: timeout %q outside 10s..1h", ErrSemantic, s)
-	}
 	return total, nil
+}
+
+// RuleLimits returns the limits the rule with ruleID sets of its own (SPEC-v0 section 11.2);
+// false if the mandate is nil or has no such rule, or the rule has none.
+func (m *Mandate) RuleLimits(ruleID string) (RuleLimits, bool) {
+	if m == nil {
+		return RuleLimits{}, false
+	}
+	for i := range m.rules {
+		if r := &m.rules[i]; r.id == ruleID && r.limits != nil {
+			return *r.limits, true
+		}
+	}
+	return RuleLimits{}, false
+}
+
+// MaxActionsPerHour returns limits.max_actions_per_hour, N of SPEC-v0 section 11.2; 0 for nil.
+func (m *Mandate) MaxActionsPerHour() int {
+	if m == nil {
+		return 0
+	}
+	return int(m.maxActions)
 }
 
 // checkDisplayedText implements SPEC-v0 section 3.1 item 8 for text displayed to humans.

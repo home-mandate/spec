@@ -25,8 +25,8 @@ func exactMembers(line []byte) error {
 var responseMembers = map[string][]string{
 	OpCapabilities: {"name", "version", "ops"},
 	OpValidate:     {"valid", "digest"},
-	OpEvaluate:     {"decision", "reason", "rule_id", "approval_timeout", "approvers", "mandate_digest", "enforced", "confirm"},
-	OpSelect:       {"decision", "reason", "rule_id", "approval_timeout", "approvers", "mandate_digest", "enforced", "confirm", "selected"},
+	OpEvaluate:     {"decision", "reason", "rule_id", "approval_timeout", "approvers", "mandate_digest", "enforced", "confirm", "limited_rules"},
+	OpSelect:       {"decision", "reason", "rule_id", "approval_timeout", "approvers", "mandate_digest", "enforced", "confirm", "selected", "limited_rules"},
 	OpSuccession:   {"accept", "confirm"},
 	OpVerifySigned: {"valid", "digest"},
 	OpVerifyAudit: {"valid", "entries", "broken_at", "anchored", "integrity_broken_at", "conformance_broken_at",

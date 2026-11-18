@@ -226,6 +226,17 @@
         ]
       }
     },
+    "rule_limits": {
+      "description": "Only with allow: limits of the rule of its own, in addition to the limits of the mandate (SPEC-v0 sections 3.1 item 12 and 11.2). min_interval has the form of approval.timeout and lies between 1 second and 24 hours.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "max_actions_per_hour": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "max_actions_per_day": { "type": "integer", "minimum": 1, "maximum": 24000 },
+        "min_interval": { "type": "string", "minLength": 4, "pattern": "^PT([0-9]{1,5}H)?([0-9]{1,5}M)?([0-9]{1,5}S)?$" }
+      }
+    },
     "rule": {
       "type": "object",
       "additionalProperties": false,
@@ -249,6 +260,7 @@
         "expires": { "$ref": "#/$defs/date_time", "description": "The rule matches only before this point in time; later than the rule's valid_from (SPEC-v0 section 3.1 item 6)." },
         "conditions": { "$ref": "#/$defs/conditions" },
         "constraints": { "$ref": "#/$defs/constraints" },
+        "limits": { "$ref": "#/$defs/rule_limits" },
         "approval": { "$ref": "#/$defs/approval" },
         "allow_critical": {
           "description": "Only with allow and only with the actions listed, not with \"*\": permits critical actions without an approval request. Must be confirmed separately in the user interface.",
@@ -259,7 +271,8 @@
         { "if": { "required": ["approval"] }, "then": { "properties": { "decision": { "const": "ask" } } } },
         { "if": { "required": ["allow_critical"] }, "then": { "properties": { "decision": { "const": "allow" } } } },
         { "if": { "required": ["allow_critical"] }, "then": { "properties": { "actions": { "not": { "contains": { "const": "*" } } } } } },
-        { "if": { "required": ["constraints"] }, "then": { "properties": { "decision": { "const": "allow" }, "actions": { "not": { "contains": { "const": "*" } } } } } }
+        { "if": { "required": ["constraints"] }, "then": { "properties": { "decision": { "const": "allow" }, "actions": { "not": { "contains": { "const": "*" } } } } } },
+        { "if": { "required": ["limits"] }, "then": { "properties": { "decision": { "const": "allow" } } } }
       ]
     }
   }

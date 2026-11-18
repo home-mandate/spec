@@ -187,3 +187,48 @@ func TestBuildConstraintChecksNoneOfItself(t *testing.T) {
 		t.Errorf("one_of: %v, %+v", err, c)
 	}
 }
+
+// setLimits repeats the checks of the schema (SPEC-v0 section 3.1 item 12): only on an allow
+// rule, at least one member, counts of at least 1, min_interval from 1 second to 24 hours.
+func TestSetLimits(t *testing.T) {
+	type raw = struct {
+		MaxActionsPerHour json.Number `json:"max_actions_per_hour"`
+		MaxActionsPerDay  json.Number `json:"max_actions_per_day"`
+		MinInterval       string      `json:"min_interval"`
+	}
+	for name, tc := range map[string]struct {
+		decision Decision
+		limits   raw
+		want     RuleLimits
+		wantErr  error
+	}{
+		"per hour":               {Allow, raw{MaxActionsPerHour: "3"}, RuleLimits{PerHour: 3}, nil},
+		"per day as 2.0":         {Allow, raw{MaxActionsPerDay: "2.0"}, RuleLimits{PerDay: 2}, nil},
+		"one second":             {Allow, raw{MinInterval: "PT1S"}, RuleLimits{MinInterval: time.Second}, nil},
+		"24 hours":               {Allow, raw{MinInterval: "PT23H59M60S"}, RuleLimits{MinInterval: 24 * time.Hour}, nil},
+		"all three":              {Allow, raw{"1", "2", "PT10M"}, RuleLimits{1, 2, 10 * time.Minute}, nil},
+		"none":                   {Allow, raw{}, RuleLimits{}, ErrSemantic},
+		"on a deny rule":         {Deny, raw{MaxActionsPerHour: "3"}, RuleLimits{}, ErrSemantic},
+		"on an ask rule":         {Ask, raw{MaxActionsPerHour: "3"}, RuleLimits{}, ErrSemantic},
+		"zero per hour":          {Allow, raw{MaxActionsPerHour: "0"}, RuleLimits{}, ErrSchema},
+		"a fraction per day":     {Allow, raw{MaxActionsPerDay: "1.5"}, RuleLimits{}, ErrSchema},
+		"zero seconds":           {Allow, raw{MinInterval: "PT0S"}, RuleLimits{}, ErrSemantic},
+		"a nanosecond above 24h": {Allow, raw{MinInterval: "PT24H1S"}, RuleLimits{}, ErrSemantic},
+		"not a duration":         {Allow, raw{MinInterval: "P1D"}, RuleLimits{}, ErrSchema},
+	} {
+		limits := tc.limits
+		r := rule{decision: tc.decision}
+		err := r.setLimits(rawRule{ID: "r", Limits: &limits})
+		if tc.wantErr == nil && err != nil || tc.wantErr != nil && !errors.Is(err, tc.wantErr) {
+			t.Errorf("%s: error %v, want %v", name, err, tc.wantErr)
+			continue
+		}
+		if err == nil && (r.limits == nil || *r.limits != tc.want) {
+			t.Errorf("%s: limits %+v, want %+v", name, r.limits, tc.want)
+		}
+	}
+	var r rule
+	if err := r.setLimits(rawRule{ID: "r"}); err != nil || r.limits != nil {
+		t.Errorf("a rule without limits: %v, %+v", err, r.limits)
+	}
+}

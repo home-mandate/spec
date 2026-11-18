@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"slices"
+	"strings"
 
 	"github.com/home-mandate/spec/manifest"
 )
@@ -255,6 +256,10 @@ type evaluationCase struct {
 	Enforced        *bool           `json:"enforced"`
 	Confirm         bool            `json:"confirm"`
 	Selected        json.RawMessage `json:"selected"`
+	// LimitedRules are the matching allow rules with limits of their own (SPEC-v0 section
+	// 4.1); a case without the member expects none. A PDP does not return them: it enforces
+	// the limits itself (SPEC-v0 section 6).
+	LimitedRules []string `json:"limited_rules"`
 }
 
 func (c evaluationCase) request() *Evaluation {
@@ -288,6 +293,15 @@ func (c evaluationCase) outcome(decision, reason string, ruleID *string, timeout
 		got, want = got+" selected="+optional(selected), want+" selected="+rawOptional(c.Selected)
 	}
 	return got, want
+}
+
+// withLimitedRules adds the limited rules to what is compared, when either side names any:
+// a case without the member expects none, and an implementation that names none matches it.
+func (c evaluationCase) withLimitedRules(got, want string, limited []string) (string, string) {
+	if len(limited) == 0 && len(c.LimitedRules) == 0 {
+		return got, want
+	}
+	return got + " limited_rules=" + strings.Join(limited, ","), want + " limited_rules=" + strings.Join(c.LimitedRules, ",")
 }
 
 // notEnforced reports whether enforced is false. Only false is meaningful; absent
@@ -332,6 +346,7 @@ func (r *runner) evaluation() error {
 		}
 		resp, doErr := r.impl.Do(req)
 		got, want := c.outcome(resp.Decision, resp.Reason, resp.RuleID, resp.ApprovalTimeout, resp.Enforced, resp.Confirm, nil)
+		got, want = c.withLimitedRules(got, want, resp.LimitedRules)
 		r.record(ClassEvaluator, fileCases, c.ID, resp, doErr, got, want)
 	}
 	return err
@@ -346,6 +361,7 @@ func (r *runner) selection() error {
 		}
 		resp, doErr := r.impl.Do(req)
 		got, want := c.outcome(resp.Decision, resp.Reason, resp.RuleID, resp.ApprovalTimeout, resp.Enforced, resp.Confirm, resp.Selected)
+		got, want = c.withLimitedRules(got, want, resp.LimitedRules)
 		r.record(ClassSelection, fileSelection, c.ID, resp, doErr, got, want)
 	}
 	return err

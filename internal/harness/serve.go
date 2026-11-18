@@ -169,6 +169,7 @@ func result(r evaluator.Result) Response {
 		resp.Enforced = ptr(false)
 	}
 	resp.Confirm = r.Confirm
+	resp.LimitedRules = r.LimitedRules
 	return resp
 }
 
