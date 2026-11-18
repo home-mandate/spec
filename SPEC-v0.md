@@ -1278,21 +1278,30 @@ know.
 `conformance/origin-v0.json` contains cases for Section 11.7 items 1 and 6. A case has either a
 configured `value` and whether it is a public origin (`expected`: `valid` or `invalid`), or the
 `htu` of a DPoP proof and the `url` the implementation built from its public origin, and whether
-they match (`expected`: `match` or `mismatch`).
+they match (`expected`: `match` or `mismatch`), or the members of a DPoP `proof` that a case
+needs (header `typ` and `alg`, the RFC 7638 thumbprint `jkt` of its key, and the claims `htm`,
+`htu`, `iat`, `jti` and `ath`) with the `request` it came with (`method`, `url`, the time it
+was `received`, and, if any, the `access_token` with the thumbprint of the key it is bound to,
+or the `dpop_jkt` of the authorization request), the `jti` values accepted before (`seen`) and,
+for an implementation whose memory of them does not survive a restart, the start of the process
+(`started`), and whether the proof is valid (`expected`: `valid` or `invalid`). Times are in
+seconds since the epoch, as `iat`.
 
 `conformance/ct-v0.json` contains cases for Section 11.7 item 7: the names monitored
 (`public_names`: the host of the public origin; a gateway paired with a relay monitors each of its
 public names, RELAY-v0 Section 6.7), the beginning of monitoring (`since`) and the time of the
 check (`now`), the keys agents are shown (`server_keys`: the current one, and earlier ones with
 the time each was replaced), the certificates acknowledged by digest and, optionally, the public
-keys acknowledged (`acknowledged_keys`) and the key read again from the public origin before an
-alarm (`presented_key`), and the certificates found, each with its digest, its names, its
+keys acknowledged (`acknowledged_keys`) and the key presented under the public origin at the time
+of the check (`presented_key`, which recognises nothing unless it is the current key), and the
+certificates found, each with its digest, its names, its
 validity, the SHA-256 digest of its public key and the time of its first log entry; and, for each
 certificate in the order given, the expected result: `alarm` (also for one that is not valid yet),
 `past-exposure` or `none`. Its `monitoring` cases give the answers of the sources and the
 expected state of monitoring (`ok`, `limited` or `unavailable`, the event `ct.status`), and its
 `identities` give certificates in DER with their identity (Section 11.7 item 7), with the steps
-in the file's `description`.
+in the file's `description`; for a precertificate that a precertificate signing certificate issued,
+that certificate is given too (`issued_by`).
 
 In addition to `cases` or `logs` respectively, every file has a `description`; every case has a
 unique `id` and optionally `why`.
@@ -1411,7 +1420,7 @@ Depending on the event, the following are added:
 | `template` | change to a template (Section 2): `change` (`stored`: created or changed, `removed`, `hidden`: no longer offered or accepted for creating mandates without being removed, `shown`: offered and accepted again), `name` (1 to 64 characters) and `digest`; for `stored` the digest of the new content, for `removed` that of the last content, for `hidden` and `shown` optionally that of the current content. `previous_digest` only for `stored` and only if the template had content before, different from `digest`. Digests are computed as in Section 3.2 over the template as the implementation stores it. Only with `template.changed` |
 | `approver` | change to the humans whom the implementation lets answer approval requests (Section 11.1): `change` (`added`, `removed`) and `id` (1 to 128 characters), the identifier of the approver in the user management, as in `approval.by`. Only with `approver.changed` |
 | `issuer` | change to the issuers the implementation trusts and to their keys (Section 7.1): `change` (`trusted`, `untrusted`, `key_added`, `key_removed`), `issuer` (as a mandate names it, Section 3.5, recorded as given) and, only with `key_added` and `key_removed`, `kid` (as in Section 7.1), required there. Only with `issuer.changed` |
-| `config` | change to a setting that affects every evaluation, the anchoring of the log or remote access: `setting` (`timezone`: the household time zone, Section 4.2; `clock_check`: whether the implementation denies requests while it believes its clock is wrong, Section 11.4; `checkpoint_key`: the key that signs checkpoints, Section 9.5; (v1) `public_origin`: the public origin, Section 11.7 item 1; (v1) `remote_access`: whether the implementation is reachable from outside, Section 11.7 item 8; (v1) `unbound_tokens`: whether tokens that are not bound are `allowed` or `refused`, Section 11.7 item 6; (v1) `server_key`: the key agents are shown, as the administrator configures it or as the implementation learns it from its public origin, Section 11.7 item 7; (v1) `trusted_proxy`: a proxy whose forwarded addresses the implementation takes, Section 11.7 item 4, one entry for each proxy), `value` (the IANA name, `on` or `off`, the `kid` as in Section 7.1, 1 to 64 printable ASCII characters without space; or the public origin in the form of Section 11.7 item 1, or `allowed` or `refused`; for `server_key` the SHA-256 of the SubjectPublicKeyInfo, base64url without padding; for `trusted_proxy` the IP address or the prefix in CIDR notation of the proxy, in its canonical text form: IPv4 in dotted decimal without leading zeros, IPv6 as RFC 5952 Section 4 writes it, and a prefix without host bits, so that the entry that removes a proxy names it as the entry that added it did) and `previous_value` (same form, different from `value`) if the setting had a value before. (v1) A setting that is removed (checkpoints no longer signed, the public origin, the configured `server_key` or a trusted proxy removed) is recorded with `previous_value` and without `value`; the household time zone, the clock check, `remote_access` and `unbound_tokens` always have a value. Only with `config.changed` |
+| `config` | change to a setting that affects every evaluation, the anchoring of the log or remote access: `setting` (`timezone`: the household time zone, Section 4.2; `clock_check`: whether the implementation denies requests while it believes its clock is wrong, Section 11.4; `checkpoint_key`: the key that signs checkpoints, Section 9.5; (v1) `public_origin`: the public origin, Section 11.7 item 1; (v1) `remote_access`: whether the implementation is reachable from outside, Section 11.7 item 8; (v1) `unbound_tokens`: whether tokens that are not bound are `allowed` or `refused`, Section 11.7 item 6; (v1) `server_key`: the key agents are shown, as the administrator configures or accepts it, or as the implementation learns it when the host becomes its public origin, Section 11.7 item 7; (v1) `trusted_proxy`: a proxy whose forwarded addresses the implementation takes, Section 11.7 item 4, one entry for each proxy), `value` (the IANA name, `on` or `off`, the `kid` as in Section 7.1, 1 to 64 printable ASCII characters without space; or the public origin in the form of Section 11.7 item 1, or `allowed` or `refused`; for `server_key` the SHA-256 of the SubjectPublicKeyInfo, base64url without padding; for `trusted_proxy` the IP address or the prefix in CIDR notation of the proxy, in its canonical text form: IPv4 in dotted decimal without leading zeros, IPv6 as RFC 5952 Section 4 writes it, and a prefix without host bits, so that the entry that removes a proxy names it as the entry that added it did) and `previous_value` (same form, different from `value`) if the setting had a value before. (v1) A setting that is removed (checkpoints no longer signed, the public origin, the configured `server_key` or a trusted proxy removed) is recorded with `previous_value` and without `value`; the household time zone, the clock check, `remote_access` and `unbound_tokens` always have a value. Only with `config.changed` |
 | `agent.binding` | (v1) whether the agent's tokens are bound to a key: `none` or `dpop` (Section 11.7 item 6). Optional with `agent.registered` and `agent.reconnected`, absent otherwise |
 | `binding` | (v1) the key the agent's tokens are bound to from now on: `method` (`dpop`) and `jkt` (the JWK SHA-256 thumbprint of the key, RFC 7638, base64url without padding). Only with `agent.bound` |
 | `credentials` | (v1) access and refresh tokens that lost their validity: `scope` (`all`: of every agent; `agent`: of the agent of the entry, which is then required) and `cause` (`emergency_stop`: with an emergency stop; `public_origin`: the public origin changed, Section 11.7 item 2; `user`: a human withdrew them; (v1) `refresh_reuse`: a refresh token was used a second time, which ends every token of its grant, Section 11.7 item 6, scope `agent`, actor of kind `system`). Only with `credentials.withdrawn` |
@@ -1827,11 +1836,15 @@ in the log it signs.
 checkpoints (a part of the implementation, a separate process, a hardware key)
 
 1. MUST take the digest it signs from its own state: the digest of the last entry the
-   implementation appended itself, or the chain it verified from the entry its previous
-   checkpoint covered up to the new position. It MUST NOT sign a digest it only read from the
-   log file: someone who can write the file but has no key could otherwise change the entries
-   after the last checkpoint, recompute the chain, and have the next checkpoint anchor the
-   forgery;
+   implementation appended itself, as it appended it. A signer that does not append the entries
+   itself receives the `seq` and digest of each entry from the writer as the writer appends it.
+   It MUST NOT sign a digest it only read from the log file, nor the end of a chain it verified
+   in the file: the chain has no key, so someone who can write the file but has no key could
+   change the entries after the last checkpoint, recompute the chain, and have the next
+   checkpoint anchor the forgery. The `seq` and digest of the last entry appended are kept
+   with the state of item 2; after a restart the implementation continues the log only from
+   that state. If the last entry of the file has another `seq` or another digest, it MUST NOT
+   sign and starts a new log with a new `log_id`, as after a restore (below);
 2. MUST keep the highest `seq` it signed for a `log_id`, with its digest, with the key: where
    whoever can write the log cannot change it, if the platform offers such a place, and MUST
    NOT sign a `seq` that is not higher. Two signed digests for one position of one log would be
@@ -2084,8 +2097,10 @@ before it executes the action. What follows holds for both.
    confirmed (Section 4.4); otherwise nothing is executed and the entry is `failed`, with
    the RECOMMENDED `error` `resources_changed`.
 7. **Limited.** The number of approval requests of one agent that wait for an answer at
-   the same time MUST be limited (RECOMMENDED: 2). A request beyond the limit is `deny`
-   without asking anyone (RECOMMENDED `error` `too_many_pending`). Requests that lead to
+   the same time MUST be limited (RECOMMENDED: 2), and so MUST the number of all agents
+   together (RECOMMENDED: 10): many agents, or one agent admitted under many identifiers,
+   would otherwise wear the approvers down past every limit of one agent. A request beyond
+   either limit is `deny` without asking anyone (RECOMMENDED `error` `too_many_pending`). Requests that lead to
    `ask` count towards the rate limit (Section 11.2). Both protect the approvers from being
    worn down by repeated requests. A request the agent withdrew or an approver rejected
    SHOULD keep counting towards the limit of waiting requests for a while (RECOMMENDED: its `timeout`), since
@@ -2207,8 +2222,10 @@ act or decide.
 - The bound is normative, the algorithm is not. A sliding window meets it; a token bucket
   that is full after an idle period does not, because it lets up to 2N requests pass
   within one hour.
-- The count SHOULD survive a restart of the implementation; otherwise a crash resets the
-  limit.
+- The count MUST survive a restart of the implementation; otherwise an agent that can make
+  the implementation crash resets its limit. The `decision` entries of the audit log record
+  every request that counts, so an implementation can count them again from the entries of the
+  last hour.
 - A change of N applies to the next request.
 
 So that an agent cannot fill the audit log with denials, consecutive requests of one agent
@@ -2274,8 +2291,20 @@ evaluation (authentication, the emergency stop and the rate limit come first, Se
 without evaluating it, as a request it may not record truthfully (`denied_by: audit`,
 RECOMMENDED `error` `clock_behind`). A clock set back would revive expired mandates,
 reopen time windows and lengthen the timeouts of approval requests. The reference time is
-the latest `recorded_at` (compared as points in time) of the entries since the check was
-last switched on, or of all entries if it never was switched off. The check applies to
+the latest of three times, each counted since the check was last switched on, or from the
+beginning if it never was switched off:
+
+- the latest `recorded_at` (compared as points in time) of the entries of the log;
+- the `at` of the last checkpoint (Section 9.5), if the log has one; it is signed;
+- a high-water mark that the implementation keeps outside the log: the latest time it has
+  recorded, kept where whoever can write the log cannot lower it, if the platform offers such a
+  place (as for the state of the checkpoint signer, Section 9.5, "The signer", item 2).
+
+The log alone is not enough: whoever can roll the end of the log back, or restores a backup,
+lowers its latest `recorded_at` and can then set the clock back that far. Where PEP and PDP
+are separate (Section 6), the PEP applies the check with its own clock before it asks the PDP,
+and a PDP that uses its own clock applies it too, with a high-water mark of its own; either
+denies. The check applies to
 requests only: entries a human or the implementation causes meanwhile (the switch itself,
 an emergency stop, a revocation, a checkpoint) are appended with the time the clock
 shows, even if that is earlier than the entries before them. The denials are kept and
@@ -2285,8 +2314,12 @@ correct the clock and wait, or confirm the current time by switching the check o
 again (each recorded with `config.changed`, `clock_check`), which sets the reference time
 anew. That way also ends a lock after a clock that ran forward and was corrected. An
 implementation MUST let a human switch the check off and on. Timeouts (Section 11.1
-item 5) and the rate limit (Section 11.2) SHOULD be measured with a clock that never runs
-backwards, not with the time of day. Changes to the directory are covered by
+item 5), the rate limit (Section 11.2) and the memory of DPoP proofs (Section 11.7 item 6)
+MUST be measured with a clock that never runs backwards, not with the time of day: they bound
+how long something lasts, and a clock set back would lengthen it. An implementation SHOULD
+take its time from an authenticated source, such as Network Time Security (RFC 8915), where
+the platform offers one: whoever can move the clock forward once stops the agents until a
+human confirms the time. Changes to the directory are covered by
 Section 3.4. Changes that affect the evaluation (the critical marking, renamed resources, a
 resource added or removed, a changed category or set of areas) are recorded with
 `directory.changed` (Section 9.2), as far as the implementation tracks them. A change of the
@@ -2482,12 +2515,29 @@ from outside under an address alone.
    - A token bound to a key MUST NOT be accepted without a valid proof of that key, in particular
      not as a bearer token. An agent whose client was once bound receives only bound tokens; when
      it is bound, its credentials that are not bound lose their validity.
-   - The `htu` of a proof is compared with the URL that the implementation builds from its public
-     origin, after the normalization of RFC 3986 Sections 6.2.2 and 6.2.3 (scheme and host in lower
-     case, no default port) and without query and fragment (RFC 9449 Section 4.3). A `jti` is
-     accepted once within the time in which the implementation accepts the proof's `iat`; an
-     implementation whose memory of `jti` values does not survive a restart rejects every proof
-     whose `iat` lies before the start of the process.
+   - A proof (RFC 9449 Section 4) is valid only if all of these hold:
+     - its header has `typ` `dpop+jwt`, an `alg` the implementation offers for proofs (an
+       asymmetric algorithm, never `none` or a MAC), and a `jwk` with a public key and no private
+       part, with which the signature verifies;
+     - `htm` is the method of the request, compared exactly;
+     - `htu` is the URL that the implementation builds from its public origin, both compared after
+       the normalization of RFC 3986 Sections 6.2.2 and 6.2.3 (scheme and host in lower case, no
+       default port) and without query and fragment (RFC 9449 Section 4.3);
+     - `iat` lies at most 60 seconds before and at most 10 seconds after the time the
+       implementation received the request, bounds included; an implementation MAY accept a
+       narrower window;
+     - its `jti` was not accepted before within that window. An implementation whose memory of
+       `jti` values does not survive a restart rejects every proof whose `iat` lies before the
+       start of the process plus 10 seconds: a proof received before the restart can name an
+       `iat` up to 10 seconds after it was received;
+     - with an access token, `ath` is the SHA-256 of that token in base64url without padding, and
+       the key of the proof is the key the token is bound to (RFC 9449 Sections 4.3 and 6);
+     - at the token endpoint, after an authorization request that named `dpop_jkt`, the key of the
+       proof is that key (RFC 9449 Section 10).
+
+     The implementation keeps each accepted `jti` for at least 70 seconds, measured with a clock
+     that never runs backwards (Section 11.4), so that a clock set back does not make it forget
+     one. `conformance/origin-v0.json` contains cases.
    - **Transition.** A client that does not support DPoP MAY receive tokens that are not bound,
      and only under these conditions: an access token is valid for at most 15 minutes; a refresh
      token is replaced at every use, and a replaced refresh token that is presented again ends
@@ -2522,18 +2572,22 @@ from outside under an address alone.
      source reports it, or else the earliest timestamp of the SCTs embedded in the certificate, or
      else the time the implementation first saw the certificate; a certificate logged at the
      moment the key was replaced is not recognised. The implementation learns the key from the
-     certificate presented under the public origin, as an agent sees it; where it cannot, for
-     example behind the household's proxy, the administrator MAY configure the key
-     (`config.changed`, `server_key`). A certificate is logged when it is issued, before it is put
-     to use: before raising an alarm for a certificate that is not recognised, the implementation
-     reads the key presented under the public origin again, and recognises the certificate if
-     it matches. A learned key that differs from the current one is never taken silently: the
-     implementation shows the change to the administrator and records it with `config.changed`
-     (`server_key`, an `actor` of kind `system`). Whoever controls the path between the
-     implementation and its public origin can show it another key; the record makes that
-     visible, and a key the administrator configured is not replaced by one the implementation
-     reads. An implementation that can neither learn the key nor have it configured recognises
-     no certificate as its own.
+     certificate presented under the public origin, as an agent sees it, when the host becomes
+     its public origin; where it cannot, for example behind the household's proxy, the
+     administrator MAY configure the key (`config.changed`, `server_key`). A key the
+     implementation generates for its own next certificate is current from the moment it
+     requests that certificate: a certificate is logged when it is issued, before it is put to
+     use. Any other key that the implementation reads under the public origin later and that
+     differs from the current one, it MUST NOT take on its own: whoever controls the path between
+     the implementation and its public origin can show it the key of a certificate they
+     obtained. Such a key recognises no certificate. The implementation raises an alarm for it
+     (below, with the key instead of a certificate), and the key becomes the current one only
+     when the administrator accepts it, recorded with `config.changed` (`server_key`, the
+     administrator as `actor`). Reading the presented key again never ends an alarm. Where the
+     household's proxy renews its certificate with a new key, its certificate raises an alarm
+     until the administrator accepts the key; a proxy that keeps its key across renewals, or
+     an acknowledgement of that key (below), avoids it. An implementation that can neither learn
+     the key nor have it configured recognises no certificate as its own.
    - **Alarm.** A certificate for the host that is not recognised, and that was valid at any time
      since monitoring began or is not valid yet, raises an alarm to the local administrator with
      its issuer, its names and its validity. A validity period, bounds included, that overlaps the
@@ -2545,9 +2599,14 @@ from outside under an address alone.
      household's own wildcard certificate for its zone), which ends the alarm for that certificate
      only. A certificate is identified by the SHA-256 digest of the DER of its TBSCertificate with
      the poison and the SCT list removed, so that a precertificate and its certificate are one
-     (`ct-v0.json` gives the steps and vectors; for a precertificate that a precertificate
-     signing certificate issued, the issuer and the authority key identifier are first replaced
-     by those of the final certificate, RFC 6962 Section 3.1); an acknowledgement by this digest ends the alarm
+     (`ct-v0.json` gives the steps and vectors). A precertificate that a precertificate signing
+     certificate issued names that certificate as its issuer: its issuer and its authority key
+     identifier are first replaced by the issuer and the authority key identifier of the
+     precertificate signing certificate, which are those of the final certificate (RFC 6962
+     Section 3.1). The precertificate signing certificate is the first certificate of the chain
+     that the log returns with the precertificate (RFC 6962 Section 4.6); an implementation whose
+     source reports such a precertificate without that chain reads the entry from the log. An
+     acknowledgement by this digest ends the alarm
      for the certificate and its precertificate, and names nothing else (not a name, an issuer or
      a serial number). The administrator MAY instead acknowledge a public key (the SHA-256 of a
      SubjectPublicKeyInfo): every certificate for that key then counts as the household's own,
@@ -2565,11 +2624,19 @@ from outside under an address alone.
      that monitoring is limited when, for 24 hours, only one source has answered, and that
      monitoring is not possible when none has. Monitoring fails open: while it is limited or not
      possible, remote access goes on. Alarms and the state of monitoring go to the local
-     administrator, where the implementation shows its alarms, and an alarm stays until the
-     certificate is acknowledged or recognised. `ct-sources.md` lists services (informative).
+     administrator, where the implementation shows its alarms. An alarm, and the state in which
+     monitoring is not possible, MUST in addition reach every administrator outside the
+     implementation's own pages, which nobody may open for weeks: by a push notification, a mail
+     or another channel the household configured. An implementation that has no such channel
+     MUST say so when remote access is switched on. An alarm stays shown, across restarts, until
+     the certificate is acknowledged or recognised; recognised means here by a key the
+     administrator accepted, not by a key read again. `ct-sources.md` lists services
+     (informative).
    - **Record.** Alarms and past exposures are recorded with `cert.unexpected`, once for each
      certificate and status, acknowledgements with `cert.acknowledged`, and the state of
-     monitoring with `ct.status` (Section 9.2).
+     monitoring with `ct.status` (Section 9.2). An alarm for a presented key that differs from the
+     current one is recorded when the administrator accepts the key (`config.changed`,
+     `server_key`); a certificate for that key that a source reports is recorded as any other.
 8. **Turning it off.** The local administrator MUST be able to turn remote access off at any
    time without asking anyone outside the household. Monitoring (item 7) goes on while remote
    access is off, as long as the public origin is configured. Turning it on or off is recorded
@@ -2613,8 +2680,8 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Agent that imitates a trusted name** | Displayed text carries no invisible, blank or direction-changing characters and no white space other than the space (Section 3.1 item 8); identifiers are ASCII and compared exactly (Sections 3.3, 3.4) | Look-alike letters and names, stacked combining marks, characters that a font does not have. Interfaces SHOULD show the `client_id` next to the `display_name` |
 | **Member of the household who may change the resource directory** but not the mandates | Implementations MUST report mandates affected by a renamed resource or a changed area (Section 3.4); rules that name a former identifier keep applying to a renamed resource until a human resolves the rename (Section 11.4); changes to the critical marking and renames are recorded, and so are added or removed resources and changed categories or areas, as far as the implementation tracks them (Section 9.2) | Rules by `area` stop restricting when a resource leaves the area. Restrictions SHOULD name the category or the resource. Setting a critical mark only adds protection, removing one lowers it; the audit log shows who did it, it does not prevent it |
 | **Device or integration that chooses its own identifier, class or area** (a device paired, an integration that discovers devices or changes them in an update, a device that names itself like another) | A resource that newly comes under an `allow` rule is reported to the household and treated as critical until a human has seen it; an identifier a mandate names that the platform gives to another resource counts as a new resource (Section 3.4); a name that fits more than one resource is `unknown_resource` (Section 4) | A household that removes the marking without looking. The marking does not protect `read` or an `allow` rule with `allow_critical`; a new camera or presence sensor can be read at once under a `read` rule for its category. An implementation that cannot tell that the platform gave an identifier to another device |
-| **Controls the clock or the time zone** (time spoofed on the network, a member of the household who may change the configuration) | A clock behind the newest entry of the log stops every request; timeouts and the rate limit use a clock that never runs backwards (Section 11.4); a change of the time zone or of the clock check is recorded (`config.changed`) | A clock moved forward, or backward but still after the reference time, shifts validity periods and time windows within that range. A clock that ran forward stops the agents after its correction until a human confirms the time. A changed time zone moves every time window; the log shows it, it does not prevent it |
-| **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it; a later checkpoint anchors them only if its signer took the digest from the log file, which Section 9.5 forbids. A signer whose stored highest `seq` was reset, together with a restored log, can sign a second history. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only. Entries of an invented version leave the content of the log from there on unchecked; a verifier reports this (Section 9.4) and still checks the chain, so a change before them stays visible |
+| **Controls the clock or the time zone** (time spoofed on the network, a member of the household who may change the configuration) | A clock behind the reference time (the newest entry of the log, the last checkpoint, and a mark kept outside the log) stops every request; timeouts, the rate limit and the memory of DPoP proofs use a clock that never runs backwards (Section 11.4); a change of the time zone or of the clock check is recorded (`config.changed`) | A clock moved forward, or backward but still after the reference time, shifts validity periods and time windows within that range. A clock that ran forward stops the agents after its correction until a human confirms the time: whoever can move the clock forward once denies the agents service this way, not the household. A changed time zone moves every time window; the log shows it, it does not prevent it |
+| **Attacker who can write the audit log** | Hash chain; checkpoints signed with a key the attacker does not have; verification reports how far the log is anchored and whether a deleted beginning is covered by an anchored `log.truncated` (Sections 9.4, 9.5) | Entries after the last checkpoint, and a beginning deleted with a `log.truncated` written after it; a later checkpoint anchors them only if its signer took the digest from the log file or from a chain it verified there, which Section 9.5 forbids. A signer whose stored highest `seq` was reset, together with a restored log, can sign a second history. Removal of the end of the log together with its last checkpoints, unless the relying party remembers how far the log reached. Without checkpoints, the chain proves consistency only. Entries of an invented version leave the content of the log from there on unchecked; a verifier reports this (Section 9.4) and still checks the chain, so a change before them stays visible |
 | **Whoever can submit documents** (an issuer that is not trusted, an upload, a channel for mandates from outside) | Every rejected document is recorded (`mandate.rejected`), and the number of documents a PEP takes from each source is limited, so the entries do not grow without bound (Section 9.2) | A source over its limit is refused; whatever it submits then is not recorded. A household that is told of many rejections from one source learns of the attempt, not of each document |
 | **Failure of the audit log** (full or read-only storage, a crash between the command and the entry, a log removed while the PEP runs) | The PEP stores what it will record before it dispatches a command and denies when it cannot (`denied_by: audit`); an execution the process did not see end is recorded as `outcome_unknown` (Sections 9, 11.1 item 9) | A full disk stops the agents, not the household: the platform itself is unaffected. Whoever can fill the storage denies service to every agent; the entries that record it are written once the log can be written again |
 | **Agent, device or integration that writes into the log** (a resource, area or action name with a line feed, a control character, a direction-changing mark, a terminal escape sequence or markup) | Such a name matches nothing and is denied (Section 3.4); the entry records it as sent, and whatever renders entries for a human MUST show the values of `request` as a JSON string shows them, escapes included (Sections 9.1, 13); identifiers in mandates and in matched requests are ASCII | An interface, a consumer of an export or a verifier that ignores Section 9.1 shows a forged or hidden line, or runs an escape sequence in a terminal |
@@ -2932,6 +2999,30 @@ behavior of the people in a household and MUST be protected like the devices the
   further cases where no verification changes (`denied_by: audit` for a clock behind the log,
   `cause: expired` for a proposal, `request.group` for a renamed resource), with the `error`
   codes that tell them apart RECOMMENDED.
+- Security rules before the release:
+  - The checkpoint signer signs only the digest of the last entry as it was appended, never one
+    it read from the log file or the end of a chain it verified there, and keeps `seq` and
+    digest of that entry with its key; after a restart it continues only from that state
+    (Section 9.5).
+  - Certificate Transparency: a key presented under the public origin that differs from the
+    current one recognises no certificate and raises an alarm; it becomes the current key only
+    when the administrator accepts it, and reading it again never ends an alarm (`t47` now
+    `alarm`, `t49`). A key the implementation generates for its next certificate is current
+    once it requests it. An alarm and the state `unavailable` reach every administrator outside
+    the implementation's pages and stay shown until acknowledged. The identity of a
+    precertificate that a precertificate signing certificate issued: steps, and vectors
+    `pscpre` and `psccert` with `issued_by` (Section 11.7 item 7).
+  - DPoP: a valid proof is defined in full, with `typ`, `alg`, `htm`, `htu`, `ath`, the key of
+    the token or of `dpop_jkt`, and a window for `iat` of 60 seconds before and 10 after the
+    time of receipt; a memory of `jti` values that does not survive a restart rejects proofs
+    up to 10 seconds after the start (Section 11.7 item 6; cases `p01` to `p20` in
+    `origin-v0.json`).
+  - Clock: the reference time is the latest of the log, the `at` of the last checkpoint and a
+    high-water mark kept outside the log; with PEP and PDP apart, each that uses its own clock
+    applies the check. Timeouts, the rate limit and the memory of DPoP proofs MUST use a clock
+    that never runs backwards; an authenticated time source is RECOMMENDED (Section 11.4).
+  - The number of approval requests that wait for all agents together is limited (RECOMMENDED:
+    10), and the count of the rate limit MUST survive a restart (Sections 11.1 item 7, 11.2).
 - Signatures and key sets (Section 7.1):
   - A key whose point is not on its curve verifies nothing and leaves its key set usable,
     for Ed25519 and P-256 alike; a key of another type or curve, a private key, a key a

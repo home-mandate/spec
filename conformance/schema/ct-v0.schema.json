@@ -276,6 +276,10 @@
             "type": "string",
             "pattern": "^[A-Za-z0-9+/]+={0,2}$"
           },
+          "issued_by": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+          },
           "digest": {
             "type": "string",
             "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"

@@ -3,22 +3,28 @@
 package ctid_test
 
 import (
+	"bytes"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/home-mandate/spec/internal/ctid"
 )
 
 type vector struct {
-	ID     string `json:"id"`
-	DER    []byte `json:"der"`
-	Digest string `json:"digest"`
+	ID       string `json:"id"`
+	DER      []byte `json:"der"`
+	IssuedBy []byte `json:"issued_by"`
+	Digest   string `json:"digest"`
 }
 
 func vectors(t *testing.T) map[string]vector {
@@ -37,18 +43,55 @@ func vectors(t *testing.T) map[string]vector {
 	for _, v := range file.Identities {
 		out[v.ID] = v
 	}
-	if len(out) != 3 {
-		t.Fatalf("%d identities, want 3", len(out))
+	if len(out) != 5 {
+		t.Fatalf("%d identities, want 5", len(out))
 	}
 	return out
 }
 
 func TestTheVectorsOfCTCases(t *testing.T) {
 	for id, v := range vectors(t) {
-		got, err := ctid.Digest(v.DER)
-		if err != nil || got != v.Digest {
-			t.Errorf("%s: Digest = %q, %v; want %q", id, got, err, v.Digest)
+		var got string
+		var err error
+		if v.IssuedBy != nil {
+			got, err = ctid.DigestIssuedBy(v.DER, v.IssuedBy)
+		} else {
+			got, err = ctid.Digest(v.DER)
 		}
+		if err != nil || got != v.Digest {
+			t.Errorf("%s: digest = %q, %v; want %q", id, got, err, v.Digest)
+		}
+	}
+}
+
+func TestAPrecertificateOfASigningCertificateIsOneWithItsCertificate(t *testing.T) {
+	v := vectors(t)
+	pre, final := v["pscpre"], v["psccert"]
+	if pre.IssuedBy == nil || final.IssuedBy != nil {
+		t.Fatal("pscpre needs issued_by, psccert none")
+	}
+	if pre.Digest != final.Digest {
+		t.Errorf("pscpre %s, psccert %s", pre.Digest, final.Digest)
+	}
+	// Without the replacement the precertificate names another issuer.
+	if alone, err := ctid.Digest(pre.DER); err != nil || alone == final.Digest {
+		t.Errorf("Digest of pscpre alone = %q, %v; want another identity", alone, err)
+	}
+}
+
+func TestASigningCertificateMustBeOne(t *testing.T) {
+	v := vectors(t)
+	pre := v["pscpre"].DER
+	for name, signing := range map[string][]byte{
+		"no precertificate signing certificate": v["plain"].DER,
+		"not a certificate":                     {0x04, 0x01, 0x00},
+	} {
+		if _, err := ctid.DigestIssuedBy(pre, signing); !errors.Is(err, ctid.ErrCertificate) {
+			t.Errorf("%s: err = %v, want ErrCertificate", name, err)
+		}
+	}
+	if _, err := ctid.DigestIssuedBy(v["plain"].DER, v["pscpre"].IssuedBy); !errors.Is(err, ctid.ErrCertificate) {
+		t.Errorf("a certificate without poison: err = %v, want ErrCertificate", err)
 	}
 }
 
@@ -113,4 +156,25 @@ func hasExtension(cert *x509.Certificate, id asn1.ObjectIdentifier) bool {
 		}
 	}
 	return false
+}
+
+// A self-signed precertificate signing certificate has no authority key identifier to put in
+// place of the precertificate's.
+func TestASigningCertificateWithoutAuthorityKeyIdentifier(t *testing.T) {
+	key := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x5a}, ed25519.SeedSize))
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(9), Subject: pkix.Name{CommonName: "Self-signed PSC"},
+		NotBefore: at, NotAfter: at.AddDate(1, 0, 0),
+		IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign,
+		UnknownExtKeyUsage: []asn1.ObjectIdentifier{ctid.OIDPrecertificateSigning},
+		SubjectKeyId:       bytes.Repeat([]byte{0x5a}, 20),
+	}
+	psc, err := x509.CreateCertificate(nil, template, template, key.Public(), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ctid.DigestIssuedBy(vectors(t)["pscpre"].DER, psc); !errors.Is(err, ctid.ErrCertificate) {
+		t.Errorf("err = %v, want ErrCertificate", err)
+	}
 }
