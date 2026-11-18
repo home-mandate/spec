@@ -160,8 +160,11 @@ Cases: `c290` to `c292`, `i625`.
 ## `none_of` and the type of a value
 
 A list of excluded values permits a value only if it has the type of the list. An implementation
-that only asks "is the value in the list?" lets every value of another type through: where the
-vocabulary does not check the type, as for an extension category, `{"none_of": ["off"]}` would
-permit the integer `0`. `one_of` fails closed by itself; `none_of` needs the check.
+that only asks "is the value in the list?" lets every value of another type through:
+`{"none_of": ["off"]}` would permit the integer `0`. `one_of` fails closed by itself; `none_of`
+needs the check. Step 0 already rejects a request whose value has another type than the
+vocabulary declares, so the cases cannot show the mistake for a category of Section 5; it shows
+for an extension whose vocabulary an implementation loads, and in code that evaluates
+constraints on their own. The reference tests it in `TestNoneOfPermits`.
 
-Cases: `c293` to `c297`, `i643`.
+Cases: `c293` to `c297`; for the type in the mandate, `i643`.

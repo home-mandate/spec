@@ -13,8 +13,8 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "6083bc395da39ef10ef387a65467ee71681c99c005363ac43e01da0bea3371f5",
-      "cases": 297
+      "sha256": "df1684ae3daeaa3a3c11729ed7b7ea81cbd6019e2f141a109e666da3a1e2d485",
+      "cases": 300
     },
     {
       "path": "conformance/ct-v0.json",
@@ -28,8 +28,8 @@
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "3cda78dcc0f6c9bd7425f39e5a9daeab77460e1fe34202641dfe3c2fb6926b06",
-      "cases": 644
+      "sha256": "5874984affe35ee3831a71856c5485555217564a644c3774f5fddbdf4626af3e",
+      "cases": 645
     },
     {
       "path": "conformance/keys/alg-ed25519.json",

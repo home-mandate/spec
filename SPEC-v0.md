@@ -3356,12 +3356,14 @@ behavior of the people in a household and MUST be protected like the devices the
   Section 12.4 as warnings, which change no verdict.
 - A rule's own period (Section 4, step 2): `valid_from` and `expires` on a rule, points in time
   as for the mandate; outside its period the rule does not match, without a reason code of its
-  own (cases `c277` to `c284`, `i617` to `i623`).
+  own (cases `c277` to `c284`, `c298`, `i617` to `i623`).
 - `conditions.dates` (Section 4.2): 1 to 16 ranges of calendar dates in household local time,
-  both inclusive (cases `c285` to `c292`, `i624` to `i633`).
+  both inclusive (cases `c285` to `c292`, `c299`, `c300`, `i624` to `i633`).
 - The constraint `none_of` (Section 4.5): the excluded values of a parameter; a value of
   another type never satisfies it. Section 12.4 and the linter warn that it permits every value
-  a later vocabulary or a device adds (cases `c293` to `c297`, `i634` to `i644`).
+  a later vocabulary or a device adds (cases `c293` to `c297`, `i634` to `i645`). A PEP that
+  tells an agent its limits (Section 11.5) names excluded values as such; `evaluator.Limits`
+  returns them in `Limit.NoneOf`, which a caller does not read as unbounded.
 - Section 12.3: every agent acts with credentials of its own under a mandate of its own; this
   version knows no delegation.
 - Before the release candidate:

@@ -6,6 +6,7 @@
 package lint
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -148,7 +149,7 @@ func ruleFindings(r rule) []Finding {
 // isString reports whether a JSON value is a string; the mandate is valid, so a list holds
 // values of one type.
 func isString(v json.RawMessage) bool {
-	return len(v) > 0 && v[0] == '"'
+	return bytes.HasPrefix(v, []byte{'"'})
 }
 
 // sortedKeys returns the keys of m in order, so that findings come in a stable order.
