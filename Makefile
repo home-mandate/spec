@@ -13,7 +13,7 @@ FUZZTIME       ?= 10m
 # package:target; the long fuzzing of scheduled.yml builds its matrix from this list (make fuzz-targets)
 FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate evaluator:FuzzValue audit:FuzzVerify jws:FuzzVerify internal/harness:FuzzServe \
 	internal/origin:FuzzValid internal/origin:FuzzHTUMatches
-MUTATION_PKGS  := ./evaluator ./audit ./jcs ./jws ./displaytext ./ratelimit
+MUTATION_PKGS  := ./evaluator ./audit ./jcs ./jws ./displaytext ./ratelimit ./lint
 
 .PHONY: check test cover vet staticcheck vulncheck fuzz fuzz-one fuzz-targets mutation manifest
 

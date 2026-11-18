@@ -2901,7 +2901,11 @@ The evaluation is only as trustworthy as its inputs. A conforming implementation
 ### 12.4 Advice for implementers
 
 `pitfalls.md` (informative) lists mistakes that implementers have made with the libraries of
-their languages, each with the cases that catch it.
+their languages, each with the cases that catch it. The package `lint` and the command `mandate-lint`
+of this repository report the patterns below that a mandate shows by itself (a rule for every
+resource and action, `"*"`, `read` on `any`, `allow_critical` or a broad mandate without
+`expires`, `deny` or `ask` with conditions or by area alone, audit mode for longer than 30
+days); a user interface can show them before a mandate is stored.
 
 - **Broad mandates.** `{"any": true}` with `"*"` and no `expires` is valid. Interfaces
   SHOULD warn before such a mandate is stored, SHOULD require a separate confirmation for
@@ -3304,6 +3308,8 @@ behavior of the people in a household and MUST be protected like the devices the
   - cases `c263` to `c276`; the profiles of Home Assistant, openHAB and Matter map the new
     categories, and the Home Assistant profile also doors as `gate`, presence entities, colours,
     numbers, options and range setpoints.
+- A mandate linter: package `lint` and command `mandate-lint` report the risky patterns of
+  Section 12.4 as warnings, which change no verdict.
 - Before the release candidate:
   - Condition 4 of Section 9.5: a `log.truncated` entry accounts for the position a relying
     party saw last only if a verified checkpoint anchors it; otherwise a replaced log would pass
