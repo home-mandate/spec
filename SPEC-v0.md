@@ -1175,7 +1175,8 @@ case-sensitive: `X` is not `x`, but an unknown member, and unknown members are i
 7517 section 4), `y` of an Ed25519 key too. Three members restrict what a key is for: if
 present, `use` is `sig`, `key_ops` is an array that contains `verify`, and `alg` is the
 algorithm of the key's type (`EdDSA` or, fully specified as RFC 9864 names it, `Ed25519` for
-an Ed25519 key; `ES256` for a P-256 key); a key whose `use`,
+an Ed25519 key; `ES256` for a P-256 key; the header of a signature names `EdDSA` in either
+case, and a header with `Ed25519` is rejected); a key whose `use`,
 `key_ops` or `alg` says otherwise, is `null` or of another JSON type (an element of `key_ops`
 that is not a string included), cannot be used, and a key set with such a key verifies
 nothing (Section 10.2). The same holds for a key of another type or curve: RFC 7517 section 5
@@ -1285,8 +1286,8 @@ log its `checkpoint_gap_at` (Section 9.5), absent if there is none. A log can
 name an optional algorithm it needs in `requires` (Section 10.2).
 
 `conformance/audit-v1.json` contains audit logs of version 1 and logs that mix versions 0 and 1
-(Section 14), in the same form. Entries of version 2 stand for a version a verifier does not
-know.
+(Section 14), in the same form. Entries of version 999999999 stand for a version a verifier
+does not know; the cases keep that meaning when a version 2 exists.
 
 `conformance/origin-v0.json` contains cases for Section 11.7 items 1 and 6. A case has either a
 configured `value` and whether it is a public origin (`expected`: `valid` or `invalid`), or the
@@ -1346,7 +1347,7 @@ that class in that version.
 `evaluator` is the basis: an implementation that claims any conformance to the
 evaluation conforms to it. Many obligations cannot be tested from outside in this version:
 those of the PEP (Section 11: approval, rate limit, revocation, and Section 11.7 if it is
-reachable from outside), and those of Sections 3.4, 3.5, 4, 4.4, 6, 7.1, 9 and 14 about what an
+reachable from outside), and those of Sections 3.1, 3.4, 3.5, 4, 4.4, 6, 7.1, 9, 10.1, 10.3 and 14 about what an
 implementation stores, executes, records and shows. An implementation that claims to follow
 the specification as a whole states for each of them how it meets it;
 `conformance/DECLARATION.md` lists them, with the rules the test interface cannot reach. `origin-v0.json` and `ct-v0.json` state decisions of Section 11.7 for implementations
@@ -1407,7 +1408,8 @@ record (Section 12.2).
 
 Each entry is a JSON object with the `type` of its version, `https://home-mandate.org/audit/v0` or
 `https://home-mandate.org/audit/v1` (Section 14), and the members below. Version 1 is version 0
-with the events and members marked "(v1)"; an entry of version 0 MUST NOT carry them.
+with the events, members and rules marked "(v1)" or "(version 1)"; an entry of version 0 MUST
+NOT carry the events and members.
 
 | Field | Contents |
 |---|---|
@@ -1634,8 +1636,8 @@ content.
 - The `actor` of `relay.paired`, of `relay.unpaired` with `cause` `local` and of
   `relay.pins_changed` with `source` `admin` is the administrator who chose it, of kind `user`;
   that of `relay.acme_account_changed` with `change` `confirmed` is the human who confirmed the
-  account, where the gateway knows who. The other `relay.*` entries are caused by the relay or
-  the operator and name no `actor`.
+  account, where the gateway knows who. Every other `relay.*` entry names no `actor`, whether
+  the relay, the operator or the gateway itself caused it.
 - Switching `unbound_tokens` to `refused` is recorded with `config.changed` alone: the tokens
   that are not bound are refused from then on, and each one presented is recorded with
   `auth.rejected` (`unbound_refused`); no `credentials.withdrawn` entry follows, because bound
@@ -1850,10 +1852,14 @@ Verification (Section 9.4) gains a fourth condition, checked after the chain:
    by the last checkpoint it verified (its `seq` and digest, below), the log holds an entry
    with that `seq` and that digest, or a `log.truncated` entry that accounts for it (its
    `up_to_seq` is that `seq` and its `last_digest` that digest, or its `up_to_seq` is
-   greater, which binds no digest: the entries it accounts for are gone). `broken_at` is the
-   `seq` of whichever comes first in file order: a checkpoint that violates this, or the entry
-   or `log.truncated` entry at that position whose digest differs; for a log that has neither,
-   the `seq` of its last entry, and `0` for a log without entries.
+   greater, which binds no digest: the entries it accounts for are gone) and that a verified
+   checkpoint anchors (its `seq` is not greater than the anchored `seq`): anyone who can write
+   the log can write a `log.truncated` entry, so one without a checkpoint after it would let a
+   replaced log pass. `broken_at` is the `seq` of whichever comes first in file order: a
+   checkpoint that violates this, the entry or `log.truncated` entry at that position whose
+   digest differs, or a `log.truncated` entry that accounts for the position without being
+   anchored; for a log that has none of them, the `seq` of its last entry, and `0` for a log
+   without entries (`v229`).
 
 A verifier that was given keys additionally reports
 
@@ -1916,9 +1922,11 @@ checkpoints (a part of the implementation, a separate process, a hardware key)
    checkpoint anchor the forgery. The `seq` and digest of the last entry appended are kept
    with the state of item 2, written before the entry is appended: the digest is known before
    the write. After a restart the implementation continues the log only from that state. If the
-   file ends one entry short of it, the writer appends that same entry again; if the last entry
-   of the file has another `seq` or another digest in any other way, it MUST NOT sign and starts
-   a new log with a new `log_id`, as after a restore (below);
+   file ends one entry short of it and the implementation kept that entry's bytes with the
+   state (a write-ahead record), the writer appends exactly those bytes again; if the last entry
+   of the file has another `seq` or another digest in any other way, or the entry cannot be
+   written again byte for byte, it MUST NOT sign and starts a new log with a new `log_id`, as
+   after a restore (below);
 2. MUST keep the highest `seq` it signed for a `log_id`, with its digest, with the key: where
    whoever can write the log cannot change it, if the platform offers such a place, and MUST
    NOT sign a `seq` that is not higher. Two signed digests for one position of one log would be
@@ -2003,7 +2011,7 @@ passed for its class, as for an operation it does not offer.
 | `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate, or of the revoked mandate the result names, Section 4.3) if there is one |
 | `succession` | `stored`, `offered`, optionally `stored_revoked` | `accept`; with `accept`, `confirm: true` if the successor takes effect only after a human confirmed it (Section 3.5) |
 | `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer, as JSON text) | `valid`; `digest` if valid |
-| `verify_audit` | `entries` (array of entry texts), `jsonl` (the exchange format), `entries_base64` or `jsonl_base64`; optionally `keys`, and with them `log_id` and `last_seen` (`{"seq": …, "digest": …}`, Section 9.5 condition 4) | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given; `integrity_broken_at`, `conformance_broken_at` and `unknown_version_at` for each finding there is (Section 9.4); `checkpoint_gap_at` if valid and there is a gap (Section 9.5) |
+| `verify_audit` | `entries` (array of entry texts), `jsonl` (the exchange format), `entries_base64` or `jsonl_base64`; optionally `keys`, and with them `log_id` and `last_seen` (`{"seq": …, "digest": …}`, Section 9.5 condition 4; a `seq` below 1 or a digest that is not of the form of Section 9.4 is answered with an `error`) | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given; `integrity_broken_at`, `conformance_broken_at` and `unknown_version_at` for each finding there is (Section 9.4); `checkpoint_gap_at` if valid and there is a gap (Section 9.5) |
 | `entry_digest` | `entry` | `digest` |
 
 `request` is the input of the evaluation as the PEP determines it: `resource`
@@ -2037,7 +2045,8 @@ comma before the fraction, a one-digit hour or the offset `-00:00`, is not reada
 A case can require an algorithm that Section 7.1 makes optional: its member `requires` names
 it (`ES256`). Every case whose signature or checkpoint uses that algorithm carries it, valid or
 not, because an implementation without the algorithm cannot tell them apart: it reads `alg`
-from the header, which it has checked as Section 7.1 asks, and answers the case with
+from the header, which it has checked as Section 7.1 asks (for a checkpoint, the key its `kid`
+names decides, not the header, Section 9.4), and answers the case with
 `{"error": "unsupported"}`; the case then does not count for its class, and the report lists
 it as not applicable. Every other case it answers so counts as not passed. `verify_signed` with a key set in which a
 key cannot be used answers `{"valid": false}`; `verify_audit` answers with an `error`, because it
@@ -2581,7 +2590,7 @@ from outside under an address alone.
 3. **End of TLS.** The TLS connection of an agent MUST end in the implementation or in a proxy
    that the household runs, with a version not older than TLS 1.2 (RFC 5246); TLS 1.3 (RFC 8446)
    SHOULD be offered. A relay or a tunnel before that point only passes the bytes on (RELAY-v0
-   Section 7.2 requires this of a relay): a service that ends the agent's TLS connection itself,
+   requires this of a relay in its section "What an operator does not do"): a service that ends the agent's TLS connection itself,
    for example a tunnel or a content delivery network that presents its own certificate for the
    public origin, is not a way in under this section. Whoever ends the TLS connection can read and
    change everything that passes: credentials, sign-in, approval pages, requests and their
@@ -2699,8 +2708,9 @@ from outside under an address alone.
      its issuer, its names and its validity. A validity period, bounds included, that overlaps the
      time from the beginning of monitoring to the check counts as valid since then; a certificate
      whose `notAfter` is not before the time of the check raises an alarm, also when its
-     `notBefore` lies after that time, and the alarm then says that it is not valid yet. One whose
-     `notAfter` is before the time of the check is reported as a past exposure.
+     `notBefore` lies after that time, and the alarm then says that it is not valid yet. One that
+     was valid since monitoring began and whose `notAfter` is before the time of the check is
+     reported as a past exposure; one that expired before monitoring began raises nothing.
    - **Acknowledgement.** The administrator MAY acknowledge a certificate (for example the
      household's own wildcard certificate for its zone), which ends the alarm for that certificate
      only. A certificate is identified by the SHA-256 digest of the DER of its TBSCertificate with
@@ -3108,14 +3118,21 @@ behavior of the people in a household and MUST be protected like the devices the
 
 ### Unreleased
 
-- **Upgrading from v0.1.x.** No mandate and no audit log of version 0 changes its verdict
-  (Section 14) through its own content. A key set is configuration (Section 14, bullet **Key
+- **Upgrading from v0.1.x.** No unsigned mandate and no audit log of version 0 without
+  checkpoints changes its verdict (Section 14). Signed mandates and checkpoints can, in both
+  directions. Signatures that only a flawed or hostile signer produces are rejected now: an
+  Ed25519 `R` of small order (`g49`), a header over 256 bytes, unused bits set in base64url
+  (`a242`), a compact JWS over 512 KiB. A key set is configuration (Section 14, bullet **Key
   sets**), and its rules changed in both directions, so a key set that worked under v0.1.1 can
   verify nothing now, and the other way round:
   - verifies nothing now: a key whose `use` is not `sig`, whose `key_ops` lack `verify`, or
     whose `alg` is not that of its type (`EdDSA` or `Ed25519` for an Ed25519 key, `ES256` for
-    P-256), each also when `null` or of another JSON type; a key set over 65 536 bytes; a key
-    set with a member that occurs twice or with a noncharacter, also in a member nobody reads;
+    P-256), each also when `null` or of another JSON type; a key of another type or curve, such
+    as an RSA or X25519 key next to the signing key (`g63` to `g65`, `g70`, `g71`, `g95`), so an
+    issuer that shares a JWK Set with an identity provider's keys publishes one of its own; a
+    `kid` that repeats (`g59`, `g60`); a key without a `kid` or with one that is not a string of
+    the pattern (`g93`, `g94`); a key set over 65 536 bytes; a key set with a member that occurs
+    twice or with a noncharacter, also in a member nobody reads;
   - usable now: a key set with a key whose point is not on its curve, which verifies nothing
     itself.
 
@@ -3137,6 +3154,8 @@ behavior of the people in a household and MUST be protected like the devices the
     `id`, `error` alone; `entry_digest` answers an `error` for an entry without a digest;
   - cases with `requires` are not applicable to an implementation without that algorithm,
     and the report lists them;
+  - `select` with a time that is not readable and two candidates answers `invalid_request`
+    without `selected` (`s30`, `s31`);
   - the HTTP binding sends `resource.type`.
 
   Implementations get new obligations, which Section 14 now allows in a release
@@ -3202,6 +3221,16 @@ behavior of the people in a household and MUST be protected like the devices the
     Cases `v182` to `v211` and `v214` to `v222`: proxies, `auth`, `bound`, `caa_identity`, the
     eight pairs, the version grammar, a checkpoint signed with ES256 and one with an unknown
     `alg`, the cadence, an anchored truncation and the `actor` of relay events.
+- Before the release candidate:
+  - Condition 4 of Section 9.5: a `log.truncated` entry accounts for the position a relying
+    party saw last only if a verified checkpoint anchors it; otherwise a replaced log would pass
+    (`v229`).
+  - The checkpoint signer appends an entry again after a crash only from a write-ahead record of
+    its bytes; otherwise it starts a new log (Section 9.5).
+  - A certificate that expired before monitoring began raises nothing; the header of a
+    signature names `EdDSA` also for a key with `alg` `Ed25519` (Sections 7.1, 11.7).
+  - The cases of an unknown audit version use version 999999999 instead of 2, so that they keep
+    their meaning once a version 2 exists.
 - Test interface and documentation before the release:
   - `keys` travels as JSON text in a string, like a mandate, so that `g97`, `g98` and `g101`
     reach a harness byte for byte; a member of another operation is malformed; the test tool
@@ -3225,13 +3254,13 @@ behavior of the people in a household and MUST be protected like the devices the
     once a window has passed, not at every call.
   - `evaluator.Mandate.AcceptedKid` names the key `ParseSigned` accepted a mandate by, which a
     verifier remembers (Section 7.1).
-  - `audit.Anchor.Last` is the position a relying party saw last; condition 4 of Section 9.5
-    checks it, and the test interface carries it as `last_seen`.
+  - `audit.Anchor.LastSeen` is the position a relying party saw last; condition 4 of Section
+    9.5 checks it (`v223` to `v229`), and the test interface carries it as `last_seen`.
   - The signing functions take a `crypto.Signer` instead of `any`. The errors of
     `evaluator.Parse` are cut to 512 bytes and a mark. The documentation says what the zero value of
     `audit.Result` means, what an empty `Anchor.LogID` accepts, and when
     `ReferencePDP.Mutate` may be set. A position seen last with a `seq` below 1 or a malformed
-    digest is an error of the verification, not a finding (`v223` to `v228`).
+    digest is an error of the verification, not a finding.
 - Signatures, key sets and the public origin before the release:
   - Section 7.1 says that `k` is the hash reduced modulo L, as `g45` requires; that the unused
     bits of base64url are zero for segments and keys; and that the header is read as JSON, so
@@ -3284,7 +3313,8 @@ behavior of the people in a household and MUST be protected like the devices the
     noncharacter is a conformance finding, and the entry keeps its digest (`v153`).
   - A checkpoint without `log_id` or `signature` breaks the integrity, with keys or without
     (`v154`, `v155`); a verifier that lacks the algorithm of a checkpoint reports that it
-    cannot check the log instead of calling it damaged (Section 9.4).
+    cannot check the log instead of calling it damaged (Section 9.4). (The key set decides that,
+    not the header of the checkpoint, see "audit/v1 final" above.)
   - A line longer than an entry may be does not end the reading of the exchange format
     (`v156`).
   - A verifier no longer reports a repeated `id`: nothing refers to an entry by its `id`, and

@@ -31,7 +31,7 @@ implementation as a whole follows the specification does.
 |---|---|
 | 6 | If PEP and PDP are separate: exactly one holds the directory and both know which; the connection is authenticated in both directions and protected against modification and replay; the PDP answers only callers it authenticated, never agents, and only for the principals it serves for that caller |
 | 6 | A PEP obtains a confirmation for `outcome: ask` and for `confirm: true`, and executes only after a positive one |
-| 7.1 | Configure the keys of an issuer before any mandate is verified, never fetch them from a location a mandate names; decide per issuer for which principals and agents it may issue |
+| 7.1 | Configure the keys of an issuer before any mandate is verified, never fetch them from a location a mandate names; decide per issuer for which principals and agents it may issue ; never accept a key trusted for one household for another |
 | 7.1 | Remember by which `kid` each stored mandate was accepted; when a key stops being trusted, every mandate accepted only by it loses its effect or is confirmed again by a human |
 | 7.1 | Record every issuer and key that is trusted, untrusted, added or removed (`issuer.changed`); a key whose bytes change under its `kid` is removed and added |
 | 7.1 | Never sign mandates and checkpoints with the same key; which optional algorithms (ES256) the implementation supports |
@@ -45,8 +45,8 @@ implementation as a whole follows the specification does.
 | 9.1 | Show the values of `request`, the `names` and `issuer` of a certificate and the values of `relay` as untrusted text wherever entries are rendered for a human |
 | 9.2 | Write every event of Section 9.2 that applies to the implementation; limit the documents taken from each source |
 | 9.3 | Keep every mandate version as long as entries refer to its digest; delete only the oldest entries, after a `log.truncated` entry |
-| 9.4 | Write new entries as I-JSON with numbers below 2^53; call a log damaged only for `integrity_broken_at`; never refuse to start or stop writing because of `conformance_broken_at` or `unknown_version_at` alone |
-| 9.5 | Keep the checkpoint key where whoever can write the log cannot read it, or say that the platform offers no such place; sign only the digest of the last entry as it was appended, never one read or verified from the log file, and keep its `seq` and digest with the key; never sign a `seq` that is not higher; a checkpoint after every `log.truncated` entry, after 1000 entries and within 24 hours; a new log with a new `log_id` after a restore that ends before the highest signed `seq` |
+| 9.4 | Write new entries as I-JSON with numbers below 2^53; call a log damaged only for `integrity_broken_at`; never refuse to start or stop writing because of `conformance_broken_at` or `unknown_version_at` alone ; show `conformance_broken_at` as a fault of the software that wrote the entry and `unknown_version_at` as a newer version the tool cannot check |
+| 9.5 | Keep the checkpoint key where whoever can write the log cannot read it, or say that the platform offers no such place; sign only the digest of the last entry as it was appended, never one read or verified from the log file, and keep its `seq` and digest with the key; never sign a `seq` that is not higher; a checkpoint after every `log.truncated` entry, after 1000 entries and within 24 hours; a new log with a new `log_id` after a restore that ends before the highest signed `seq` ; after a restart continue the log only from the kept state, append the same entry again only from a write-ahead record of its bytes, and otherwise start a new log |
 
 ## Obligations of the PEP (Section 11)
 
@@ -76,6 +76,7 @@ implementation as a whole follows the specification does.
 | 14 | Which audit versions the implementation writes, and since which release |
 | 14 | Write a new audit version only once the implementation's own verification, display and export read it; a checkpoint of the older version before the first entry of the newer one; never append to a log that holds entries of a newer version than the implementation writes |
 | 14 | Do not write entries with a deviation listed in `data/corrections-v0.json` |
+| 14 | Never rewrite a stored or signed mandate into another format, and never rewrite an audit log: it continues in the newer version |
 
 ## Rules the test interface cannot reach
 

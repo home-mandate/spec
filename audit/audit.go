@@ -272,6 +272,9 @@ type verifier struct {
 	cadence cadence
 	// lastFound: an entry or a log.truncated entry stands for Anchor.LastSeen.
 	lastFound bool
+	// lastTruncation is the log.truncated entry that stands for Anchor.LastSeen, if the entry
+	// itself is gone; it counts only if a verified checkpoint anchors it.
+	lastTruncation *Finding
 }
 
 // The cadence of checkpoints a writer keeps (SPEC-v0 section 9.5, "The signer", item 3).
@@ -378,7 +381,7 @@ func (v *verifier) add(entry []byte) {
 			v.checkpointBreak = &r
 		}
 	}
-	if v.anchor != nil && v.anchor.LastSeen != nil && v.lastSeen(l) {
+	if v.anchor != nil && v.anchor.LastSeen != nil && v.lastSeen(index, l) {
 		v.breakCheckpoint(index, l.seq)
 	}
 	v.cadence.next(index, l)
@@ -387,24 +390,32 @@ func (v *verifier) add(entry []byte) {
 
 // lastSeen checks an entry against the position the relying party saw last (Anchor.LastSeen):
 // the entry at that seq has its digest, or a log.truncated entry accounts for it. It reports
-// whether the entry contradicts the position.
-func (v *verifier) lastSeen(l link) (contradicts bool) {
+// whether the entry contradicts the position. A log.truncated entry counts only if a verified
+// checkpoint anchors it, which finish checks: anyone who can write the log can write one.
+func (v *verifier) lastSeen(index int, l link) (contradicts bool) {
 	last := v.anchor.LastSeen
 	switch {
 	case l.seq == last.Seq:
-		v.lastFound = true
+		v.lastFound, v.lastTruncation = true, nil
 		return l.digest != last.Digest
-	case l.event == eventTruncated && l.upToSeq >= last.Seq:
+	case l.event == eventTruncated && l.upToSeq >= last.Seq && !v.lastFound:
+		if l.upToSeq == last.Seq && l.lastDigest != last.Digest {
+			return true
+		}
 		v.lastFound = true
-		return l.upToSeq == last.Seq && l.lastDigest != last.Digest
+		v.lastTruncation = &Finding{Index: index, At: l.seq}
 	}
 	return false
 }
 
 // breakCheckpoint records a violation of condition 4 at an entry.
+// It keeps the first in file order: finish can find a violation at an earlier entry than
+// one add found.
 func (v *verifier) breakCheckpoint(index int, seq int64) {
-	note(&v.integrity, index, seq)
-	if v.checkpointBreak == nil {
+	if v.integrity == nil || index < v.integrity.Index {
+		v.integrity = &Finding{Index: index, At: seq}
+	}
+	if v.checkpointBreak == nil || index < v.checkpointBreak.Index {
 		r := broken(index, seq)
 		v.checkpointBreak = &r
 	}
@@ -418,6 +429,10 @@ func (v *verifier) finish() Result {
 			return Result{Index: 0, BrokenAt: 0, Integrity: &Finding{Index: 0, At: 0}}
 		}
 		v.breakCheckpoint(v.count-1, v.previous.seq)
+	}
+	if t := v.lastTruncation; t != nil && t.At > v.anchoredSeq {
+		// The log.truncated entry that accounts for the position is not anchored.
+		v.breakCheckpoint(t.Index, t.At)
 	}
 	if v.count > 0 && v.first.seq != 1 && !v.startCovered && !v.lostFirst() {
 		// Condition 2 is about the first entry: it comes before every other break of integrity.

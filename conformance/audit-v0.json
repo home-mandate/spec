@@ -6373,7 +6373,7 @@
     },
     {
       "id": "a237",
-      "why": "two entries of version 0 with the same id: valid, because the rule that an id does not repeat starts with audit/v1 and version 0 stays as it is (SPEC-v0 sections 9.4 and 14)",
+      "why": "two entries of version 0 with the same id: valid, because a verifier does not check that every id is new; that is an obligation of the writer (SPEC-v0 sections 9.1 and 9.4)",
       "expected": "valid",
       "entries": [
         {
