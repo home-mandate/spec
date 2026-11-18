@@ -1417,7 +1417,7 @@ Depending on the event, the following are added:
 | `credentials` | (v1) access and refresh tokens that lost their validity: `scope` (`all`: of every agent; `agent`: of the agent of the entry, which is then required) and `cause` (`emergency_stop`: with an emergency stop; `public_origin`: the public origin changed, Section 11.7 item 2; `user`: a human withdrew them; (v1) `refresh_reuse`: a refresh token was used a second time, which ends every token of its grant, Section 11.7 item 6, scope `agent`, actor of kind `system`). Only with `credentials.withdrawn` |
 | `certificate` | (v1) a certificate for the host of the public origin (Section 11.7 item 7): `digest` (SHA-256 of the DER of its TBSCertificate without the poison and the SCT list, base64url without padding) and, with `cert.unexpected`, `status` (`alarm`, `not_yet_valid` or `past_exposure`), `names` (the names of the certificate that match the host, 1 to 16; where more match, the first 16 in the order of the certificate), `issuer` (its distinguished name, 1 to 1024 code points; a longer one is cut to its first 1023 code points followed by U+2026 `…`), `public_key` (SHA-256 of its SubjectPublicKeyInfo, base64url), `not_before`, `not_after` and `logged` (its first log entry). With `cert.acknowledged` either `digest` alone, for that certificate, or `public_key` alone, for every certificate for that key (Section 11.7 item 7). Only with these two events |
 | `ct` | (v1) the state of Certificate Transparency monitoring: `status` (`ok`: at least two independent sources answered within 24 hours; `limited`: only one; `unavailable`: none) and optionally `previous_status`, different from `status`. Only with `ct.status` |
-| `relay` | (v1) what a gateway paired with a relay records (the Home-Mandate Relay Specification, RELAY-v0): `operator` (the operator domain as A-labels) and, depending on the event, `home_id`, `name`, `cause`, `status`, `previous_status`, `source`, `active_pins`, `backup_pins`, `level`, `previous_level`, `scope`, `account`, `change`, `check` and `until`, as Section 9.2 lists them. RELAY-v0 maps each of these events to the gateway event that triggers it, and its values are those of this table. Only with the `relay.*` events |
+| `relay` | (v1) what a gateway paired with a relay records (the Home-Mandate Relay Specification, RELAY-v0): `operator` (the operator domain as A-labels) and, depending on the event, `home_id`, `name`, `cause`, `status`, `previous_status`, `source`, `active_pins`, `backup_pins`, `level`, `previous_level`, `scope`, `account`, `change`, `check`, `reason` and `until`, as Section 9.2 lists them. RELAY-v0 maps each of these events to the gateway event that triggers it, and its values are those of this table. Only with the `relay.*` events |
 
 `request` records the input to the evaluation as the PEP determined it, also when the
 evaluation found it invalid (`invalid_request`). Identifiers in it are therefore limited only
@@ -1590,6 +1590,9 @@ content.
 | `relay.key_changed` (v1) | yes, if the implementation can be paired with a relay | the gateway replaced its installation key (`home_id`) |
 | `relay.replacement_pending` (v1) | yes, if the implementation can be paired with a relay | the operator reports that another gateway is about to take the installation over (`home_id`, `until`: the end of the waiting time), once for each `until` |
 | `relay.pin_mismatch` (v1) | yes, if the implementation can be paired with a relay | the relay presents a key that matches no stored pin; once until a connection with a stored pin succeeds again |
+| `relay.pairing_refused` (v1) | yes, if the implementation can be paired with a relay | a pairing response that fails a check of the gateway, which then does not use the pairing (`check`: `name` for the standard name, `certificate` for the tunnel certificate) |
+| `relay.pins_ignored` (v1) | yes, if the implementation can be paired with a relay | a set of pins that the relay announces and the gateway ignores (`reason`: `rules` when the set breaks the rules of pinning, such as a change of the backup pins over a connection with an active pin; `connection_pin` when the pin of the connection is no longer stored in its kind; `storage` when the set cannot be stored durably; `limit` when the set is over the limit for connections with an active pin) |
+| `relay.metadata_pins_unknown` (v1) | yes, if the implementation can be paired with a relay | a version of the operator's metadata whose pins share no pin with the stored ones |
 
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
 returns for `request` and the version `mandate.digest` under the vocabulary that
@@ -2981,7 +2984,12 @@ behavior of the people in a household and MUST be protected like the devices the
     `bad_signature` (a replacement cannot be told apart and is no cause any more);
     `relay.acme_account_changed.change` adds `pending`, `not_confirmed` and `foreign`; new
     events `relay.monitoring_status`, `relay.key_changed`, `relay.replacement_pending` and
-    `relay.pin_mismatch` (Section 9.2; `v157`, `v158` to `v166`).
+    `relay.pin_mismatch` (Section 9.2; `v157`, `v158` to `v166`). Three more record what a
+    gateway refuses, so that an operator that does not conform leaves a trace: a pairing response
+    that fails a check (`relay.pairing_refused`), a set of pins the gateway ignores
+    (`relay.pins_ignored`) and metadata whose pins share none with the stored ones
+    (`relay.metadata_pins_unknown`) (`v176` to `v181`). RELAY-v0 says how often a gateway records
+    the events a relay can trigger again and again.
   - Section 14 states the grammar of an audit version, what every later version keeps, what
     "supports a version" means, which version the last checkpoint before a change of version
     has, and that a downgraded writer starts a new log.
@@ -3173,12 +3181,10 @@ behavior of the people in a household and MUST be protected like the devices the
 
 - **Audit version 1** (`https://home-mandate.org/audit/v1`, `schema/audit-v1.schema.json`):
   version 0 and the events `agent.bound`, `credentials.withdrawn`, `cert.unexpected`,
-  `cert.acknowledged`, `ct.status`, `relay.paired`, `relay.unpaired`, `relay.status_changed`,
-  `relay.pins_changed`, `relay.protection_changed`, `relay.caa_alarm` and
-  `relay.acme_account_changed`, the members `agent.binding`, `binding`, `credentials`,
-  `certificate`, `ct` and `relay`, and the settings `public_origin`, `remote_access` and
-  `unbound_tokens` of `config.changed` (Sections 9.1, 9.2, 11.3, 11.7). Entries of version 0
-  stay valid and are verified as before.
+  `cert.acknowledged`, `ct.status` and the `relay.*` events of Section 9.2, the members
+  `agent.binding`, `binding`, `credentials`, `certificate`, `ct` and `relay`, and the settings
+  `public_origin`, `remote_access` and `unbound_tokens` of `config.changed` (Sections 9.1, 9.2,
+  11.3, 11.7). Entries of version 0 stay valid and are verified as before.
 - Section 14: every addition to the audit entry comes with a new version, never under an
   existing `type`; a correction applies only to the version it names; rules for the rollout of
   a new version (read before writing, a checkpoint before the first entry of the new version).
