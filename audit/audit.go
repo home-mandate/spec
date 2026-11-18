@@ -213,6 +213,8 @@ type link struct {
 	at time.Time
 	// conforming: the entry is of a known version and keeps condition 1.
 	conforming bool
+	// version is the audit version its type names; -1 if it names none.
+	version int
 }
 
 // Verify checks entries in file order: first the schema of all entries, then the start
@@ -271,6 +273,8 @@ type verifier struct {
 
 // The cadence of checkpoints a writer keeps (SPEC-v0 section 9.5, "The signer", item 3).
 const (
+	// firstCadenceVersion is the first audit version whose writer had to keep the cadence.
+	firstCadenceVersion          = 1
 	maxEntriesBetweenCheckpoints = 1000
 	maxTimeBetweenCheckpoints    = 24 * time.Hour
 )
@@ -291,20 +295,23 @@ func (c *cadence) late(t time.Time) bool {
 	return !c.at.IsZero() && !t.IsZero() && t.Sub(c.at) > maxTimeBetweenCheckpoints
 }
 
-// next takes the next entry in file order. A checkpoint is due 24 hours after the previous
-// one if an entry was appended in that time, and at once if the first entry since came later;
-// and at the latest after 1000 further entries (SPEC-v0 section 9.5).
+// next takes the next entry in file order, as the table of SPEC-v0 section 9.5 states it: a
+// checkpoint is due 24 hours after the previous one if an entry was appended in that time, at
+// once if the first entry since came later, and at the latest after 1000 further entries. Only
+// an entry of version 1 or later is reported: the cadence became a MUST with version 1.
 func (c *cadence) next(index int, l link) {
 	checkpoint := l.event == eventCheckpoint
 	if c.seen {
+		gap := false
 		switch {
 		case checkpoint:
-			if c.since > 0 && !c.firstLate && c.late(l.at) {
-				note(&c.gap, index, l.seq)
-			}
+			gap = c.since > 0 && !c.firstLate && c.late(l.at)
 		case c.since == 0:
 			c.firstLate = c.late(l.at)
-		case c.firstLate || c.late(l.at) || c.since >= maxEntriesBetweenCheckpoints:
+		default:
+			gap = c.firstLate || c.late(l.at) || c.since >= maxEntriesBetweenCheckpoints
+		}
+		if gap && l.version >= firstCadenceVersion {
 			note(&c.gap, index, l.seq)
 		}
 	}
@@ -429,6 +436,10 @@ func (v *verifier) check(index int, entry []byte) (l link, linked bool) {
 	l.digest = digest
 	l.prev, _ = obj["prev"].(string)
 	version, isAudit := versionOf(obj)
+	l.version = -1
+	if isAudit {
+		l.version = version
+	}
 	switch {
 	case !isAudit || version < v.newest:
 		// No audit version, or an older version after a newer one, known or not.
@@ -528,7 +539,8 @@ func publicOriginValid(obj map[string]any) bool {
 
 // trustedProxyValid reports whether a change of a trusted proxy names an address or a prefix
 // in its one canonical text form (SPEC-v0 section 9.1), which a pattern cannot fully express:
-// what netip writes back for it, IPv6 as RFC 5952 recommends, and a prefix without host bits.
+// what netip writes back for it, IPv6 as RFC 5952 recommends with an IPv4-mapped address in
+// dotted decimal, a prefix without host bits, and no prefix of full length.
 func trustedProxyValid(obj map[string]any) bool {
 	config, _ := obj["config"].(map[string]any)
 	if setting, _ := config["setting"].(string); setting != "trusted_proxy" {
@@ -545,7 +557,8 @@ func trustedProxyValid(obj map[string]any) bool {
 func canonicalProxy(value string) bool {
 	if strings.Contains(value, "/") {
 		p, err := netip.ParsePrefix(value)
-		return err == nil && p.Masked() == p && p.String() == value
+		// A prefix of full length names one address and is written as that address.
+		return err == nil && p.Masked() == p && p.String() == value && p.Bits() < p.Addr().BitLen()
 	}
 	a, err := netip.ParseAddr(value)
 	return err == nil && a.Zone() == "" && a.String() == value
