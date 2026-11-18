@@ -50,6 +50,7 @@ has its own repository and versions and builds on Section 11.7 here.
 | `displaytext/` | Check of text displayed to humans against the code point list | Apache 2.0 |
 | `jws/` | The part of JSON Web Signature the specification uses: compact serialization, EdDSA and ES256, JWK Sets, and the building blocks that protocols on top of it, such as the Relay Specification, sign and verify their own headers with; standard library only | Apache 2.0 |
 | `ratelimit/` | Reference for the rate limit bound of SPEC-v0 section 11.2 | Apache 2.0 |
+| `lint/`, `cmd/mandate-lint/` | Warnings about the risky patterns of a mandate that SPEC-v0 section 12.4 names | Apache 2.0 |
 | `jcs/` | JSON Canonicalization Scheme (RFC 8785) for the digests of mandates and audit entries | Apache 2.0 |
 | `ijson/` | The I-JSON rules (RFC 7493) that `encoding/json` does not check: valid UTF-8, no lone surrogates or noncharacters, no duplicate keys, one value, bounded nesting | Apache 2.0 |
 | `rfc3339/` | Timestamps read by the grammar of RFC 3339, stricter than `time.Parse` | Apache 2.0 |
