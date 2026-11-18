@@ -8,8 +8,8 @@
     },
     {
       "path": "conformance/audit-v1.json",
-      "sha256": "c39392c2a2aa8db152d729965bf3da1c7b2d0ce83b8078c22f4ac540a02c3130",
-      "cases": 120
+      "sha256": "15bc064ce94b0da1129a436dac98b6b4255b710cda2028977604f82bf04601d4",
+      "cases": 122
     },
     {
       "path": "conformance/cases-v0.json",
@@ -18,8 +18,8 @@
     },
     {
       "path": "conformance/ct-v0.json",
-      "sha256": "ec5f1c561152ea529d0e5d0b7509cc54ced8bfc1dffa16afc62313619ee02341",
-      "cases": 48
+      "sha256": "bf784214ba0453e40ae715bb46963a015451809f6d0419c4e7a6aff447f59214",
+      "cases": 51
     },
     {
       "path": "conformance/digest-v0.json",
@@ -30,6 +30,10 @@
       "path": "conformance/invalid-v0.json",
       "sha256": "a6a27c0d169171a21cfbfdc67ffee0c8d595664bce6c16970b67e92e300cdfe0",
       "cases": 616
+    },
+    {
+      "path": "conformance/keys/alg-ed25519.json",
+      "sha256": "abba9774c34d36a4d6c8523d793ba7a482654c067c67534841d4f623a6cfb056"
     },
     {
       "path": "conformance/keys/alg-eddsa.json",
@@ -96,12 +100,24 @@
       "sha256": "1af8446790bd24a39c253e279abcb91abc596d58fd55e03ba73a4ea73664128a"
     },
     {
+      "path": "conformance/keys/beside/max-size.json",
+      "sha256": "cebdc65a27eba5aeedaf08de1964707172dbc0a2d2953afb8c3cbf4a126832f0"
+    },
+    {
+      "path": "conformance/keys/beside/noncharacter.json",
+      "sha256": "878fadd5dff12d18a98ec52251f4a73ce5bee41f4b5c9aa0c5469a0dd19796e0"
+    },
+    {
       "path": "conformance/keys/beside/off-curve.json",
       "sha256": "e2a4dfb0399463c88d47f7d782da9fede84fb35e6040fe6931288aa566d21c57"
     },
     {
       "path": "conformance/keys/beside/p256-off-curve.json",
       "sha256": "b68438823e71c9597b4181d1009f2ff6d46b50eaf1e4033b506f046fa0274708"
+    },
+    {
+      "path": "conformance/keys/beside/p256-use-enc.json",
+      "sha256": "c37e59ce0c3f62f81aa2d91f52df14e85fcf8d86c6a26d87cfc77a1fd61b2d27"
     },
     {
       "path": "conformance/keys/beside/too-large.json",
@@ -325,8 +341,8 @@
     },
     {
       "path": "conformance/origin-v0.json",
-      "sha256": "236dd93b9ce46124dc779ae6c1553f6bf7c1214846257b4d55fa1252e1335187",
-      "cases": 80
+      "sha256": "858f3be18e7f2d01f55bb85bb12a60d223d1dcc68c70e9ca0c3d1ae49319c55c",
+      "cases": 86
     },
     {
       "path": "conformance/schema/audit-v0.schema.json",
@@ -342,7 +358,7 @@
     },
     {
       "path": "conformance/schema/ct-v0.schema.json",
-      "sha256": "7f8989b8629603974c5a9a09925c9ba3bf91e7c651be95a363b3d937a5a20ae2"
+      "sha256": "1b29787b7d956f533bd854697a32df28997ed99f157a5d890cc02a5bb36154c0"
     },
     {
       "path": "conformance/schema/digest-v0.schema.json",
@@ -379,8 +395,8 @@
     },
     {
       "path": "conformance/signed-v0.json",
-      "sha256": "28a853e3f483d8e4c1cbec6b3bf952de32e628cee523b5710347ee4bdeefa89d",
-      "cases": 101
+      "sha256": "ed1484e158506ce209c687aee0288c1a84547512d28a13e57b62fff1fe5216d3",
+      "cases": 107
     },
     {
       "path": "conformance/succession-v0.json",
