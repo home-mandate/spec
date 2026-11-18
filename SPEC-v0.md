@@ -3131,7 +3131,7 @@ behavior of the people in a household and MUST be protected like the devices the
     `checkpoint_gap_at`; the classes `audit` and `audit-anchored` include `audit-v1.json`, so
     a verifier of version 0 alone can no longer claim them;
   - `mandate_base64`, `jsonl_base64` and `entries_base64` carry bytes; `keys` is JSON text in
-    a string;
+    a string; `verify_audit` takes `last_seen`;
   - member names are compared exactly, a member of another operation is malformed, and the
     test tool reads responses as strictly: only the members of the operation, no `null`, no
     `id`, `error` alone; `entry_digest` answers an `error` for an entry without a digest;

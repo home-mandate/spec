@@ -412,6 +412,10 @@
       "sha256": "5ca3aacfad06d91dbd3f6185e1a3cb19f5272115436ada65c781826b05c42930"
     },
     {
+      "path": "data/timezone-names.json",
+      "sha256": "23c180d745169161bdb40f532f44e53a0d32da05a02b7f9ac53f40d3dc407759"
+    },
+    {
       "path": "examples/energy-agent.json",
       "sha256": "01ff60f6934c152ccc47b22b14b23d32ab10e2ad4ee0ae97edf780872528ff9a"
     },

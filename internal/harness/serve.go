@@ -363,7 +363,7 @@ var opMembers = map[string][]string{
 	OpSelect:       {"mandates", "subject", "request"},
 	OpSuccession:   {"stored", "offered", "stored_revoked"},
 	OpVerifySigned: {"jws", "issuer", "keys"},
-	OpVerifyAudit:  {"entries", "jsonl", "entries_base64", "jsonl_base64", "keys", "log_id"},
+	OpVerifyAudit:  {"entries", "jsonl", "entries_base64", "jsonl_base64", "keys", "log_id", "last_seen"},
 	OpEntryDigest:  {"entry"},
 }
 
