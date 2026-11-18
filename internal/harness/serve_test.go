@@ -405,13 +405,14 @@ func TestMembersOfAnotherOperationAreMalformed(t *testing.T) {
 	var out bytes.Buffer
 	in := `{"op":"entry_digest","id":"x1","entry":"{}","keys":"{}"}` + "\n" +
 		`{"op":"capabilities","mandate":"{}"}` + "\n" +
-		`{"op":"capabilities","id":"x2"}` + "\n"
+		`{"op":"capabilities","id":"x2"}` + "\n" +
+		`{"op":"verify_audit","entries":[],"keys":"{\"keys\":[]}","last_seen":{"seq":1,"digest":"sha256:x"}}` + "\n"
 	if err := harness.Serve(strings.NewReader(in), &out); err != nil {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) != 3 || !strings.Contains(lines[0], `"error"`) || !strings.Contains(lines[1], `"error"`) ||
-		strings.Contains(lines[2], `"error"`) {
+	if len(lines) != 4 || !strings.Contains(lines[0], `"error"`) || !strings.Contains(lines[1], `"error"`) ||
+		strings.Contains(lines[2], `"error"`) || strings.Contains(lines[3], "malformed request") {
 		t.Errorf("responses = %q", lines)
 	}
 }
