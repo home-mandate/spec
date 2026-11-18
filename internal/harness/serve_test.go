@@ -157,7 +157,7 @@ func TestRequestsWithMissingOrBrokenMembers(t *testing.T) {
 		"select without subject":     {Op: harness.OpSelect, Request: eval},
 		"succession without offered": {Op: harness.OpSuccession, Stored: example(t)},
 		"succession, stored invalid": {Op: harness.OpSuccession, Stored: text("{}"), Offered: example(t)},
-		"verify_audit, broken keys":  {Op: harness.OpVerifyAudit, Keys: []byte(`{"keys":[]}`)},
+		"verify_audit, broken keys":  {Op: harness.OpVerifyAudit, Keys: `{"keys":[]}`},
 		"entry_digest without entry": {Op: harness.OpEntryDigest},
 	} {
 		if r := harness.Answer(req); r.Error == "" || r.Error == harness.ErrorUnsupported {
@@ -184,7 +184,7 @@ func TestRequestsWithMissingOrBrokenMembers(t *testing.T) {
 	empty := ""
 	for _, req := range []harness.Request{
 		{Op: harness.OpVerifyAudit, JSONL: &empty},
-		{Op: harness.OpVerifyAudit, JSONL: &empty, Keys: keys},
+		{Op: harness.OpVerifyAudit, JSONL: &empty, Keys: string(keys)},
 	} {
 		if r := harness.Answer(req); r.Valid == nil || !*r.Valid || r.Entries == nil || *r.Entries != 0 {
 			t.Errorf("empty log = %+v", r)
@@ -308,7 +308,7 @@ func TestVerifySignedWithAKeySetThatCannotBeUsedIsInvalid(t *testing.T) {
 		"upper case":    []byte(`{"KEYS":[]}`),
 		"not an object": []byte(`[]`),
 	} {
-		resp := harness.Answer(harness.Request{Op: harness.OpVerifySigned, JWS: "a.b.c", Keys: keys})
+		resp := harness.Answer(harness.Request{Op: harness.OpVerifySigned, JWS: "a.b.c", Keys: string(keys)})
 		if resp.Error != "" || resp.Valid == nil || *resp.Valid {
 			t.Errorf("%s: response %+v, want valid false", name, resp)
 		}
@@ -396,5 +396,22 @@ func TestRequestsWithMembersInAnotherCaseOrTwiceAreMalformed(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "malformed") {
 		t.Errorf("response = %s", out.String())
+	}
+}
+
+// A member that only another operation defines is malformed for this one (SPEC-v0 section
+// 10.2); op and id are allowed everywhere.
+func TestMembersOfAnotherOperationAreMalformed(t *testing.T) {
+	var out bytes.Buffer
+	in := `{"op":"entry_digest","id":"x1","entry":"{}","keys":"{}"}` + "\n" +
+		`{"op":"capabilities","mandate":"{}"}` + "\n" +
+		`{"op":"capabilities","id":"x2"}` + "\n"
+	if err := harness.Serve(strings.NewReader(in), &out); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 3 || !strings.Contains(lines[0], `"error"`) || !strings.Contains(lines[1], `"error"`) ||
+		strings.Contains(lines[2], `"error"`) {
+		t.Errorf("responses = %q", lines)
 	}
 }

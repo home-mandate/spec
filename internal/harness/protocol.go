@@ -43,9 +43,11 @@ type Request struct {
 	StoredRevoked bool    `json:"stored_revoked,omitempty"`
 	Offered       *string `json:"offered,omitempty"`
 
-	JWS    string          `json:"jws,omitempty"`
-	Issuer string          `json:"issuer,omitempty"`
-	Keys   json.RawMessage `json:"keys,omitempty"`
+	JWS    string `json:"jws,omitempty"`
+	Issuer string `json:"issuer,omitempty"`
+	// Keys is a JWK Set as JSON text, like a mandate: its bytes are what some cases are about
+	// (SPEC-v0 section 10.2).
+	Keys string `json:"keys,omitempty"`
 
 	JSONL   *string  `json:"jsonl,omitempty"`
 	Entries []string `json:"entries,omitempty"`

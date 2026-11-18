@@ -29,7 +29,7 @@ has its own repository and versions and builds on Section 11.7 here.
 | `data/forbidden-codepoints-v0.json` | Code points not permitted in text displayed to humans (SPEC-v0 section 3.1 item 8), derived from Unicode 17.0.0 | Apache 2.0 |
 | `ct-sources.md` | Informative list of Certificate Transparency services (SPEC-v0 section 11.7 item 7) | CC BY 4.0 |
 | `pitfalls.md` | Informative list of mistakes implementers make with the libraries of their languages, with the cases that catch them | CC BY 4.0 |
-| `timezone-names.json` | Informative list of the time zone names of one release of the IANA database in the form of SPEC-v0 section 4.2 | Apache 2.0 |
+| `data/timezone-names.json` | Informative list of the time zone names of one release of the IANA database in the form of SPEC-v0 section 4.2 | Apache 2.0 |
 | `data/corrections-v0.json` | Deviations a verifier keeps accepting in existing audit logs (SPEC-v0 section 14) | Apache 2.0 |
 | `examples/` | Example mandates | Apache 2.0 |
 | `conformance/cases-v0.json` | Conformance cases | Apache 2.0 |

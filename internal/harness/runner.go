@@ -43,6 +43,9 @@ type Report struct {
 	Implementation Described               `json:"implementation"`
 	Classes        map[string]*ClassResult `json:"classes"`
 	Failures       []Failure               `json:"failures"`
+	// Unsupported are the optional algorithms the implementation answered unsupported for,
+	// sorted; a claim of conformance names them (SPEC-v0 section 8.1).
+	Unsupported []string `json:"unsupported_algorithms,omitempty"`
 }
 
 // Described is what an implementation says about itself.
@@ -63,6 +66,9 @@ type ClassResult struct {
 	// does not support (SPEC-v0 section 10.2, member requires). They are not in Cases and
 	// do not count against the class.
 	NotApplicable int `json:"not_applicable,omitempty"`
+	// NotApplicableCases are their IDs, in the order they were played (SPEC-v0 section 10.2:
+	// the report lists them).
+	NotApplicableCases []string `json:"not_applicable_cases,omitempty"`
 }
 
 // Failure is one case that did not yield the expected result.
@@ -148,6 +154,11 @@ func (r *runner) recordRequiring(requires, class, file, id string, resp Response
 	c := r.class(class)
 	if requires != "" && err == nil && resp.Error == ErrorUnsupported {
 		c.NotApplicable++
+		c.NotApplicableCases = append(c.NotApplicableCases, id)
+		if !slices.Contains(r.report.Unsupported, requires) {
+			r.report.Unsupported = append(r.report.Unsupported, requires)
+			slices.Sort(r.report.Unsupported)
+		}
 		return
 	}
 	c.Cases++
@@ -418,7 +429,7 @@ func (r *runner) signed() error {
 		if readErr != nil {
 			return fmt.Errorf("conformance: case %s: %w", c.ID, readErr)
 		}
-		resp, doErr := r.impl.Do(Request{Op: OpVerifySigned, ID: c.ID, JWS: c.JWS, Issuer: c.Issuer, Keys: keys})
+		resp, doErr := r.impl.Do(Request{Op: OpVerifySigned, ID: c.ID, JWS: c.JWS, Issuer: c.Issuer, Keys: string(keys)})
 		want := "invalid"
 		if c.Expected == "valid" {
 			want = "valid " + c.Digest
@@ -477,7 +488,7 @@ func (r *runner) auditFile(file string) error {
 			if readErr != nil {
 				return fmt.Errorf("conformance: log %s: %w", c.ID, readErr)
 			}
-			req.Keys = keys
+			req.Keys = string(keys)
 		}
 		if len(c.EntryDigests) > len(c.Entries) {
 			return fmt.Errorf("conformance: log %s has more digests than entries", c.ID)

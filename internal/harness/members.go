@@ -16,14 +16,28 @@ import (
 // repeated member (SPEC-v0 section 10.2). What the protocol carries as raw JSON, such as a key
 // set, is passed on unchecked: its content is what a case is about.
 func exactMembers(line []byte) error {
-	return membersOf(line, reflect.TypeFor[Request]())
+	return membersOf(line, reflect.TypeFor[Request](), false)
+}
+
+// exactResponse checks a response line of the process binding as exactMembers checks a
+// request: a member the protocol does not define, a name in another case or a member that
+// occurs twice fails the case (SPEC-v0 section 10.2).
+func exactResponse(line []byte) error {
+	return membersOf(line, reflect.TypeFor[Response](), false)
+}
+
+// exactNames checks a response of another protocol, such as AuthZEN, that may carry members
+// this tool does not read: those are allowed, but a member it reads must be spelled exactly
+// and occur once.
+func exactNames(raw []byte, t reflect.Type) error {
+	return membersOf(raw, t, true)
 }
 
 var unmarshalerType = reflect.TypeFor[json.Unmarshaler]()
 
 // membersOf reports a member of raw that t does not define or that occurs twice, at any
 // depth. Values of the wrong JSON type are left to the decoder, which reports them.
-func membersOf(raw []byte, t reflect.Type) error {
+func membersOf(raw []byte, t reflect.Type, allowUnknown bool) error {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
@@ -36,12 +50,15 @@ func membersOf(raw []byte, t reflect.Type) error {
 		return eachMember(raw, func(name string, value []byte) error {
 			field, ok := fields[name]
 			if !ok {
+				if allowUnknown && !sameButCase(fields, name) {
+					return nil
+				}
 				return fmt.Errorf("harness: unknown member %q", name)
 			}
-			return membersOf(value, field)
+			return membersOf(value, field, allowUnknown)
 		})
 	case reflect.Map:
-		return eachMember(raw, func(_ string, value []byte) error { return membersOf(value, t.Elem()) })
+		return eachMember(raw, func(_ string, value []byte) error { return membersOf(value, t.Elem(), allowUnknown) })
 	case reflect.Slice:
 		if t.Elem().Kind() == reflect.Uint8 {
 			return nil
@@ -51,7 +68,7 @@ func membersOf(raw []byte, t reflect.Type) error {
 			return nil
 		}
 		for _, item := range items {
-			if err := membersOf(item, t.Elem()); err != nil {
+			if err := membersOf(item, t.Elem(), allowUnknown); err != nil {
 				return err
 			}
 		}
@@ -87,6 +104,17 @@ func eachMember(raw []byte, f func(name string, value []byte) error) error {
 		}
 	}
 	return nil
+}
+
+// sameButCase reports whether name differs from a field's name only in case, which
+// encoding/json would match.
+func sameButCase(fields map[string]reflect.Type, name string) bool {
+	for f := range fields {
+		if strings.EqualFold(f, name) {
+			return true
+		}
+	}
+	return false
 }
 
 // fieldsOf maps the JSON names of a struct's fields to their types.

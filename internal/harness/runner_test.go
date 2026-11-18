@@ -123,7 +123,7 @@ func TestRunDetectsDeviations(t *testing.T) {
 		}, harness.ClassAudit},
 		"does not check checkpoints": {func(req harness.Request, r harness.Response) (harness.Response, error) {
 			if req.Op == harness.OpVerifyAudit && len(req.Keys) > 0 {
-				req.Keys = nil
+				req.Keys = ""
 				return harness.Answer(req), nil
 			}
 			return r, nil
@@ -221,6 +221,12 @@ func TestCasesOfAnOptionalAlgorithmDoNotCount(t *testing.T) {
 		if c := report.Classes[class]; !c.Conforms || c.NotApplicable != notApplicable || c.Skipped != 0 {
 			t.Errorf("%s = %+v, want conforming with %d cases not applicable", class, c, notApplicable)
 		}
+		if c := report.Classes[class]; len(c.NotApplicableCases) != c.NotApplicable {
+			t.Errorf("%s lists %d cases not applicable, counts %d", class, len(c.NotApplicableCases), c.NotApplicable)
+		}
+	}
+	if len(report.Unsupported) != 1 || report.Unsupported[0] != "ES256" {
+		t.Errorf("unsupported algorithms = %v, want [ES256]", report.Unsupported)
 	}
 	report, err = harness.Run(spec.FS(), withoutES256("g01"))
 	if err != nil {

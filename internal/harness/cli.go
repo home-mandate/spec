@@ -128,8 +128,11 @@ func summarize(w io.Writer, report Report, required []string) {
 		}
 		fmt.Fprintf(w, "%-15s %4d cases, %4d passed, %3d failed, %3d skipped: %s\n", name, c.Cases, c.Passed, c.Failed, c.Skipped, verdict)
 		if c.NotApplicable > 0 {
-			fmt.Fprintf(w, "%-15s %4d cases need an optional algorithm the implementation does not support; they do not count\n", "", c.NotApplicable)
+			fmt.Fprintf(w, "%-15s %4d cases need an optional algorithm the implementation does not support; they do not count: %s\n", "", c.NotApplicable, strings.Join(c.NotApplicableCases, " "))
 		}
+	}
+	if len(report.Unsupported) > 0 {
+		fmt.Fprintf(w, "optional algorithms not supported: %s\n", strings.Join(report.Unsupported, ", "))
 	}
 	for _, f := range report.Failures {
 		fmt.Fprintf(w, "FAIL %s %s %s\n     got  %q\n     want %q\n", f.Class, f.File, f.ID, f.Got, f.Want)

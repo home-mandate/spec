@@ -606,7 +606,7 @@ time**: the point in time is converted to the household's time zone.
   without a `/` other than `UTC`, even where the database knows it (as a link in current
   releases: `EST5EDT`, `WET`, `HST`). Some time zone libraries match
   names without regard to case; an implementation that uses one MUST compare the spelling
-  itself (`Europe/BERLIN` is not a name of the database); `timezone-names.json` (informative)
+  itself (`Europe/BERLIN` is not a name of the database); `data/timezone-names.json` (informative)
   lists the names of one release of the database in this form. Names of this form that the
   database defines as links to another zone (such as `US/Eastern`) are permitted.
   The rules of a zone change with the release of the database; implementations SHOULD keep
@@ -1251,7 +1251,9 @@ mandates, each as `mandate_inline` with an optional `revoked`), `subject` (`clie
 `principal` of the request), the request as in `cases-v0.json`, `selected` (the `id` of the
 mandate that is evaluated, or of the revoked mandate the result names, Section 4.3 step 2,
 else `null`) and the expected `expected`, `reason` and optionally
-`rule_id`, `approval_timeout`, `enforced` and `confirm`, as in `cases-v0.json`.
+`rule_id`, `approval_timeout`, `enforced` and `confirm`, as in `cases-v0.json`. A case with
+`"pdp": false` has an invalid stored mandate that a PDP never stores; the class `pdp` leaves it
+out (Section 8.1).
 
 `conformance/succession-v0.json` contains cases for Section 3.5: `stored` and `offered`
 (two valid mandates), optionally `stored_revoked` (the stored mandate is revoked),
@@ -1351,9 +1353,11 @@ the specification as a whole states for each of them how it meets it;
 that offer them as functions; they form no class, and no implementation can claim conformance
 by them in this version.
 
-A claim of conformance names the version (the tag of this repository), the classes and
-the manifest (`conformance/manifest.json`, by its SHA-256). The report of the test tool
-contains all three and can be published. A formal certification program will follow only
+A claim of conformance names the version (the tag of this repository), the classes, the
+manifest (`conformance/manifest.json`, by its SHA-256) and the optional algorithms of
+Section 7.1 the implementation does not support: "conforms to `signatures` without ES256"
+says what "conforms to `signatures`" alone would hide. The report of the test tool contains
+all four and can be published. A formal certification program will follow only
 once the specification is frozen.
 
 ### 8.2 Ways of testing
@@ -1971,9 +1975,10 @@ standard input and writes responses to its standard output: one JSON object per 
 (UTF-8, separated by line feed), one response for every request, in order. It needs no
 network and no server. The harness ends when its input ends.
 
-Mandates, audit entries and logs are passed as JSON **text inside a string**, so that they
-arrive byte for byte (duplicate keys, number spellings and line separators are part of the
-cases).
+Mandates, audit entries, logs and key sets are passed as JSON **text inside a string**, so
+that they arrive byte for byte (duplicate keys, number spellings and line separators are part
+of the cases, for key sets `g97`, `g98` and `g101`): a harness that read them as part of the
+request line would lose what these cases are about.
 
 Bytes that are not UTF-8 cannot travel inside a JSON string, but Section 3.1 item 1 and
 Section 9.4 make them invalid (RFC 7493 section 2.1). For these cases, the members `mandate`
@@ -1996,7 +2001,7 @@ passed for its class, as for an operation it does not offer.
 | `evaluate` | `mandate` or `mandate_base64`, `request` | `decision`, `reason`, `rule_id` if Section 4.1 provides one, `approval_timeout` and `approvers` for `ask` and for a result that requires a confirmation, `mandate_digest` unless absent per Section 4.1, `enforced: false` for a `deny` that is not enforced (Section 4.6), `confirm: true` for one that requires a confirmation |
 | `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate, or of the revoked mandate the result names, Section 4.3) if there is one |
 | `succession` | `stored`, `offered`, optionally `stored_revoked` | `accept`; with `accept`, `confirm: true` if the successor takes effect only after a human confirmed it (Section 3.5) |
-| `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer) | `valid`; `digest` if valid |
+| `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer, as JSON text) | `valid`; `digest` if valid |
 | `verify_audit` | `entries` (array of entry texts), `jsonl` (the exchange format), `entries_base64` or `jsonl_base64`; optionally `keys`, and with them `log_id` and `last_seen` (`{"seq": …, "digest": …}`, Section 9.5 condition 4) | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given; `integrity_broken_at`, `conformance_broken_at` and `unknown_version_at` for each finding there is (Section 9.4); `checkpoint_gap_at` if valid and there is a gap (Section 9.5) |
 | `entry_digest` | `entry` | `digest` |
 
@@ -2016,9 +2021,13 @@ selection, `ambiguous_mandate` and `invalid_mandate` come first), with `selected
 selected; a point in time that is not readable selects only a sole candidate (Section 4.3
 step 3), several candidates cannot be told apart.
 
-A request with a member that this section does not define is malformed and is answered with
-an `error`, so that a former member name (such as `area`) is never evaluated as if it were
-absent. For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
+A request with a member that this section does not define for its operation (`op` and `id`
+are defined for every one) is malformed and is answered with an `error`, so that a former
+member name (such as `area`), or a member of another operation, is never evaluated as if it
+were absent. A response has the members the table names for its operation, or `error`,
+spelled exactly and each once; the test tool reads it as strictly as a harness reads a
+request, and a response with another member, a name in another case (`"Valid"`) or a member
+twice fails the case. For an operation it does not offer, the harness answers `{"error": "unsupported"}`; the
 cases of that operation then count as not passed for their class. Any other `error` is a
 failed case. A `time` that does not follow Section 3.1 item 0, such as an offset of `+24:00`, a
 comma before the fraction, a one-digit hour or the offset `-00:00`, is not readable.
@@ -2080,8 +2089,10 @@ mandates and the directory. A test token given to the tool suffices.
 `mandate-conformance -authzen <url> -control <url>` the HTTP binding. The tool contains the
 cases of its version. Its report (`-report`) is a JSON object with `spec`, `manifest` (the
 SHA-256 of `conformance/manifest.json`), `binding`, `implementation`, per class the number
-of cases passed, failed and skipped and whether the implementation conforms, and the list
-of failed cases with what was expected and what was received. `cmd/mandate-harness` is the
+of cases passed, failed and skipped and whether the implementation conforms, the cases that
+were not applicable (`not_applicable_cases`, Section 10.2) and the optional algorithms the
+implementation does not support (`unsupported_algorithms`), and the list of failed cases with
+what was expected and what was received. `cmd/mandate-harness` is the
 harness of the reference code and an example for implementers; with `-serve-authzen` and a
 loopback address it offers the reference PDP over the HTTP binding, and prints the arguments
 for the tool.
@@ -3110,7 +3121,22 @@ behavior of the people in a household and MUST be protected like the devices the
   accepted now and was rejected under v0.1.x (`g106`, `g107`); signers keep writing the one form
   of Section 7.1, which every release accepts.
 
-  Whoever keeps a key set checks it against these rules before updating. Implementations get new obligations, which Section 14 now allows in a release
+  Whoever keeps a key set checks it against these rules before updating.
+
+  The test interface changed (Section 10), so a harness that passed under v0.1.1 fails cases
+  of v0.2.0 until it follows Section 10.2:
+  - every `verify_audit` answer carries the findings of Section 9.4, and a valid log its
+    `checkpoint_gap_at`; the classes `audit` and `audit-anchored` include `audit-v1.json`, so
+    a verifier of version 0 alone can no longer claim them;
+  - `mandate_base64`, `jsonl_base64` and `entries_base64` carry bytes; `keys` is JSON text in
+    a string; `verify_audit` takes `last_seen`;
+  - member names are compared exactly, a member of another operation is malformed, and the
+    test tool reads responses as strictly;
+  - cases with `requires` are not applicable to an implementation without that algorithm,
+    and the report lists them;
+  - the HTTP binding sends `resource.type`.
+
+  Implementations get new obligations, which Section 14 now allows in a release
   without a new major (bullet **Obligations**): request times are narrower (`-00:00` and the
   year `0000` are not readable), signatures that only a flawed or hostile signer produces are
   rejected (Section 7.1), several SHOULDs became MUSTs, and an implementation that writes audit
@@ -3173,6 +3199,23 @@ behavior of the people in a household and MUST be protected like the devices the
     Cases `v182` to `v211` and `v214` to `v222`: proxies, `auth`, `bound`, `caa_identity`, the
     eight pairs, the version grammar, a checkpoint signed with ES256 and one with an unknown
     `alg`, the cadence, an anchored truncation and the `actor` of relay events.
+- Test interface and documentation before the release:
+  - `keys` travels as JSON text in a string, like a mandate, so that `g97`, `g98` and `g101`
+    reach a harness byte for byte; a member of another operation is malformed; the test tool
+    reads responses as strictly as a harness reads requests; `entry_digest` answers an error
+    for an entry without a digest (Section 10.2).
+  - The report lists the cases that were not applicable and the optional algorithms the
+    implementation does not support, and a claim of conformance names them (Sections 8.1,
+    10.4).
+  - "Upgrading from v0.1.x" lists the changes of the test interface. Two older bullets of this
+    Changelog, on a key off the curve and on the requests of package `jws`, point to the
+    newer ones.
+  - `DECLARATION.md` names the test interface in operation, the control resource, separate
+    keys for mandates and checkpoints, the optional algorithms and the audit versions written.
+    `pitfalls.md` covers reading I-JSON in JavaScript and Python, ES256 signatures in DER and
+    as `r` and `s`, keys off the curve for P-256, and Ruby's `$`.
+  - `timezone-names.json` moved to `data/`, so that the manifest lists it; Section 8 mentions
+    `"pdp": false` of the selection cases.
 - Go API before the tag:
   - `ratelimit.AllowN` counts a request for several resources all or nothing (Section 11.2);
     `Restore` takes the limit and keeps at most that many times, and expired keys are swept
@@ -3326,9 +3369,10 @@ behavior of the people in a household and MUST be protected like the devices the
     checkpoints with `none`, `crit`, the higher `s` and unused bits (`a239` to `a242`).
   - Section 7.1 gains three rules, all already followed by the Go reference except the
     first: an Ed25519 signature whose `R` is of small order is rejected (`g49`); a `kid`
-    repeats in no key set; a key set with a key of another type or curve, or off the curve,
-    verifies nothing (`g70`, `g71`, `g74`), where RFC 7517 section 5 would let a reader skip
-    it. A key of mixed order is a key; the equation without the cofactor decides, and a
+    repeats in no key set; a key set with a key of another type or curve verifies nothing
+    (`g70`, `g71`), where RFC 7517 section 5 would let a reader skip it. (A key off the curve
+    did so at first; it now verifies nothing itself and leaves its key set usable, `g74`,
+    `g99`, `g100`, see "Signatures and key sets" above.) A key of mixed order is a key; the equation without the cofactor decides, and a
     verifier MUST use it (`g45`, `g46`). For users of the Go packages: `jws` rejects an `R`
     of small order and checks that `R` is canonically encoded before the equation.
 
@@ -3493,8 +3537,9 @@ behavior of the people in a household and MUST be protected like the devices the
 - The Relay Specification (`RELAY-v0.md` and `relay/`, a draft that was never part of a
   release) moved to its own repository, home-mandate/relay-spec, with its own versions. The
   Go package `github.com/home-mandate/spec/relay` is now `github.com/home-mandate/relay-spec`.
-  The cases of Certificate Transparency monitoring (`conformance/ct-v0.json`) and the requests
-  of package `jws` stay here.
+  The cases of Certificate Transparency monitoring (`conformance/ct-v0.json`) stay here. (The
+  requests of package `jws` stayed at first and moved to home-mandate/relay-spec later, see
+  "Go packages" above.)
 
 ### v0.1.1 (2026-11-04)
 

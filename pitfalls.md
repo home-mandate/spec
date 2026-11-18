@@ -10,8 +10,9 @@ SPEC-v0.md decides.
 
 In Python, `$` in a regular expression also matches before a line feed at the end of the string,
 so `re.match(r"^[a-z0-9-]+$", "r-1\n")` succeeds. The patterns of the schemas apply to the whole
-string: use `re.fullmatch`, or end the pattern with `\Z`. Perl, PCRE and Ruby behave alike by
-default; JavaScript without the `m` flag and Go do not.
+string: use `re.fullmatch`, or end the pattern with `\Z`. Perl and PCRE behave alike by default.
+Ruby is worse: its `$` matches at the end of every line, so `"r-1\nX" =~ /^[a-z0-9-]+$/` matches
+too; use `\A` and `\z`. JavaScript without the `m` flag and Go do not.
 
 Cases: `i37` to `i42`.
 
@@ -57,7 +58,7 @@ Cases: `g13` to `g15`, `g31`, `g51` to `g54`, `a242`.
 
 `Europe/BERLIN` is not a name of the time zone database, but `Intl.DateTimeFormat` in JavaScript
 accepts it and returns `Europe/Berlin`, and Python's `zoneinfo` finds it on a file system that
-ignores case (macOS, Windows). Compare the spelling yourself. `timezone-names.json` lists the
+ignores case (macOS, Windows). Compare the spelling yourself. `data/timezone-names.json` lists the
 names of one release of the database in the form of Section 4.2, for a runtime without an exact
 list of its own.
 
@@ -68,8 +69,10 @@ Cases: `c132`.
 Libraries accept different Ed25519 signatures and keys, and the same library can change between
 patch versions:
 
-- most libraries import a public key that is not on the curve without complaint; such a key
-  verifies nothing;
+- most libraries import an Ed25519 public key that is not on the curve without complaint; such a
+  key verifies nothing. A P-256 key off the curve is different: Node and Python's
+  `cryptography` refuse it when it is imported, so a reader of a key set catches that error for
+  each key and keeps the set usable (Section 7.1, `g74`, `g100`);
 - some reject a signature whose `R` is of small order and some accept it; OpenSSL has done both;
 - libraries that follow ZIP 215 verify with the cofactor and accept signatures that a verifier
   without the cofactor rejects.
@@ -115,3 +118,28 @@ item 1 and MUST NOT apply IDNA. Node, Python and browsers offer IDNA (`url.domai
 is at hand, RFC 3492 takes about sixty lines. Valid here means only the one form: a label that
 survives the round trip can still be one that IDNA refuses and that no resolver will find. Cases: `o26`, `o39` to `o44`, and the public
 origins in `audit-v1.json`.
+
+## Reading I-JSON in JavaScript and Python
+
+The parsers of both languages accept more than I-JSON (Section 3.1 item 1), and a verifier that
+uses them alone gives other verdicts than the cases:
+
+- **Duplicate names:** `JSON.parse` and Python's `json.loads` keep the last of a repeated member.
+  Use `object_pairs_hook` in Python, or a reader that sees every member, as spec-ts does.
+- **Exact values of numbers:** both read numbers as binary floating point, so
+  `50.00000000000000000001` becomes `50` and `1e-400` becomes `0`. Section 3.2 canonicalizes a
+  number by its exact value; read numbers as text first (`parse_float=decimal.Decimal`, or the
+  `reviver` with its source text where the runtime offers it).
+- **A lone surrogate:** both accept `"\ud800"`. I-JSON does not.
+- **`NaN` and `Infinity`:** Python accepts them unless `parse_constant` refuses them.
+- **Bytes:** Python's `json.loads(bytes)` guesses UTF-16 or UTF-32 from the first bytes; decode
+  as UTF-8 yourself, strictly, and refuse a byte order mark. Cases: `i176` to `i190`.
+
+## ES256 signatures
+
+A JWS carries an ES256 signature as `r` and `s`, 32 octets each, one after the other (RFC 7518
+section 3.4), not in DER. Python's `cryptography` signs and verifies DER: convert with
+`encode_dss_signature` and `decode_dss_signature`. Node needs `dsaEncoding: "ieee-p1363"`.
+Check that `r` and `s` lie in 1 to n − 1 and that `s` is the lower of its two values before
+calling the library (Section 7.1, `g66` to `g73`).
+
