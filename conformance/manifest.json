@@ -3,13 +3,13 @@
   "files": [
     {
       "path": "conformance/audit-v0.json",
-      "sha256": "9df2bcc7d27f8e07c5a408423845791179cb386e3dca19c65bca50457910d81d",
+      "sha256": "3fc086792df62efbd86d043f18f4e4cb714e33e06468452f0adc528ec44a1fee",
       "cases": 247
     },
     {
       "path": "conformance/audit-v1.json",
-      "sha256": "86e21254e2b68f4815c698dd4b81131f3832b1026138d208541e9a6cd789fd83",
-      "cases": 128
+      "sha256": "e3e4797358a9c7f747137c39e6f08f1e42618997eb40b6bde68c40027cc16227",
+      "cases": 129
     },
     {
       "path": "conformance/cases-v0.json",
@@ -18,7 +18,7 @@
     },
     {
       "path": "conformance/ct-v0.json",
-      "sha256": "bf784214ba0453e40ae715bb46963a015451809f6d0419c4e7a6aff447f59214",
+      "sha256": "4cc30c71ebd7d2617cb084780571eba101c484ea8293a31c0198063b04c295ab",
       "cases": 51
     },
     {
