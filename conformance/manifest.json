@@ -8,13 +8,13 @@
     },
     {
       "path": "conformance/audit-v1.json",
-      "sha256": "2fbdd125fb6a99a151504bf2ab5ff59de5f291161f32fd490cf12d0c64dbcd85",
-      "cases": 133
+      "sha256": "8e728019af74ff04f7f317458c448678f25251834e3183afabf6818e5406ce7a",
+      "cases": 134
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "df1684ae3daeaa3a3c11729ed7b7ea81cbd6019e2f141a109e666da3a1e2d485",
-      "cases": 300
+      "sha256": "42048316a487a70821d637cb5a6a06e9a06cf8155adf5912113266881abce1c6",
+      "cases": 312
     },
     {
       "path": "conformance/ct-v0.json",
@@ -28,8 +28,8 @@
     },
     {
       "path": "conformance/invalid-v0.json",
-      "sha256": "5874984affe35ee3831a71856c5485555217564a644c3774f5fddbdf4626af3e",
-      "cases": 645
+      "sha256": "1daa0a82544048eae9a0b7acd6580cda8eda1fc59072268c300643726a3e15d2",
+      "cases": 662
     },
     {
       "path": "conformance/keys/alg-ed25519.json",
@@ -354,7 +354,7 @@
     },
     {
       "path": "conformance/schema/cases-v0.schema.json",
-      "sha256": "d50afba62e3396b149eabfaf89228a5258fbe4af6dc70d4eed4658cac000c5a0"
+      "sha256": "9305e64a4a74f9802ebe5d1025359bdac2bb00c9dfa7a69038a3becb4e757f27"
     },
     {
       "path": "conformance/schema/ct-v0.schema.json",
@@ -400,8 +400,8 @@
     },
     {
       "path": "conformance/succession-v0.json",
-      "sha256": "a2d6703c32b6ceec768b5bf491add786651fe4f70b69876638101f19537c8d21",
-      "cases": 31
+      "sha256": "cecd3ccb31407f377d7f1b959a9fb92108fccba5727cdc2300227fd089d0085e",
+      "cases": 32
     },
     {
       "path": "data/corrections-v0.json",
@@ -437,7 +437,7 @@
     },
     {
       "path": "schema/mandate-v0.schema.json",
-      "sha256": "13fde1e4bd3308c883f2c2eabced58db1d13f27e2545211040fe7b6b32f266eb"
+      "sha256": "3a69fb94fcad040eaf152845aa114d73786d4f602b205cf7656b54248e6fd6a8"
     },
     {
       "path": "schema/vocabulary-v0.schema.json",

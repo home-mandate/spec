@@ -32,6 +32,7 @@ implementation as a whole follows the specification does.
 |---|---|
 | 6 | If PEP and PDP are separate: exactly one holds the directory and both know which; the connection is authenticated in both directions and protected against modification and replay; the PDP answers only callers it authenticated, never agents, and only for the principals it serves for that caller |
 | 6 | A PEP obtains a confirmation for `outcome: ask` and for `confirm: true`, and executes only after a positive one |
+| 6, 11.2 | If PEP and PDP are separate: the PDP enforces N, the limits of the rules and the limit without a mandate, counts a request when it answers it and keeps the counts across a restart, and answers a denial with `decision: false` and `denied_by`; the PEP never executes a response with `denied_by` and records it with `denied_by: rate_limit` |
 | 7.1 | Configure the keys of an issuer before any mandate is verified, never fetch them from a location a mandate names; decide per issuer for which principals and agents it may issue ; never accept a key trusted for one household for another |
 | 7.1 | Remember by which `kid` each stored mandate was accepted; when a key stops being trusted, every mandate accepted only by it loses its effect or is confirmed again by a human |
 | 7.1 | Record every issuer and key that is trusted, untrusted, added or removed (`issuer.changed`); a key whose bytes change under its `kid` is removed and added |
@@ -54,7 +55,7 @@ implementation as a whole follows the specification does.
 | Section | Obligation |
 |---|---|
 | 11.1 | Every item of Section 11.1: how confirmations are requested, bound, answered and checked |
-| 11.1, 11.2 | The rate limit, counted across restarts, and the limits on waiting approval requests, for each agent and for all agents together |
+| 11.1, 11.2 | The rate limit, counted across restarts, and the limits on waiting approval requests, for each agent and for all agents together; the limits of the rules after an evaluation that allowed, for every rule `limited_rules` names, counted across restarts |
 | 11.3 | Revocation, emergency stop, removal and reconnection, and what each withdraws |
 | 11.4 | The clock rules: the reference time from the log, the last checkpoint and a mark kept outside the log, in the PEP and in a PDP with its own clock; a clock that never runs backwards for timeouts, the rate limit and DPoP proofs; the handling of the directory, renamed resources included |
 | 11.5 | What the agent is told of its limits, if anything |

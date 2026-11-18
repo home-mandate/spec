@@ -122,6 +122,9 @@ type Response struct {
 	// takes effect only after a human confirmed it (succession, SPEC-v0 section 3.5).
 	Confirm  bool    `json:"confirm,omitempty"`
 	Selected *string `json:"selected,omitempty"`
+	// LimitedRules are the matching allow rules with limits of their own, in document order
+	// (SPEC-v0 section 4.1); absent if there are none.
+	LimitedRules []string `json:"limited_rules,omitempty"`
 
 	// succession
 	Accept *bool `json:"accept,omitempty"`

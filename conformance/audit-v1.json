@@ -4680,6 +4680,14 @@
       "entries": [
         {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-sensors"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000b2330001", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:00:01Z", "request": {"action": "read", "group": "0198f1c2-7c3a-7000-8000-0000000002a1", "resource": {"category": "sensor", "entity_id": "sensor.hallway_temperature"}, "time": "2026-11-18T10:00:01Z"}, "result": {"count": 3, "status": "executed"}, "seq": 1, "type": "https://home-mandate.org/audit/v1"}
       ]
+    },
+    {
+      "id": "v234",
+      "why": "the evaluation allowed, the limit of a matching rule denied: the entry keeps the evaluation, denied_by rate_limit, RECOMMENDED error rule_limit (SPEC-v0 section 11.2)",
+      "expected": "valid",
+      "entries": [
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-unlock"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b2341", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T21:31:00+01:00", "request": {"action": "unlock", "resource": {"category": "lock", "critical": true, "entity_id": "lock.front_door"}, "time": "2026-11-16T21:30:00+01:00", "timezone": "Europe/Berlin"}, "result": {"denied_by": "rate_limit", "error": "rule_limit", "status": "denied"}, "seq": 1, "type": "https://home-mandate.org/audit/v1"}
+      ]
     }
   ]
 }

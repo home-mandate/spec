@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/fs"
+	"slices"
 	"testing"
 
 	"github.com/home-mandate/spec"
@@ -61,7 +62,10 @@ type conformanceCase struct {
 	ApprovalTimeout string                     `json:"approval_timeout"`
 	Enforced        *bool                      `json:"enforced"`
 	Confirm         bool                       `json:"confirm"`
-	Why             string                     `json:"why"`
+	// LimitedRules are the matching allow rules with limits of their own (SPEC-v0 section
+	// 4.1); a case without the member expects none.
+	LimitedRules []string `json:"limited_rules"`
+	Why          string   `json:"why"`
 }
 
 func loadCases[T any](t *testing.T, path, key string) []T {
@@ -170,6 +174,9 @@ func assertResult(t *testing.T, c conformanceCase, m *evaluator.Mandate, got eva
 	}
 	if got.Confirm != c.Confirm {
 		t.Errorf("confirm = %t, want %t (%s)", got.Confirm, c.Confirm, c.Why)
+	}
+	if !slices.Equal(got.LimitedRules, c.LimitedRules) && len(got.LimitedRules)+len(c.LimitedRules) > 0 {
+		t.Errorf("limited rules = %q, want %q (%s)", got.LimitedRules, c.LimitedRules, c.Why)
 	}
 }
 

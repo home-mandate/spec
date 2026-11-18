@@ -95,8 +95,9 @@ type ReferencePDP struct {
 	// requests are served.
 	Mutate func(*evaluator.Result)
 
-	mu    sync.Mutex
-	state State
+	mu     sync.Mutex
+	state  State
+	limits *pdpLimits
 }
 
 // Handler serves the control resource and the AuthZEN API.
@@ -113,7 +114,7 @@ func (p *ReferencePDP) Handler() http.Handler {
 			return
 		}
 		p.mu.Lock()
-		p.state = state
+		p.state, p.limits = state, newPDPLimits(state.Time)
 		p.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -139,7 +140,11 @@ func (p *ReferencePDP) Handler() http.Handler {
 			return
 		}
 		p.mu.Lock()
-		state := p.state
+		state, limits := p.state, p.limits
+		if limits == nil {
+			limits = newPDPLimits(state.Time)
+			p.limits = limits
+		}
 		p.mu.Unlock()
 		// The PDP takes category, areas and the critical marking from its directory.
 		resource := Resource{EntityID: req.Resource.ID}
@@ -148,8 +153,8 @@ func (p *ReferencePDP) Handler() http.Handler {
 				resource = known
 			}
 		}
-		answer := Answer(Request{Op: OpSelect, Mandates: state.Mandates,
-			Subject: &Subject{ClientID: req.Subject.ID, Principal: req.Subject.Properties["principal"]},
+		subject := Subject{ClientID: req.Subject.ID, Principal: req.Subject.Properties["principal"]}
+		answer := Answer(Request{Op: OpSelect, Mandates: state.Mandates, Subject: &subject,
 			Request: &Evaluation{Resource: resource, Action: req.Action.Name, Parameters: req.Action.Properties,
 				Time: state.Time, Timezone: state.Timezone}})
 		result := evaluator.Result{Decision: evaluator.Decision(answer.Decision), Reason: evaluator.Reason(answer.Reason)}
@@ -180,8 +185,21 @@ func (p *ReferencePDP) Handler() http.Handler {
 		if answer.Selected != nil {
 			context["mandate_id"] = *answer.Selected
 		}
+		decision := result.Decision == evaluator.Allow
+		// A PDP apart from its PEP enforces the rate limits (SPEC-v0 sections 6 and 11.2).
+		switch limits.check(state, subject, answer) {
+		case deniedBeforeEvaluation:
+			context = map[string]any{"denied_by": "rate_limit"}
+			if answer.Selected != nil && ownLimit(state, answer) != nil {
+				context["mandate_id"], context["mandate_digest"] = *answer.Selected, answer.MandateDigest
+			}
+			decision = false
+		case deniedAfterEvaluation:
+			context["denied_by"] = "rate_limit"
+			decision = false
+		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"decision": result.Decision == evaluator.Allow, "context": context})
+		_ = json.NewEncoder(w).Encode(map[string]any{"decision": decision, "context": context})
 	})
 	return loopbackHost(mux)
 }

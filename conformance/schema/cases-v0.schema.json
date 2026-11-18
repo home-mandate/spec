@@ -126,6 +126,12 @@
             "type": "boolean",
             "description": "true: the result is a deny that is not enforced and requires a confirmation (audit mode, SPEC-v0 sections 4.1 and 4.6); absent or false: it requires none."
           },
+          "limited_rules": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+            "description": "The ids of the matching allow rules that carry limits of their own, in document order, for an allow (SPEC-v0 sections 4.1 and 11.2); absent or empty: none."
+          },
           "why": {
             "type": "string"
           },

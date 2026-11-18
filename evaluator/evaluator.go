@@ -134,6 +134,9 @@ type Result struct {
 	// Ask: the PEP executes it only after a confirmation, as an Ask, with the approval
 	// settings in Approval (SPEC-v0 sections 4.1 and 4.6).
 	Confirm bool
+	// LimitedRules are the ids of the matching allow rules that carry limits of their own, in
+	// document order, for an Allow only; nil otherwise (SPEC-v0 sections 4.1 and 11.2).
+	LimitedRules []string
 }
 
 // Evaluate evaluates req against m according to SPEC-v0 section 4. The result contains
@@ -150,6 +153,9 @@ func Evaluate(m *Mandate, req Request) Result {
 	matched := matchingRules(m, req, local)
 	if len(matched) > 0 {
 		result = decide(m, matched, critical)
+	}
+	if result.Decision == Allow {
+		result.LimitedRules = limitedRules(matched)
 	}
 	// Audit mode (section 4.6): only a deny by the rules, never one of a critical action.
 	result.NotEnforced = m.auditMode && result.Decision == Deny && !critical
@@ -306,6 +312,18 @@ func decide(m *Mandate, matched []*rule, critical bool) Result {
 		}
 	}
 	return result
+}
+
+// limitedRules returns the ids of the matching rules that carry limits of their own, in
+// document order (SPEC-v0 section 4.1); for an allow every matching rule is an allow rule.
+func limitedRules(matched []*rule) []string {
+	var ids []string
+	for _, r := range matched {
+		if r.limits != nil {
+			ids = append(ids, r.id)
+		}
+	}
+	return ids
 }
 
 // strictness orders decisions according to step 4; anything other than allow and ask counts as deny.
