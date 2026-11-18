@@ -89,14 +89,19 @@ func looksLikeANumber(last string) bool {
 	return ok && strings.Trim(hex, "0123456789abcdef") == ""
 }
 
+// firstNonControl is U+00A0, the first code point after the C1 controls.
+const firstNonControl = 0xa0
+
 // roundTrips reports whether a label that begins with xn-- decodes with Punycode (RFC 3492)
-// to a label with a character outside ASCII, and encodes back to itself. Other labels pass.
+// to a label with a character outside ASCII and none from U+0080 to U+009F, and encodes back
+// to itself. Other labels pass.
 func roundTrips(l string) bool {
 	if !strings.HasPrefix(l, "xn--") {
 		return true
 	}
 	u, err := idna.Punycode.ToUnicode(l)
-	if err != nil || !strings.ContainsFunc(u, func(r rune) bool { return r > 0x7f }) {
+	if err != nil || !strings.ContainsFunc(u, func(r rune) bool { return r > 0x7f }) ||
+		strings.ContainsFunc(u, func(r rune) bool { return r > 0x7f && r < firstNonControl }) {
 		return false
 	}
 	back, err := idna.Punycode.ToASCII(u)

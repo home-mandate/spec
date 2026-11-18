@@ -93,7 +93,7 @@ Section 7.1 (signed mandates) and Section 9.5 (checkpoints, detached payload).
 |---|---|
 | 3.1 and 7.1 compact serialization | Narrower: the only serialization. Not testable otherwise: the test interface passes a string, and JSON serialization has no field to arrive in |
 | 2 base64url without padding, line breaks or other characters | Cases: `g13`, `g14`, `g15`, `g31`; one spelling, unused bits zero (RFC 4648 section 3.5): `g51` to `g54`, `a242` |
-| 4 protected header is I-JSON | Cases: `g55` |
+| 4 protected header is I-JSON | Cases: `g55`. Read as JSON: members in either order with white space, names and values compared after their escapes are resolved: `g106`, `g107` |
 | 4 and 4.1 header members; the names are case-sensitive | Narrower: exactly `alg` and `kid`. Cases: `g16`, `g17`, `g62` (`jwk`); checkpoints: `a240` |
 | 4.1.1 `alg`, compared exactly | Cases: `g06`, `g20`, `g75` (`eddsa`); checkpoints: `a239` |
 | 4.1.2 to 4.1.7 `jku`, `jwk`, `kid`, `x5u`, `x5c`, `x5t` and key selection | Narrower: keys never come from the object (Section 7.1). Cases: `g62` (`jwk`); the other members are refused like `typ`: `g17`. `kid`: `g11`, `g56` to `g58` |
@@ -112,7 +112,7 @@ Section 7.1 (signed mandates) and Section 9.5 (checkpoints, detached payload).
 | 4.1 `kty` | Cases: `g29`, `g70` |
 | 4.2 `use` | Cases: `g37`, `g38` |
 | 4.3 `key_ops` | Cases: `g39`, `g40` |
-| 4.4 `alg` | Cases: `g41`, `g42` |
+| 4.4 `alg` | Cases: `g41`, `g42`; `Ed25519`, the fully specified name of RFC 9864, on an Ed25519 key: `g103` |
 | 4.5 `kid`; keys in a set SHOULD have distinct `kid` values | Narrower: every key has a `kid` of the pattern, a `kid` repeats in no key set, and a set that breaks this verifies nothing. Cases: `g59`, `g60`; the pattern: `g57`, `g58`, next to the signing key `g91`, `g92`; no `kid` or one that is not a string: `g93`, `g94` |
 | 5 a JWK Set has a `keys` member | Cases: `g27`, `g30` |
 | 5 readers SHOULD skip keys they cannot use | Not followed: a set with such a key verifies nothing, so that a verifier never trusts less or more than the household configured (Section 7.1). Cases: `g38`, `g40`, `g42`, `g63` to `g65`, `g70`; next to the signing key, one case for each kind of key: `g76` to `g96`. Followed for a key whose point is not on its curve, which verifies nothing and so changes no verdict: `g71`, `g74`, `g99`, `g100` |
@@ -149,7 +149,7 @@ Section 7.1 (signed mandates) and Section 9.5 (checkpoints, detached payload).
 | 5.1.3 decoding: x = 0 with the sign bit set | Cases: those encodings are in the list of Section 7.1 and rejected as keys of small order (`g34` shows the list at work) |
 | 5.1.7 S < L | Cases: `g19` |
 | 5.1.7 signature of 64 octets | Cases: `g61` |
-| 5.1.7 the cofactored equation is sufficient, the cofactorless one MAY be used | Narrower: cofactorless only, a MUST (Section 7.1). Cases where only the cofactored equation holds: `g46`, `g47` (only that), `g48` (also an R of small order) |
+| 5.1.7 the cofactored equation is sufficient, the cofactorless one MAY be used | Narrower: cofactorless only, a MUST (Section 7.1), with `k` reduced modulo L (`g45`). Cases where only the cofactored equation holds: `g46`, `g47` (only that), `g48` (also an R of small order) |
 | keys of small order | Narrower: rejected (Section 7.1). Cases: `g34`, `g35`, `g50` |
 | keys of mixed order | Followed: they are keys, the cofactorless equation decides. Cases: `g45` (verifies), `g46` (does not) |
 | R of small order | Narrower: rejected even where the equation holds (Section 7.1). Cases: `g49`, `g48` |

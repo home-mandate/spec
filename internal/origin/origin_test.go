@@ -179,7 +179,9 @@ func TestValidAtTheEdges(t *testing.T) {
 		"https://" + label63 + "a.z": false,
 		"https://" + host253:         true,
 		"https://" + host253 + "b":   false,
-		"https://xn--a.example":      true, // decodes to U+0080, outside ASCII
+		"https://xn--a.example":      false, // U+0080, a C1 control
+		"https://xn--5a.example":     false, // U+009F, the last C1 control
+		"https://xn--6a.example":     true,  // U+00A0, the first code point after them
 		"https://h`.example":         false,
 		"https://h{.example":         false,
 		"https://h/.example":         false,

@@ -1097,7 +1097,8 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
   specification reads, `x` and `y` of a key included. The JSON of the header is read as JSON:
   its members may stand in either order with white space between them, and their names and
   values are compared after their escapes are resolved (`"\u0061lg"` is `alg`); the signature
-  covers the header's bytes as they are. The names of the header members are case-sensitive; of the two values of `s` that verify for an ES256
+  covers the header's bytes as they are. A signer writes the header as `{"alg":…,"kid":…}`, in
+  this order, without white space and without escapes: verifiers of v0.1.x accept only that. The names of the header members are case-sensitive; of the two values of `s` that verify for an ES256
   signature, only the lower one (`s` ≤ n/2) is accepted, and signers produce it; and for
   EdDSA, `S` is less than the group order `L`, and `R` and the public key are canonically
   encoded (RFC 8032 sections 5.1.3 and 5.1.7; here: the encoded y-coordinate is less than
@@ -2537,7 +2538,9 @@ from outside under an address alone.
    not `0x` followed by hexadecimal digits only, so that no URL parser reads the host as an IPv4
    address (WHATWG URL, "ends in a number": `https://a.0x7f000001` is not a public origin). A
    label that begins with `xn--` decodes with Punycode (RFC 3492) to a label with a character
-   outside ASCII, and encoding that label gives the same `xn--` label back; an implementation MAY
+   outside ASCII and none below U+00A0, and encoding that label gives the same `xn--` label back;
+   a label that keeps this rule can still be one that IDNA refuses and no resolver finds, so the
+   one form says nothing about whether the origin can be reached; an implementation MAY
    in addition check a public origin it is configured with against IDNA (UTS 46, RFC 5891) and
    refuse it if IDNA lookup does not map it to itself. A verifier of an audit log MUST NOT apply
    IDNA (Section 9.4): two verifiers would otherwise disagree about the same entry. An IP address is not a public origin. An implementation has exactly
@@ -2971,7 +2974,9 @@ behavior of the people in a household and MUST be protected like the devices the
   (Section 7.1) MAY therefore change in a minor release, in either direction, even where a
   signature or a checkpoint verified with a key set under an earlier release changes its
   verdict. The Changelog lists every such change under "Upgrading", so that whoever keeps a
-  key set can check it before updating.
+  key set can check it before updating. The key set is part of the input of a verification: a
+  relying party that verifies old logs or mandates again keeps a key set that the release it
+  uses accepts, and a verdict names the release and the key set it was reached with.
 - **Audit versions.** A reader of an audit log never skips what it does not know: an
   implementation could otherwise write anything into a log and a verifier would let it pass.
   So every addition to the audit entry (a new event, a new member, a new value of a member)
@@ -3093,6 +3098,10 @@ behavior of the people in a household and MUST be protected like the devices the
   - usable now: a key set with a key whose point is not on its curve, which verifies nothing
     itself.
 
+  A signed mandate whose header has its members in the other order, white space or escapes is
+  accepted now and was rejected under v0.1.x (`g106`, `g107`); signers keep writing the one form
+  of Section 7.1, which every release accepts.
+
   Whoever keeps a key set checks it against these rules before updating. Implementations get new obligations, which Section 14 now allows in a release
   without a new major (bullet **Obligations**): request times are narrower (`-00:00` and the
   year `0000` are not readable), signatures that only a flawed or hostile signer produces are
@@ -3166,9 +3175,10 @@ behavior of the people in a household and MUST be protected like the devices the
     `g103`). A key set with a noncharacter verifies nothing, as I-JSON requires (`g102`). A
     well-formed P-256 key for a verifier without ES256 keeps every rule but the curve point
     (`g104`). A key set of exactly 65 536 bytes is usable (`g105`).
-  - A log verifier MUST NOT apply IDNA to a public origin, only the Punycode round trip (`o26`,
-    `v212`, `v213`); the last label of a public origin contains a letter and is not `0x`
-    followed by hexadecimal digits (`o39` to `o43`).
+  - A log verifier MUST NOT apply IDNA to a public origin, only the Punycode round trip, which
+    now also refuses a decoded C1 control (`o26`, `o44`, `v212`, `v213`); the last label of a
+    public origin contains a letter and is not `0x` followed by hexadecimal digits (`o39` to
+    `o43`).
   - `ct-v0.json` gives a certificate's time also by its earliest SCT or by when it was first
     seen (`t50` to `t52`).
 - Signatures and key sets (Section 7.1):
@@ -3241,7 +3251,8 @@ behavior of the people in a household and MUST be protected like the devices the
   cadence, without making the log invalid (Section 10.2; `v167` to `v169`).
 - Section 11.7: reachable from outside includes a forwarded port to an IP address, and an
   installation under an address alone is not offered; an `xn--` label must round-trip through
-  Punycode, and IDNA lookup is an option, not a requirement (`o03`, `o25`, `o26` unchanged);
+  Punycode, and IDNA lookup is an option for a configured value, never for a log verifier
+  (`o03`, `o25`, `o26`, and the bullet on the public origin below);
   the limits of 253 and 63 bytes are stated. Certificate Transparency behind the household's
   own proxy: a key the administrator configures or confirms, an
   acknowledgement by public key, the time of the first log entry from a source, from the
