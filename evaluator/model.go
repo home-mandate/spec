@@ -135,35 +135,74 @@ type rule struct {
 	approval      *Approval
 	allowCritical bool
 	constraints   []constraint
+	// period is the rule's own validity (SPEC-v0 section 4, step 2); the zero value has no
+	// bounds.
+	period period
+	// dates are the ranges of calendar dates of conditions.dates (SPEC-v0 section 4.2); nil
+	// means no condition.
+	dates []dateRange
 }
 
-// constraint restricts one parameter of the action (SPEC-v0 section 4.5): either an
-// integer range, where a limit that the rule does not give is the smallest or largest
-// int64, or, if oneOf is not nil, the permitted values.
+// period is a validity period: valid for points in time t with from ≤ t < until, where a
+// bound that is not set does not restrict.
+type period struct {
+	from, until       time.Time
+	hasFrom, hasUntil bool
+}
+
+// contains reports whether t lies in the period. Points in time are compared, not clock times.
+func (p period) contains(t time.Time) bool {
+	return (!p.hasFrom || !t.Before(p.from)) && (!p.hasUntil || t.Before(p.until))
+}
+
+// dateRange is a range of calendar dates, both inclusive, as YYYY-MM-DD; the text form
+// orders like the dates.
+type dateRange struct {
+	from, to string
+}
+
+// constraint restricts one parameter of the action (SPEC-v0 section 4.5): an integer
+// range, where a limit that the rule does not give is the smallest or largest int64; if
+// oneOf is not nil, the permitted values; if noneOf is not nil, the excluded values.
 type constraint struct {
 	parameter string
 	min, max  int64
 	oneOf     []Value
+	noneOf    []Value
 }
 
-// permits reports whether v satisfies the constraint. A range permits only integers, and
-// a list only the values it contains, compared exactly.
+// permits reports whether v satisfies the constraint. A range permits only integers, a
+// list of permitted values only the values it contains, compared exactly, and a list of
+// excluded values only values of its type that it does not contain: an integer never
+// satisfies a list of strings, so a list that does not fit the parameter permits nothing.
 func (c constraint) permits(v Value) bool {
-	if c.oneOf != nil {
+	switch {
+	case c.oneOf != nil:
 		return slices.Contains(c.oneOf, v)
+	case c.noneOf != nil:
+		return v.kind == c.noneOf[0].kind && !slices.Contains(c.noneOf, v)
 	}
 	n, ok := v.AsInteger()
 	return ok && n >= c.min && n <= c.max
+}
+
+// values returns the list of the constraint, permitted or excluded; nil for a range.
+func (c constraint) values() []Value {
+	if c.oneOf != nil {
+		return c.oneOf
+	}
+	return c.noneOf
 }
 
 // fits reports whether the constraint fits the parameter's declaration in the vocabulary
 // (SPEC-v0 section 3.1 item 10): a range only an integer parameter, a list only values the
 // parameter admits.
 func (c constraint) fits(p parameterInfo) bool {
-	if c.oneOf == nil {
+	list := c.values()
+	if list == nil {
 		return p.Type == typeInteger
 	}
-	for _, v := range c.oneOf {
+	for _, v := range list {
 		if !p.declares(v) {
 			return false
 		}
@@ -188,9 +227,15 @@ type rawRule struct {
 	Actions    []string `json:"actions"`
 	Decision   string   `json:"decision"`
 	Note       string   `json:"note"`
+	ValidFrom  string   `json:"valid_from"`
+	Expires    string   `json:"expires"`
 	Conditions *struct {
 		TimeWindow string   `json:"time_window"`
 		Weekdays   []string `json:"weekdays"`
+		Dates      []struct {
+			From string `json:"from"`
+			To   string `json:"to"`
+		} `json:"dates"`
 	} `json:"conditions"`
 	Constraints   map[string]rawConstraint `json:"constraints"`
 	Approval      *rawApproval             `json:"approval"`
@@ -198,9 +243,10 @@ type rawRule struct {
 }
 
 type rawConstraint struct {
-	Min   *json.Number      `json:"min"`
-	Max   *json.Number      `json:"max"`
-	OneOf []json.RawMessage `json:"one_of"`
+	Min    *json.Number      `json:"min"`
+	Max    *json.Number      `json:"max"`
+	OneOf  []json.RawMessage `json:"one_of"`
+	NoneOf []json.RawMessage `json:"none_of"`
 }
 
 type rawMandate struct {
@@ -370,6 +416,9 @@ func buildRule(rr rawRule) (rule, error) {
 		}
 		r.approval = &a
 	}
+	if err := r.setPeriod(rr); err != nil {
+		return rule{}, err
+	}
 	if err := r.setConditions(rr); err != nil {
 		return rule{}, err
 	}
@@ -405,23 +454,31 @@ func (r *rule) setConstraints(rr rawRule) error {
 	return nil
 }
 
-// maxOneOf is the largest number of values in a one_of (SPEC-v0 section 4.5).
-const maxOneOf = 32
+// maxValueList is the largest number of values in a one_of or none_of (SPEC-v0 section 4.5).
+const maxValueList = 32
 
-// buildConstraint reads one constraint: a list of permitted values, or limits. It checks
-// a list itself, although the schema already does, so that no caller gets a list that
-// contradicts SPEC-v0 section 4.5.
+// buildConstraint reads one constraint: a list of permitted or excluded values, or limits.
+// It checks a list itself, although the schema already does, so that no caller gets a list
+// that contradicts SPEC-v0 section 4.5.
 func buildConstraint(ruleID, name string, raw rawConstraint) (constraint, error) {
 	c := constraint{parameter: name, min: math.MinInt64, max: math.MaxInt64}
-	if raw.OneOf != nil {
-		if raw.Min != nil || raw.Max != nil {
-			return constraint{}, fmt.Errorf("%w: rule %q: constraint %q has one_of together with min or max", ErrSemantic, ruleID, name)
+	if raw.OneOf != nil || raw.NoneOf != nil {
+		member, list := "one_of", raw.OneOf
+		if raw.NoneOf != nil {
+			member, list = "none_of", raw.NoneOf
 		}
-		values, err := buildOneOf(raw.OneOf)
+		if raw.Min != nil || raw.Max != nil || raw.OneOf != nil && raw.NoneOf != nil {
+			return constraint{}, fmt.Errorf("%w: rule %q: constraint %q has %s together with another form", ErrSemantic, ruleID, name, member)
+		}
+		values, err := buildValueList(member, list)
 		if err != nil {
 			return constraint{}, fmt.Errorf("rule %q: constraint %q: %w", ruleID, name, err)
 		}
-		c.oneOf = values
+		if raw.NoneOf != nil {
+			c.noneOf = values
+		} else {
+			c.oneOf = values
+		}
 		return c, nil
 	}
 	for _, limit := range []struct {
@@ -443,10 +500,11 @@ func buildConstraint(ruleID, name string, raw rawConstraint) (constraint, error)
 	return c, nil
 }
 
-// buildOneOf reads the values of a one_of: 1 to 32 distinct valid values of one type.
-func buildOneOf(raw []json.RawMessage) ([]Value, error) {
-	if len(raw) == 0 || len(raw) > maxOneOf {
-		return nil, fmt.Errorf("%w: one_of has %d values, permitted are 1 to %d", ErrSemantic, len(raw), maxOneOf)
+// buildValueList reads the values of a one_of or none_of (member): 1 to 32 distinct valid
+// values of one type.
+func buildValueList(member string, raw []json.RawMessage) ([]Value, error) {
+	if len(raw) == 0 || len(raw) > maxValueList {
+		return nil, fmt.Errorf("%w: %s has %d values, permitted are 1 to %d", ErrSemantic, member, len(raw), maxValueList)
 	}
 	values := make([]Value, len(raw))
 	for i, data := range raw {
@@ -456,11 +514,11 @@ func buildOneOf(raw []json.RawMessage) ([]Value, error) {
 		}
 		switch {
 		case !v.valid():
-			return nil, fmt.Errorf("%w: one_of value %s is no valid parameter value", ErrSemantic, data)
+			return nil, fmt.Errorf("%w: %s value %s is no valid parameter value", ErrSemantic, member, data)
 		case v.kind != values[0].kind:
-			return nil, fmt.Errorf("%w: one_of mixes integers and strings", ErrSemantic)
+			return nil, fmt.Errorf("%w: %s mixes integers and strings", ErrSemantic, member)
 		case slices.Contains(values[:i], *v):
-			return nil, fmt.Errorf("%w: one_of has the value %s twice", ErrSemantic, data)
+			return nil, fmt.Errorf("%w: %s has the value %s twice", ErrSemantic, member, data)
 		}
 	}
 	return values, nil
@@ -504,6 +562,52 @@ func (r *rule) setConditions(rr rawRule) error {
 			return fmt.Errorf("%w: rule %q: unknown weekday %q", ErrSchema, rr.ID, name)
 		}
 		r.weekdays |= 1 << day
+	}
+	for _, d := range rr.Conditions.Dates {
+		if err := checkDates(d.From, d.To); err != nil {
+			return fmt.Errorf("rule %q: %w", rr.ID, err)
+		}
+		r.dates = append(r.dates, dateRange{from: d.From, to: d.To})
+	}
+	return nil
+}
+
+// dateLayout is the form of a calendar date (RFC 3339 full-date).
+const dateLayout = "2006-01-02"
+
+// checkDates checks a range of dates (SPEC-v0 section 3.1 items 0 and 3): two dates that
+// exist, not in year 0000, from not after to. The schema has checked the form already; the
+// check is repeated so that no caller gets a range that contradicts the specification.
+func checkDates(from, to string) error {
+	for _, d := range []string{from, to} {
+		if t, err := time.Parse(dateLayout, d); err != nil || t.Year() == 0 || t.Format(dateLayout) != d {
+			return fmt.Errorf("%w: date %q", ErrSchema, d)
+		}
+	}
+	if from > to {
+		return fmt.Errorf("%w: dates: from %s is after to %s", ErrSemantic, from, to)
+	}
+	return nil
+}
+
+// setPeriod reads the rule's own validity (SPEC-v0 section 3.1 items 0 and 6).
+func (r *rule) setPeriod(rr rawRule) error {
+	if rr.ValidFrom != "" {
+		from, err := parseTimestamp("rule "+strconv.Quote(rr.ID)+" valid_from", rr.ValidFrom)
+		if err != nil {
+			return err
+		}
+		r.period.from, r.period.hasFrom = from, true
+	}
+	if rr.Expires != "" {
+		until, err := parseTimestamp("rule "+strconv.Quote(rr.ID)+" expires", rr.Expires)
+		if err != nil {
+			return err
+		}
+		if r.period.hasFrom && !until.After(r.period.from) {
+			return fmt.Errorf("%w: rule %q: expires must be after valid_from", ErrSemantic, rr.ID)
+		}
+		r.period.until, r.period.hasUntil = until, true
 	}
 	return nil
 }

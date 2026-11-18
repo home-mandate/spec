@@ -9,12 +9,14 @@ import (
 
 // Limit is what one constraint allows for a parameter (SPEC-v0 section 4.5): either the
 // inclusive range of an integer, where a bound the rule does not give is nil, or, if OneOf
-// is not nil, the permitted values in the order of the mandate. A Limit with OneOf has
-// neither Min nor Max, yet permits only the listed values: a caller must check OneOf
-// before it reads nil bounds as unbounded.
+// is not nil, the permitted values in the order of the mandate, or, if NoneOf is not nil,
+// the excluded values in that order. A Limit with OneOf or NoneOf has neither Min nor Max,
+// yet does not permit every value: a caller must check OneOf and NoneOf before it reads nil
+// bounds as unbounded.
 type Limit struct {
 	Min, Max *int64
 	OneOf    []Value
+	NoneOf   []Value
 }
 
 // Limits tells what values a request could be allowed with: for every allow rule that
@@ -41,7 +43,8 @@ func (m *Mandate) Limits(req Request) []map[string]Limit {
 	var out []map[string]Limit
 	for i := range m.rules {
 		r := &m.rules[i]
-		if r.decision != Allow || !r.selector.matches(req.Resource) || !r.coversAction(req.Action) || !r.conditionsMet(local) {
+		if r.decision != Allow || !r.selector.matches(req.Resource) || !r.coversAction(req.Action) ||
+			!r.period.contains(req.Time) || !r.conditionsMet(local) {
 			continue
 		}
 		limits := map[string]Limit{}
@@ -49,6 +52,10 @@ func (m *Mandate) Limits(req Request) []map[string]Limit {
 			var l Limit
 			if c.oneOf != nil {
 				limits[c.parameter] = Limit{OneOf: slices.Clone(c.oneOf)}
+				continue
+			}
+			if c.noneOf != nil {
+				limits[c.parameter] = Limit{NoneOf: slices.Clone(c.noneOf)}
 				continue
 			}
 			if c.min != math.MinInt64 {

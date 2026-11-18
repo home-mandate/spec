@@ -30,7 +30,7 @@ Section 3.1 item 1 of SPEC-v0 makes mandates I-JSON. The same holds for audit en
 | 3 receivers may reject messages that are not I-JSON | Narrower: they MUST (Section 3.1). Cases: as above |
 | 3 a way to signal the error to the sender | Not testable: a matter of the protocol around a mandate, not of the document. Section 9.1 records a rejected mandate with `mandate.rejected` |
 | 4.1 top level an object or array | Narrower: always an object. Cases: `i18`; exactly one value: `i19`, `i25` |
-| 4.2 Must-Ignore for unknown members | Not followed for mandates and audit entries: they are security policy and evidence, and an unknown member could change what they mean. A new member comes with a new type identifier (Section 14). Cases: `i01`; members an entry may not carry: `a56`, `a62`, `v116`. Followed for key sets: `g25`, `g26`, `g36` |
+| 4.2 Must-Ignore for unknown members | Not followed for mandates and audit entries: they are security policy and evidence, and an unknown member could change what they mean. A new member comes with a release and an entry in the Changelog and keeps the type; an older implementation treats a document that uses it as invalid (Section 14, **Unknown members**). Cases: `i01`; members an entry may not carry: `a56`, `a62`, `v116`. Followed for key sets: `g25`, `g26`, `g36` |
 | 4.3 times in RFC 3339, upper case, offset included, seconds included | Cases: `i22`, `i63`, `i199`; see RFC 3339 below |
 | 4.3 durations in the `duration` form of RFC 3339 appendix A | Narrower: `approval.timeout` is `PT[nH][nM][nS]` (Section 3.1 item 7). Cases: `i16`, `i64` to `i71`, `d16` to `d18` |
 | 4.4 binary data in base64url | Followed in JWS and JWK (see RFC 7515). Digests are hexadecimal (Section 3.2) |

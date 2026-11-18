@@ -145,3 +145,26 @@ section 3.4), not in DER. Python's `cryptography` signs and verifies DER: conver
 Check that `r` and `s` lie in 1 to n − 1 and that `s` is the lower of its two values before
 calling the library (Section 7.1, `g66` to `g73`).
 
+
+## Dates: the day of the household, and days that do not exist
+
+`conditions.dates` compares the date of the point in time in household local time (Section 4.2).
+Taking the date from the UTC form, or from the offset the request was written with while a time
+zone is given, puts 23:30 UTC on the wrong day for most of the world. Parsers of dates are lenient
+as well: JavaScript's `new Date("2026-02-30")` is the 2nd of March, and a JSON Schema validator
+that treats `format: date` as an annotation lets the day through. Assert the format, and compare
+the dates as their text `YYYY-MM-DD`, which orders like the days.
+
+Cases: `c290` to `c292`, `i625`.
+
+## `none_of` and the type of a value
+
+A list of excluded values permits a value only if it has the type of the list. An implementation
+that only asks "is the value in the list?" lets every value of another type through:
+`{"none_of": ["off"]}` would permit the integer `0`. `one_of` fails closed by itself; `none_of`
+needs the check. Step 0 already rejects a request whose value has another type than the
+vocabulary declares, so the cases cannot show the mistake for a category of Section 5; it shows
+for an extension whose vocabulary an implementation loads, and in code that evaluates
+constraints on their own. The reference tests it in `TestNoneOfPermits`.
+
+Cases: `c293` to `c297`; for the type in the mandate, `i643`.

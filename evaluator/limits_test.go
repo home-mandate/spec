@@ -24,7 +24,13 @@ func TestLimits(t *testing.T) {
 		{"id":"r-blind","resource":{"category":"cover"},"actions":["set_position"],"decision":"allow"},
 		{"id":"r-ask","resource":{"category":"media"},"actions":["set_volume"],"decision":"ask"},
 		{"id":"r-modes","resource":{"category":"climate"},"actions":["set_mode"],"decision":"allow",
-		 "constraints":{"mode":{"one_of":["heat","auto"]}}}]`)
+		 "constraints":{"mode":{"one_of":["heat","auto"]}}},
+		{"id":"r-fan-later","resource":{"category":"fan"},"actions":["set_speed"],"decision":"allow","valid_from":"2026-10-12T12:00:00.000000001+02:00",
+		 "constraints":{"speed":{"max":20}}},
+		{"id":"r-fan-over","resource":{"category":"fan"},"actions":["set_speed"],"decision":"allow","expires":"2026-10-12T12:00:00+02:00",
+		 "constraints":{"speed":{"max":30}}},
+		{"id":"r-fan-now","resource":{"category":"fan"},"actions":["set_speed"],"decision":"allow","valid_from":"2026-10-12T12:00:00+02:00",
+		 "expires":"2026-10-12T12:00:00.000000001+02:00","constraints":{"speed":{"none_of":[100]}}}]`)
 	tests := []struct {
 		name string
 		req  evaluator.Request
@@ -39,6 +45,8 @@ func TestLimits(t *testing.T) {
 		{"permitted values in the order of the mandate", request("climate", "", "set_mode"),
 			[]map[string]evaluator.Limit{{"mode": {OneOf: []evaluator.Value{evaluator.StringValue("heat"), evaluator.StringValue("auto")}}}}},
 		{"ask and deny rules set no limits", request("media", "", "set_volume"), nil},
+		{"only a rule within its own period; excluded values", request("fan", "", "set_speed"),
+			[]map[string]evaluator.Limit{{"speed": {NoneOf: []evaluator.Value{evaluator.IntegerValue(100)}}}}},
 		{"unknown category: denied before the rules", request("toaster", "", "set"), nil},
 	}
 	for _, tt := range tests {

@@ -249,8 +249,8 @@ func matchingRules(m *Mandate, req Request, local time.Time) []*rule {
 	var matched []*rule
 	for i := range m.rules {
 		r := &m.rules[i]
-		if r.selector.matches(req.Resource) && r.coversAction(req.Action) && r.conditionsMet(local) &&
-			r.constraintsMet(req.Parameters) {
+		if r.selector.matches(req.Resource) && r.coversAction(req.Action) && r.period.contains(req.Time) &&
+			r.conditionsMet(local) && r.constraintsMet(req.Parameters) {
 			matched = append(matched, r)
 		}
 	}
