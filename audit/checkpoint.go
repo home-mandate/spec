@@ -3,6 +3,7 @@
 package audit
 
 import (
+	"crypto"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,8 +31,20 @@ type Anchor struct {
 	// Keys are the public keys that may sign checkpoints of the log, by key ID.
 	Keys jws.Keys
 	// LogID is the expected identifier of the log; empty accepts the one of the first
-	// checkpoint.
+	// checkpoint, so that a log signed with the same key for another household verifies too
+	// (SPEC-v0 section 9.5).
 	LogID string
+	// Last is the position the relying party saw covered by the last checkpoint it verified;
+	// nil if it kept none. The log must still hold an entry with that seq and digest, or a
+	// log.truncated entry that accounts for it: the seq alone does not show a log that was
+	// rolled back and grew again (SPEC-v0 section 9.5).
+	Last *Position
+}
+
+// Position is an entry of a log by its seq and its digest.
+type Position struct {
+	Seq    int64
+	Digest string
 }
 
 // checkpointPayload is the statement a checkpoint signs: the log, the seq of the last
@@ -52,7 +65,7 @@ func checkpointPayload(logID string, seq int64, digest, at string) ([]byte, erro
 // log.checkpoint entry that carries it is the next entry, with seq+1, prev = digest and
 // recorded_at = at, byte for byte: the signature covers the time of the checkpoint.
 // signer is an ed25519.PrivateKey or an *ecdsa.PrivateKey on P-256.
-func SignCheckpoint(logID string, seq int64, digest, at, kid string, signer any) (string, error) {
+func SignCheckpoint(logID string, seq int64, digest, at, kid string, signer crypto.Signer) (string, error) {
 	if !logIDPattern.MatchString(logID) {
 		return "", fmt.Errorf("audit: log ID %q is not a UUID in lower case", logID)
 	}

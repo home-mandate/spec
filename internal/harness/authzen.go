@@ -91,7 +91,8 @@ type ReferencePDP struct {
 	// Token, if set, is the bearer token the control resource requires.
 	Token string
 	// Mutate, if set, changes every result before it is sent, so that a test can make the
-	// PDP deviate.
+	// PDP deviate. It is read without a lock: set it before Handler is used, never while
+	// requests are served.
 	Mutate func(*evaluator.Result)
 
 	mu    sync.Mutex

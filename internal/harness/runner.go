@@ -436,11 +436,12 @@ type auditCase struct {
 	Entries      []json.RawMessage `json:"entries"`
 	JSONL        *string           `json:"jsonl"`
 	// The forms with bytes a JSON string cannot carry (SPEC-v0 section 10.2).
-	EntriesBase64 [][]byte `json:"entries_base64"`
-	JSONLBase64   []byte   `json:"jsonl_base64"`
-	Keys          string   `json:"keys"`
-	LogID         string   `json:"log_id"`
-	Anchored      *int64   `json:"anchored"`
+	EntriesBase64 [][]byte  `json:"entries_base64"`
+	JSONLBase64   []byte    `json:"jsonl_base64"`
+	Keys          string    `json:"keys"`
+	LogID         string    `json:"log_id"`
+	LastSeen      *Position `json:"last_seen"`
+	Anchored      *int64    `json:"anchored"`
 	// Requires names an optional algorithm the case needs (SPEC-v0 section 10.2).
 	Requires string `json:"requires"`
 	// The findings of SPEC-v0 section 9.4; absent: none of that kind.
@@ -464,7 +465,7 @@ func (r *runner) audit() error {
 func (r *runner) auditFile(file string) error {
 	cases, err := load[auditCase](r.fsys, file, "logs")
 	for _, c := range cases {
-		req := Request{Op: OpVerifyAudit, ID: c.ID, JSONL: c.JSONL, LogID: c.LogID,
+		req := Request{Op: OpVerifyAudit, ID: c.ID, JSONL: c.JSONL, LogID: c.LogID, LastSeen: c.LastSeen,
 			JSONLBase64: c.JSONLBase64, EntriesBase64: c.EntriesBase64}
 		for _, e := range c.Entries {
 			req.Entries = append(req.Entries, string(e))

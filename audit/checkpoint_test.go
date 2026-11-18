@@ -4,8 +4,10 @@ package audit_test
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ed25519"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -48,7 +50,7 @@ func (b *logBuilder) stop() {
 }
 
 // checkpoint appends a checkpoint over everything written so far.
-func (b *logBuilder) checkpoint(logID, kid string, signer any) {
+func (b *logBuilder) checkpoint(logID, kid string, signer crypto.Signer) {
 	b.t.Helper()
 	sig, err := audit.SignCheckpoint(logID, int64(len(b.entries)), b.prev, testRecordedAt, kid, signer)
 	if err != nil {
@@ -206,7 +208,9 @@ func TestSignCheckpointRejectsBadInput(t *testing.T) {
 		"bad digest": func() (string, error) {
 			return audit.SignCheckpoint(testLogID, 1, "sha256:x", testRecordedAt, "k", testSigner())
 		},
-		"bad key": func() (string, error) { return audit.SignCheckpoint(testLogID, 1, good, testRecordedAt, "k", "key") },
+		"bad key": func() (string, error) {
+			return audit.SignCheckpoint(testLogID, 1, good, testRecordedAt, "k", foreignSigner{})
+		},
 	} {
 		if _, err := call(); err == nil {
 			t.Errorf("%s: accepted", name)
@@ -241,3 +245,10 @@ func TestResultReportsWhereTheLogStarts(t *testing.T) {
 		t.Errorf("after a checkpoint: %+v, want the truncation anchored", anchored)
 	}
 }
+
+// foreignSigner is a crypto.Signer of a type the package does not sign with.
+type foreignSigner struct{}
+
+func (foreignSigner) Public() crypto.PublicKey { return nil }
+
+func (foreignSigner) Sign(io.Reader, []byte, crypto.SignerOpts) ([]byte, error) { return nil, nil }

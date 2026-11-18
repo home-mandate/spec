@@ -17,7 +17,7 @@ import (
 // A protocol on top of the specification builds its own header and signs it with the
 // building blocks; what it signs verifies with the checks of SPEC-v0 section 7.1.
 func TestSignCompactAndVerifySignature(t *testing.T) {
-	for _, signer := range []any{rfcKey(t), ecKey(t)} {
+	for _, signer := range []crypto.Signer{rfcKey(t), ecKey(t)} {
 		alg, public, err := SignerAlgorithm(signer)
 		if err != nil {
 			t.Fatal(err)

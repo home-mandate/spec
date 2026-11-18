@@ -34,6 +34,9 @@ type Mandate struct {
 	validFrom  time.Time
 	expires    time.Time
 	hasExpires bool
+	// kid is the key ID by which ParseSigned accepted the mandate; empty for one that was not
+	// signed.
+	kid string
 	// auditMode is true for "enforce": false (SPEC-v0 section 4.6).
 	auditMode bool
 	rules     []rule

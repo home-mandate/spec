@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/home-mandate/spec/internal/errquote"
 	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -48,6 +49,11 @@ var mandateSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
 // its digest (section 3.2). On any error the mandate is nil. The mandate holds no
 // reference to data.
 func Parse(data []byte) (*Mandate, error) {
+	m, err := parse(data)
+	return m, errquote.Bound(err)
+}
+
+func parse(data []byte) (*Mandate, error) {
 	if len(data) > MaxMandateBytes {
 		return nil, fmt.Errorf("%w: %d bytes, limit %d", ErrTooLarge, len(data), MaxMandateBytes)
 	}

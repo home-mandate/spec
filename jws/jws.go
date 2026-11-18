@@ -91,7 +91,7 @@ type protectedHeader struct {
 
 // Sign returns the compact JWS of payload: header.payload.signature. signer is an
 // ed25519.PrivateKey or an *ecdsa.PrivateKey on P-256.
-func Sign(payload []byte, kid string, signer any) (string, error) {
+func Sign(payload []byte, kid string, signer crypto.Signer) (string, error) {
 	head, sig, err := sign(payload, kid, signer)
 	if err != nil {
 		return "", err
@@ -101,7 +101,7 @@ func Sign(payload []byte, kid string, signer any) (string, error) {
 
 // SignDetached returns the compact JWS with detached payload: header..signature
 // (RFC 7515 appendix F).
-func SignDetached(payload []byte, kid string, signer any) (string, error) {
+func SignDetached(payload []byte, kid string, signer crypto.Signer) (string, error) {
 	head, sig, err := sign(payload, kid, signer)
 	if err != nil {
 		return "", err
@@ -109,7 +109,7 @@ func SignDetached(payload []byte, kid string, signer any) (string, error) {
 	return head + ".." + sig, nil
 }
 
-func sign(payload []byte, kid string, signer any) (head, sig string, err error) {
+func sign(payload []byte, kid string, signer crypto.Signer) (head, sig string, err error) {
 	if !kidPattern.MatchString(kid) {
 		return "", "", fmt.Errorf("%w: key ID %s", ErrKey, quote(kid))
 	}
@@ -133,7 +133,7 @@ func signingInput(head string, payload []byte) []byte {
 	return []byte(head + "." + b64.EncodeToString(payload))
 }
 
-func signInput(alg string, signer any, input []byte) ([]byte, error) {
+func signInput(alg string, signer crypto.Signer, input []byte) ([]byte, error) {
 	switch key := signer.(type) {
 	case ed25519.PrivateKey:
 		if alg == AlgEdDSA {

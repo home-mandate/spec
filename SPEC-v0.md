@@ -1276,8 +1276,8 @@ debugging). Instead of `entries`, a log can be given as `jsonl`: the exchange fo
 is given as `entries_base64` or `jsonl_base64` instead: the same in base64 with padding
 (RFC 4648 section 4). With `keys` (path to a JWK
 Set) the signatures of checkpoints are verified (Section 9.5), optionally against the
-expected `log_id`; `anchored` is then the expected `seq` up to which a verified checkpoint
-covers the log. Every log states the findings of Section 9.4 it has: `integrity_broken_at`,
+expected `log_id` and the position a relying party saw last (`last_seen`); `anchored` is then
+the expected `seq` up to which a verified checkpoint covers the log. Every log states the findings of Section 9.4 it has: `integrity_broken_at`,
 `conformance_broken_at` and `unknown_version_at`, each absent if there is none, and a valid
 log its `checkpoint_gap_at` (Section 9.5), absent if there is none. A log can
 name an optional algorithm it needs in `requires` (Section 10.2).
@@ -1841,7 +1841,13 @@ Verification (Section 9.4) gains a fourth condition, checked after the chain:
 4. all checkpoints carry the same `log_id`, whether or not the verifier was given keys;
    and, if the verifier was given the public keys of the log, the `log_id` is the expected
    one (if the verifier expects one) and every checkpoint's signature verifies with one of
-   these keys. `broken_at` is the `seq` of the first checkpoint that violates this.
+   these keys; and, if the verifier was also given the position a relying party saw covered
+   by the last checkpoint it verified (its `seq` and digest, below), the log holds an entry
+   with that `seq` and that digest, or a `log.truncated` entry that accounts for it (its
+   `up_to_seq` is that `seq` and its `last_digest` that digest, or its `up_to_seq` is
+   greater). `broken_at` is the `seq` of the first checkpoint that violates this, of the entry
+   or `log.truncated` entry at that position whose digest differs, or, for a log that has
+   neither, of its last entry.
 
 A verifier that was given keys additionally reports
 
@@ -1933,9 +1939,10 @@ checkpoints were removed together. Implementations SHOULD write a checkpoint at 
 intervals.
 
 A party that relies on the log SHOULD keep, outside the machine that writes it, the `log_id`,
-the public key and the `seq` and digest of the last checkpoint it saw, and check at the next
-verification that the log still holds an entry with that `seq` and that digest (or a
-`log.truncated` entry that accounts for it). The `seq` alone is not enough: a log rolled back
+the public key and the position the last checkpoint it saw covers (the checkpoint's `seq` − 1
+and its `prev`), and check at the next verification that the log still holds an entry with
+that `seq` and that digest (or a `log.truncated` entry that accounts for it); condition 4
+checks it when the verifier is given that position (`v223` to `v226`). The `seq` alone is not enough: a log rolled back
 and grown again past that `seq`, with another history under the same `log_id`, keeps it. A key
 that was replaced (`config.changed`, `checkpoint_key`) still verifies checkpoints that whoever
 holds it signs later; a relying party SHOULD NOT accept checkpoints of a replaced key that come
@@ -1989,7 +1996,7 @@ passed for its class, as for an operation it does not offer.
 | `select` | `mandates` (each `mandate`, optional `revoked`), `subject` (`client_id`, `principal`), `request` | as `evaluate`, plus `selected` (the `id` of the selected mandate, or of the revoked mandate the result names, Section 4.3) if there is one |
 | `succession` | `stored`, `offered`, optionally `stored_revoked` | `accept`; with `accept`, `confirm: true` if the successor takes effect only after a human confirmed it (Section 3.5) |
 | `verify_signed` | `jws`, `issuer`, `keys` (a JWK Set trusted for the issuer) | `valid`; `digest` if valid |
-| `verify_audit` | `entries` (array of entry texts), `jsonl` (the exchange format), `entries_base64` or `jsonl_base64`; optionally `keys` and `log_id` | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given; `integrity_broken_at`, `conformance_broken_at` and `unknown_version_at` for each finding there is (Section 9.4); `checkpoint_gap_at` if valid and there is a gap (Section 9.5) |
+| `verify_audit` | `entries` (array of entry texts), `jsonl` (the exchange format), `entries_base64` or `jsonl_base64`; optionally `keys`, and with them `log_id` and `last_seen` (`{"seq": …, "digest": …}`, Section 9.5 condition 4) | `valid`, `entries` (their number); `broken_at` if invalid; `anchored` if valid and `keys` were given; `integrity_broken_at`, `conformance_broken_at` and `unknown_version_at` for each finding there is (Section 9.4); `checkpoint_gap_at` if valid and there is a gap (Section 9.5) |
 | `entry_digest` | `entry` | `digest` |
 
 `request` is the input of the evaluation as the PEP determines it: `resource`
@@ -3165,6 +3172,18 @@ behavior of the people in a household and MUST be protected like the devices the
     Cases `v182` to `v211` and `v214` to `v222`: proxies, `auth`, `bound`, `caa_identity`, the
     eight pairs, the version grammar, a checkpoint signed with ES256 and one with an unknown
     `alg`, the cadence, an anchored truncation and the `actor` of relay events.
+- Go API before the tag:
+  - `ratelimit.AllowN` counts a request for several resources all or nothing (Section 11.2);
+    `Restore` takes the limit and keeps at most that many times, and expired keys are swept
+    once a window has passed, not at every call.
+  - `evaluator.Mandate.AcceptedKid` names the key `ParseSigned` accepted a mandate by, which a
+    verifier remembers (Section 7.1).
+  - `audit.Anchor.Last` is the position a relying party saw last; condition 4 of Section 9.5
+    checks it, and the test interface carries it as `last_seen`.
+  - The signing functions take a `crypto.Signer` instead of `any`. The errors of
+    `evaluator.Parse` are cut to 512 bytes. The documentation says what the zero value of
+    `audit.Result` means, what an empty `Anchor.LogID` accepts, and when
+    `ReferencePDP.Mutate` may be set.
 - Signatures, key sets and the public origin before the release:
   - Section 7.1 says that `k` is the hash reduced modulo L, as `g45` requires; that the unused
     bits of base64url are zero for segments and keys; and that the header is read as JSON, so

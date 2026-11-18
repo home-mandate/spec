@@ -54,7 +54,10 @@ type Request struct {
 	JSONLBase64   []byte   `json:"jsonl_base64,omitempty"`
 	EntriesBase64 [][]byte `json:"entries_base64,omitempty"`
 	LogID         string   `json:"log_id,omitempty"`
-	Entry         *string  `json:"entry,omitempty"`
+	// LastSeen is the position a relying party saw covered by the last checkpoint it
+	// verified (SPEC-v0 section 9.5); only with Keys.
+	LastSeen *Position `json:"last_seen,omitempty"`
+	Entry    *string   `json:"entry,omitempty"`
 }
 
 // StoredMandate is a mandate an implementation has stored, with its status.
@@ -134,4 +137,10 @@ type Response struct {
 	// which the writer did not keep the cadence of checkpoints (SPEC-v0 section 9.5); absent
 	// if there is none.
 	CheckpointGapAt *int64 `json:"checkpoint_gap_at,omitempty"`
+}
+
+// Position is an entry of an audit log by its seq and digest.
+type Position struct {
+	Seq    int64  `json:"seq"`
+	Digest string `json:"digest"`
 }
