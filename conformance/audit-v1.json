@@ -21,9 +21,9 @@
         {"event": "relay.pins_changed", "id": "01a0f64c-7140-7001-9007-0000000b100d", "prev": "sha256:c5799403556920a1703d96a9104c88e7cf685c6bcda6a6565411ef4f7f6f0aba", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:12:00Z", "relay": {"active_pins": 2, "backup_pins": 1, "operator": "relay.example.net", "source": "relay"}, "seq": 13, "type": "https://home-mandate.org/audit/v1"},
         {"event": "relay.protection_changed", "id": "01a0f64c-7140-7001-9007-0000000b100e", "prev": "sha256:b28314a131e85f1b05450da5d41d7809e2be825cb85171932d40eafef5708376", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:13:00Z", "relay": {"level": "own_domain", "name": "home.example.com", "operator": "relay.example.net", "previous_level": "standard"}, "seq": 14, "type": "https://home-mandate.org/audit/v1"},
         {"event": "relay.caa_alarm", "id": "01a0f64c-7140-7001-9007-0000000b100f", "prev": "sha256:47efc8f162c773fae8c723ae3705c604bd5dfd65415ed407238a1d74bcf55c61", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:14:00Z", "relay": {"name": "homes.example.net", "operator": "relay.example.net", "scope": "apex"}, "seq": 15, "type": "https://home-mandate.org/audit/v1"},
-        {"actor": {"id": "user-1", "kind": "user"}, "event": "relay.acme_account_changed", "id": "01a0f64c-7140-7001-9007-0000000b1010", "prev": "sha256:44d34b7f51f43d88fa415c5d0567c8d86acdfbf32eec8c7a58329f1b7bb5c0a8", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:15:00Z", "relay": {"account": "https://acme-v02.api.letsencrypt.org/acme/acct/123456789", "change": "confirmed", "operator": "relay.example.net"}, "seq": 16, "type": "https://home-mandate.org/audit/v1"},
-        {"event": "relay.unpaired", "id": "01a0f64c-7140-7001-9007-0000000b1011", "prev": "sha256:7314d63bf86bee5e31bf94af7df96ae1c602db78220086d157e03384c2ae7590", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:16:00Z", "relay": {"cause": "local", "home_id": "k7q2xwmpd4hj3n6rt5vbyc2ezu", "operator": "relay.example.net"}, "seq": 17, "type": "https://home-mandate.org/audit/v1"},
-        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1012", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:418a6036bfbadadafafeac3e86b1070971ef5843bc5b15cc46d5d1f0b7532805", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:17:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:17:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 18, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}}
+        {"actor": {"id": "user-1", "kind": "user"}, "event": "relay.acme_account_changed", "id": "01a0f64c-7140-7001-9007-0000000b1010", "prev": "sha256:44d34b7f51f43d88fa415c5d0567c8d86acdfbf32eec8c7a58329f1b7bb5c0a8", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:15:00Z", "relay": {"account": "https://acme-v02.api.letsencrypt.org/acme/acct/123456789", "caa_identity": "letsencrypt.org", "change": "confirmed", "operator": "relay.example.net"}, "seq": 16, "type": "https://home-mandate.org/audit/v1"},
+        {"event": "relay.unpaired", "id": "01a0f64c-7140-7001-9007-0000000b1011", "prev": "sha256:9a5e865fc8a0f2b5a6e4fd5473d671e5770c231df8818b3a7dbf9b939f0140b4", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:16:00Z", "relay": {"cause": "local", "home_id": "k7q2xwmpd4hj3n6rt5vbyc2ezu", "operator": "relay.example.net"}, "seq": 17, "type": "https://home-mandate.org/audit/v1"},
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-lights"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b1012", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": "sha256:0c831d7b7efbc40842c804f035f0f8497d2a3d92a78f6a051bd3c6f236aa8954", "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T10:17:00Z", "request": {"action": "turn_on", "resource": {"areas": ["living_room"], "category": "light", "entity_id": "light.living_room"}, "time": "2026-11-16T10:17:00Z"}, "result": {"duration_ms": 120, "status": "executed"}, "seq": 18, "type": "https://home-mandate.org/audit/v1", "vocabulary": {"id": "https://home-mandate.org/vocabulary/v0", "version": "0.1.0"}}
       ]
     },
     {
@@ -1939,6 +1939,7 @@
           "relay": {
             "operator": "relay.example.net",
             "account": "https://acme-v02.api.letsencrypt.org/acme/acct/123456789",
+            "caa_identity": "letsencrypt.org",
             "change": "pending"
           },
           "seq": 8,
@@ -1947,12 +1948,13 @@
         {
           "event": "relay.acme_account_changed",
           "id": "01a0f64c-7140-7001-9007-0000b1570009",
-          "prev": "sha256:b9f2650d541d3a98adc5351ee058e98e839221c3c0047f50c31c8cb9bd39e8fe",
+          "prev": "sha256:65e94b1556c0606276ae0b60d21aba623e7fe21bfaf84fb8da019b2070b7297f",
           "principal": "household:hm-7f3a",
           "recorded_at": "2026-11-16T10:08:00Z",
           "relay": {
             "operator": "relay.example.net",
             "account": "https://acme-v02.api.letsencrypt.org/acme/acct/123456789",
+            "caa_identity": "letsencrypt.org",
             "change": "not_confirmed"
           },
           "seq": 9,
@@ -1961,12 +1963,13 @@
         {
           "event": "relay.acme_account_changed",
           "id": "01a0f64c-7140-7001-9007-0000b1570010",
-          "prev": "sha256:45faba5147078e1af5b76170e6530631089b2935f6e4acdd7b975949b5661346",
+          "prev": "sha256:82c697fb69ab597ae65546c28d3e5e15dce8804cbf3eae0abf98826aafd7df21",
           "principal": "household:hm-7f3a",
           "recorded_at": "2026-11-16T10:09:00Z",
           "relay": {
             "operator": "relay.example.net",
             "account": "https://acme-v02.api.letsencrypt.org/acme/acct/987654321",
+            "caa_identity": "letsencrypt.org",
             "change": "foreign"
           },
           "seq": 10,
@@ -1975,7 +1978,7 @@
         {
           "event": "relay.monitoring_status",
           "id": "01a0f64c-7140-7001-9007-0000b1570011",
-          "prev": "sha256:92edb4b4cca9fff9df07514605f50651ed6aa926250b05d2aa963b05d6238844",
+          "prev": "sha256:39d30f4fa394923ec659af282ca909ebb4a6b0d3d6a4f74c80fe7a9cbbce4d4b",
           "principal": "household:hm-7f3a",
           "recorded_at": "2026-11-16T10:10:00Z",
           "relay": {
@@ -1990,7 +1993,7 @@
         {
           "event": "relay.monitoring_status",
           "id": "01a0f64c-7140-7001-9007-0000b1570012",
-          "prev": "sha256:944e79aa1abbe73b39dd7055a92801f1d358dcb61413257b6234c50ab09096a4",
+          "prev": "sha256:f81a88520fc83e3854845aa5322f4078417fff2fcdf557b2612b525ac6e38e2c",
           "principal": "household:hm-7f3a",
           "recorded_at": "2026-11-16T10:11:00Z",
           "relay": {
@@ -2005,7 +2008,7 @@
         {
           "event": "relay.key_changed",
           "id": "01a0f64c-7140-7001-9007-0000b1570013",
-          "prev": "sha256:1b4cbe12753fec629c42f1263a37996711d57292e6b09a12e872923f2dea2327",
+          "prev": "sha256:8bf6e5a49d9c5de1267a3e6578537a94f956d0f9926e563baecc5882e5198da8",
           "principal": "household:hm-7f3a",
           "recorded_at": "2026-11-16T10:12:00Z",
           "relay": {
@@ -2018,7 +2021,7 @@
         {
           "event": "relay.replacement_pending",
           "id": "01a0f64c-7140-7001-9007-0000b1570014",
-          "prev": "sha256:2c6828f4d785201097f86ce14b905b98faa15f460887a1c7d7e8413ca8d8d25d",
+          "prev": "sha256:8f3fefbc9d5064c1e82bcef86a6845503472284facc89d2af2322e01d7597685",
           "principal": "household:hm-7f3a",
           "recorded_at": "2026-11-16T10:13:00Z",
           "relay": {
@@ -2032,7 +2035,7 @@
         {
           "event": "relay.pin_mismatch",
           "id": "01a0f64c-7140-7001-9007-0000b1570015",
-          "prev": "sha256:ff618269cb0db184e3b45056a0dac2182befcc206e5c6ed0c813fcf4245d3cf2",
+          "prev": "sha256:b9d58e94da77d12663779611d4a657cf910588bc6c45d03d6a104d831e96976b",
           "principal": "household:hm-7f3a",
           "recorded_at": "2026-11-16T10:14:00Z",
           "relay": {
@@ -2044,7 +2047,7 @@
         {
           "event": "relay.unpaired",
           "id": "01a0f64c-7140-7001-9007-0000b1570016",
-          "prev": "sha256:7ee97bc817ff66a8eccd1f36edb17ebabd024c519e987dbdaa415868febc55da",
+          "prev": "sha256:5b256ca4876ce9c87ab82ceb6a82469710eaecb2de407260194953af015bd122",
           "principal": "household:hm-7f3a",
           "recorded_at": "2026-11-16T10:15:00Z",
           "relay": {
@@ -2058,7 +2061,7 @@
         {
           "event": "relay.unpaired",
           "id": "01a0f64c-7140-7001-9007-0000b1570017",
-          "prev": "sha256:4093d15de607b8ca9695515786e60e76a6e390bceefb7608a9f2dbd8a32df88f",
+          "prev": "sha256:c758016852b728889d741315ed83d7688805d165128dd4b1ac1f493374f2f09e",
           "principal": "household:hm-7f3a",
           "recorded_at": "2026-11-16T10:16:00Z",
           "relay": {

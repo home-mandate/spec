@@ -1289,7 +1289,7 @@ seconds since the epoch, as `iat`.
 
 `conformance/ct-v0.json` contains cases for Section 11.7 item 7: the names monitored
 (`public_names`: the host of the public origin; a gateway paired with a relay monitors each of its
-public names, RELAY-v0 Section 6.7), the beginning of monitoring (`since`) and the time of the
+public names, RELAY-v0, section "Certificate Transparency monitoring"), the beginning of monitoring (`since`) and the time of the
 check (`now`), the keys agents are shown (`server_keys`: the current one, and earlier ones with
 the time each was replaced), the certificates acknowledged by digest and, optionally, the public
 keys acknowledged (`acknowledged_keys`) and the key presented under the public origin at the time
@@ -2708,9 +2708,9 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Compromised or rotated issuer key** | Keys are configured, never fetched from a location a mandate names; the verifier remembers by which key it accepted a mandate, and a mandate accepted only by a key that is no longer trusted loses its effect or is confirmed again; a weakening successor needs a human (Sections 3.5, 7.1); every change of trust is recorded (Section 9.2) | Until the key is withdrawn, the attacker can issue narrowing successors and new mandates for the audience, within what the configuration lets the issuer issue; a new mandate takes effect without a human unless it is in audit mode or names unknown `approvers` |
 | **Issuer that is trusted for something else** | A verifier decides per issuer for which principals and agents it may issue mandates (Section 7.1); a replacement keeps agent and principal, and a replacement that weakens the mandate or follows a revoked one takes effect only after a human confirmed it (Section 3.5); every change to the trusted issuers and their keys is recorded (`issuer.changed`, Section 9.2) | The specification does not define how this trust is configured |
 | **Attacker between PEP and PDP** | The connection MUST be authenticated in both directions; the PDP MUST NOT be reachable by agents (Section 6) | The specification does not define the mechanism |
-| **Runs the way in from outside without ending TLS** (a relay, a tunnel, a network on the path) | The agent's TLS connection ends in the implementation or the household's proxy; forwarded addresses only from a configured proxy and never for authorization (Section 11.7 items 3, 4) | Denial of service; the times, addresses and amounts of the agents' connections (RELAY-v0 Section 10) |
+| **Runs the way in from outside without ending TLS** (a relay, a tunnel, a network on the path) | The agent's TLS connection ends in the implementation or the household's proxy; forwarded addresses only from a configured proxy and never for authorization (Section 11.7 items 3, 4) | Denial of service; the times, addresses and amounts of the agents' connections (RELAY-v0, section "Privacy considerations") |
 | **Ends the agent's TLS connection** (the household's proxy, or a service that should not, such as a tunnel that presents its own certificate) | Only the household's own proxy may (Section 11.7 item 3) | Everything that passes: credentials, sign-in, approval pages, requests and their results. A proxy of the household is trusted (Section 12.3) |
-| **Obtains a certificate for the public origin** (whoever controls its DNS, a CA that misissues) | Certificate Transparency monitoring with an alarm, from at least two independent sources (Section 11.7 item 7) | Reading until the household reacts to the alarm; a certificate that no log contains goes unnoticed. For a relay's names, RELAY-v0 Section 6.2 |
+| **Obtains a certificate for the public origin** (whoever controls its DNS, a CA that misissues) | Certificate Transparency monitoring with an alarm, from at least two independent sources (Section 11.7 item 7) | Reading until the household reacts to the alarm; a certificate that no log contains goes unnoticed. For a relay's names, RELAY-v0, section "Protection levels" |
 | **Steals a token** (from a log, a backup, a client) | DPoP binds tokens to the client's key; a bound token is never accepted as a bearer token (Section 11.7 item 6) | A token that is not bound, during the transition: at most 15 minutes for an access token, and a refresh token until its next use by the client, which ends every token of the grant |
 | **Another page in the same site** (another home of the same relay, another host of the household's domain) | `__Host-` cookies only, other cookies ignored, changes protected by `Origin` or a token (Section 11.7 item 5) | Cookies that the other page sets for the whole domain can make a browser's requests fail |
 | **Forges `Host` or `X-Forwarded-*`** | The public origin is configured, and no URL the implementation issues or checks comes from a header (Section 11.7 items 1, 4) | – |
@@ -2859,7 +2859,7 @@ behavior of the people in a household and MUST be protected like the devices the
 - **Remote access.** The host of the public origin is in public Certificate Transparency logs as
   soon as a certificate is issued for it, and it tells anyone that the household runs an
   implementation. Whoever runs the way in learns when agents connect, from where and how much
-  they exchange (RELAY-v0 Section 10). The household SHOULD be told both when it sets up remote
+  they exchange (RELAY-v0, section "Privacy considerations"). The household SHOULD be told both when it sets up remote
   access (Section 11.7).
 - **Audit mode.** `read` is never critical, so a mandate in audit mode lets the agent read
   whatever it asks for, unless a rule sets the `read` to `ask` (Section 4.6). A household that tries a mandate SHOULD be told that

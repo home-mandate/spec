@@ -317,7 +317,8 @@
         { "if": { "properties": { "setting": { "const": "server_key" } } },
           "then": { "properties": { "value": { "$ref": "#/$defs/sha256_b64url" }, "previous_value": { "$ref": "#/$defs/sha256_b64url" } } } },
         { "if": { "properties": { "setting": { "const": "trusted_proxy" } } },
-          "then": { "properties": { "value": { "$ref": "#/$defs/proxy" }, "previous_value": { "$ref": "#/$defs/proxy" } } } },
+          "then": { "properties": { "value": { "$ref": "#/$defs/proxy" }, "previous_value": { "$ref": "#/$defs/proxy" } },
+                    "not": { "required": ["value", "previous_value"] } } },
         { "if": { "properties": { "setting": { "enum": ["timezone", "clock_check", "remote_access", "unbound_tokens"] } } },
           "then": { "required": ["value"] } }
       ]
@@ -342,6 +343,15 @@
         "jkt": { "description": "JWK SHA-256 thumbprint of the key (RFC 7638), base64url without padding.", "$ref": "#/$defs/sha256_b64url" }
       }
     },
+    "auth": {
+      "description": "Only with auth.rejected: why a sign-in, a token or an answer was rejected (SPEC-v0 sections 11.1 and 11.7).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": { "description": "unknown: a token, code or client the implementation does not know or cannot read; expired: a token or code that has expired; withdrawn: a token that lost its validity (credentials.withdrawn), presented again; revoked: a credential of a revoked agent; audience: a token for another resource or another public origin; client: a sign-in whose client or redirect URI does not match its registration; proof: a bound token without a valid DPoP proof, also one presented as a bearer token; replay: a DPoP proof whose jti was accepted before; unbound_refused: a token that is not bound while such tokens are refused; second_key: a grant with another key for an agent that is already bound; not_approver: an answer to an approval request from someone who is not an approver of it; other: any other reason.", "enum": ["unknown", "expired", "withdrawn", "revoked", "audience", "client", "proof", "replay", "unbound_refused", "second_key", "not_approver", "other"] }
+      }
+    },
     "credentials": {
       "description": "Only with credentials.withdrawn: whose access and refresh tokens lost their validity, and why (SPEC-v0 sections 11.3 and 11.7 item 2).",
       "type": "object",
@@ -349,7 +359,7 @@
       "required": ["scope", "cause"],
       "properties": {
         "scope": { "description": "all: of every agent; agent: of the agent the entry names.", "enum": ["all", "agent"] },
-        "cause": { "description": "emergency_stop: together with an emergency stop; public_origin: the public origin changed; user: a human withdrew them; refresh_reuse: a refresh token was used a second time, which ends every token of its grant (SPEC-v0 section 11.7 item 6).", "enum": ["emergency_stop", "public_origin", "user", "refresh_reuse"] }
+        "cause": { "description": "emergency_stop: together with an emergency stop; public_origin: the public origin changed; user: a human withdrew them; refresh_reuse: a refresh token was used a second time, which ends every token of its grant; bound: the agent was bound to a key, which ends its tokens that are not bound (SPEC-v0 section 11.7 item 6).", "enum": ["emergency_stop", "public_origin", "user", "refresh_reuse", "bound"] }
       }
     },
     "certificate": {
@@ -384,22 +394,23 @@
       "required": ["operator"],
       "properties": {
         "operator": { "description": "The operator domain, as A-labels.", "$ref": "#/$defs/domain" },
-        "home_id": { "description": "The home ID the operator assigned (RELAY-v0 section 2).", "type": "string", "pattern": "^[a-z2-7]{26}$" },
+        "home_id": { "description": "The home ID the operator assigned (RELAY-v0 section \"Terminology\").", "type": "string", "pattern": "^[a-z2-7]{26}$" },
         "name": { "description": "relay.paired: the standard name; relay.protection_changed and relay.caa_alarm: the name concerned; for relay.caa_alarm at the apex, the apex of the name domain.", "$ref": "#/$defs/domain" },
-        "cause": { "description": "Only with relay.unpaired. local: the gateway ended the pairing at its administrator's request; operator: the operator answered unpaired (the household's portal, a replacement by another gateway, the end of the service); offline_too_long: the operator answered offline-too-long or the gateway's own limit passed; bad_signature: the operator answered bad-signature, also after a key change that could not be recovered (RELAY-v0 sections 5.1, 5.5 and 5.7).", "enum": ["local", "operator", "offline_too_long", "bad_signature"] },
+        "cause": { "description": "Only with relay.unpaired. local: the gateway ended the pairing at its administrator's request; operator: the operator answered unpaired (the household's portal, a replacement by another gateway, the end of the service); offline_too_long: the operator answered offline-too-long or the gateway's own limit passed; bad_signature: the operator answered bad-signature, also after a key change that could not be recovered (RELAY-v0 sections \"Directory, nonces and requests\", \"Renewal, re-issuance and key change\" and \"Unpairing, blocking and the gateway's state\").", "enum": ["local", "operator", "offline_too_long", "bad_signature"] },
         "status": { "description": "relay.status_changed: the status of the installation the operator reports (active, paused, blocked); relay.monitoring_status: whether the check works (ok, unavailable).", "enum": ["active", "paused", "blocked", "ok", "unavailable"] },
         "previous_status": { "enum": ["active", "paused", "blocked", "ok", "unavailable"] },
-        "check": { "description": "relay.monitoring_status: the query of the CAA records or the read of the installation (RELAY-v0 section 6.7); relay.pairing_refused: the check of the pairing response that failed, the standard name or the tunnel certificate (RELAY-v0 section 5.2).", "enum": ["caa", "installation", "name", "certificate"] },
-        "reason": { "description": "Only with relay.pins_ignored: why the gateway ignored a set of pins (RELAY-v0 sections 4.7 and 6.8). rules: the set breaks the rules of section 6.8, for example it changes the backup pins over a connection with an active pin; connection_pin: the pin of the connection is no longer stored in its kind; storage: the set cannot be stored durably; limit: the set is over the limit for connections with an active pin.", "enum": ["rules", "connection_pin", "storage", "limit"] },
-        "until": { "description": "Only with relay.replacement_pending: the end of the waiting time the operator reports (RELAY-v0 sections 5.2 and 5.3).", "$ref": "#/$defs/date_time" },
-        "source": { "description": "Only with relay.pins_changed. relay: announced over a tunnel authenticated with a stored pin; admin: taken by the local administrator after a warning (RELAY-v0 section 6.8).", "enum": ["relay", "admin"] },
+        "check": { "description": "relay.monitoring_status: the query of the CAA records or the read of the installation (RELAY-v0 section \"Certificate Transparency monitoring\"); relay.pairing_refused: the check of the pairing response that failed, the standard name or the tunnel certificate (RELAY-v0 section \"Pairing\").", "enum": ["caa", "installation", "name", "certificate"] },
+        "reason": { "description": "Only with relay.pins_ignored: why the gateway ignored a set of pins (RELAY-v0 sections \"New pins\" and \"Pinning the relay\"). rules: the set breaks the rules of section 6.8, for example it changes the backup pins over a connection with an active pin; connection_pin: the pin of the connection is no longer stored in its kind; storage: the set cannot be stored durably; limit: the set is over the limit for connections with an active pin.", "enum": ["rules", "connection_pin", "storage", "limit"] },
+        "until": { "description": "Only with relay.replacement_pending: the end of the waiting time the operator reports (RELAY-v0 sections \"Pairing\" and \"Installation\").", "$ref": "#/$defs/date_time" },
+        "source": { "description": "Only with relay.pins_changed. relay: announced over a tunnel authenticated with a stored pin; admin: taken by the local administrator after a warning (RELAY-v0 section \"Pinning the relay\").", "enum": ["relay", "admin"] },
         "active_pins": { "type": "integer", "minimum": 1, "maximum": 8 },
         "backup_pins": { "type": "integer", "minimum": 0, "maximum": 7 },
-        "level": { "description": "Only with relay.protection_changed (RELAY-v0 section 6.5).", "enum": ["standard", "own_domain"] },
+        "level": { "description": "Only with relay.protection_changed (RELAY-v0 section \"Determining the protection level\").", "enum": ["standard", "own_domain"] },
         "previous_level": { "enum": ["standard", "own_domain"] },
-        "scope": { "description": "Only with relay.caa_alarm: the standard name or the apex of the name domain (RELAY-v0 section 6.7).", "enum": ["name", "apex"] },
-        "account": { "description": "Only with relay.acme_account_changed: the ACME account URI the gateway reported (RELAY-v0 section 5.6).", "type": "string", "pattern": "^https://[!-~]{1,500}$" },
-        "change": { "description": "Only with relay.acme_account_changed (RELAY-v0 section 5.6). reported: the gateway reported the account and it took effect; pending: the operator asks the household to confirm it; confirmed: the household confirmed it and it is in force; not_confirmed: after the waiting time the account in force is still the earlier one; foreign: an account is in force that the gateway never reported.", "enum": ["reported", "pending", "confirmed", "not_confirmed", "foreign"] }
+        "scope": { "description": "Only with relay.caa_alarm: the standard name or the apex of the name domain (RELAY-v0 section \"Certificate Transparency monitoring\").", "enum": ["name", "apex"] },
+        "account": { "description": "Only with relay.acme_account_changed: the ACME account URI of the pair (RELAY-v0 section \"ACME support\").", "type": "string", "pattern": "^https://[!-~]{1,500}$" },
+        "caa_identity": { "description": "Only with relay.acme_account_changed: the issuer domain name of the CA of the pair, as its CAA records name it (RELAY-v0 section \"ACME support\").", "$ref": "#/$defs/domain" },
+        "change": { "description": "Only with relay.acme_account_changed (RELAY-v0 section \"ACME support\"). reported: the gateway reported the account and it took effect; pending: the operator asks the household to confirm it; confirmed: the household confirmed it and it is in force; not_confirmed: after the waiting time the account in force is still the earlier one; foreign: an account is in force that the gateway never reported.", "enum": ["reported", "pending", "confirmed", "not_confirmed", "foreign"] }
       }
     },
     "prev": {
@@ -443,7 +454,8 @@
     { "if": { "properties": { "event": { "const": "emergency_stop.released" } } },
       "then": { "properties": { "actor": { "properties": { "kind": { "const": "user" } } } } } },
     { "if": { "properties": { "event": { "const": "auth.rejected" } } },
-      "then": { "required": ["result"] } },
+      "then": { "required": ["result", "auth"] },
+      "else": { "not": { "required": ["auth"] } } },
     { "if": { "properties": { "event": { "const": "log.truncated" } } },
       "then": { "required": ["actor", "truncated"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } } },
     { "if": { "properties": { "event": { "const": "directory.changed" } } },
@@ -475,7 +487,7 @@
       "then": { "not": { "required": ["agent"] } } },
     { "if": { "required": ["credentials"], "properties": { "credentials": { "properties": { "cause": { "enum": ["emergency_stop", "public_origin"] } } } } },
       "then": { "properties": { "credentials": { "properties": { "scope": { "const": "all" } } } } } },
-    { "if": { "required": ["credentials"], "properties": { "credentials": { "properties": { "cause": { "const": "refresh_reuse" } } } } },
+    { "if": { "required": ["credentials"], "properties": { "credentials": { "properties": { "cause": { "enum": ["refresh_reuse", "bound"] } } } } },
       "then": { "properties": { "actor": { "properties": { "kind": { "const": "system" } } }, "credentials": { "properties": { "scope": { "const": "agent" } } } } } },
     { "if": { "required": ["credentials"], "properties": { "credentials": { "properties": { "cause": { "const": "user" } } } } },
       "then": { "properties": { "actor": { "properties": { "kind": { "const": "user" } } } } } },
@@ -521,7 +533,7 @@
     { "if": { "properties": { "event": { "const": "relay.caa_alarm" } } },
       "then": { "properties": { "relay": { "required": ["name", "scope"], "propertyNames": { "enum": ["operator", "name", "scope"] } } } } },
     { "if": { "properties": { "event": { "const": "relay.acme_account_changed" } } },
-      "then": { "properties": { "relay": { "required": ["account", "change"], "propertyNames": { "enum": ["operator", "account", "change"] } } } } },
+      "then": { "properties": { "relay": { "required": ["account", "caa_identity", "change"], "propertyNames": { "enum": ["operator", "account", "caa_identity", "change"] } } } } },
     { "if": { "properties": { "event": { "const": "log.checkpoint" } } },
       "then": { "required": ["checkpoint"], "properties": { "seq": { "minimum": 2 } } },
       "else": { "not": { "required": ["checkpoint"] } } },
