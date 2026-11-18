@@ -686,3 +686,23 @@ func TestCheckpointGap(t *testing.T) {
 		t.Errorf("invalid log: %+v", got)
 	}
 }
+
+// A recorded_at before that of the entry before it is reported, informatively, and does not
+// make the log invalid (SPEC-v0 section 9.4): v207 records its fourth entry before its third.
+func TestTimeBackwardsIsReported(t *testing.T) {
+	for _, c := range loadAllCases(t) {
+		if c.ID != "v207" && c.ID != "v205" {
+			continue
+		}
+		got, err := c.verify()
+		if err != nil || !got.Valid {
+			t.Fatalf("%s: %+v, %v", c.ID, got, err)
+		}
+		switch {
+		case c.ID == "v207" && (!got.TimeBackwards.Found() || got.TimeBackwards.At != 4):
+			t.Errorf("v207: TimeBackwards = %+v, want seq 4", got.TimeBackwards)
+		case c.ID == "v205" && got.TimeBackwards.Found():
+			t.Errorf("v205: TimeBackwards = %+v, want none", got.TimeBackwards)
+		}
+	}
+}

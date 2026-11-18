@@ -4642,6 +4642,44 @@
         {"actor": {"id": "retention", "kind": "system"}, "event": "log.truncated", "id": "01a0f64c-7140-7001-9007-0000b2290102", "prev": "sha256:0019f4d15406fa93b7ff05e0cc0a2bf5d7ddc3578fadc71a098aa06a03135f34", "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:01:00Z", "seq": 102, "truncated": {"last_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "up_to_seq": 100}, "type": "https://home-mandate.org/audit/v1"},
         {"auth": {"reason": "unknown"}, "event": "auth.rejected", "id": "01a0f64c-7140-7001-9007-0000b2290103", "prev": "sha256:0f1d6981236d0588aeaf9a4b935a15412137652ff31e351d17e2839e01dc366f", "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:02:00Z", "result": {"denied_by": "authentication", "status": "denied"}, "seq": 103, "type": "https://home-mandate.org/audit/v1"}
       ]
+    },
+    {
+      "id": "v230",
+      "why": "consecutive allowed reads of one resource recorded as one entry with result.count (SPEC-v0 section 11.8, repeated reads)",
+      "expected": "valid",
+      "entries": [
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-sensors"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000b2300001", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:00:01Z", "request": {"action": "read", "resource": {"category": "sensor", "entity_id": "sensor.hallway_temperature"}, "time": "2026-11-18T10:00:01Z"}, "result": {"count": 12, "status": "executed"}, "seq": 1, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v231",
+      "why": "result.count on an executed action that is not read: only reads are summarized (SPEC-v0 section 11.8)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "conformance_broken_at": 1,
+      "entries": [
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-sensors"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000b2310001", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:00:01Z", "request": {"action": "turn_on", "resource": {"category": "sensor", "entity_id": "sensor.hallway_temperature"}, "time": "2026-11-18T10:00:01Z"}, "result": {"count": 3, "status": "executed"}, "seq": 1, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v232",
+      "why": "result.count on a read that was denied by the mandate: only allowed reads are summarized, and denials only by the rate limit (SPEC-v0 sections 11.2 and 11.8)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "conformance_broken_at": 1,
+      "entries": [
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "deny", "reason": "default"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000b2320001", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:00:01Z", "request": {"action": "read", "resource": {"category": "sensor", "entity_id": "sensor.hallway_temperature"}, "time": "2026-11-18T10:00:01Z"}, "result": {"count": 3, "denied_by": "mandate", "status": "denied"}, "seq": 1, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v233",
+      "why": "result.count on a read of a request for several resources: a group is recorded entry by entry (SPEC-v0 sections 4.4 and 11.8)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "conformance_broken_at": 1,
+      "entries": [
+        {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-sensors"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000b2330001", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:00:01Z", "request": {"action": "read", "group": "0198f1c2-7c3a-7000-8000-0000000002a1", "resource": {"category": "sensor", "entity_id": "sensor.hallway_temperature"}, "time": "2026-11-18T10:00:01Z"}, "result": {"count": 3, "status": "executed"}, "seq": 1, "type": "https://home-mandate.org/audit/v1"}
+      ]
     }
   ]
 }

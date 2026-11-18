@@ -84,6 +84,10 @@ type Result struct {
 	// means something only for a log whose checkpoints verify with keys: without keys anyone
 	// can write a checkpoint entry. nil if there is none.
 	CheckpointGap *Finding
+	// TimeBackwards is, informatively, the first entry whose recorded_at lies before that of
+	// the entry before it: a clock set back, or entries written out of order (SPEC-v0 section
+	// 9.4). It does not make the log invalid; nil if there is none.
+	TimeBackwards *Finding
 }
 
 // Finding names the first entry of a kind of violation.
@@ -270,6 +274,8 @@ type verifier struct {
 	known actionsByCategory
 	// cadence follows the checkpoints for CheckpointGap.
 	cadence cadence
+	// backwards is the first entry recorded before the entry before it (Result.TimeBackwards).
+	backwards *Finding
 	// lastFound: an entry or a log.truncated entry stands for Anchor.LastSeen.
 	lastFound bool
 	// lastTruncation is the log.truncated entry that stands for Anchor.LastSeen, if the entry
@@ -385,6 +391,9 @@ func (v *verifier) add(entry []byte) {
 		v.breakCheckpoint(index, l.seq)
 	}
 	v.cadence.next(index, l)
+	if index > 0 && !l.at.IsZero() && !v.previous.at.IsZero() && l.at.Before(v.previous.at) {
+		note(&v.backwards, index, l.seq)
+	}
 	v.previous, v.lost = l, false
 }
 
@@ -461,6 +470,7 @@ func (v *verifier) finish() Result {
 		r.AnchoredSeq, r.LogID, r.FirstSeq = v.anchoredSeq, v.logID, v.first.seq
 		r.TruncationAnchored = v.startCovered && v.first.seq != 1 && v.coveredAt <= v.anchoredSeq
 		r.CheckpointGap = v.cadence.gap
+		r.TimeBackwards = v.backwards
 	}
 	r.Integrity, r.Conformance, r.UnknownVersion = v.integrity, v.conformance, v.unknown
 	return r

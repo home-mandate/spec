@@ -60,7 +60,7 @@ implementation as a whole follows the specification does.
 | 11.6 | Audit mode, if offered: how it is switched on and shown |
 | 11.7 | If reachable from outside: every item, Certificate Transparency monitoring and the alarms included |
 | 11.7 | If reachable from outside: the channel outside the implementation's own pages through which an alarm and the state `unavailable` of Certificate Transparency monitoring reach every administrator, and that an alarm stays shown across restarts until acknowledged; a key presented under the public origin that differs from the current one is taken only when the administrator accepts it |
-| 11.8 | What `read` returns |
+| 11.8 | What `read` returns; if repeated reads share one entry: the count stored before each read is executed, the entry written within 60 seconds, and written after a crash at the next start |
 
 ## Test interface (Section 10)
 
