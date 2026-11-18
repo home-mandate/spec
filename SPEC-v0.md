@@ -3445,7 +3445,7 @@ behavior of the people in a household and MUST be protected like the devices the
   an `allow` every one of them must leave room; otherwise the request is denied with
   `denied_by: rate_limit`, its entry keeps the evaluation, and `error` `rule_limit` is
   RECOMMENDED. No change to the audit format. `ratelimit.RuleLimiter` counts them, all or
-  nothing over the rules and the resources (cases `c301` to `c312`, `i646` to `i662`, `v32`, `v234`).
+  nothing over the rules and the resources (cases `c301` to `c313`, `i646` to `i662`, `v32`, `v234`).
 - Rate limits with a PDP apart from its PEP (Sections 6 and 11.2): the PDP enforces N, the
   limits of the rules and the limit without a mandate, since it holds the mandates; the PEP
   enforces none of them. A denial is `decision: false` with `denied_by: "rate_limit"` in the

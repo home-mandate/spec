@@ -228,3 +228,28 @@ func TestRuleKey(t *testing.T) {
 		seen[k] = true
 	}
 }
+
+// With a count as well, a time exactly min_interval ago is still held, and the interval has
+// passed at that point: the end is inclusive.
+func TestRuleIntervalEndWithACount(t *testing.T) {
+	c := newClock()
+	l := ratelimit.NewRuleLimiter(c.Now)
+	heating := ratelimit.Rule{Key: "m-1/r-heating", PerHour: 5, MinInterval: 10 * time.Minute}
+	l.AllowN([]ratelimit.Rule{heating}, 1)
+	c.advance(10 * time.Minute)
+	if !l.AllowN([]ratelimit.Rule{heating}, 1) {
+		t.Error("denied exactly min_interval after the last request")
+	}
+}
+
+// A rule without min_interval is not limited by a clock that was set back, only by its counts.
+func TestRuleWithoutIntervalAfterTheClockWasSetBack(t *testing.T) {
+	c := newClock()
+	l := ratelimit.NewRuleLimiter(c.Now)
+	garage := perHour("m-1/r-garage", 5)
+	l.AllowN([]ratelimit.Rule{garage}, 1)
+	c.advance(-time.Minute)
+	if !l.AllowN([]ratelimit.Rule{garage}, 1) {
+		t.Error("denied by a time after now, although the rule has no min_interval")
+	}
+}

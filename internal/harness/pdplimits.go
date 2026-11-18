@@ -52,7 +52,9 @@ func (l *pdpLimits) check(state State, subject Subject, answer Response) denial 
 		if answer.Reason == string(evaluator.ReasonAmbiguousMandate) {
 			limit = min(limit, smallestN(state, subject))
 		}
-		// Mandate ids contain no NUL, so the key cannot be the id of a mandate.
+		// Mandate ids contain no NUL, so the key cannot be the id of a mandate. The key comes
+		// from what the caller sends; the state of the test interface bounds it, and a PDP in
+		// service counts only agents it authenticated and bounds the number of keys.
 		if !l.mandates.Allow("\x00"+subject.ClientID+"\x00"+subject.Principal, limit) {
 			return deniedBeforeEvaluation
 		}

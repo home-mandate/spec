@@ -13,8 +13,8 @@
     },
     {
       "path": "conformance/cases-v0.json",
-      "sha256": "42048316a487a70821d637cb5a6a06e9a06cf8155adf5912113266881abce1c6",
-      "cases": 312
+      "sha256": "adcea2c4896df4c48378d97cfd8812bf7021243eed207cb3a917557423d0ce40",
+      "cases": 313
     },
     {
       "path": "conformance/ct-v0.json",
