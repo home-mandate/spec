@@ -6659,6 +6659,7 @@
       "id": "a241",
       "why": "a checkpoint signed with ES256 whose s is the higher of the two values that verify: only the lower one is accepted (SPEC-v0 sections 7.1 and 9.5)",
       "expected": "invalid",
+      "requires": "ES256",
       "broken_at": 4,
       "integrity_broken_at": 4,
       "keys": "conformance/keys/test-keys.json",

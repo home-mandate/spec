@@ -5,9 +5,11 @@ package evaluator_test
 import (
 	"bytes"
 	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -366,5 +368,54 @@ func TestNarrowsAndNeedsConfirmation(t *testing.T) {
 	// A revoked predecessor asks for a confirmation even without any change.
 	if !evaluator.NeedsConfirmation(stored, evaluator.StatusRevoked, time.Time{}, same) {
 		t.Error("a successor of a revoked mandate takes effect only after a confirmation")
+	}
+}
+
+// A long input is rejected by its length before it is split (SPEC-v0 section 7.1), and an
+// issuer is quoted in errors with the length cut that every other value has.
+func TestParseSignedRejectsALongInputBeforeSplitting(t *testing.T) {
+	dots := strings.Repeat(".", 8<<20)
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	_, err := evaluator.ParseSigned(dots, nil)
+	runtime.ReadMemStats(&after)
+	if !errors.Is(err, evaluator.ErrSignature) {
+		t.Fatalf("ParseSigned = %v, want ErrSignature", err)
+	}
+	if allocated := after.TotalAlloc - before.TotalAlloc; allocated > 64<<10 {
+		t.Errorf("%d bytes allocated for an input of %d dots", allocated, len(dots))
+	}
+	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"issuer":"` + strings.Repeat("i", 4096) + `"}`))
+	_, err = evaluator.ParseSigned("e30."+payload+".AA", evaluator.Issuers{})
+	if err == nil || len(err.Error()) > 512 {
+		t.Errorf("error for an untrusted long issuer = %d bytes", len(err.Error()))
+	}
+}
+
+func TestAudienceOfASignedMandate(t *testing.T) {
+	// The payload of case g01, a signed mandate for hm-verifier:conf-0001.
+	data, err := fs.ReadFile(spec.FS(), spec.SignedCasesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file struct {
+		Cases []struct{ ID, JWS string } `json:"cases"`
+	}
+	if err := json.Unmarshal(data, &file); err != nil {
+		t.Fatal(err)
+	}
+	_, payload, _ := strings.Cut(file.Cases[0].JWS, ".")
+	payload, _, _ = strings.Cut(payload, ".")
+	decoded, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := evaluator.Parse(decoded)
+	if err != nil || file.Cases[0].ID != "g01" {
+		t.Fatalf("%s: %v", file.Cases[0].ID, err)
+	}
+	if m.Audience() != "hm-verifier:conf-0001" {
+		t.Errorf("Audience = %q", m.Audience())
 	}
 }

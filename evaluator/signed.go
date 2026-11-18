@@ -14,6 +14,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/home-mandate/spec/ijson"
+	"github.com/home-mandate/spec/internal/errquote"
 	"github.com/home-mandate/spec/jcs"
 	"github.com/home-mandate/spec/jws"
 )
@@ -70,7 +71,7 @@ func ParseSigned(compact string, trusted Issuers) (*Mandate, error) {
 	}
 	keys, ok := trusted[issuer]
 	if !ok || issuer == "" {
-		return nil, fmt.Errorf("%w: issuer %q is not trusted", ErrSignature, issuer)
+		return nil, fmt.Errorf("%w: issuer %s is not trusted", ErrSignature, errquote.Quote(issuer))
 	}
 	payload, _, err := jws.Verify(compact, keys)
 	if err != nil {
@@ -114,8 +115,11 @@ func signable(m *Mandate) error {
 // unverifiedIssuer reads the issuer from the payload before the signature is checked,
 // only to choose the keys; nothing else of the payload is used unverified.
 func unverifiedIssuer(compact string) (string, error) {
-	parts := strings.Split(compact, ".")
-	if len(compact) > jws.MaxCompactBytes || len(parts) != 3 || parts[1] == "" {
+	if len(compact) > jws.MaxCompactBytes {
+		return "", fmt.Errorf("%w: not a compact JWS with payload", ErrSignature)
+	}
+	parts := strings.SplitN(compact, ".", 4)
+	if len(parts) != 3 || parts[1] == "" {
 		return "", fmt.Errorf("%w: not a compact JWS with payload", ErrSignature)
 	}
 	payload, err := base64.RawURLEncoding.Strict().DecodeString(parts[1])
@@ -155,7 +159,7 @@ func CheckSuccessor(stored, offered *Mandate) error {
 	case stored.version == 0:
 		return nil // the stored mandate has no version; anything may follow
 	case offered.issuer != stored.issuer:
-		return fmt.Errorf("%w: issuer %q does not replace issuer %q", ErrSemantic, offered.issuer, stored.issuer)
+		return fmt.Errorf("%w: issuer %s does not replace issuer %s", ErrSemantic, errquote.Quote(offered.issuer), errquote.Quote(stored.issuer))
 	case offered.version <= stored.version:
 		return fmt.Errorf("%w: version %d does not follow version %d", ErrSemantic, offered.version, stored.version)
 	}

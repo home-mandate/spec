@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -124,7 +125,7 @@ func TestConformanceAuditLogs(t *testing.T) {
 				t.Fatalf("unknown expectation %q", c.Expected)
 			}
 			for name, f := range map[string]struct {
-				got  audit.Finding
+				got  *audit.Finding
 				want *int64
 			}{"integrity": {got.Integrity, c.IntegrityBrokenAt}, "conformance": {got.Conformance, c.ConformanceBrokenAt}, "unknown version": {got.UnknownVersion, c.UnknownVersionAt}} {
 				switch {
@@ -269,10 +270,8 @@ func TestEntrySizeLimitBoundary(t *testing.T) {
 func TestValidResultHasNoIndex(t *testing.T) {
 	c := loadCases(t)[0]
 	got, err := audit.Verify(raw(c.Entries))
-	none := audit.Finding{Index: -1}
-	want := audit.Result{Valid: true, Index: -1, Entries: len(c.Entries), FirstSeq: 1, Integrity: none, Conformance: none, UnknownVersion: none,
-		CheckpointGap: none}
-	if err != nil || got != want {
+	want := audit.Result{Valid: true, Index: -1, Entries: len(c.Entries), FirstSeq: 1}
+	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Errorf("Verify = %+v, %v; want {Valid:true Index:-1 BrokenAt:0}", got, err)
 	}
 	if got, _ := audit.Verify(nil); got.Index != -1 || got.Entries != 0 {
@@ -321,7 +320,7 @@ func TestVerifyJSONLinesAgreesWithVerify(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, err := audit.VerifyJSONLines(bytes.NewReader(jsonLines(t, c.Entries)))
-		if err != nil || got != want {
+		if err != nil || !reflect.DeepEqual(got, want) {
 			t.Errorf("%s: VerifyJSONLines = %+v, %v; Verify = %+v", c.ID, got, err, want)
 		}
 	}
@@ -514,11 +513,11 @@ func TestAnOverlongLineDoesNotEndTheReading(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := struct{ integrity, conformance, unknown audit.Finding }{
-		audit.Finding{Index: 1, At: 0}, audit.Finding{Index: 1, At: 0}, audit.Finding{Index: 2, At: 3},
-	}
-	if got.Valid || got.Integrity != want.integrity || got.Conformance != want.conformance || got.UnknownVersion != want.unknown {
-		t.Errorf("result = %+v, want findings %+v", got, want)
+	want := []audit.Finding{{Index: 1, At: 0}, {Index: 1, At: 0}, {Index: 2, At: 3}}
+	for i, f := range []*audit.Finding{got.Integrity, got.Conformance, got.UnknownVersion} {
+		if got.Valid || f == nil || *f != want[i] {
+			t.Errorf("finding %d = %+v, want %+v (result %+v)", i, f, want[i], got)
+		}
 	}
 }
 
@@ -575,7 +574,7 @@ func TestTheFirstOfConformanceAndUnknownVersionIsBrokenAt(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		at := func(f audit.Finding) int64 {
+		at := func(f *audit.Finding) int64 {
 			if !f.Found() {
 				return -1
 			}

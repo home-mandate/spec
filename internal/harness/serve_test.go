@@ -367,3 +367,34 @@ func TestDocumentsInBase64(t *testing.T) {
 		}
 	}
 }
+
+// Member names are compared exactly, and a member occurs at most once (SPEC-v0 section 10.2):
+// encoding/json alone would read "OP" as "op" and keep the last of two.
+func TestRequestsWithMembersInAnotherCaseOrTwiceAreMalformed(t *testing.T) {
+	for name, line := range map[string]string{
+		"op in upper case":               `{"OP":"capabilities"}`,
+		"nested name in upper case":      `{"op":"evaluate","mandate":"{}","request":{"resource":{"ENTITY_ID":"lock.a"},"action":"unlock","time":"2026-10-12T19:00:00+02:00"}}`,
+		"name in a list in another case": `{"op":"select","mandates":[{"Mandate":"{}"}]}`,
+		"op twice":                       `{"op":"capabilities","op":"validate"}`,
+		"nested member twice":            `{"op":"evaluate","mandate":"{}","request":{"action":"unlock","action":"lock","resource":{"entity_id":"lock.a"},"time":"2026-10-12T19:00:00+02:00"}}`,
+		"member twice in a list":         `{"op":"select","mandates":[{"mandate":"{}","mandate":"{}"}]}`,
+		"not JSON":                       `{"op":`,
+	} {
+		var out bytes.Buffer
+		if err := harness.Serve(strings.NewReader(line+"\n"), &out); err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.TrimSpace(out.String()); got != `{"error":"malformed request"}` {
+			t.Errorf("%s: response = %s", name, got)
+		}
+	}
+	// The same names in a string, a parameter name or an array of strings are no members.
+	var out bytes.Buffer
+	line := `{"op":"capabilities","id":"OP op"}`
+	if err := harness.Serve(strings.NewReader(line+"\n"), &out); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "malformed") {
+		t.Errorf("response = %s", out.String())
+	}
+}

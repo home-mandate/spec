@@ -227,20 +227,23 @@ type evaluationCase struct {
 		MandateInline json.RawMessage `json:"mandate_inline"`
 		Revoked       bool            `json:"revoked"`
 	} `json:"mandates"`
-	Subject         *Subject                   `json:"subject"`
-	Resource        Resource                   `json:"resource"`
-	Action          string                     `json:"action"`
-	Parameters      map[string]json.RawMessage `json:"parameters"`
-	Time            string                     `json:"time"`
-	Timezone        string                     `json:"timezone"`
-	Revoked         bool                       `json:"revoked"`
-	Expected        string                     `json:"expected"`
-	Reason          string                     `json:"reason"`
-	RuleID          json.RawMessage            `json:"rule_id"`
-	ApprovalTimeout string                     `json:"approval_timeout"`
-	Enforced        *bool                      `json:"enforced"`
-	Confirm         bool                       `json:"confirm"`
-	Selected        json.RawMessage            `json:"selected"`
+	Subject    *Subject                   `json:"subject"`
+	Resource   Resource                   `json:"resource"`
+	Action     string                     `json:"action"`
+	Parameters map[string]json.RawMessage `json:"parameters"`
+	Time       string                     `json:"time"`
+	Timezone   string                     `json:"timezone"`
+	Revoked    bool                       `json:"revoked"`
+	// PDP is false for a selection case with a stored mandate that is invalid, which a PDP
+	// never stores; such a case is not played over the HTTP binding.
+	PDP             *bool           `json:"pdp"`
+	Expected        string          `json:"expected"`
+	Reason          string          `json:"reason"`
+	RuleID          json.RawMessage `json:"rule_id"`
+	ApprovalTimeout string          `json:"approval_timeout"`
+	Enforced        *bool           `json:"enforced"`
+	Confirm         bool            `json:"confirm"`
+	Selected        json.RawMessage `json:"selected"`
 }
 
 func (c evaluationCase) request() *Evaluation {

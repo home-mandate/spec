@@ -113,9 +113,10 @@ Section 7.1 (signed mandates) and Section 9.5 (checkpoints, detached payload).
 | 4.2 `use` | Cases: `g37`, `g38` |
 | 4.3 `key_ops` | Cases: `g39`, `g40` |
 | 4.4 `alg` | Cases: `g41`, `g42` |
-| 4.5 `kid`; keys in a set SHOULD have distinct `kid` values | Narrower: a `kid` repeats in no key set, and such a set verifies nothing. Cases: `g59`, `g60`; the pattern: `g57`, `g58` |
+| 4.5 `kid`; keys in a set SHOULD have distinct `kid` values | Narrower: every key has a `kid` of the pattern, a `kid` repeats in no key set, and a set that breaks this verifies nothing. Cases: `g59`, `g60`; the pattern: `g57`, `g58`, next to the signing key `g91`, `g92`; no `kid` or one that is not a string: `g93`, `g94` |
 | 5 a JWK Set has a `keys` member | Cases: `g27`, `g30` |
-| 5 readers SHOULD skip keys they cannot use | Not followed: a set with such a key verifies nothing, so that a verifier never trusts less or more than the household configured (Section 7.1). Cases: `g38`, `g40`, `g42`, `g63` to `g65`, `g70`, `g71` |
+| 5 readers SHOULD skip keys they cannot use | Not followed: a set with such a key verifies nothing, so that a verifier never trusts less or more than the household configured (Section 7.1). Cases: `g38`, `g40`, `g42`, `g63` to `g65`, `g70`; next to the signing key, one case for each kind of key: `g76` to `g96`. Followed for a key whose point is not on its curve, which verifies nothing and so changes no verdict: `g71`, `g74`, `g99`, `g100` |
+| a key set is I-JSON, at most 65 536 bytes | Narrower (Section 7.1). Cases: `g97` (a member twice in a key), `g98` (`keys` twice), `g101` (65 537 bytes) |
 | 9.2 a private key is not published | Cases: `g32`, `g33` (RFC 8037 section 2) |
 
 ## RFC 7518: JSON Web Algorithms (JWA), Section 3
@@ -125,7 +126,7 @@ Section 7.1 (signed mandates) and Section 9.5 (checkpoints, detached payload).
 | 3.1 `none` | Not followed: never accepted. Cases: `g06`, `a239` |
 | 3.4 ES256: R and S of 32 octets each, concatenated | Cases: `g02`, `a42` (valid, `requires: ES256`), `g67`, `g68`, `g69` |
 | 3.4 verification of ECDSA: r and s between 1 and n − 1 | Cases: `g66` (r = s = 0), `g72` (r = n), `g73` (s = 0) |
-| a P-256 key is a point of the curve | Cases: `g74` |
+| a P-256 key is a point of the curve | Cases: `g74`; next to the signing key, the set stays usable: `g100` |
 | ECDSA malleability: both s and n − s verify | Narrower: only the lower s (Section 7.1). Cases: `g12`, `a241` |
 | other algorithms (HS256, RS256, PS256, …) | Not followed: only EdDSA (MUST) and ES256 (MAY). Cases: `g06`, `g20` |
 
@@ -144,7 +145,7 @@ Section 7.1 (signed mandates) and Section 9.5 (checkpoints, detached payload).
 | Rule | Entry |
 |---|---|
 | 5.1.3 decoding: y < p | Cases: `g21` (R), `g50` (the key; the equation holds, so only this check rejects it). Not testable for a key of prime order written with y ≥ p: nobody can sign for such a key, so every verifier rejects its signatures for another reason |
-| 5.1.3 decoding: a point exists for y | Cases: `g71` |
+| 5.1.3 decoding: a point exists for y | Cases: `g71`; next to the signing key, the set stays usable: `g99` |
 | 5.1.3 decoding: x = 0 with the sign bit set | Cases: those encodings are in the list of Section 7.1 and rejected as keys of small order (`g34` shows the list at work) |
 | 5.1.7 S < L | Cases: `g19` |
 | 5.1.7 signature of 64 octets | Cases: `g61` |

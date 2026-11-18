@@ -12,8 +12,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/home-mandate/spec/evaluator"
 )
 
 // requestTimeout bounds one request to the implementation under test.
@@ -108,17 +106,25 @@ func RunPDP(ctx context.Context, fsys fs.FS, pdp PDP) (Report, error) {
 		if err != nil {
 			return Report{}, fmt.Errorf("conformance: case %s: %w", c.ID, err)
 		}
-		// A PDP stores only valid mandates and never evaluates a revoked one: the cases
-		// with revoked: true test the order of the reasons in direct evaluation and belong
-		// to the evaluator class; the revoked result of a PDP is covered by the selection
-		// cases (SPEC-v0 sections 4.3 and 8.1).
-		m, err := evaluator.Parse([]byte(text))
-		if err != nil || c.Revoked {
+		// A PDP never evaluates a revoked mandate: the cases with revoked: true test the order
+		// of the reasons in direct evaluation and belong to the evaluator class; the revoked
+		// result of a PDP is covered by the selection cases (SPEC-v0 sections 4.3 and 8.1).
+		if c.Revoked {
 			continue
 		}
-		c.Subject = &Subject{ClientID: m.ClientID(), Principal: m.Principal()}
+		var m struct {
+			ID        json.RawMessage `json:"id"`
+			Principal string          `json:"principal"`
+			Agent     struct {
+				ClientID string `json:"client_id"`
+			} `json:"agent"`
+		}
+		if err := json.Unmarshal([]byte(text), &m); err != nil {
+			return Report{}, fmt.Errorf("conformance: case %s: %w", c.ID, err)
+		}
+		c.Subject = &Subject{ClientID: m.Agent.ClientID, Principal: m.Principal}
 		// The stored mandate is the one evaluated; the response names it in mandate_id.
-		c.Selected, _ = json.Marshal(m.ID())
+		c.Selected = m.ID
 		r.pdpCase(ctx, pdp, fileCases, c, []StoredMandate{{Mandate: text}})
 	}
 	selection, err := load[evaluationCase](fsys, fileSelection, "cases")
@@ -129,17 +135,14 @@ func RunPDP(ctx context.Context, fsys fs.FS, pdp PDP) (Report, error) {
 		if c.Subject == nil {
 			return Report{}, fmt.Errorf("conformance: case %s has no subject", c.ID)
 		}
+		if c.PDP != nil && !*c.PDP {
+			continue
+		}
 		stored := []StoredMandate{}
-		storable := true
 		for _, m := range c.Mandates {
-			if _, err := evaluator.Parse(m.MandateInline); err != nil {
-				storable = false
-			}
 			stored = append(stored, StoredMandate{Mandate: string(m.MandateInline), Revoked: m.Revoked})
 		}
-		if storable {
-			r.pdpCase(ctx, pdp, fileSelection, c, stored)
-		}
+		r.pdpCase(ctx, pdp, fileSelection, c, stored)
 	}
 	r.finish()
 	return r.report, nil

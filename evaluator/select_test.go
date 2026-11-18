@@ -17,6 +17,8 @@ type selectionCase struct {
 		MandateInline json.RawMessage `json:"mandate_inline"`
 		Revoked       bool            `json:"revoked"`
 	} `json:"mandates"`
+	// PDP marks a case with an invalid stored mandate, which only the HTTP binding skips.
+	PDP     *bool `json:"pdp"`
 	Subject struct {
 		ClientID  string `json:"client_id"`
 		Principal string `json:"principal"`

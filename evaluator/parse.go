@@ -12,6 +12,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/home-mandate/spec/ijson"
+	"github.com/home-mandate/spec/internal/jsonnum"
 	"github.com/home-mandate/spec/jcs"
 	"github.com/home-mandate/spec/schema"
 )
@@ -57,7 +58,7 @@ func Parse(data []byte) (*Mandate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrMalformed, err)
 	}
-	instance = ijson.ZeroNumbers(instance)
+	instance = jsonnum.ZeroNumbers(instance)
 	compiled, err := mandateSchema()
 	if err != nil {
 		return nil, fmt.Errorf("evaluator: load schema: %w", err)

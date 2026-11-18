@@ -73,7 +73,7 @@ func runManifest(args []string, dir string, stdout io.Writer) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	return manifestFor(manifest.Specification, dir, *check, stdout)
+	return manifestFor(manifest.Specification(), dir, *check, stdout)
 }
 
 func manifestFor(layout manifest.Layout, dir string, check bool, stdout io.Writer) error {

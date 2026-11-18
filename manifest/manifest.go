@@ -34,8 +34,12 @@ type Layout struct {
 	CaseDir string
 }
 
-// Specification lists the files of the specification (conformance/manifest.json).
-var Specification = Layout{Spec: "v0", Path: Path, Roots: []string{"conformance", "data", "examples", "schema", "vocabulary"}, CaseDir: "conformance"}
+// Specification returns the layout of the files of the specification
+// (conformance/manifest.json). Each call returns a new value, so that a caller cannot change
+// what Build lists.
+func Specification() Layout {
+	return Layout{Spec: "v0", Path: Path, Roots: []string{"conformance", "data", "examples", "schema", "vocabulary"}, CaseDir: "conformance"}
+}
 
 // caseKeys are the members that hold the cases of a conformance file.
 var caseKeys = []string{"cases", "logs"}
@@ -53,9 +57,9 @@ type File struct {
 	Cases  int    `json:"cases,omitempty"`
 }
 
-// Build computes the manifest of the specification's files in fsys (Specification.Build).
+// Build computes the manifest of the specification's files in fsys (Specification().Build).
 func Build(fsys fs.FS) (Manifest, error) {
-	return Specification.Build(fsys)
+	return Specification().Build(fsys)
 }
 
 // Build computes the manifest of the files in fsys, sorted by path. Roots that do not

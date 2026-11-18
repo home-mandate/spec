@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//lint:file-ignore SA1019 the tests build private keys with a missing, zero or foreign D, which only the deprecated field can express.
+
 package jws
 
 import (
@@ -14,8 +16,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/home-mandate/spec/internal/errquote"
 	"math/big"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -202,12 +206,23 @@ func TestParseJWKS(t *testing.T) {
 		"short x":        `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","x":"AQAB"}]}`,
 		"x not base64":   `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","x":"!!"}]}`,
 		"EC wrong curve": `{"keys":[{"kty":"EC","crv":"P-384","kid":"k","x":"AQAB","y":"AQAB"}]}`,
-		"EC off curve":   `{"keys":[{"kty":"EC","crv":"P-256","kid":"k","x":"` + rfc8037Public + `","y":"` + rfc8037Public + `"}]}`,
 		"EC y missing":   `{"keys":[{"kty":"EC","crv":"P-256","kid":"k","x":"` + rfc8037Public + `"}]}`,
 	} {
 		if _, err := ParseJWKS([]byte(doc)); err == nil {
 			t.Errorf("%s: accepted", name)
 		}
+	}
+	// A key that is not on its curve verifies nothing and leaves the key set usable
+	// (SPEC-v0 section 7.1).
+	offCurveKeys, err := ParseJWKS([]byte(`{"keys":[{"kty":"EC","crv":"P-256","kid":"k","x":"` + rfc8037Public + `","y":"` + rfc8037Public + `"}]}`))
+	if err != nil || len(offCurveKeys) != 1 {
+		t.Fatalf("EC off curve: %v, %v", offCurveKeys, err)
+	}
+	if verifyInput(AlgES256, offCurveKeys["k"], []byte("x"), make([]byte, 64)) {
+		t.Error("a key off the curve verified a signature")
+	}
+	if _, err := MarshalJWKS(offCurveKeys); err == nil {
+		t.Error("MarshalJWKS wrote a key that is not on its curve")
 	}
 	if _, err := MarshalJWKS(Keys{"k": "not a key"}); err == nil {
 		t.Error("MarshalJWKS accepted an unsupported key")
@@ -510,10 +525,10 @@ func TestSignRejectsUnusableKeys(t *testing.T) {
 	}
 	for name, signer := range signers {
 		calls := map[string]func() error{
-			"Sign":          func() error { _, err := Sign([]byte("x"), "k", signer); return err },
-			"SignDetached":  func() error { _, err := SignDetached([]byte("x"), "k", signer); return err },
-			"SignRequest":   func() error { _, err := SignRequest(nil, RequestHeader{Kid: "k"}, signer); return err },
-			"SignKeyChange": func() error { _, err := SignKeyChange([]byte("{}"), KeyChangeHeader{}, signer); return err },
+			"Sign":            func() error { _, err := Sign([]byte("x"), "k", signer); return err },
+			"SignDetached":    func() error { _, err := SignDetached([]byte("x"), "k", signer); return err },
+			"SignerAlgorithm": func() error { _, _, err := SignerAlgorithm(signer); return err },
+			"SignCompact":     func() error { _, err := SignCompact([]byte("{}"), []byte("x"), AlgES256, signer); return err },
 		}
 		for call, f := range calls {
 			func() {
@@ -531,7 +546,7 @@ func TestSignRejectsUnusableKeys(t *testing.T) {
 }
 
 // TestErrorsQuoteOnlyAPrefix: an error of Sign, Verify or ParseJWKS quotes at most
-// maxQuotedBytes of a value it did not accept, so that input cannot fill logs (issue #143).
+// errquote.MaxBytes bytes of a value it did not accept, so that input cannot fill logs (issue #143).
 func TestErrorsQuoteOnlyAPrefix(t *testing.T) {
 	ed := rfcKey(t)
 	keys := Keys{"ed-1": ed.Public()}
@@ -565,8 +580,7 @@ func TestErrorsQuoteOnlyAPrefix(t *testing.T) {
 			_, err := ParseJWKS([]byte(`{"keys":[{"` + long + `":1,"` + long + `":2}]}`))
 			return err
 		},
-		"SignRequest alg":   func() error { _, err := SignRequest(nil, RequestHeader{Alg: long, Kid: "k"}, ed); return err },
-		"SignKeyChange alg": func() error { _, err := SignKeyChange([]byte("{}"), KeyChangeHeader{Alg: long}, ed); return err },
+		"SignCompact alg": func() error { _, err := SignCompact([]byte("{}"), nil, long, ed); return err },
 		"ParseJWKS kty and crv of control characters": func() error {
 			_, err := ParseJWKS([]byte(`{"keys":[{"kty":"` + control + `","crv":"` + control + `","kid":"k","x":"AA"}]}`))
 			return err
@@ -578,7 +592,7 @@ func TestErrorsQuoteOnlyAPrefix(t *testing.T) {
 			t.Errorf("%s: accepted", name)
 			continue
 		}
-		if strings.Contains(err.Error(), long[:maxQuotedBytes+1]) || !strings.Contains(err.Error(), `"...`) {
+		if strings.Contains(err.Error(), long[:errquote.MaxBytes+1]) || !strings.Contains(err.Error(), `"...`) {
 			t.Errorf("%s: err does not quote a cut value: %.200s", name, err)
 		}
 		if len(err.Error()) > maxErrorBytes {
@@ -758,5 +772,46 @@ func TestNonCanonicalRIsRejected(t *testing.T) {
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f})
 	if canonicalEd25519(bad[:32]) || verifyInput(AlgEdDSA, key.Public(), input, bad) {
 		t.Error("R with y = p + 1 accepted")
+	}
+}
+
+func TestKeySetSizeLimit(t *testing.T) {
+	set := func(size int) []byte {
+		start := `{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","x":"` + rfc8037Public + `","pad":"`
+		end := `"}]}`
+		return []byte(start + strings.Repeat("x", size-len(start)-len(end)) + end)
+	}
+	if _, err := ParseJWKS(set(MaxKeySetBytes)); err != nil {
+		t.Errorf("key set at the limit: %v", err)
+	}
+	if _, err := ParseJWKS(set(MaxKeySetBytes + 1)); !errors.Is(err, ErrMalformed) {
+		t.Errorf("key set over the limit: %v, want ErrMalformed", err)
+	}
+}
+
+// A long input is rejected by its length before it is split, so that it allocates nothing
+// in proportion to its size (SPEC-v0 section 7.1).
+func TestALongInputIsRejectedBeforeSplitting(t *testing.T) {
+	dots := strings.Repeat(".", 8<<20)
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	_, _, err := Verify(dots, nil)
+	runtime.ReadMemStats(&after)
+	if !errors.Is(err, ErrMalformed) {
+		t.Fatalf("Verify = %v, want ErrMalformed", err)
+	}
+	if allocated := after.TotalAlloc - before.TotalAlloc; allocated > 64<<10 {
+		t.Errorf("%d bytes allocated for an input of %d dots", allocated, len(dots))
+	}
+	atLimit := strings.Repeat("a", maxCompactBytes-2)
+	if _, _, _, err := split(atLimit[:1] + "." + atLimit[2:] + ".a"); err != nil {
+		t.Errorf("a compact JWS of exactly %d bytes: %v", maxCompactBytes, err)
+	}
+	if _, _, _, err := split(atLimit + "..a"); !errors.Is(err, ErrMalformed) {
+		t.Errorf("a compact JWS of %d bytes: %v, want ErrMalformed", maxCompactBytes+1, err)
+	}
+	if _, _, _, err := split(strings.Repeat("a.", 3)); !errors.Is(err, ErrMalformed) {
+		t.Errorf("four parts: %v, want ErrMalformed", err)
 	}
 }
