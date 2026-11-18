@@ -30,8 +30,6 @@ var (
 	ErrHost   = errors.New("origin: the host is not a DNS name of at least two labels in lower case with A-labels")
 )
 
-var lookup = idna.New(idna.MapForLookup(), idna.BidiRule(), idna.ValidateLabels(true), idna.StrictDomainName(true), idna.Transitional(false))
-
 // Valid reports whether value is a public origin in the one form of Section 11.7 item 1.
 func Valid(value string) error {
 	rest, ok := strings.CutPrefix(value, "https://")
@@ -61,8 +59,10 @@ func validPort(port string) bool {
 }
 
 // validHost: at least two labels of letters, digits and hyphens in lower case, neither
-// beginning nor ending with a hyphen, the last not all digits (so that no IPv4 address
-// passes), and IDNA lookup maps the name to itself (A-labels that decode, no upper case).
+// beginning nor ending with a hyphen; the last label contains a letter and is not 0x followed
+// by hexadecimal digits, so that no URL parser reads the host as an IPv4 address (WHATWG URL,
+// "ends in a number"); and every A-label survives the Punycode round trip. IDNA is not
+// applied: a log verifier MUST NOT apply it (SPEC-v0 section 9.4), so that two verifiers agree.
 func validHost(host string) bool {
 	if host == "" || len(host) > maxHostLength {
 		return false
@@ -72,15 +72,35 @@ func validHost(host string) bool {
 		return false
 	}
 	for _, l := range labels {
-		if !validLabel(l) {
+		if !validLabel(l) || !roundTrips(l) {
 			return false
 		}
 	}
-	if strings.Trim(labels[len(labels)-1], "0123456789") == "" {
+	return !looksLikeANumber(labels[len(labels)-1])
+}
+
+// looksLikeANumber reports whether the last label of a host has no letter, or is 0x followed by
+// hexadecimal digits only: a URL parser would read the host as an IPv4 address.
+func looksLikeANumber(last string) bool {
+	if !strings.ContainsFunc(last, func(r rune) bool { return r >= 'a' && r <= 'z' }) {
+		return true
+	}
+	hex, ok := strings.CutPrefix(last, "0x")
+	return ok && strings.Trim(hex, "0123456789abcdef") == ""
+}
+
+// roundTrips reports whether a label that begins with xn-- decodes with Punycode (RFC 3492)
+// to a label with a character outside ASCII, and encodes back to itself. Other labels pass.
+func roundTrips(l string) bool {
+	if !strings.HasPrefix(l, "xn--") {
+		return true
+	}
+	u, err := idna.Punycode.ToUnicode(l)
+	if err != nil || !strings.ContainsFunc(u, func(r rune) bool { return r > 0x7f }) {
 		return false
 	}
-	mapped, err := lookup.ToASCII(host)
-	return err == nil && mapped == host
+	back, err := idna.Punycode.ToASCII(u)
+	return err == nil && back == l
 }
 
 func validLabel(l string) bool {

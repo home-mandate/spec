@@ -331,14 +331,34 @@ func TestParseJWKSRejectsNonCanonicalEd25519Key(t *testing.T) {
 	}
 }
 
-func TestParseJWKSKeepsAcceptingNoncharactersInUnknownMembers(t *testing.T) {
+// A key set is I-JSON (SPEC-v0 section 7.1): a noncharacter, even in a member nobody reads,
+// makes it verify nothing, as a strict reader would decide.
+func TestParseJWKSRejectsNoncharactersInUnknownMembers(t *testing.T) {
 	data, err := os.ReadFile("../conformance/keys/test-keys.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	marked := bytes.Replace(data, []byte(`{`), []byte(`{"comment":"￿",`), 1)
-	if _, err := ParseJWKS(marked); err != nil {
-		t.Errorf("ParseJWKS = %v", err)
+	if _, err := ParseJWKS(marked); !errors.Is(err, ErrMalformed) {
+		t.Errorf("ParseJWKS = %v, want ErrMalformed", err)
+	}
+}
+
+// An Ed25519 key may name its algorithm EdDSA or, fully specified, Ed25519 (RFC 9864); a
+// P-256 key may not name Ed25519.
+func TestKeyAlgorithmEd25519(t *testing.T) {
+	for _, tc := range []struct {
+		set string
+		ok  bool
+	}{
+		{`{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","alg":"Ed25519","x":"` + testGood + `"}]}`, true},
+		{`{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","alg":"EdDSA","x":"` + testGood + `"}]}`, true},
+		{`{"keys":[{"kty":"OKP","crv":"Ed25519","kid":"k","alg":"ed25519","x":"` + testGood + `"}]}`, false},
+		{`{"keys":[{"kty":"EC","crv":"P-256","kid":"k","alg":"Ed25519","x":"WupG9mWOmSKFbalHc48yFp1y9He74AA9RYfjSIltfcw","y":"LUi44Ps1pqhnvldy2SDGj7CeNY5raxOpHuAN7y6SDGg"}]}`, false},
+	} {
+		if _, err := ParseJWKS([]byte(tc.set)); (err == nil) != tc.ok {
+			t.Errorf("%s: err = %v, want ok %v", tc.set, err, tc.ok)
+		}
 	}
 }
 
