@@ -224,7 +224,7 @@
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         },
         "signature": {
-          "description": "Compact JWS with detached payload (RFC 7515 appendix F), algorithm EdDSA or ES256.",
+          "description": "Compact JWS with detached payload (RFC 7515 appendix F), with the header and algorithms of SPEC-v0 section 7.1.",
           "type": "string",
           "maxLength": 1024,
           "pattern": "^[A-Za-z0-9_-]+[.][.][A-Za-z0-9_-]+$"
@@ -334,7 +334,7 @@
       }
     },
     "binding": {
-      "description": "Only with agent.bound: the key the agent's tokens are bound to from now on (SPEC-v0 section 11.7 item 6).",
+      "description": "With agent.bound: the key the agent's tokens are bound to from now on; with auth.rejected for second_key: the key that was refused (SPEC-v0 section 11.7 item 6).",
       "type": "object",
       "additionalProperties": false,
       "required": ["method", "jkt"],
@@ -349,7 +349,7 @@
       "additionalProperties": false,
       "required": ["reason"],
       "properties": {
-        "reason": { "description": "unknown: a token, code or client the implementation does not know or cannot read; expired: a token or code that has expired; withdrawn: a token that lost its validity (credentials.withdrawn), presented again; revoked: a credential of a revoked agent; audience: a token for another resource or another public origin; client: a sign-in whose client or redirect URI does not match its registration; proof: a bound token without a valid DPoP proof, also one presented as a bearer token; replay: a DPoP proof whose jti was accepted before; unbound_refused: a token that is not bound while such tokens are refused; second_key: a grant with another key for an agent that is already bound; not_approver: an answer to an approval request from someone who is not an approver of it; other: any other reason.", "enum": ["unknown", "expired", "withdrawn", "revoked", "audience", "client", "proof", "replay", "unbound_refused", "second_key", "not_approver", "other"] }
+        "reason": { "description": "unknown: a token, code or client the implementation does not know or cannot read; expired: a token or code that has expired; withdrawn: a token that lost its validity (credentials.withdrawn), a replaced refresh token included, presented again; revoked: a credential of a revoked agent; audience: a token for another resource or another public origin; client: a sign-in whose client or redirect URI does not match its registration; proof: a missing or invalid DPoP proof where one is required, at the token endpoint too, and a bound token presented as a bearer token; replay: a DPoP proof whose jti was accepted before, or that an implementation which forgot its jti values in a restart cannot tell from one; unbound_refused: a token that is not bound while such tokens are refused; second_key: a grant with another key for an agent that is already bound, with the agent and the refused key in binding; not_approver: an answer to an approval request from someone who is not an approver of it; other: any other reason.", "enum": ["unknown", "expired", "withdrawn", "revoked", "audience", "client", "proof", "replay", "unbound_refused", "second_key", "not_approver", "other"] }
       }
     },
     "credentials": {
@@ -400,7 +400,7 @@
         "status": { "description": "relay.status_changed: the status of the installation the operator reports (active, paused, blocked); relay.monitoring_status: whether the check works (ok, unavailable).", "enum": ["active", "paused", "blocked", "ok", "unavailable"] },
         "previous_status": { "enum": ["active", "paused", "blocked", "ok", "unavailable"] },
         "check": { "description": "relay.monitoring_status: the query of the CAA records or the read of the installation (RELAY-v0 section \"Certificate Transparency monitoring\"); relay.pairing_refused: the check of the pairing response that failed, the standard name or the tunnel certificate (RELAY-v0 section \"Pairing\").", "enum": ["caa", "installation", "name", "certificate"] },
-        "reason": { "description": "Only with relay.pins_ignored: why the gateway ignored a set of pins (RELAY-v0 sections \"New pins\" and \"Pinning the relay\"). rules: the set breaks the rules of section 6.8, for example it changes the backup pins over a connection with an active pin; connection_pin: the pin of the connection is no longer stored in its kind; storage: the set cannot be stored durably; limit: the set is over the limit for connections with an active pin.", "enum": ["rules", "connection_pin", "storage", "limit"] },
+        "reason": { "description": "Only with relay.pins_ignored: why the gateway ignored a set of pins (RELAY-v0 sections \"New pins\" and \"Pinning the relay\"). rules: the set breaks the rules of pinning, for example it changes the backup pins over a connection with an active pin; connection_pin: the pin of the connection is no longer stored in its kind; storage: the set cannot be stored durably; limit: the set is over the limit for connections with an active pin.", "enum": ["rules", "connection_pin", "storage", "limit"] },
         "until": { "description": "Only with relay.replacement_pending: the end of the waiting time the operator reports (RELAY-v0 sections \"Pairing\" and \"Installation\").", "$ref": "#/$defs/date_time" },
         "source": { "description": "Only with relay.pins_changed. relay: announced over a tunnel authenticated with a stored pin; admin: taken by the local administrator after a warning (RELAY-v0 section \"Pinning the relay\").", "enum": ["relay", "admin"] },
         "active_pins": { "type": "integer", "minimum": 1, "maximum": 8 },
@@ -476,8 +476,12 @@
     { "if": { "properties": { "event": { "enum": ["agent.registered", "agent.reconnected"] } } },
       "else": { "properties": { "agent": { "not": { "required": ["binding"] } } } } },
     { "if": { "properties": { "event": { "const": "agent.bound" } } },
-      "then": { "required": ["actor", "agent", "binding"], "properties": { "actor": { "properties": { "kind": { "enum": ["agent", "system"] } } } } },
-      "else": { "not": { "required": ["binding"] } } },
+      "then": { "required": ["actor", "agent", "binding"], "properties": { "actor": { "properties": { "kind": { "enum": ["agent", "system"] } } } } } },
+    { "if": { "required": ["binding"] },
+      "then": { "anyOf": [ { "properties": { "event": { "const": "agent.bound" } } },
+                           { "properties": { "event": { "const": "auth.rejected" }, "auth": { "properties": { "reason": { "const": "second_key" } } } } } ] } },
+    { "if": { "properties": { "event": { "const": "auth.rejected" } }, "required": ["auth"], "properties": { "auth": { "properties": { "reason": { "const": "second_key" } } } } },
+      "then": { "required": ["agent", "binding"] } },
     { "if": { "properties": { "event": { "const": "credentials.withdrawn" } } },
       "then": { "required": ["actor", "credentials"], "properties": { "actor": { "properties": { "kind": { "enum": ["user", "system"] } } } } },
       "else": { "not": { "required": ["credentials"] } } },
@@ -507,6 +511,18 @@
       "then": { "required": ["actor"], "properties": { "actor": { "properties": { "kind": { "const": "user" } } }, "relay": { "required": ["home_id", "name"], "propertyNames": { "enum": ["operator", "home_id", "name"] } } } } },
     { "if": { "properties": { "event": { "const": "relay.unpaired" } } },
       "then": { "properties": { "relay": { "required": ["home_id", "cause"], "propertyNames": { "enum": ["operator", "home_id", "cause"] } } } } },
+    { "if": { "properties": { "event": { "const": "relay.unpaired" }, "relay": { "properties": { "cause": { "const": "local" } } } } },
+      "then": { "required": ["actor"], "properties": { "actor": { "properties": { "kind": { "const": "user" } } } } } },
+    { "if": { "properties": { "event": { "const": "relay.pins_changed" }, "relay": { "properties": { "source": { "const": "admin" } } } } },
+      "then": { "required": ["actor"], "properties": { "actor": { "properties": { "kind": { "const": "user" } } } } } },
+    { "if": { "properties": { "event": { "const": "relay.acme_account_changed" }, "relay": { "properties": { "change": { "const": "confirmed" } } } } },
+      "then": { "properties": { "actor": { "properties": { "kind": { "const": "user" } } } } } },
+    { "if": { "anyOf": [
+              { "properties": { "event": { "enum": ["relay.status_changed", "relay.protection_changed", "relay.caa_alarm", "relay.monitoring_status", "relay.key_changed", "relay.replacement_pending", "relay.pin_mismatch", "relay.pairing_refused", "relay.pins_ignored", "relay.metadata_pins_unknown"] } } },
+              { "properties": { "event": { "const": "relay.unpaired" }, "relay": { "properties": { "cause": { "not": { "const": "local" } } } } } },
+              { "properties": { "event": { "const": "relay.pins_changed" }, "relay": { "properties": { "source": { "const": "relay" } } } } },
+              { "properties": { "event": { "const": "relay.acme_account_changed" }, "relay": { "properties": { "change": { "not": { "const": "confirmed" } } } } } } ] },
+      "then": { "not": { "required": ["actor"] } } },
     { "if": { "properties": { "event": { "const": "relay.status_changed" } } },
       "then": { "properties": { "relay": { "required": ["home_id", "status"], "propertyNames": { "enum": ["operator", "home_id", "status", "previous_status"] },
                                            "properties": { "status": { "enum": ["active", "paused", "blocked"] }, "previous_status": { "enum": ["active", "paused", "blocked"] } } } } } },
@@ -610,7 +626,7 @@
       "pattern": "^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(:[1-9][0-9]{0,4})?$"
     },
     "proxy": {
-      "description": "An IP address or a prefix in CIDR notation, in its canonical text form: IPv4 in dotted decimal without leading zeros, IPv6 as RFC 5952 section 4 writes it, a prefix without host bits. The pattern is a first check; the canonical form is a rule of SPEC-v0 section 9.1 that a verifier checks.",
+      "description": "An IP address or a prefix in CIDR notation, in its canonical text form: IPv4 in dotted decimal without leading zeros, IPv6 as RFC 5952 section 4 writes it with an IPv4-mapped address ending in dotted decimal (section 5), a prefix without host bits and shorter than the address. The pattern is a first check; the canonical form is a rule of SPEC-v0 section 9.1 that a verifier checks.",
       "type": "string",
       "pattern": "^[0-9a-f.:]{2,45}(/[0-9]{1,3})?$"
     },

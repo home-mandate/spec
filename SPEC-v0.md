@@ -1424,7 +1424,7 @@ Depending on the event, the following are added:
 | `agent.binding` | (v1) whether the agent's tokens are bound to a key: `none` or `dpop` (Section 11.7 item 6). Optional with `agent.registered` and `agent.reconnected`, absent otherwise |
 | `binding` | (v1) the key the agent's tokens are bound to from now on: `method` (`dpop`) and `jkt` (the JWK SHA-256 thumbprint of the key, RFC 7638, base64url without padding). Only with `agent.bound` |
 | `credentials` | (v1) access and refresh tokens that lost their validity: `scope` (`all`: of every agent; `agent`: of the agent of the entry, which is then required) and `cause` (`emergency_stop`: with an emergency stop; `public_origin`: the public origin changed, Section 11.7 item 2; `user`: a human withdrew them; (v1) `refresh_reuse`: a refresh token was used a second time, which ends every token of its grant, Section 11.7 item 6, scope `agent`, actor of kind `system`; (v1) `bound`: the agent was bound to a key, which ends its tokens that are not bound, Section 11.7 item 6, scope `agent`, actor of kind `system`). Only with `credentials.withdrawn` |
-| `auth` | (v1) why a sign-in, a token or an answer was rejected: `reason` (`unknown`: a token, code or client the implementation does not know or cannot read; `expired`: a token or code that has expired; `withdrawn`: a token that lost its validity (`credentials.withdrawn`), presented again; `revoked`: a credential of a revoked agent; `audience`: a token for another resource or another public origin; `client`: a sign-in whose client or redirect URI does not match its registration; `proof`: a bound token without a valid DPoP proof, also one presented as a bearer token; `replay`: a DPoP proof whose `jti` was accepted before; `unbound_refused`: a token that is not bound while such tokens are refused; `second_key`: a grant with another key for an agent that is already bound, Section 11.7 item 6; `not_approver`: an answer to an approval request from someone who is not an approver of it, Section 11.1 item 5; `other`: any other reason). Required with `auth.rejected` and only with it |
+| `auth` | (v1) why a sign-in, a token or an answer was rejected: `reason` (`unknown`: a token, code or client the implementation does not know or cannot read; `expired`: a token or code that has expired; `withdrawn`: a token that lost its validity (`credentials.withdrawn`), a replaced refresh token included, presented again; `revoked`: a credential of a revoked agent; `audience`: a token for another resource or another public origin; `client`: a sign-in whose client or redirect URI does not match its registration; `proof`: a missing or invalid DPoP proof where one is required, at the token endpoint too, and a bound token presented as a bearer token; `replay`: a DPoP proof whose `jti` was accepted before, or that an implementation which forgot its `jti` values in a restart cannot tell from one; `unbound_refused`: a token that is not bound while such tokens are refused; `second_key`: a grant with another key for an agent that is already bound, Section 11.7 item 6, with the `agent` and, in `binding`, the thumbprint of the key that was refused; `not_approver`: an answer to an approval request from someone who is not an approver of it, Section 11.1 item 5; `other`: any other reason). Required with `auth.rejected` and only with it |
 | `certificate` | (v1) a certificate for the host of the public origin (Section 11.7 item 7): `digest` (SHA-256 of the DER of its TBSCertificate without the poison and the SCT list, base64url without padding) and, with `cert.unexpected`, `status` (`alarm`, `not_yet_valid` or `past_exposure`), `names` (the names of the certificate that match the host, 1 to 16; where more match, the first 16 in the order of the certificate), `issuer` (its distinguished name, 1 to 1024 code points; a longer one is cut to its first 1023 code points followed by U+2026 `…`), `public_key` (SHA-256 of its SubjectPublicKeyInfo, base64url), `not_before`, `not_after` and `logged` (its first log entry). With `cert.acknowledged` either `digest` alone, for that certificate, or `public_key` alone, for every certificate for that key (Section 11.7 item 7). Only with these two events |
 | `ct` | (v1) the state of Certificate Transparency monitoring: `status` (`ok`: at least two independent sources answered within 24 hours; `limited`: only one; `unavailable`: none) and optionally `previous_status`, different from `status`. Only with `ct.status` |
 | `relay` | (v1) what a gateway paired with a relay records (the Home-Mandate Relay Specification, RELAY-v0): `operator` (the operator domain as A-labels) and, depending on the event, `home_id`, `name`, `cause`, `status`, `previous_status`, `source`, `active_pins`, `backup_pins`, `level`, `previous_level`, `scope`, `account`, `caa_identity`, `change`, `check`, `reason` and `until`, as Section 9.2 lists them. RELAY-v0 maps each of these events to the gateway event that triggers it in its section "Audit events of a gateway", which also bounds how often an event the relay or the operator can trigger again and again is recorded; its values are those of this table. A value that the relay or the operator sends and that this table cannot record makes their message an error under RELAY-v0. Only with the `relay.*` events |
@@ -1546,8 +1546,8 @@ never the agent (Section 7.2). An agent can withdraw, but not grant: it MAY appe
 
 (v1) An `agent.bound` entry has an `actor` of kind `agent` or `system`; a
 `credentials.withdrawn` entry one of kind `user` or `system`: `user` with `cause: user`,
-`system` with `cause: refresh_reuse`. Its `credentials.scope` is `all` with `emergency_stop`
-and `public_origin` and `agent` with `refresh_reuse`, and the entry names an `agent` exactly
+`system` with `cause: refresh_reuse` and `cause: bound`. Its `credentials.scope` is `all` with
+`emergency_stop` and `public_origin` and `agent` with `refresh_reuse` and `bound`, and the entry names an `agent` exactly
 when the scope is `agent`. A `cert.acknowledged` and a `relay.paired` entry have an `actor`
 of kind `user`: only a human acknowledges a certificate or pairs with a relay.
 
@@ -1619,8 +1619,10 @@ content.
   that of `relay.acme_account_changed` with `change` `confirmed` is the human who confirmed the
   account, where the gateway knows who. The other `relay.*` entries are caused by the relay or
   the operator and name no `actor`.
-- Switching `unbound_tokens` to `refused` ends every token that is not bound: after the
-  `config.changed` entry, a `credentials.withdrawn` entry with `scope` `all` and `cause` `user`.
+- Switching `unbound_tokens` to `refused` is recorded with `config.changed` alone: the tokens
+  that are not bound are refused from then on, and each one presented is recorded with
+  `auth.rejected` (`unbound_refused`); no `credentials.withdrawn` entry follows, because bound
+  tokens stay valid.
 
 For `decision`, `evaluation` matches the result that the evaluation (Section 4)
 returns for `request` and the version `mandate.digest` under the vocabulary that
@@ -1730,11 +1732,15 @@ readable `seq`), or nothing if there is none:
   (Section 9.5), and every `log.truncated` entry can account for a deleted beginning, whatever
   its version and whether or not it keeps the rules. A checkpoint that cannot be checked breaks
   the integrity: one without a `log_id` or a `signature`, with keys or without, and with keys
-  one whose signature does not verify. A checkpoint signed with an algorithm that the verifier
-  does not implement (one that Section 7.1 makes optional, or one a later release adds; never
-  `none` or a MAC), or with a key of a type it does not implement, is no finding:
-  the verifier states that it cannot check the log (Section 10.2: `unsupported`), and does not
-  call it damaged.
+  one whose signature does not verify. Whether the verifier can check a checkpoint is decided by
+  the key set it was given, never by the header of the checkpoint, which whoever writes the log
+  chooses: a checkpoint whose `kid` names a key the verifier does not use (a well-formed P-256
+  key for a verifier without ES256, Section 7.1) is no finding, and the verifier states that it
+  cannot check the log (Section 10.2: `unsupported`) instead of calling it damaged. A key set
+  with a key of a type that no release of this version knows verifies nothing, and the verifier
+  answers with an error (Section 10.2). A checkpoint whose `alg` the verifier does not implement
+  while its `kid` names a key it uses, or names no key, breaks the integrity like any signature
+  that does not verify (case `v214`).
 - `conformance_broken_at`: an entry of a version the verifier knows that breaks condition 1, an
   entry without a digest, an entry whose `type` names no audit version (also after an entry of
   an unknown version), and an entry of an older version after one of a newer version, whether
@@ -1841,8 +1847,8 @@ item 3 of "The signer", counting from the first checkpoint of the log. The verif
 entries in file order and does not check that their `recorded_at` values are in order. After
 each checkpoint C, let n be the number of entries after C that are not checkpoints and come
 before the entry E being read, and let *late* mean that a `recorded_at` lies more than 24 hours
-after that of C, compared as points in time with every digit of the fraction (a verifier that
-keeps only milliseconds compares the values as written). Then E is the gap if:
+after that of C, compared as points in time with every digit of the fraction (a verifier whose
+time type keeps only milliseconds compares the digits beyond the millisecond as written). Then E is the gap if:
 
 | E | n | The gap is at E if |
 |---|---|---|
@@ -1870,7 +1876,9 @@ another household signed with the same key would verify.
 
 A change of the key that signs checkpoints is recorded with `config.changed` (Section 9.2)
 in the log it signs. A new key gets a new `kid`: a relying party recognises a replaced key by
-that entry, and two keys under one `kid` would look like one.
+that entry, and two keys under one `kid` would look like one. A key that replaced another under
+the same `kid` is recorded as the removal of the old one and the addition of the new one
+(Section 9.1).
 
 **The signer.** A checkpoint is only as good as what its signer agreed to sign. Whatever signs
 checkpoints (a part of the implementation, a separate process, a hardware key)
@@ -2753,7 +2761,7 @@ inhabitants (cameras, presence, habits) and the integrity of the record of what 
 | **Attacker between PEP and PDP** | The connection MUST be authenticated in both directions; the PDP MUST NOT be reachable by agents (Section 6) | The specification does not define the mechanism |
 | **Runs the way in from outside without ending TLS** (a relay, a tunnel, a network on the path) | The agent's TLS connection ends in the implementation or the household's proxy; forwarded addresses only from a configured proxy and never for authorization (Section 11.7 items 3, 4) | Denial of service; the times, addresses and amounts of the agents' connections (RELAY-v0, section "Privacy considerations") |
 | **Ends the agent's TLS connection** (the household's proxy, or a service that should not, such as a tunnel that presents its own certificate) | Only the household's own proxy may (Section 11.7 item 3) | Everything that passes: credentials, sign-in, approval pages, requests and their results. A proxy of the household is trusted (Section 12.3) |
-| **Obtains a certificate for the public origin** (whoever controls its DNS, a CA that misissues) | Certificate Transparency monitoring with an alarm, from at least two independent sources (Section 11.7 item 7) | Reading until the household reacts to the alarm; a certificate that no log contains goes unnoticed. For a relay's names, RELAY-v0, section "Protection levels" |
+| **Obtains a certificate for the public origin** (whoever controls its DNS, a CA that misissues) | Certificate Transparency monitoring with an alarm, from at least two independent sources (Section 11.7 item 7) | Reading until the household reacts to the alarm; a certificate that no log contains goes unnoticed. For a relay's names, RELAY-v0, section "Names and certificates", "Protection levels" |
 | **Steals a token** (from a log, a backup, a client) | DPoP binds tokens to the client's key; a bound token is never accepted as a bearer token (Section 11.7 item 6) | A token that is not bound, during the transition: at most 15 minutes for an access token, and a refresh token until its next use by the client, which ends every token of the grant |
 | **Another page in the same site** (another home of the same relay, another host of the household's domain) | `__Host-` cookies only, other cookies ignored, changes protected by `Origin` or a token (Section 11.7 item 5) | Cookies that the other page sets for the whole domain can make a browser's requests fail |
 | **Forges `Host` or `X-Forwarded-*`** | The public origin is configured, and no URL the implementation issues or checks comes from a header (Section 11.7 items 1, 4) | – |
@@ -3095,27 +3103,29 @@ behavior of the people in a household and MUST be protected like the devices the
     rate limit MUST survive a restart (Sections 11.1 item 7, 11.2).
 - audit/v1 final before the release (it is fixed with v0.2.0; any later change is version 2):
   - `auth.rejected` carries `auth.reason`, one of twelve values; a grant with another key for
-    an agent that is already bound is recorded with `second_key` (Section 11.7 item 6).
+    an agent that is already bound is recorded with `second_key`, the `agent` and the refused
+    key in `binding` (Section 11.7 item 6).
     `credentials.withdrawn` has the cause `bound`, for the tokens that are not bound when an
     agent is bound. `relay.acme_account_changed` records the pair with `caa_identity`.
   - A trusted proxy is added with `value` alone and removed with `previous_value` alone; an
     IPv4-mapped address ends in dotted decimal (RFC 5952 Section 5), and a prefix of full length
     is written as the address. A new checkpoint key gets a new `kid`.
   - One definition of an entry without a digest, which is reported as `conformance_broken_at`
-    and `integrity_broken_at`; a checkpoint whose algorithm the verifier does not implement is
-    no finding, whichever release adds it; a `type` names a version only if the whole string
+    and `integrity_broken_at`; whether a checkpoint can be checked is decided by the key set,
+    never by its header, so a checkpoint with an unknown `alg` and a known key is damaged; a `type` names a version only if the whole string
     matches; the eight pairs of a former and a current value are listed (Section 9.4).
   - `checkpoint_gap_at` is a table of states read in file order, compared with every digit of
     the fraction, and reported only at entries of version 1 or later (Section 9.5).
   - How a writer records the first `ct.status`, the stages of one certificate, the issuer's
-    name, `previous_status` of a relay, the `actor` of the `relay.*` events, and switching
-    `unbound_tokens` to `refused` (Section 9.2).
+    name, `previous_status` of a relay, and switching `unbound_tokens` to `refused` (Section
+    9.2); the `actor` of each `relay.*` event, which the schema checks.
   - The rows of the repeating `relay.*` events say that RELAY-v0 bounds how often they are
     recorded, and RELAY-v0 is cited by the titles of its sections, which do not change with a
     renumbering.
   - The cases of `audit-v1.json` can carry `requires`, `entries_base64` and `jsonl_base64`.
-    Cases `v182` to `v211`: proxies, `auth`, `bound`, `caa_identity`, the eight pairs, the
-    version grammar, a checkpoint signed with ES256, the cadence and an anchored truncation.
+    Cases `v182` to `v211` and `v214` to `v222`: proxies, `auth`, `bound`, `caa_identity`, the
+    eight pairs, the version grammar, a checkpoint signed with ES256 and one with an unknown
+    `alg`, the cadence, an anchored truncation and the `actor` of relay events.
 - Signatures and key sets (Section 7.1):
   - A key whose point is not on its curve verifies nothing and leaves its key set usable,
     for Ed25519 and P-256 alike; a key of another type or curve, a private key, a key a
