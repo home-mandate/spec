@@ -877,22 +877,31 @@ Machine-readable and normative: `vocabulary/v0.json` (format:
 | `light` | read, turn_on, turn_off, set | – |
 | `switch` | read, turn_on, turn_off | – |
 | `climate` | read, set_temperature, set_mode | – |
-| `cover` | read, open, close, stop, set_position | – |
+| `cover` | read, open, close, stop, set_position, set_tilt | – |
 | `gate` | read, open, close | open |
 | `lock` | read, lock, unlock, open | unlock, open |
 | `alarm` | read, arm, disarm | disarm |
 | `camera` | read, snapshot | snapshot |
-| `media` | read, turn_on, turn_off, play, pause, set_volume | – |
+| `media` | read, turn_on, turn_off, play, pause, set_volume, next, previous | – |
 | `sensor` | read | – |
 | `scene` | read, activate | activate |
 | `script` | read, run | run |
 | `other` | read, set | set |
+| `fan` | read, turn_on, turn_off, set_speed | – |
+| `valve` | read, open, close | open |
+| `vacuum` | read, start, stop, return_home | – |
+| `siren` | read, turn_on, turn_off | turn_on |
+| `number` | read, set | – |
+| `select` | read, set | – |
 
 Parameters (Section 4.5):
 
 | Action | Parameter | Type | Unit | Range or permitted values | Required |
 |---|---|---|---|---|---|
 | `light.set` | `brightness` | integer | percent | 0 to 100 | – |
+| `light.set` | `color_temp_kelvin` | integer | kelvin | 1000 to 12000 | – |
+| `light.set` | `hue` | integer | degree | 0 to 359 | – |
+| `light.set` | `saturation` | integer | percent | 0 to 100 | – |
 | `climate.set_temperature` | `temperature` | integer | 0.01 degree Celsius | – | one alternative |
 | `climate.set_temperature` | `temperature_f` | integer | 0.01 degree Fahrenheit | – | one alternative |
 | `climate.set_temperature` | `temperature_low` | integer | 0.01 degree Celsius | – | one alternative |
@@ -901,13 +910,18 @@ Parameters (Section 4.5):
 | `climate.set_temperature` | `temperature_high_f` | integer | 0.01 degree Fahrenheit | – | one alternative |
 | `climate.set_mode` | `mode` | string | – | `off`, `auto`, `cool`, `heat`, `emergency_heat`, `precooling`, `fan_only`, `dry`, `sleep` | yes |
 | `cover.set_position` | `position` | integer | percent open | 0 to 100 | yes |
+| `cover.set_tilt` | `tilt` | integer | percent open | 0 to 100 | yes |
+| `fan.set_speed` | `speed` | integer | percent | 0 to 100 | yes |
+| `number.set` | `value` | integer | 0.001 of the unit of the resource | – | yes |
+| `select.set` | `option` | string | – | any, 1 to 64 printable ASCII characters without space | yes |
 | `media.set_volume` | `volume` | integer | percent | 0 to 100 | yes |
 | `alarm.arm` | `mode` | string | – | `home`, `away`, `night`, `vacation`, `custom_bypass` | yes |
 
 A request carries exactly the parameters its action declares (Section 4.5). **Required**
 says which of them it carries at least: `yes` for a parameter the request always carries
 (`required` in the file); `–` for one it may leave out (`light.set` without `brightness`
-sets what else a light has, such as a colour, until the vocabulary names it);
+sets what else a light has; with `hue` and `saturation` it sets a colour, with
+`color_temp_kelvin` a white);
 `one alternative` for the alternatives of
 `climate.set_temperature` (`required_one_of` in the file), of which a request carries
 exactly one, whole: `temperature`, or `temperature_f`, or `temperature_low` with
@@ -923,6 +937,16 @@ people inside, `away`, `night`, `vacation`, `custom_bypass`: armed with some zon
 out); which of them a panel offers, and how the modes of a platform map to them, is
 described in the profiles (informative). A value outside the list makes the request
 invalid (Section 4.5).
+
+`number.set` sets a numeric value of the resource (a charge limit, a current, a threshold) in
+thousandths of the unit the resource has, so that a fraction needs no other type: 6.5 A is
+`6500`, 80 % is `80000`. The unit is the resource's own and the vocabulary does not know it;
+a rule that constrains `value` is written for one resource or for resources of one unit.
+`select.set` chooses one of the options the resource offers (an operating mode, a preset); a
+rule constrains `option` with `one_of`, and the profiles say how a platform's options are
+written. Neither is critical: what a value or a mode does depends on the resource, and the
+household marks a resource critical where it matters (Section 4, step 5). `valve.open` is
+critical (water, gas) and so is `siren.turn_on` (it alarms the neighbourhood).
 
 `scene.activate`, `script.run` and `other.set` are critical because scenes, scripts and
 unknown entities can have arbitrary consequences, including opening doors. What else is
@@ -3268,6 +3292,18 @@ behavior of the people in a household and MUST be protected like the devices the
   as critical. A group of covers that held a garage door let an agent open the door with a rule
   for blinds. The Home Assistant profile says how its groups are told and resolved. This is a
   new obligation of a PEP; no document changes its verdict.
+- Vocabulary `v0.2` (Section 5), for Home Assistant 1.0 and the other platforms; it only adds,
+  so mandates that were valid stay valid and evaluate as before (Section 14):
+  - new categories `number` (`set` with `value` in thousandths of the resource's unit), `select`
+    (`set` with `option`), `fan`, `valve` (`open` critical), `vacuum` and `siren` (`turn_on`
+    critical);
+  - `cover.set_tilt`, `media.next` and `media.previous`; `light.set` with `color_temp_kelvin`,
+    `hue` and `saturation`;
+  - the schemas of the mandate and of audit/v1 list the new categories; audit/v0 does not, so an
+    implementation that records them writes version 1;
+  - cases `c263` to `c276`; the profiles of Home Assistant, openHAB and Matter map the new
+    categories, and the Home Assistant profile also doors as `gate`, presence entities, colours,
+    numbers, options and range setpoints.
 - Before the release candidate:
   - Condition 4 of Section 9.5: a `log.truncated` entry accounts for the position a relying
     party saw last only if a verified checkpoint anchors it; otherwise a replaced log would pass

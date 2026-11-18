@@ -71,6 +71,12 @@ the tags below, or a separate tag hierarchy of the user's own, leads to `other`.
 | `sensor` | any, for Items with a Point `Measurement` or `Status`; Contact Items | Number, Contact, String, DateTime |
 | `scene` | rules tagged `Scene` | – |
 | `script` | all other rules and scripts | – |
+| `fan` | `Fan` (`CeilingFan`, `KitchenHood`, …) | Switch, Dimmer (speed) |
+| `valve` | `Valve` | Switch |
+| `vacuum` | `CleaningRobot` | Switch, String |
+| `siren` | `Siren` | Switch |
+| `number` | Number Items with a Point `Setpoint` that no other category takes | Number, Number:<dimension> |
+| `select` | String Items with a command description of options and a Point `Control` | String |
 | `other` | everything else, in particular Items outside the semantic model and Group Items | any |
 
 A Switch Item says only that it takes ON and OFF; it can drive a lamp as well as a door opener.
@@ -92,7 +98,7 @@ whether it switches on or off depends on the current state.
 |---|---|---|
 | `read` (all categories) | state of the Item | |
 | `light.turn_on`, `light.turn_off` | `ON`, `OFF` | Dimmer and Color Items accept them as well. |
-| `light.set` (`brightness`) | percent (0–100) | Dimmer, Color. Color and color temperature have no action yet ([spec#29](https://github.com/home-mandate/spec/issues/29)). |
+| `light.set` (`brightness`) | percent (0–100) | Dimmer, Color. `color_temp_kelvin` maps to a Number:Temperature Item in K, `hue` and `saturation` to the HSB of a Color Item ([spec#29](https://github.com/home-mandate/spec/issues/29)). |
 | `switch.turn_on`, `switch.turn_off` | `ON`, `OFF` | |
 | `climate.set_temperature` | quantity on the setpoint Item | `temperature` in 0.01 °C, `temperature_f` in 0.01 °F, depending on the unit of the Item (SPEC-v0 section 4.5). |
 | `climate.set_mode` (`mode`) | one of the options of the Item's command description | `mode` takes only the values of SPEC-v0 section 5 (`off`, `auto`, `cool`, `heat`, `emergency_heat`, `precooling`, `fan_only`, `dry`, `sleep`). The options of a mode Item are binding-specific strings or numbers, so a gateway maps each option to one of these values, from a known mapping of the binding or as stated by the household, and sends exactly the mapped option. An option that maps to no value is not offered. |
@@ -102,7 +108,7 @@ whether it switches on or off depends on the current state.
 | `lock.lock`, `lock.unlock` | `ON`, `OFF` | openHAB has no enforced convention which of the two means locked (`OFF` is usually unlocked). A gateway offers `lock.lock` only for an Item whose meaning the household has stated; until then both commands count as `lock.unlock`, which is critical. |
 | `alarm.arm`, `alarm.disarm` | `ON`/`OFF`, or an option of the command description | |
 | `camera.snapshot` | Image Item | |
-| `media.play`, `media.pause` | `PLAY`, `PAUSE` | Player Item. `NEXT` and `PREVIOUS` have no action yet ([spec#49](https://github.com/home-mandate/spec/issues/49)). |
+| `media.play`, `media.pause`, `media.next`, `media.previous` | `PLAY`, `PAUSE`, `NEXT`, `PREVIOUS` | Player Item. |
 | `media.turn_on`, `media.turn_off` | `ON`, `OFF` | |
 | `media.set_volume` (`volume`) | percent | |
 | `scene.activate`, `script.run` | running the rule | |
