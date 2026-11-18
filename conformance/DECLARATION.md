@@ -45,19 +45,20 @@ implementation as a whole follows the specification does.
 | 9.2 | Write every event of Section 9.2 that applies to the implementation; limit the documents taken from each source |
 | 9.3 | Keep every mandate version as long as entries refer to its digest; delete only the oldest entries, after a `log.truncated` entry |
 | 9.4 | Write new entries as I-JSON with numbers below 2^53; call a log damaged only for `integrity_broken_at`; never refuse to start or stop writing because of `conformance_broken_at` or `unknown_version_at` alone |
-| 9.5 | Keep the checkpoint key where whoever can write the log cannot read it, or say that the platform offers no such place; sign only digests from the signer's own state; never sign a `seq` that is not higher; a checkpoint after every `log.truncated` entry, after 1000 entries and within 24 hours; a new log with a new `log_id` after a restore that ends before the highest signed `seq` |
+| 9.5 | Keep the checkpoint key where whoever can write the log cannot read it, or say that the platform offers no such place; sign only the digest of the last entry as it was appended, never one read or verified from the log file, and keep its `seq` and digest with the key; never sign a `seq` that is not higher; a checkpoint after every `log.truncated` entry, after 1000 entries and within 24 hours; a new log with a new `log_id` after a restore that ends before the highest signed `seq` |
 
 ## Obligations of the PEP (Section 11)
 
 | Section | Obligation |
 |---|---|
 | 11.1 | Every item of Section 11.1: how confirmations are requested, bound, answered and checked |
-| 11.2 | The rate limit and the limit on waiting approval requests |
+| 11.1, 11.2 | The rate limit, counted across restarts, and the limits on waiting approval requests, for each agent and for all agents together |
 | 11.3 | Revocation, emergency stop, removal and reconnection, and what each withdraws |
-| 11.4 | The clock rules and the handling of the directory, renamed resources included |
+| 11.4 | The clock rules: the reference time from the log, the last checkpoint and a mark kept outside the log, in the PEP and in a PDP with its own clock; a clock that never runs backwards for timeouts, the rate limit and DPoP proofs; the handling of the directory, renamed resources included |
 | 11.5 | What the agent is told of its limits, if anything |
 | 11.6 | Audit mode, if offered: how it is switched on and shown |
 | 11.7 | If reachable from outside: every item, Certificate Transparency monitoring and the alarms included |
+| 11.7 | If reachable from outside: the channel outside the implementation's own pages through which an alarm and the state `unavailable` of Certificate Transparency monitoring reach every administrator, and that an alarm stays shown across restarts until acknowledged; a key presented under the public origin that differs from the current one is taken only when the administrator accepts it |
 | 11.8 | What `read` returns |
 
 ## Versions (Section 14)

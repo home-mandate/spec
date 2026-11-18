@@ -12,11 +12,12 @@ import (
 )
 
 type originCase struct {
-	ID       string  `json:"id"`
-	Value    *string `json:"value"`
-	HTU      *string `json:"htu"`
-	URL      *string `json:"url"`
-	Expected string  `json:"expected"`
+	ID       string          `json:"id"`
+	Value    *string         `json:"value"`
+	HTU      *string         `json:"htu"`
+	URL      *string         `json:"url"`
+	Proof    json.RawMessage `json:"proof"`
+	Expected string          `json:"expected"`
 }
 
 func loadCases(t *testing.T) []originCase {
@@ -47,6 +48,8 @@ func TestConformanceCases(t *testing.T) {
 				if got := map[bool]string{true: "valid", false: "invalid"}[err == nil]; got != c.Expected {
 					t.Errorf("Valid(%q) = %v, want %s", *c.Value, err, c.Expected)
 				}
+			case c.Proof != nil:
+				t.Skip("a DPoP proof: package internal/dpop checks it")
 			case c.HTU != nil && c.URL != nil:
 				got := map[bool]string{true: "match", false: "mismatch"}[origin.HTUMatches(*c.HTU, *c.URL)]
 				if got != c.Expected {
