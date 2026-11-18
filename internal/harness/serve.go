@@ -214,16 +214,14 @@ func inexpressible(stored []evaluator.Stored, req Request) Response {
 			return result(r)
 		}
 	} else {
-		candidates := evaluator.Candidates(stored, req.Subject.ClientID, req.Subject.Principal)
-		switch {
-		case len(candidates) == 0:
-			return Response{Decision: string(evaluator.Deny), Reason: string(evaluator.ReasonNoMandate)}
-		case len(candidates) > 1:
-			return invalid
-		case candidates[0].Mandate() == nil:
-			return result(evaluator.Evaluate(nil, evaluator.Request{}))
+		var r evaluator.Result
+		if selected, r = evaluator.SelectWithoutTime(stored, req.Subject.ClientID, req.Subject.Principal); r.Reason != evaluator.ReasonInvalidRequest || selected == nil {
+			resp := result(r)
+			if selected != nil {
+				resp.Selected = ptr(selected.ID())
+			}
+			return resp
 		}
-		selected = candidates[0].Mandate()
 	}
 	invalid.MandateDigest, invalid.Selected = selected.Digest(), ptr(selected.ID())
 	return invalid

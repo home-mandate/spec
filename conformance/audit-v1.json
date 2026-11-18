@@ -4688,6 +4688,27 @@
       "entries": [
         {"agent": {"client_id": "hm-client:voice-7c21e9a4"}, "evaluation": {"decision": "allow", "reason": "rule", "rule_id": "r-unlock"}, "event": "decision", "id": "01a0f64c-7140-7001-9007-0000000b2341", "mandate": {"digest": "sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3", "id": "m-voice-assistant"}, "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-16T21:31:00+01:00", "request": {"action": "unlock", "resource": {"category": "lock", "critical": true, "entity_id": "lock.front_door"}, "time": "2026-11-16T21:30:00+01:00", "timezone": "Europe/Berlin"}, "result": {"denied_by": "rate_limit", "error": "rule_limit", "status": "denied"}, "seq": 1, "type": "https://home-mandate.org/audit/v1"}
       ]
+    },
+    {
+      "id": "v235",
+      "why": "a checkpoint recorded at 0001-01-01T00:00:00Z, the first point in time there is, and an entry more than 24 hours after it without a checkpoint: the cadence counts from that point in time like from any other (SPEC-v0 sections 3.1 item 0 and 9.5)",
+      "expected": "valid",
+      "checkpoint_gap_at": 4,
+      "entries": [
+        {"auth": {"reason": "unknown"}, "event": "auth.rejected", "id": "01a0f64c-7140-7001-9007-0000b2350001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "0001-01-01T00:00:00Z", "result": {"denied_by": "authentication", "status": "denied"}, "seq": 1, "type": "https://home-mandate.org/audit/v1"},
+        {"checkpoint": {"log_id": "0198f1c2-7c3a-7000-8000-00000000c0de", "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtZWQyNTUxOSJ9..fZPPZYu6vb4B19uHuJcpe2_KNSArW49wM73Wp-AEj9pmV4bF6thz_WHKJ9MwenpfNfIujFEIKf0KaQ8lx9-4Cw"}, "event": "log.checkpoint", "id": "01a0f64c-7140-7001-9007-0000b2350002", "prev": "sha256:402960c0f2a2df614e060f2cf531c73ca6b5a6d1286bf57226146b61d0565cf8", "principal": "household:hm-7f3a", "recorded_at": "0001-01-01T00:00:00Z", "seq": 2, "type": "https://home-mandate.org/audit/v1"},
+        {"auth": {"reason": "unknown"}, "event": "auth.rejected", "id": "01a0f64c-7140-7001-9007-0000b2350003", "prev": "sha256:91100899ac5596d349b0a7aec89e17ee1ea72217d06d638987edfcd760acd142", "principal": "household:hm-7f3a", "recorded_at": "0001-01-01T12:00:00Z", "result": {"denied_by": "authentication", "status": "denied"}, "seq": 3, "type": "https://home-mandate.org/audit/v1"},
+        {"auth": {"reason": "unknown"}, "event": "auth.rejected", "id": "01a0f64c-7140-7001-9007-0000b2350004", "prev": "sha256:bb6a20d57eeaaf3a91cad3c2992517fb97fa10abe8b49e5455d54418e5e5e8b3", "principal": "household:hm-7f3a", "recorded_at": "0001-01-02T00:00:01Z", "result": {"denied_by": "authentication", "status": "denied"}, "seq": 4, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v236",
+      "why": "duration_ms of 120.00000000000000000001, which floating point rounds to 120: not an integer, so the entry has no digest and takes no part in the chain (SPEC-v0 section 9.4)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "integrity_broken_at": 1,
+      "conformance_broken_at": 1,
+      "jsonl": "{\"agent\":{\"client_id\":\"hm-client:voice-7c21e9a4\"},\"evaluation\":{\"decision\":\"allow\",\"reason\":\"rule\",\"rule_id\":\"r-covers\"},\"event\":\"decision\",\"id\":\"01a0f64c-7140-7001-9007-0000000b2361\",\"mandate\":{\"digest\":\"sha256:7de611fc5b57a1e5c71dc59c176d25f61e6d57a5b4f51f56a80f82af03dc81b3\",\"id\":\"m-voice-assistant\"},\"prev\":null,\"principal\":\"household:hm-7f3a\",\"recorded_at\":\"2026-11-16T09:31:00+01:00\",\"request\":{\"action\":\"open\",\"resource\":{\"category\":\"cover\",\"entity_id\":\"cover.blind\"},\"time\":\"2026-11-16T09:30:00+01:00\",\"timezone\":\"Europe/Berlin\"},\"result\":{\"duration_ms\":120.00000000000000000001,\"status\":\"executed\"},\"seq\":1,\"type\":\"https://home-mandate.org/audit/v1\"}\n"
     }
   ]
 }

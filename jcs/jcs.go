@@ -10,14 +10,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math"
 	"slices"
 	"strconv"
 	"unicode/utf16"
-)
 
-// maxExactInteger is 2^53; above it, integers are no longer exact in IEEE 754.
-const maxExactInteger = 1 << 53
+	"github.com/home-mandate/spec/internal/jsonnum"
+)
 
 // Digest returns "sha256:" + hex(SHA-256(JCS(v))) according to SPEC-v0 sections 3.2
 // and 9.4. v is a value decoded with json.Number for numbers.
@@ -103,17 +101,16 @@ func writeCanonicalObject(b *bytes.Buffer, object map[string]any) error {
 	return nil
 }
 
-// canonicalNumber accepts only integers in the exactly representable range. For them,
-// the RFC 8785 number serialization equals decimal notation without an exponent.
+// canonicalNumber accepts only integers in the exactly representable range, read by their
+// exact value: 1.00000000000000000001 is no integer, although floating point reads it as 1
+// (SPEC-v0 section 9.4). For them, the RFC 8785 number serialization equals decimal notation
+// without an exponent.
 func canonicalNumber(n json.Number) (string, error) {
-	f, err := strconv.ParseFloat(string(n), 64)
+	value, err := jsonnum.ExactInteger(string(n))
 	if err != nil {
-		return "", fmt.Errorf("canonical JSON: invalid number %q", n)
+		return "", fmt.Errorf("canonical JSON: unsupported number %q: %w", n, err)
 	}
-	if f != math.Trunc(f) || math.Abs(f) >= maxExactInteger {
-		return "", fmt.Errorf("canonical JSON: unsupported number %q", n)
-	}
-	return strconv.FormatInt(int64(f), 10), nil
+	return strconv.FormatInt(value, 10), nil
 }
 
 // writeCanonicalString escapes according to RFC 8785 section 3.2.2.2: only quotation mark,

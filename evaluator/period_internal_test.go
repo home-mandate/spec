@@ -95,7 +95,7 @@ func TestCheckDates(t *testing.T) {
 // conditions.dates compares the date of household local time; both ends are inclusive and
 // one range of the list suffices (SPEC-v0 section 4.2).
 func TestConditionsMetDates(t *testing.T) {
-	r := rule{dates: []dateRange{{"2026-12-24", "2027-01-06"}, {"2027-07-01", "2027-07-01"}}}
+	r := rule{dates: []dateRange{{20261224, 20270106}, {20270701, 20270701}}}
 	berlin := time.FixedZone("CET", 60*60)
 	for _, tc := range []struct {
 		local time.Time
@@ -230,5 +230,23 @@ func TestSetLimits(t *testing.T) {
 	var r rule
 	if err := r.setLimits(rawRule{ID: "r"}); err != nil || r.limits != nil {
 		t.Errorf("a rule without limits: %v, %+v", err, r.limits)
+	}
+}
+
+// A local date beyond the years 1 to 9999 lies in no range: as text, 10000-01-01 would come
+// before 1999-12-31 (SPEC-v0 section 4.2).
+func TestConditionsMetDatesBeyondTheYears(t *testing.T) {
+	r := rule{dates: []dateRange{{10101, 19991231}}}
+	kiritimati := time.FixedZone("LINT", 14*60*60)
+	for _, local := range []time.Time{
+		time.Date(9999, 12, 31, 10, 0, 1, 0, time.UTC).In(kiritimati),                // 10000-01-01
+		time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC).In(time.FixedZone("EST", -5*60*60)), // the year 0
+	} {
+		if r.conditionsMet(local) {
+			t.Errorf("%v: in the range 0001-01-01 to 1999-12-31", local)
+		}
+	}
+	if !r.conditionsMet(time.Date(1999, 12, 31, 23, 0, 0, 0, time.UTC)) {
+		t.Error("the last day of the range is not in it")
 	}
 }

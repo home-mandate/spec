@@ -216,8 +216,11 @@ type link struct {
 	logID      string // of a checkpoint
 	signature  string // of a checkpoint
 	recordedAt string // of a checkpoint, as written: the signature covers it
-	// at is the time recorded_at names; zero if it cannot be read.
-	at time.Time
+	// at is the time recorded_at names, if hasAt: 0001-01-01T00:00:00Z is a point in time like
+	// any other (SPEC-v0 section 3.1 item 0), so the zero time does not mark one that cannot
+	// be read.
+	at    time.Time
+	hasAt bool
 	// conforming: the entry is of a known version and keeps condition 1.
 	conforming bool
 	// version is the audit version its type names; -1 if it names none.
@@ -295,6 +298,7 @@ const (
 type cadence struct {
 	seen  bool      // a checkpoint has been read
 	at    time.Time // its recorded_at
+	hasAt bool      // at could be read
 	since int       // entries after it that are no checkpoint
 	// firstLate: the first of them was recorded more than 24 hours after the checkpoint, so the
 	// next checkpoint was due at once.
@@ -302,9 +306,10 @@ type cadence struct {
 	gap       *Finding
 }
 
-// late reports whether t lies more than 24 hours after the last checkpoint.
-func (c *cadence) late(t time.Time) bool {
-	return !c.at.IsZero() && !t.IsZero() && t.Sub(c.at) > maxTimeBetweenCheckpoints
+// late reports whether the entry l was recorded more than 24 hours after the last checkpoint;
+// a time that cannot be read is never late.
+func (c *cadence) late(l link) bool {
+	return c.hasAt && l.hasAt && l.at.Sub(c.at) > maxTimeBetweenCheckpoints
 }
 
 // next takes the next entry in file order, as the table of SPEC-v0 section 9.5 states it: a
@@ -317,18 +322,18 @@ func (c *cadence) next(index int, l link) {
 		gap := false
 		switch {
 		case checkpoint:
-			gap = c.since > 0 && !c.firstLate && c.late(l.at)
+			gap = c.since > 0 && !c.firstLate && c.late(l)
 		case c.since == 0:
-			c.firstLate = c.late(l.at)
+			c.firstLate = c.late(l)
 		default:
-			gap = c.firstLate || c.late(l.at) || c.since >= maxEntriesBetweenCheckpoints
+			gap = c.firstLate || c.late(l) || c.since >= maxEntriesBetweenCheckpoints
 		}
 		if gap && l.version >= firstCadenceVersion {
 			note(&c.gap, index, l.seq)
 		}
 	}
 	if checkpoint {
-		c.seen, c.at, c.since, c.firstLate = true, l.at, 0, false
+		c.seen, c.at, c.hasAt, c.since, c.firstLate = true, l.at, l.hasAt, 0, false
 		return
 	}
 	if c.seen {
@@ -391,7 +396,7 @@ func (v *verifier) add(entry []byte) {
 		v.breakCheckpoint(index, l.seq)
 	}
 	v.cadence.next(index, l)
-	if index > 0 && !l.at.IsZero() && !v.previous.at.IsZero() && l.at.Before(v.previous.at) {
+	if index > 0 && l.hasAt && v.previous.hasAt && l.at.Before(v.previous.at) {
 		note(&v.backwards, index, l.seq)
 	}
 	v.previous, v.lost = l, false
@@ -525,7 +530,8 @@ func (v *verifier) check(index int, entry []byte) (l link, linked bool) {
 	// depend on whether its writer kept the rules (section 9.4).
 	l.event, _ = obj["event"].(string)
 	if recorded, ok := obj["recorded_at"].(string); ok {
-		l.at, _ = rfc3339.Parse(recorded)
+		at, err := rfc3339.Parse(recorded)
+		l.at, l.hasAt = at, err == nil
 	}
 	if c, ok := obj["checkpoint"].(map[string]any); ok {
 		l.logID, _ = c["log_id"].(string)
