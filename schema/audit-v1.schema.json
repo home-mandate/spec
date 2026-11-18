@@ -179,7 +179,7 @@
         "error": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
         "duration_ms": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "count": {
-          "description": "Number of consecutive requests of the agent that this entry stands for. Only with denied_by rate_limit (SPEC-v0 section 11.2).",
+          "description": "Number of consecutive requests of the agent that this entry stands for: requests the rate limit denied (SPEC-v0 section 11.2), or allowed reads of one resource (section 11.8, repeated reads).",
           "type": "integer",
           "minimum": 2,
           "maximum": 9007199254740991
@@ -190,7 +190,8 @@
           "then": { "required": ["denied_by"] }, "else": { "not": { "required": ["denied_by"] } } },
         { "if": { "properties": { "status": { "const": "failed" } } }, "then": { "required": ["error"] } },
         { "if": { "properties": { "status": { "const": "executed" } } }, "then": { "not": { "required": ["error"] } } },
-        { "if": { "required": ["count"] }, "then": { "properties": { "denied_by": { "const": "rate_limit" } } } }
+        { "if": { "required": ["count", "denied_by"] }, "then": { "properties": { "denied_by": { "const": "rate_limit" } } } },
+        { "if": { "required": ["count"], "not": { "required": ["denied_by"] } }, "then": { "properties": { "status": { "const": "executed" } } } }
       ]
     },
     "exported": {
@@ -572,6 +573,12 @@
       "then": { "properties": { "result": { "properties": { "denied_by": { "const": "emergency_stop" } } } } } },
     { "if": { "required": ["result"], "properties": { "result": { "required": ["denied_by"], "properties": { "denied_by": { "const": "audit" } } } } },
       "then": { "properties": { "approval": { "properties": { "outcome": { "const": "approved" } } } } } },
+    { "if": { "required": ["result"], "properties": { "result": { "required": ["count", "status"], "properties": { "status": { "const": "executed" } } } } },
+      "then": { "required": ["event", "request", "evaluation"],
+                "properties": { "event": { "const": "decision" },
+                                "request": { "properties": { "action": { "const": "read" } }, "not": { "required": ["group"] } },
+                                "evaluation": { "properties": { "decision": { "const": "allow" } }, "not": { "anyOf": [ { "required": ["confirm"] }, { "required": ["enforced"] } ] } } },
+                "not": { "required": ["approval"] } } },
     { "if": { "required": ["result"], "properties": { "result": { "required": ["status"], "properties": { "status": { "const": "executed" } } } } },
       "then": { "required": ["evaluation", "mandate"],
                 "properties": { "evaluation": { "anyOf": [ { "properties": { "decision": { "enum": ["allow", "ask"] } } }, { "required": ["enforced"] } ] } } } },

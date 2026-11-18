@@ -1587,7 +1587,7 @@ content.
 
 | `event` | Required | When |
 |---|---|---|
-| `decision` | yes | every request from an authenticated agent, even if it is rejected before evaluation (e.g. rate limit, emergency stop) or not executed because the log could not be written (`denied_by: audit`, Section 9). Input the log cannot record (Section 9.1) is not a request in the sense of this table and gets no entry |
+| `decision` | yes | every request from an authenticated agent, even if it is rejected before evaluation (e.g. rate limit, emergency stop) or not executed because the log could not be written (`denied_by: audit`, Section 9); consecutive denials of the rate limit and (v1) consecutive allowed reads of one resource MAY share one entry with `result.count` (Sections 11.2 and 11.8). Input the log cannot record (Section 9.1) is not a request in the sense of this table and gets no entry |
 | `mandate.created`, `mandate.updated`, `mandate.revoked` | yes | every change to a mandate, with old and new digest |
 | `agent.registered`, `agent.revoked` | yes | admission and revocation of an agent |
 | `emergency_stop.activated`, `emergency_stop.released` | yes | emergency stop, if the implementation has one |
@@ -1663,7 +1663,10 @@ record it is logged with `denied_by: audit` (Section 9).
 - Each mandate version MUST be retained at least as long as entries that refer to its
   digest.
 - How long entries are retained is determined by the implementation. Only the oldest entries
-  MAY be deleted (Section 9.4).
+  MAY be deleted (Section 9.4). A retention of at least 90 days is RECOMMENDED, so that a
+  household can still see what happened when it notices something weeks later; at a thousand
+  requests an hour that is about two million entries, a few hundred megabytes (Section 11.8,
+  repeated reads, keeps it smaller).
 
 ### 9.4 Hash chain and verification
 
@@ -1767,6 +1770,11 @@ readable `seq`), or nothing if there is none:
 - `unknown_version_at`: an entry whose `type` names a version of the audit format (by the
   grammar of Section 14) that the verifier does not know.
   It checks the content of no entry from there on against condition 1, and the chain on.
+
+A verifier MAY also report, informatively and without any effect on validity, the first entry
+whose `recorded_at` lies before that of the entry before it: a clock that was set back, or
+entries written out of order. It is no finding, because a writer that corrects its clock
+writes such an entry honestly (Section 11.4).
 
 A log is valid exactly if there is no finding. An entry of an unknown version breaks condition 1
 for `broken_at`, as it always did, because it matches the schema of no version the verifier
@@ -2326,7 +2334,8 @@ act or decide.
 So that an agent cannot fill the audit log with denials, consecutive requests of one agent
 that the rate limit denies MAY be recorded as a single `decision` entry whose
 `result.count` is the number of requests it stands for; `request` then describes the first
-of them.
+of them. (v1) Consecutive allowed `read` requests can be summarized in the same way (Section
+11.8). Each request of such an entry counts towards the rate limit.
 
 ### 11.3 Revocation, emergency stop, removal and reconnection
 
@@ -2780,6 +2789,16 @@ out access:
   it documents; never the attributes of the platform as they are, which an integration can
   fill with anything. A kind the list does not name returns nothing.
 - The state a `read` returns is not recorded (Section 13); the request is.
+- **Repeated reads.** An agent that polls a sensor makes the same `read` again and again, and
+  every one of them is a `decision` entry. (v1) An implementation MAY record consecutive
+  requests of one agent that are all an allowed `read` of the same resource, under the same
+  mandate digest and with the same evaluation, as one `decision` entry whose `result.count`
+  is the number of requests it stands for, within at most 60 seconds from the first of them;
+  `request` then describes the first. It stores the count durably before it executes each of
+  them, as Section 9 asks for every request, and writes the entry when the 60 seconds end,
+  another request of the agent arrives, or the process stops; after a crash it writes the
+  stored count at the next start. A request that is denied, needs a confirmation, or is not a
+  `read`, is never part of such an entry.
 
 ## 12. Security considerations
 
@@ -3221,6 +3240,13 @@ behavior of the people in a household and MUST be protected like the devices the
     Cases `v182` to `v211` and `v214` to `v222`: proxies, `auth`, `bound`, `caa_identity`, the
     eight pairs, the version grammar, a checkpoint signed with ES256 and one with an unknown
     `alg`, the cadence, an anchored truncation and the `actor` of relay events.
+- After the first release candidate, for Home Assistant 1.0:
+  - (v1) Consecutive allowed `read` requests of one agent on one resource MAY be recorded as one
+    entry with `result.count`, within at most 60 seconds, the count stored before each read is
+    executed (Section 11.8, cases `v230` to `v233`); a polling agent no longer fills the log.
+  - A verifier MAY report a `recorded_at` that runs backwards, informatively; the Go reference
+    does (`audit.Result.TimeBackwards`). A retention of at least 90 days is RECOMMENDED
+    (Section 9.3).
 - Before the release candidate:
   - Condition 4 of Section 9.5: a `log.truncated` entry accounts for the position a relying
     party saw last only if a verified checkpoint anchors it; otherwise a replaced log would pass
