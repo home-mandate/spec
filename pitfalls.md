@@ -92,4 +92,26 @@ Comparing the encoding with `R` is the equation without the cofactor; it is what
 `crypto/ed25519` does. A library whose scalar multiplication refuses 0 needs its unsafe
 variant for `S` = 0, which step 1 does not exclude.
 
-Cases: `g45` to `g75`, `g76` to `g101` for key sets.
+Cases: `g45` to `g75`, `g76` to `g105` for key sets.
+
+RFC 9864 names EdDSA with Ed25519 `Ed25519`. A key may carry that name in `alg`; the header of a
+signed mandate or a checkpoint still names `EdDSA`, and a header with `"alg":"Ed25519"` is
+rejected (Section 7.1). A signer that follows RFC 9864 has to write `EdDSA` in the header.
+
+## A verifier without ES256
+
+ES256 is optional (Section 7.1), and the Go reference always has it. Cases `g99` and `g100` put a
+key that is not on its curve next to the signing key; a verifier without ES256 takes the other
+path of Section 7.1 for the P-256 one, and only its own run of the cases shows that it keeps the
+key set usable. Passing them in the reference proves nothing about that path. Case `g104` shows
+that a P-256 key with a restriction still counts for such a verifier.
+
+## Punycode without IDNA
+
+A verifier of an audit log checks a public origin with the Punycode round trip of Section 11.7
+item 1 and MUST NOT apply IDNA. Node, Python and browsers offer IDNA (`url.domainToASCII`,
+`encodings.idna`, the URL parser), which maps and validates labels, but no plain Punycode of RFC
+3492; Python's `"…".encode("punycode")` is plain Punycode without the `xn--` prefix. Where none
+is at hand, RFC 3492 takes about sixty lines. Valid here means only the one form: a label that
+survives the round trip can still be one that IDNA refuses and that no resolver will find. Cases: `o26`, `o39` to `o44`, and the public
+origins in `audit-v1.json`.

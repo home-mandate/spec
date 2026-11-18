@@ -4433,6 +4433,24 @@
       ]
     },
     {
+      "id": "v212",
+      "why": "a public origin with an A-label that survives the Punycode round trip and that IDNA lookup would map to another label (a fullwidth letter): a log verifier applies no IDNA (SPEC-v0 sections 9.4 and 11.7 item 1)",
+      "expected": "valid",
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "config": {"setting": "public_origin", "value": "https://xn--b-yq0i.example"}, "event": "config.changed", "id": "01a0f64c-7140-7001-9007-0000b2120001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
+      "id": "v213",
+      "why": "a public origin with an A-label whose Punycode does not decode (SPEC-v0 sections 9.4 and 11.7 item 1)",
+      "expected": "invalid",
+      "broken_at": 1,
+      "conformance_broken_at": 1,
+      "entries": [
+        {"actor": {"id": "user-1", "kind": "user"}, "config": {"setting": "public_origin", "value": "https://xn--99999999999.example"}, "event": "config.changed", "id": "01a0f64c-7140-7001-9007-0000b2130001", "prev": null, "principal": "household:hm-7f3a", "recorded_at": "2026-11-18T10:00:00Z", "seq": 1, "type": "https://home-mandate.org/audit/v1"}
+      ]
+    },
+    {
       "id": "v214",
       "why": "a checkpoint whose header names an algorithm the verifier does not implement, while its kid names a key it uses: whoever writes the log chooses the header, so this breaks the integrity like a signature that does not verify (SPEC-v0 section 9.4)",
       "expected": "invalid",

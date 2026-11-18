@@ -307,11 +307,22 @@ func (r restrictions) check(kty, crv string) error {
 	if r.KeyOps != nil && !slices.Contains(*r.KeyOps, "verify") {
 		return errors.New("key_ops without verify")
 	}
-	if r.Alg != nil && *r.Alg != algorithmOf(kty, crv) {
+	if r.Alg != nil && !keyAlgorithm(*r.Alg, kty, crv) {
 		return fmt.Errorf("alg %s for key type %s", quote(*r.Alg), quote(kty))
 	}
 	return nil
 }
+
+// keyAlgorithm reports whether alg names the algorithm of a key of type kty and curve crv: its
+// algorithm of SPEC-v0 section 7.1, or for an Ed25519 key also Ed25519, the fully specified
+// name of RFC 9864.
+func keyAlgorithm(alg, kty, crv string) bool {
+	return alg == algorithmOf(kty, crv) || alg == algEd25519 && kty == "OKP" && crv == "Ed25519"
+}
+
+// algEd25519 is the fully specified name of EdDSA with Ed25519 (RFC 9864); only the alg of a
+// key may carry it, the header of a signature names EdDSA.
+const algEd25519 = "Ed25519"
 
 // algorithmOf is the algorithm of SPEC-v0 section 7.1 for a key type and curve.
 func algorithmOf(kty, crv string) string {
@@ -374,8 +385,8 @@ func ParseJWKS(data []byte) (Keys, error) {
 	if len(data) > MaxKeySetBytes {
 		return nil, fmt.Errorf("%w: JWK Set of %d bytes, at most %d", ErrMalformed, len(data), MaxKeySetBytes)
 	}
-	// A key set is no format of the specification; what it was accepted with stays accepted.
-	if err := ijson.CheckRecorded(data); err != nil {
+	// A key set and its keys are I-JSON (SPEC-v0 section 7.1): no noncharacter, no duplicate.
+	if err := ijson.Check(data); err != nil {
 		return nil, fmt.Errorf("%w: JWK Set: %w", ErrMalformed, err)
 	}
 	// encoding/json matches member names without regard to case; the members are read

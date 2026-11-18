@@ -1091,9 +1091,14 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
   any other header member (such as `crit`, `b64`, `jwk`, `jku`, `x5c`) make the signed
   mandate invalid: a key is never taken from the signed object itself.
 - `kid` is 1 to 64 characters from `A–Z a–z 0–9 . _ -` and names a key of the issuer.
-- A signed object has exactly one spelling. The three segments are base64url without
-  padding and without any other character (no line breaks); the names of the header
-  members are case-sensitive; of the two values of `s` that verify for an ES256
+- A signed object has exactly one spelling of its segments. The three segments are base64url
+  without padding and without any other character (no line breaks), and the unused bits of the
+  last character of each are zero (RFC 4648 section 3.5), as for every value in base64url this
+  specification reads, `x` and `y` of a key included. The JSON of the header is read as JSON:
+  its members may stand in either order with white space between them, and their names and
+  values are compared after their escapes are resolved (`"\u0061lg"` is `alg`); the signature
+  covers the header's bytes as they are. A signer writes the header as `{"alg":…,"kid":…}`, in
+  this order, without white space and without escapes: verifiers of v0.1.x accept only that. The names of the header members are case-sensitive; of the two values of `s` that verify for an ES256
   signature, only the lower one (`s` ≤ n/2) is accepted, and signers produce it; and for
   EdDSA, `S` is less than the group order `L`, and `R` and the public key are canonically
   encoded (RFC 8032 sections 5.1.3 and 5.1.7; here: the encoded y-coordinate is less than
@@ -1107,7 +1112,9 @@ BASE64URL(header) "." BASE64URL(JCS(mandate)) "." BASE64URL(signature)
   MUST reject a longer one before it splits it into its parts.
 - A verifier MUST check an Ed25519 signature with the equation of RFC 8032 section 5.1.7
   without the cofactor (`[S]B = R + [k]A'`), not with the cofactored one that the RFC also
-  permits, so that two verifiers never disagree about a signature; a library that verifies
+  permits, so that two verifiers never disagree about a signature. Here `k` is SHA-512(R ||
+  A || M) reduced modulo L, as Go, OpenSSL and libsodium compute it; RFC 8032 uses the
+  unreduced hash, which gives another point for a key with a part of small order (case `g45`); a library that verifies
   with the cofactor, as those following ZIP 215 do, is not enough on its own. A key of mixed order (a point of the
   group plus a point of small order) is a key like any other; the equation without the
   cofactor decides whether a signature by it verifies. Keys A and A + T (T of small order)
@@ -1167,7 +1174,8 @@ whichever of the keys a verifier would otherwise have picked. The names of the m
 case-sensitive: `X` is not `x`, but an unknown member, and unknown members are ignored (RFC
 7517 section 4), `y` of an Ed25519 key too. Three members restrict what a key is for: if
 present, `use` is `sig`, `key_ops` is an array that contains `verify`, and `alg` is the
-algorithm of the key's type (`EdDSA` for Ed25519, `ES256` for P-256); a key whose `use`,
+algorithm of the key's type (`EdDSA` or, fully specified as RFC 9864 names it, `Ed25519` for
+an Ed25519 key; `ES256` for a P-256 key); a key whose `use`,
 `key_ops` or `alg` says otherwise, is `null` or of another JSON type (an element of `key_ops`
 that is not a string included), cannot be used, and a key set with such a key verifies
 nothing (Section 10.2). The same holds for a key of another type or curve: RFC 7517 section 5
@@ -1177,8 +1185,11 @@ purposes publishes a set of its own for mandates. A key whose `x` and `y` decode
 point of the curve verifies nothing, and the key set it is in stays usable: such a key never
 verifies a signature, so ignoring it changes no verdict, and most libraries accept an Ed25519
 key without decoding its point. A verifier without ES256 (which is optional, above) treats a
-well-formed P-256 key of a key set, whose `x` and `y` are 32 octets each in base64url, as a key
-it does not use: the set stays usable, and for a signature with `alg` `ES256` it answers that
+well-formed P-256 key of a key set as a key it does not use. Well-formed means that the key
+keeps every rule of this section except that its point lies on the curve: `x` and `y` are 32
+octets each in base64url, and its `kid`, `use`, `key_ops` and `alg`, the absence of `d` and
+the I-JSON rules hold, so that a P-256 key restricted to `"use":"enc"` makes the key set verify
+nothing for every verifier (case `g104`). The key set then stays usable, and for a signature with `alg` `ES256` such a verifier answers that
 it cannot check it (Section 10.2: `unsupported`). A P-256 key that is not well-formed, such as
 one without `y`, makes the key set verify nothing for every verifier, with ES256 or without. `x` and
 `y` are base64url without padding and without any other character.
@@ -1295,7 +1306,8 @@ the time each was replaced), the certificates acknowledged by digest and, option
 keys acknowledged (`acknowledged_keys`) and the key presented under the public origin at the time
 of the check (`presented_key`, which recognises nothing unless it is the current key), and the
 certificates found, each with its digest, its names, its
-validity, the SHA-256 digest of its public key and the time of its first log entry; and, for each
+validity, the SHA-256 digest of its public key and the time of its first log entry (`logged`
+as a source reports it, or else `earliest_sct` or `first_seen`); and, for each
 certificate in the order given, the expected result: `alarm` (also for one that is not valid yet),
 `past-exposure` or `none`. Its `monitoring` cases give the answers of the sources and the
 expected state of monitoring (`ok`, `limited` or `unavailable`, the event `ct.status`), and its
@@ -1685,7 +1697,7 @@ An audit log is **valid** if, in file order:
    different sets of areas in `areas_changed`; `enforced` against the vocabulary and
    `vocabulary` against the category; the `up_to_seq` of a `log.truncated` entry smaller
    than the entry's own `seq`; the range of a `log.exported` entry before the entry itself;
-   the one form of a public origin (Section 11.7 item 1); (v1) the canonical form of a trusted
+   the one form of a public origin (Section 11.7 item 1, without IDNA); (v1) the canonical form of a trusted
    proxy; and (v1) no deviation that a correction tolerates in an earlier version (Section 14);
 2. the first entry either has `seq` 1, or a later `log.truncated` entry with
    `up_to_seq` = `seq` − 1 and `last_digest` = `prev` of the first entry is present;
@@ -2522,11 +2534,16 @@ from outside under an address alone.
    leading zero; no userinfo, path, query or fragment, not even a single `/`. The host is a DNS
    name of at least two labels without a final dot, at most 253 bytes long; each label is 1 to
    63 bytes of lower-case letters, digits and hyphens and neither begins nor ends with a hyphen, a
-   label that is not ASCII is written as its A-label, and the last label is not all digits. A
+   label that is not ASCII is written as its A-label, and the last label contains a letter and is
+   not `0x` followed by hexadecimal digits only, so that no URL parser reads the host as an IPv4
+   address (WHATWG URL, "ends in a number": `https://a.0x7f000001` is not a public origin). A
    label that begins with `xn--` decodes with Punycode (RFC 3492) to a label with a character
-   outside ASCII, and encoding that label gives the same `xn--` label back; an implementation MAY
-   in addition check the label with IDNA (UTS 46, RFC 5891) and refuse it if IDNA lookup does not
-   map it to itself. An IP address is not a public origin. An implementation has exactly
+   outside ASCII and none below U+00A0, and encoding that label gives the same `xn--` label back;
+   a label that keeps this rule can still be one that IDNA refuses and no resolver finds, so the
+   one form says nothing about whether the origin can be reached; an implementation MAY
+   in addition check a public origin it is configured with against IDNA (UTS 46, RFC 5891) and
+   refuse it if IDNA lookup does not map it to itself. A verifier of an audit log MUST NOT apply
+   IDNA (Section 9.4): two verifiers would otherwise disagree about the same entry. An IP address is not a public origin. An implementation has exactly
    one public origin at a time.
 2. **Issuer.** Where agents sign in with OAuth, the issuer identifier of the authorization server
    (RFC 8414) is the public origin, character for character. The authorization servers in the
@@ -2952,6 +2969,14 @@ behavior of the people in a household and MUST be protected like the devices the
   where the verification of every existing log stays as it was (for example `denied_by: audit`
   for a clock behind the log, Section 11.4); the `error` codes that tell such cases apart are
   then RECOMMENDED. The Changelog lists these changes under "Upgrading".
+- **Key sets.** A key set is configuration, not a format of this specification: the household
+  or the relying party chooses it, and it is not part of a mandate or of a log. Its rules
+  (Section 7.1) MAY therefore change in a minor release, in either direction, even where a
+  signature or a checkpoint verified with a key set under an earlier release changes its
+  verdict. The Changelog lists every such change under "Upgrading", so that whoever keeps a
+  key set can check it before updating. The key set is part of the input of a verification: a
+  relying party that verifies old logs or mandates again keeps a key set that the release it
+  uses accepts, and a verdict names the release and the key set it was reached with.
 - **Audit versions.** A reader of an audit log never skips what it does not know: an
   implementation could otherwise write anything into a log and a verifier would let it pass.
   So every addition to the audit entry (a new event, a new member, a new value of a member)
@@ -3063,7 +3088,21 @@ behavior of the people in a household and MUST be protected like the devices the
 ### Unreleased
 
 - **Upgrading from v0.1.x.** No mandate and no audit log of version 0 changes its verdict
-  (Section 14). Implementations get new obligations, which Section 14 now allows in a release
+  (Section 14) through its own content. A key set is configuration (Section 14, bullet **Key
+  sets**), and its rules changed in both directions, so a key set that worked under v0.1.1 can
+  verify nothing now, and the other way round:
+  - verifies nothing now: a key whose `use` is not `sig`, whose `key_ops` lack `verify`, or
+    whose `alg` is not that of its type (`EdDSA` or `Ed25519` for an Ed25519 key, `ES256` for
+    P-256), each also when `null` or of another JSON type; a key set over 65 536 bytes; a key
+    set with a member that occurs twice or with a noncharacter, also in a member nobody reads;
+  - usable now: a key set with a key whose point is not on its curve, which verifies nothing
+    itself.
+
+  A signed mandate whose header has its members in the other order, white space or escapes is
+  accepted now and was rejected under v0.1.x (`g106`, `g107`); signers keep writing the one form
+  of Section 7.1, which every release accepts.
+
+  Whoever keeps a key set checks it against these rules before updating. Implementations get new obligations, which Section 14 now allows in a release
   without a new major (bullet **Obligations**): request times are narrower (`-00:00` and the
   year `0000` are not readable), signatures that only a flawed or hostile signer produces are
   rejected (Section 7.1), several SHOULDs became MUSTs, and an implementation that writes audit
@@ -3126,6 +3165,22 @@ behavior of the people in a household and MUST be protected like the devices the
     Cases `v182` to `v211` and `v214` to `v222`: proxies, `auth`, `bound`, `caa_identity`, the
     eight pairs, the version grammar, a checkpoint signed with ES256 and one with an unknown
     `alg`, the cadence, an anchored truncation and the `actor` of relay events.
+- Signatures, key sets and the public origin before the release:
+  - Section 7.1 says that `k` is the hash reduced modulo L, as `g45` requires; that the unused
+    bits of base64url are zero for segments and keys; and that the header is read as JSON, so
+    its members may stand in either order and are compared after their escapes are resolved
+    (`g106`, `g107`).
+  - A key set is configuration (Section 14, bullet **Key sets**); "Upgrading" lists the rules
+    that changed in both directions. An Ed25519 key may name its algorithm `Ed25519` (RFC 9864,
+    `g103`). A key set with a noncharacter verifies nothing, as I-JSON requires (`g102`). A
+    well-formed P-256 key for a verifier without ES256 keeps every rule but the curve point
+    (`g104`). A key set of exactly 65 536 bytes is usable (`g105`).
+  - A log verifier MUST NOT apply IDNA to a public origin, only the Punycode round trip, which
+    now also refuses a decoded C1 control (`o26`, `o44`, `v212`, `v213`); the last label of a
+    public origin contains a letter and is not `0x` followed by hexadecimal digits (`o39` to
+    `o43`).
+  - `ct-v0.json` gives a certificate's time also by its earliest SCT or by when it was first
+    seen (`t50` to `t52`).
 - Signatures and key sets (Section 7.1):
   - A key whose point is not on its curve verifies nothing and leaves its key set usable,
     for Ed25519 and P-256 alike; a key of another type or curve, a private key, a key a
@@ -3196,7 +3251,8 @@ behavior of the people in a household and MUST be protected like the devices the
   cadence, without making the log invalid (Section 10.2; `v167` to `v169`).
 - Section 11.7: reachable from outside includes a forwarded port to an IP address, and an
   installation under an address alone is not offered; an `xn--` label must round-trip through
-  Punycode, and IDNA lookup is an option, not a requirement (`o03`, `o25`, `o26` unchanged);
+  Punycode, and IDNA lookup is an option for a configured value, never for a log verifier
+  (`o03`, `o25`, `o26`, and the bullet on the public origin below);
   the limits of 253 and 63 bytes are stated. Certificate Transparency behind the household's
   own proxy: a key the administrator configures or confirms, an
   acknowledgement by public key, the time of the first log entry from a source, from the
