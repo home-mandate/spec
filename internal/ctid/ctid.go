@@ -9,6 +9,7 @@
 package ctid
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
@@ -41,6 +42,10 @@ const issuerField = 2
 type replacement struct {
 	issuer []byte // DER of the Name
 	aki    []byte // value of the extension; nil if the signing certificate has none
+	// subject and keyID are those of the signing certificate: the precertificate must name
+	// them as its issuer and its authority key identifier.
+	subject []byte
+	keyID   []byte
 }
 
 // extensionsTag is the context-specific tag of the extensions of a TBSCertificate
@@ -65,7 +70,7 @@ func DigestIssuedBy(der, signing []byte) (string, error) {
 	if !signsPrecertificates(psc) {
 		return "", fmt.Errorf("%w: no precertificate signing certificate", ErrCertificate)
 	}
-	r := &replacement{issuer: psc.RawIssuer}
+	r := &replacement{issuer: psc.RawIssuer, subject: psc.RawSubject, keyID: psc.SubjectKeyId}
 	for _, e := range psc.Extensions {
 		if e.Id.Equal(oidAuthorityKeyID) {
 			r.aki = e.Value
@@ -113,7 +118,7 @@ func withoutCTExtensions(tbs asn1.RawValue, r *replacement) ([]byte, error) {
 		return nil, fmt.Errorf("%w: TBSCertificate is not a sequence", ErrCertificate)
 	}
 	var fields []byte
-	poisoned := false
+	poisoned, sawExtensions := false, false
 	universal := 0
 	for rest := tbs.Bytes; len(rest) > 0; {
 		var field asn1.RawValue
@@ -123,6 +128,10 @@ func withoutCTExtensions(tbs asn1.RawValue, r *replacement) ([]byte, error) {
 		}
 		switch {
 		case field.Class == asn1.ClassContextSpecific && field.Tag == extensionsTag:
+			if sawExtensions {
+				return nil, fmt.Errorf("%w: two extensions fields", ErrCertificate)
+			}
+			sawExtensions = true
 			kept, hadPoison, err := keptExtensions(field, r)
 			if err != nil {
 				return nil, err
@@ -131,6 +140,9 @@ func withoutCTExtensions(tbs asn1.RawValue, r *replacement) ([]byte, error) {
 			fields = append(fields, kept...)
 		case field.Class == asn1.ClassUniversal:
 			if universal == issuerField && r != nil {
+				if !bytes.Equal(field.FullBytes, r.subject) {
+					return nil, fmt.Errorf("%w: the precertificate does not name the signing certificate as its issuer", ErrCertificate)
+				}
 				fields = append(fields, r.issuer...)
 			} else {
 				fields = append(fields, field.FullBytes...)
@@ -198,6 +210,12 @@ func keptExtensions(field asn1.RawValue, r *replacement) (kept []byte, poisoned 
 
 // replacedAKI re-encodes an authority key identifier extension with the value of r.
 func replacedAKI(ext extension, r *replacement) ([]byte, error) {
+	var aki struct {
+		KeyID []byte `asn1:"optional,tag:0"`
+	}
+	if _, err := asn1.Unmarshal(ext.Value, &aki); err != nil || (r.keyID != nil && !bytes.Equal(aki.KeyID, r.keyID)) {
+		return nil, fmt.Errorf("%w: the authority key identifier of the precertificate is not the signing certificate's", ErrCertificate)
+	}
 	if r.aki == nil {
 		return nil, fmt.Errorf("%w: the signing certificate has no authority key identifier", ErrCertificate)
 	}

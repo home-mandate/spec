@@ -85,7 +85,7 @@ var checks = []rule{
 		return want(p.JTI != "" && (m.Seen == nil || !m.Seen(p.JTI)), "jti was accepted before")
 	}},
 	{"restart", func(p Proof, _ Request, m Memory) error {
-		return want(m.Started == nil || p.IAT >= *m.Started+MaxAhead, "iat too close to the start of the process")
+		return want(m.Started == nil || p.IAT > *m.Started+MaxAhead, "iat not later than the start of the process plus the time a proof may lie ahead")
 	}},
 	{"ath", func(p Proof, r Request, _ Memory) error {
 		if r.AccessToken == nil {

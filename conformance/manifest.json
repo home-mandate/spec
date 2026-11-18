@@ -325,8 +325,8 @@
     },
     {
       "path": "conformance/origin-v0.json",
-      "sha256": "2afc0d4fd65a7e0ae7b8797d5e799a283d5980b2acbd0e6bf65e54ce362b936a",
-      "cases": 79
+      "sha256": "236dd93b9ce46124dc779ae6c1553f6bf7c1214846257b4d55fa1252e1335187",
+      "cases": 80
     },
     {
       "path": "conformance/schema/audit-v0.schema.json",

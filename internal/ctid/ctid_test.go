@@ -178,3 +178,37 @@ func TestASigningCertificateWithoutAuthorityKeyIdentifier(t *testing.T) {
 		t.Errorf("err = %v, want ErrCertificate", err)
 	}
 }
+
+// A precertificate that another CA issued, or one whose authority key identifier names
+// another key, is not the precertificate of this signing certificate.
+func TestAPrecertificateOfAnotherIssuer(t *testing.T) {
+	v := vectors(t)
+	psc := v["pscpre"].IssuedBy
+	if _, err := ctid.DigestIssuedBy(v["pre"].DER, psc); !errors.Is(err, ctid.ErrCertificate) {
+		t.Errorf("another issuer: err = %v, want ErrCertificate", err)
+	}
+	signing, err := x509.ParseCertificate(psc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x77}, ed25519.SeedSize))
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	parent := &x509.Certificate{
+		SerialNumber: big.NewInt(10), Subject: signing.Subject, RawSubject: signing.RawSubject,
+		NotBefore: at, NotAfter: at.AddDate(1, 0, 0), IsCA: true, BasicConstraintsValid: true,
+		KeyUsage: x509.KeyUsageCertSign, SubjectKeyId: bytes.Repeat([]byte{0x77}, 20),
+	}
+	null, _ := asn1.Marshal(asn1.NullRawValue)
+	leaf := &x509.Certificate{
+		SerialNumber: big.NewInt(11), Subject: pkix.Name{CommonName: "home.example.net"},
+		DNSNames: []string{"home.example.net"}, NotBefore: at, NotAfter: at.AddDate(0, 0, 90),
+		ExtraExtensions: []pkix.Extension{{Id: ctid.OIDPoison, Critical: true, Value: null}},
+	}
+	pre, err := x509.CreateCertificate(nil, leaf, parent, key.Public(), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ctid.DigestIssuedBy(pre, psc); !errors.Is(err, ctid.ErrCertificate) {
+		t.Errorf("another key identifier: err = %v, want ErrCertificate", err)
+	}
+}
