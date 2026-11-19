@@ -3290,7 +3290,14 @@ behavior of the people in a household and MUST be protected like the devices the
 
 ## Changelog
 
-### Unreleased
+### v0.2.0 (2026-11-19)
+
+The first minor version after the freeze. Every mandate and every audit log of version 0 that
+was valid stays valid; what can change an outcome is listed under "Upgrading" below. New are
+audit version 1, groups and vocabulary `v0.2`; a rule's own period, `conditions.dates`,
+`none_of` and limits of a rule; the rate limits of a PDP apart from its PEP; and a hardening of
+checkpoints, Certificate Transparency, DPoP and key sets. The TypeScript implementation
+conforms to it in every class.
 
 - **Upgrading from v0.1.x.** No unsigned mandate and no audit log of version 0 without
   checkpoints changes its verdict (Section 14). Signed mandates and checkpoints can, in both
