@@ -9,7 +9,7 @@ Vendor-neutral specification for **mandates of software agents in the household*
 AI agent may do on behalf of a household, with the decisions allow, ask and
 deny, plus test tools with which any implementation demonstrates its conformance.
 
-Status: v0.1.1 released, formats frozen since v0.1.0 (Section 14). The reference evaluator is the Go code in this repository; the first
+Status: v0.2.0 released, formats frozen since v0.1.0 (Section 14). The reference evaluator is the Go code in this repository; the first
 product that implements the specification is Home-Mandate for Home Assistant.
 
 How a gateway is reached from outside through a relay that anyone may run is the subject of the
@@ -26,6 +26,7 @@ has its own repository and versions and builds on Section 11.7 here.
 | `profiles/` | Informative mappings of platforms (Home Assistant, Matter) to the vocabulary | Apache 2.0 |
 | `schema/mandate-v0.schema.json` | JSON Schema of the mandate (Draft 2020-12) | Apache 2.0 |
 | `schema/audit-v0.schema.json` | JSON Schema of an audit log entry (Draft 2020-12) | Apache 2.0 |
+| `schema/audit-v1.schema.json` | JSON Schema of an audit log entry of version 1 (Draft 2020-12) | Apache 2.0 |
 | `data/forbidden-codepoints-v0.json` | Code points not permitted in text displayed to humans (SPEC-v0 section 3.1 item 8), derived from Unicode 17.0.0 | Apache 2.0 |
 | `ct-sources.md` | Informative list of Certificate Transparency services (SPEC-v0 section 11.7 item 7) | CC BY 4.0 |
 | `pitfalls.md` | Informative list of mistakes implementers make with the libraries of their languages, with the cases that catch them | CC BY 4.0 |
@@ -41,12 +42,13 @@ has its own repository and versions and builds on Section 11.7 here.
 | `conformance/mandates/` | Test mandates for edge cases | Apache 2.0 |
 | `conformance/digest-v0.json` | Digests of mandates (RFC 8785 + SHA-256) | Apache 2.0 |
 | `conformance/audit-v0.json` | Audit logs with the expected result of the hash chain verification | Apache 2.0 |
+| `conformance/audit-v1.json` | Audit logs of version 1 with the expected result and the findings of the verification | Apache 2.0 |
 | `conformance/origin-v0.json` | Public origins that are valid or invalid, and `htu` values of DPoP proofs that match or not (SPEC-v0 section 11.7) | Apache 2.0 |
 | `conformance/ct-v0.json` | Certificates in Certificate Transparency logs and whether an alarm is raised, the state of monitoring, and the identity of certificates in DER (SPEC-v0 section 11.7 item 7; the Relay Specification uses them too) | Apache 2.0 |
 | `conformance/schema/` | JSON Schemas of the conformance files, so that they can be used without the Go code | Apache 2.0 |
 | `conformance/manifest.json` | All machine-readable files with SHA-256 and number of cases; `make manifest` rewrites it | Apache 2.0 |
 | `evaluator/` | Reference evaluator as a Go library (`github.com/home-mandate/spec/evaluator`), standard library only plus a JSON Schema validator | Apache 2.0 |
-| `audit/` | Entry digests and hash-chain verification of audit logs (SPEC-v0 section 9), checked against `conformance/audit-v0.json` | Apache 2.0 |
+| `audit/` | Entry digests and hash-chain verification of audit logs (SPEC-v0 section 9), checked against `conformance/audit-v0.json` and `conformance/audit-v1.json` | Apache 2.0 |
 | `displaytext/` | Check of text displayed to humans against the code point list | Apache 2.0 |
 | `jws/` | The part of JSON Web Signature the specification uses: compact serialization, EdDSA and ES256, JWK Sets, and the building blocks that protocols on top of it, such as the Relay Specification, sign and verify their own headers with; standard library only | Apache 2.0 |
 | `ratelimit/` | Reference for the rate limit bound of SPEC-v0 section 11.2 | Apache 2.0 |
