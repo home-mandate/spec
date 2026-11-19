@@ -1,27 +1,43 @@
 # SPDX-License-Identifier: Apache-2.0
 name: Release
 
-# A tag vX.Y.Z, vX.Y.Z-alpha.N or vX.Y.Z-rc.N publishes a GitHub release with the conformance
+# A tag vX.Y.0-alpha.N, vX.Y.Z-rc.N or vX.Y.Z publishes a GitHub release with the conformance
 # report of that commit (conformance-report.yml). The release is created as a draft, the report
 # is attached to the draft, and only a draft with the attested report is published. A published
 # release is immutable (repository setting), so nothing can be added or replaced afterwards; a
 # failed run leaves a draft and needs a new version.
 #
-# Guards: only admins may create tags and tags are immutable (repository rulesets). The tag
-# must point to a commit on main, for a patch on release/X.Y (.github/scripts/release-base.sh),
-# that came from a pull request into that branch whose checks all passed, a version without a
-# suffix must have its entry in the changelog of SPEC-v0.md, and the release must not exist.
-# The Go module proxy serves a tag on its own: these guards keep a wrong tag from becoming a
-# release, not from existing, which is why they come with the tag ruleset.
+# A release is a tag, not a commit (RELEASING.md of the organization): a release candidate is
+# tagged on release/X.Y, published, and then runs the release gate: long fuzzing of every
+# target and the mutation tests. The version is tagged on the commit of a release candidate
+# whose gate passed; this workflow then publishes without testing again.
+#
+# Guards: only admins may create tags and tags are immutable (repository rulesets). Before
+# anything is published, home-mandate/.github/actions/release-verify checks where the tag
+# stands, that the commit came from a merged pull request whose checks passed, that a version
+# is a release candidate that passed, and that the release doesn't exist. Here: a release
+# candidate and a version need their entry in the changelog of SPEC-v0.md. The Go module proxy
+# serves a tag on its own: these guards keep a wrong tag from becoming a release, not from
+# existing, which is why they come with the tag ruleset.
+#
+# Run by hand with a tag name, the workflow only checks whether that tag could be released
+# from the head of the chosen branch, and publishes nothing. Do it before every tag:
+#   gh workflow run release.yml --ref release/X.Y -f tag=vX.Y.Z-rc.1
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Dry run: the tag to check on the head of this branch. Publishes nothing."
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -33,65 +49,38 @@ jobs:
       contents: read
       pull-requests: read # the pull request the commit came from
       checks: read # its checks
+      actions: read # the run of the release candidate a version stands on
     outputs:
-      prerelease: ${{ steps.version.outputs.prerelease }}
+      kind: ${{ steps.verify.outputs.kind }}
+      prerelease: ${{ steps.verify.outputs.prerelease }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0 # the branches' history, to check where the tag points
+          fetch-depth: 0 # the branches' history and the tags, to check where the tag stands
           persist-credentials: false
 
-      - name: Tag, branch and version
-        id: version
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          base=$(bash .github/scripts/release-base.sh "$TAG" "$GITHUB_SHA")
-          prerelease=false
-          if [[ "$TAG" == *-* ]]; then
-            prerelease=true
-          elif ! grep -qE "^### ${TAG//./\\.}( |$)" SPEC-v0.md; then
-            echo "::error::SPEC-v0.md has no changelog entry for $TAG"; exit 1
-          fi
-          { echo "base=$base"; echo "prerelease=$prerelease"; } >> "$GITHUB_OUTPUT"
+      - id: verify
+        uses: home-mandate/.github/actions/release-verify@f73af670bc516d6556a0203315b90c0c6554852f
+        with:
+          tag: ${{ inputs.tag || github.ref_name }}
+          required-checks: |
+            Go (
+            Fuzz (
 
-      # The branches take squash-merged pull requests; their checks ran on the pull request's
-      # head.
-      - name: The pull request's checks passed
+      # The entry is written before the first release candidate: the version is its commit.
+      - name: The changelog entry
+        if: steps.verify.outputs.kind != 'alpha'
         env:
-          GH_TOKEN: ${{ github.token }}
-          BASE: ${{ steps.version.outputs.base }}
+          BASE: ${{ steps.verify.outputs.base }}
         run: |
-          set -euo pipefail
-          heads=$(gh pr list --repo "$GITHUB_REPOSITORY" --base "$BASE" --state merged --limit 200 \
-            --json headRefOid,mergeCommit \
-            --jq "[.[] | select(.mergeCommit.oid == \"$GITHUB_SHA\") | .headRefOid] | unique | .[]")
-          if [ "$(printf '%s\n' "$heads" | grep -c .)" != 1 ]; then
-            echo "::error::$GITHUB_SHA did not come from exactly one merged pull request into $BASE"; exit 1
-          fi
-          runs=$(gh api "repos/$GITHUB_REPOSITORY/commits/$heads/check-runs?per_page=100" \
-            --jq '.check_runs[] | "\(.status)|\(.conclusion)|\(.name)"')
-          printf '%s\n' "$runs"
-          for required in "Go (" "Fuzz ("; do
-            grep -qF "|$required" <<< "$runs" || { echo "::error::check '$required' did not run"; exit 1; }
-          done
-          if grep -vE '^completed\|(success|skipped|neutral)\|' <<< "$runs"; then
-            echo "::error::not every check of the pull request passed"; exit 1
-          fi
-
-      - name: Not released yet
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "::error::release $TAG exists already"; exit 1
+          if ! grep -qE "^### v${BASE//./\\.}( |$)" SPEC-v0.md; then
+            echo "::error::SPEC-v0.md has no changelog entry for v$BASE"; exit 1
           fi
 
   release:
     name: Create the draft
     needs: verify
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -124,7 +113,7 @@ jobs:
     with:
       tag: ${{ github.ref_name }}
 
-  # The gate: the draft becomes the release only with the attested report attached.
+  # The draft becomes the release only with the attested report attached.
   publish:
     name: Publish the release
     needs: conformance-report
@@ -149,3 +138,90 @@ jobs:
 
       - name: Publish the draft
         run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+
+  # The release gate, for a release candidate only: what is too long for every pull request.
+  # The targets come from FUZZ_TARGETS of the Makefile.
+  fuzz-targets:
+    name: Fuzz targets
+    needs: [verify, publish]
+    if: needs.verify.outputs.kind == 'rc'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: list
+        run: echo "targets=$(make -s fuzz-targets | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
+
+  # Every target for 20 minutes on top of the corpus the runs of scheduled.yml have collected,
+  # at most four at a time: the organization runs 20 jobs at the same time at most.
+  fuzz:
+    name: Fuzz (long, ${{ matrix.target }})
+    needs: fuzz-targets
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        target: ${{ fromJSON(needs.fuzz-targets.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Where Go keeps the corpus
+        id: corpus
+        run: echo "dir=$(go env GOCACHE)/fuzz" >> "$GITHUB_OUTPUT"
+      # The key never matches: the newest corpus with the prefix is restored.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.corpus.outputs.dir }}
+          key: fuzz-corpus-v1-${{ github.run_id }}
+          restore-keys: fuzz-corpus-v1-
+      - run: make fuzz-one FUZZ="$TARGET" FUZZTIME=20m
+        env:
+          TARGET: ${{ matrix.target }}
+      # A failing input is written to testdata/fuzz; keep it to reproduce the failure.
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-failures-${{ strategy.job-index }}
+          path: "**/testdata/fuzz/**"
+          if-no-files-found: ignore
+
+  # At least 90 % of the injected faults must be found by the tests (make mutation).
+  mutation:
+    name: Mutation tests
+    needs: [verify, publish]
+    if: needs.verify.outputs.kind == 'rc'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: make mutation
+
+  # The job release-verify looks for before a version may stand on this commit: it succeeds
+  # only if the release candidate was published and every part of the gate passed.
+  gate:
+    name: Release gate
+    needs: [verify, publish, fuzz-targets, fuzz, mutation]
+    if: always() && github.event_name == 'push' && needs.verify.outputs.kind == 'rc'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "verify, publish, fuzz-targets, fuzz, mutation: $RESULTS"
+          [ "$RESULTS" = "success success success success success" ]
