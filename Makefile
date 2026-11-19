@@ -10,7 +10,7 @@ GREMLINS    := github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
 COVER_MIN      := 95
 EFFICACY_MIN   := 90
 FUZZTIME       ?= 10m
-# package:target; the long fuzzing of scheduled.yml builds its matrix from this list (make fuzz-targets)
+# package:target; scheduled.yml and the release gate of release.yml fuzz this list (make fuzz-targets)
 FUZZ_TARGETS   := evaluator:FuzzParse evaluator:FuzzEvaluate evaluator:FuzzValue audit:FuzzVerify jws:FuzzVerify internal/harness:FuzzServe \
 	internal/origin:FuzzValid internal/origin:FuzzHTUMatches
 MUTATION_PKGS  := ./evaluator ./audit ./jcs ./jws ./displaytext ./ratelimit ./lint ./internal/jsonnum
@@ -54,11 +54,11 @@ fuzz-one:
 	if [ -z "$$spec" ] || [ "$$pkg" = "$$spec" ]; then echo "FUZZ=package:target is needed"; exit 2; fi; \
 	go test ./$$pkg/ -run '^$$' -fuzz "^$$target\$$" -fuzztime $(FUZZTIME)
 
-## fuzz-targets: the targets, one package:target per line; the matrix of the long fuzzing is built from it
+## fuzz-targets: the targets, one package:target per line; the workflows build their lists from it
 fuzz-targets:
 	@printf '%s\n' $(FUZZ_TARGETS)
 
-## mutation: mutation tests; target ≥ 90 % killed mutants (required before a release).
+## mutation: mutation tests; target ≥ 90 % killed mutants (part of the release gate).
 ## Gremlins does not reliably enforce the threshold via its exit code, so awk checks it.
 ## Without a higher timeout coefficient, mutants time out when the build cache is warm.
 mutation:

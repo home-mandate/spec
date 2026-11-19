@@ -28,11 +28,14 @@ platform. Changes are judged by that goal first.
   RFC gets its entry in `conformance/RFC-COVERAGE.md`.
 - After changing a schema, an example or a conformance file run `make manifest`.
 - `make check` must pass: vet, staticcheck, tests with the race detector, coverage of at
-  least 95 %, govulncheck. Before a release `make fuzz` and `make mutation` must pass too.
-- When what runs in CI: a push to a branch runs `make check`; a pull request against main or a release branch
-  additionally runs short fuzzing; nothing runs after the merge.
-  Independent of changes, govulncheck runs every night and every fuzz target runs for 45
-  minutes on the 1st and 15th of every month; a failure opens an issue.
+  least 95 %, govulncheck.
+- When what runs in CI: a push to a branch runs `make check`; a pull request against main or
+  a release branch additionally runs short fuzzing, which replays the inputs earlier runs
+  found and gives every target 15 seconds; nothing runs after the merge. Independent of
+  changes, govulncheck runs every night, and every fuzz target runs for ten minutes on
+  Wednesday and Saturday and keeps what it finds; a failure opens an issue. A release
+  candidate runs the release gate before it can become the version: every fuzz target for
+  20 minutes, and `make mutation`.
 - The reference evaluator uses the Go standard library and a JSON Schema validator, nothing
   else.
 - Since `v0.1.0`, an incompatible change requires a new major version of the format
