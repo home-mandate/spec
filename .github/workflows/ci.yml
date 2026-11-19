@@ -6,7 +6,8 @@ name: CI
 # integration.yml (short fuzzing). Everything is checked before the merge: main takes
 # squash-merged pull requests only, up to date with main and with every required check
 # green, so nothing runs after the merge. scheduled.yml scans for vulnerabilities every
-# night and fuzzes twice a month. Mutation tests run before releases.
+# night and fuzzes twice a week for the corpus. Long fuzzing and the mutation tests run for
+# a release candidate (release.yml).
 on:
   push:
     branches-ignore: [main, "release/[0-9]+.[0-9]+"]

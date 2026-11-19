@@ -1,14 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 name: Scheduled
 
-# Checks that do not depend on a change: vulnerabilities in dependencies become known
-# without a commit (every night), and long fuzzing finds what the short runs in pull
-# requests do not (on the 1st and 15th of every month). A failure opens an issue, or
-# comments on the open one; main itself is never changed by these runs.
+# Checks that do not belong to one change:
+#   - every night: vulnerabilities in dependencies, which become known without a commit.
+#   - Wednesday and Saturday: every fuzz target for ten minutes, starting from what earlier
+#     runs found. The corpus is kept in the Actions cache (unused entries are dropped after
+#     seven days, hence twice a week), and pull requests and the release gate start from it.
+# Long fuzzing belongs to a release candidate, not to a date (release.yml).
+# A failure opens an issue, or comments on the open one; main itself is never changed.
 on:
   schedule:
     - cron: "11 2 * * *" # security, every night
-    - cron: "23 3 1,15 * *" # fuzzing, twice a month
+    - cron: "23 3 * * 3,6" # fuzzing, Wednesday and Saturday
   workflow_dispatch:
     inputs:
       what:
@@ -23,7 +26,9 @@ permissions:
 
 jobs:
   # The newest release branch gets the same check: it only gets patches and no dependency
-  # updates, so a finding there is fixed like any other bug (RELEASING.md).
+  # updates, so a finding there is fixed like any other bug (RELEASING.md). While that branch
+  # has no version yet (release candidates only), the one before it is still the published
+  # one and is checked too.
   branches:
     name: Branches to check
     if: github.event.schedule == '11 2 * * *' || inputs.what == 'security'
@@ -35,9 +40,19 @@ jobs:
       - id: list
         run: |
           set -euo pipefail
-          newest=$(git ls-remote --heads "https://github.com/$GITHUB_REPOSITORY" 'release/*' |
-            sed 's#.*refs/heads/##' | grep -E '^release/[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)
-          echo "refs=$(jq -cn --arg newest "$newest" '["main"] + (if $newest == "" then [] else [$newest] end)')" >> "$GITHUB_OUTPUT"
+          url="https://github.com/$GITHUB_REPOSITORY"
+          branches=$(git ls-remote --heads "$url" 'release/*' |
+            sed 's#.*refs/heads/##' | grep -E '^release/[0-9]+\.[0-9]+$' | sort -V || true)
+          newest=$(tail -n 1 <<< "$branches")
+          refs=(main)
+          if [ -n "$newest" ]; then
+            refs+=("$newest")
+            if ! git ls-remote --tags "$url" "v${newest#release/}.*" | grep -qE 'refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'; then
+              previous=$(sed '$d' <<< "$branches" | tail -n 1)
+              [ -z "$previous" ] || refs+=("$previous")
+            fi
+          fi
+          echo "refs=$(jq -cn '$ARGS.positional' --args "${refs[@]}")" >> "$GITHUB_OUTPUT"
 
   security:
     name: Security (govulncheck), ${{ matrix.ref }}
@@ -59,35 +74,14 @@ jobs:
           go-version-file: go.mod
       - run: make vulncheck
 
-  # The targets come from FUZZ_TARGETS of the Makefile: a new target is fuzzed here without a
-  # second list to keep.
-  fuzz-targets:
-    name: Fuzz targets
-    if: github.event.schedule == '23 3 1,15 * *' || inputs.what == 'fuzz'
+  # One job, one target after the other: nobody waits for it, and it takes one of the
+  # organization's 20 runners instead of one per target. A target that fails doesn't stop
+  # the others. The targets come from FUZZ_TARGETS of the Makefile.
+  corpus:
+    name: Fuzz (corpus)
+    if: github.event.schedule == '23 3 * * 3,6' || inputs.what == 'fuzz'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      targets: ${{ steps.list.outputs.targets }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - id: list
-        run: echo "targets=$(make -s fuzz-targets | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
-
-  # One job for each target, at most four at a time: all in one job took 271 of the 300 minutes
-  # that a job may run, and the organization runs 20 jobs at the same time at most. The name
-  # starts with "Fuzz (" as release.yml expects of the short fuzzing.
-  fuzz:
-    name: Fuzz (long, ${{ matrix.target }})
-    needs: fuzz-targets
-    strategy:
-      fail-fast: false
-      max-parallel: 4
-      matrix:
-        target: ${{ fromJSON(needs.fuzz-targets.outputs.targets) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -95,20 +89,52 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - run: make fuzz-one FUZZ="$TARGET" FUZZTIME=45m
+      - name: Where Go keeps the corpus
+        id: corpus
+        run: echo "dir=$(go env GOCACHE)/fuzz" >> "$GITHUB_OUTPUT"
+      # The key never matches: the newest corpus with the prefix is restored.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.corpus.outputs.dir }}
+          key: fuzz-corpus-v1-${{ github.run_id }}
+          restore-keys: fuzz-corpus-v1-
+      - name: Every target for ten minutes
         env:
-          TARGET: ${{ matrix.target }}
+          DIR: ${{ steps.corpus.outputs.dir }}
+        run: |
+          set -uo pipefail
+          inputs() { find "$DIR" -type f 2> /dev/null | wc -l; }
+          before=$(inputs)
+          failed=""
+          for target in $(make -s fuzz-targets); do
+            echo "::group::$target"
+            make fuzz-one FUZZ="$target" FUZZTIME=10m || failed="$failed $target"
+            echo "::endgroup::"
+          done
+          echo "Corpus: $before inputs before, $(inputs) after." >> "$GITHUB_STEP_SUMMARY"
+          if [ "$before" = 0 ]; then
+            echo "::warning::no corpus in the cache, this run started from the seeds"
+          fi
+          if [ -n "$failed" ]; then
+            echo "::error::failed:$failed"
+            exit 1
+          fi
+      - if: ${{ !cancelled() }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.corpus.outputs.dir }}
+          key: fuzz-corpus-v1-${{ github.run_id }}-${{ github.run_attempt }}
       # A failing input is written to testdata/fuzz; keep it to reproduce the failure.
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: fuzz-failures-${{ strategy.job-index }}
+          name: fuzz-failures
           path: "**/testdata/fuzz/**"
           if-no-files-found: ignore
 
   report:
     name: Report a failure
-    needs: [branches, security, fuzz-targets, fuzz]
+    needs: [branches, security, corpus]
     if: failure() && github.event_name == 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
