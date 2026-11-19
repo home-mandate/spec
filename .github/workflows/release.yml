@@ -60,7 +60,7 @@ jobs:
           persist-credentials: false
 
       - id: verify
-        uses: home-mandate/.github/actions/release-verify@07371042bd756742c4cf50238ae3273790e93028
+        uses: home-mandate/.github/actions/release-verify@f73af670bc516d6556a0203315b90c0c6554852f
         with:
           tag: ${{ inputs.tag || github.ref_name }}
           required-checks: |
