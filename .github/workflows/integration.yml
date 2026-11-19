@@ -1,8 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 name: Integration
 
-# Short fuzzing of every target for every push into a pull request against main or a release branch and manual
-# runs. Never on a plain branch push and never after the merge (see ci.yml).
+# Short fuzzing of every target for every push into a pull request against main or a release
+# branch and manual runs. Never on a plain branch push and never after the merge (see ci.yml).
+#
+# It starts from what the fuzzing of scheduled.yml has found so far (the corpus, kept in the
+# Actions cache): those inputs run first, as a regression test, then every target gets 15
+# seconds of new inputs. Without a corpus it starts from the seeds in the tests.
 on:
   pull_request:
     branches: [main, "release/[0-9]+.[0-9]+"]
@@ -20,7 +24,7 @@ jobs:
   fuzz:
     name: Fuzz (short)
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -28,4 +32,13 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - run: make fuzz FUZZTIME=60s
+      - name: Where Go keeps the corpus
+        id: corpus
+        run: echo "dir=$(go env GOCACHE)/fuzz" >> "$GITHUB_OUTPUT"
+      # The key never matches: the newest corpus with the prefix is restored.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.corpus.outputs.dir }}
+          key: fuzz-corpus-v1-${{ github.run_id }}
+          restore-keys: fuzz-corpus-v1-
+      - run: make fuzz FUZZTIME=15s
