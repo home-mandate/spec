@@ -103,7 +103,8 @@ jobs:
           DIR: ${{ steps.corpus.outputs.dir }}
         run: |
           set -uo pipefail
-          inputs() { find "$DIR" -type f 2> /dev/null | wc -l; }
+          # Without a corpus in the cache the directory does not exist yet: that is 0 inputs.
+          inputs() { { find "$DIR" -type f 2> /dev/null || true; } | wc -l; }
           before=$(inputs)
           failed=""
           for target in $(make -s fuzz-targets); do
